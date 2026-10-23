@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../game/board_painter.dart';
 import '../game/engine.dart';
+import '../game/engine_core.dart';
 import '../game/sound_service.dart';
 import '../widgets/hud.dart';
 import '../widgets/win_overlay.dart';
@@ -17,16 +18,25 @@ class _Move {
 }
 
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  const GameScreen({
+    super.key,
+    required this.initialLevelId,
+    required this.onOpenLevels,
+    required this.onSolved,
+  });
+
+  final int initialLevelId;
+  final VoidCallback onOpenLevels;
+  final void Function(int levelId, int stars) onSolved;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
-  int _levelIdx = 0;
-  Level _level = buildLevel(0);
-  Slots _slots = List<int?>.from(buildLevel(0).start);
+  late int _levelId;
+  late Level _level;
+  late Slots _slots;
   List<_Move> _history = <_Move>[];
   int _moves = 0;
   int? _selected;
@@ -43,13 +53,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Timer? _hintTimer;
   Timer? _winTimer;
 
-  int get _total => _level.def.total;
   int get _ropeCount => _level.ropes.length;
-  int get _crossings => countCrossings(_slots, _ropeCount, _total);
+  List<Offset> get _points => _level.points;
+  int get _crossings => countCrossings(_slots, _ropeCount, _points);
 
   @override
   void initState() {
     super.initState();
+    _levelId = widget.initialLevelId;
+    _level = buildLevel(_levelId);
+    _slots = List<int?>.from(_level.start);
+
     _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))
       ..repeat();
     _moveCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 320));
@@ -98,7 +112,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return;
     }
 
-    // empty hole
     if (_selected == null) {
       _sound.error();
       return;
@@ -116,12 +129,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _sound.move();
     _startAnim(from, slot);
 
-    if (isSolved(next, _ropeCount, _total)) {
+    if (isSolved(next, _ropeCount, _points)) {
       _winTimer?.cancel();
       _winTimer = Timer(const Duration(milliseconds: 480), () {
-        if (mounted && isSolved(_slots, _ropeCount, _total)) {
+        if (mounted && isSolved(_slots, _ropeCount, _points)) {
+          final int stars = _stars;
           setState(() => _won = true);
           _sound.win();
+          widget.onSolved(_levelId, stars);
         }
       });
     }
@@ -141,16 +156,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _startAnim(last.to, last.from, ms: 260);
   }
 
-  void _restart() => _loadLevel(_levelIdx);
+  void _restart() => _loadLevel(_levelId);
 
-  void _loadLevel(int idx) {
-    final int clamped = idx.clamp(0, kLevels.length - 1);
+  void _loadLevel(int id) {
+    final int clamped = id.clamp(0, kLevelCount - 1).toInt();
     final Level l = buildLevel(clamped);
     _hintTimer?.cancel();
     _winTimer?.cancel();
     _moveCtrl.stop();
     setState(() {
-      _levelIdx = clamped;
+      _levelId = clamped;
       _level = l;
       _slots = List<int?>.from(l.start);
       _history = <_Move>[];
@@ -165,7 +180,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   void _showHint() {
     if (_won) return;
-    final Hint? h = findHint(_slots, _ropeCount, _total);
+    final Hint? h = findHint(_slots, _ropeCount, _points);
     if (h == null) return;
     setState(() {
       _hint = h;
@@ -192,16 +207,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final bool isLast = _levelIdx == kLevels.length - 1;
+    final bool isLast = _levelId == kLevelCount - 1;
+    final List<Crossing> crossingList = findCrossings(_slots, _ropeCount, _points);
 
     return Scaffold(
       backgroundColor: const Color(0xFFE6DCC6),
       body: Container(
         decoration: const BoxDecoration(
-          image: DecorationImage(
-            image: AssetImage('assets/images/bg.jpg'),
-            fit: BoxFit.cover,
-          ),
+          image: DecorationImage(image: AssetImage('assets/images/bg.jpg'), fit: BoxFit.cover),
         ),
         child: Container(
           decoration: const BoxDecoration(
@@ -221,13 +234,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     children: <Widget>[
                       Hud(
                         level: _level,
-                        levelIdx: _levelIdx,
-                        levelCount: kLevels.length,
+                        levelId: _levelId,
+                        levelCount: kLevelCount,
                         moves: _moves,
                         crossings: _crossings,
                         muted: _muted,
                         onToggleMute: _toggleMute,
-                        onSelectLevel: _loadLevel,
+                        onOpenLevels: widget.onOpenLevels,
                       ),
                       const SizedBox(height: 14),
                       Expanded(
@@ -249,13 +262,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                     GestureDetector(
                                       behavior: HitTestBehavior.opaque,
                                       onTapDown: (TapDownDetails d) =>
-                                          _handleTap(hitSlot(d.localPosition, size, _total)),
+                                          _handleTap(hitSlot(d.localPosition, size, _points)),
                                       child: CustomPaint(
                                         size: Size.square(size),
                                         painter: BoardPainter(
+                                          shape: _level.def.shape,
+                                          points: _points,
                                           slots: _slots,
                                           ropes: _level.ropes,
-                                          total: _total,
+                                          crossings: crossingList,
                                           selected: _selected,
                                           hint: _hint,
                                           move: move,
@@ -272,7 +287,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                         stars: _stars,
                                         isLast: isLast,
                                         onReplay: _restart,
-                                        onNext: () => _loadLevel(_levelIdx + 1),
+                                        onNext: () => _loadLevel(_levelId + 1),
                                       ),
                                   ],
                                 );
@@ -284,15 +299,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       const SizedBox(height: 14),
                       Row(
                         children: <Widget>[
-                          Expanded(child: WoodButton(label: '↩ Undo', onPressed: _history.isEmpty || _won ? null : _undo)),
+                          Expanded(
+                              child: WoodButton(
+                                  label: '↩ Undo',
+                                  onPressed: _history.isEmpty || _won ? null : _undo)),
                           const SizedBox(width: 8),
                           Expanded(child: WoodButton(label: '💡 Hint', onPressed: _won ? null : _showHint)),
                           const SizedBox(width: 8),
                           Expanded(child: WoodButton(label: '⟳ Restart', onPressed: _restart)),
                           const SizedBox(width: 8),
-                          Expanded(child: WoodButton(label: '‹ Prev', onPressed: _levelIdx == 0 ? null : () => _loadLevel(_levelIdx - 1))),
+                          Expanded(
+                              child: WoodButton(
+                                  label: '‹ Prev',
+                                  onPressed: _levelId == 0 ? null : () => _loadLevel(_levelId - 1))),
                           const SizedBox(width: 8),
-                          Expanded(child: WoodButton(label: 'Next ›', onPressed: isLast ? null : () => _loadLevel(_levelIdx + 1))),
+                          Expanded(
+                              child: WoodButton(
+                                  label: 'Next ›',
+                                  onPressed: isLast ? null : () => _loadLevel(_levelId + 1))),
                         ],
                       ),
                       const SizedBox(height: 10),
@@ -303,12 +327,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           color: const Color(0xD1FFF9EE),
                           borderRadius: BorderRadius.circular(14),
                           boxShadow: const <BoxShadow>[
-                            BoxShadow(color: 0x2E4A3520, offset: Offset(0, 10), blurRadius: 30),
+                            BoxShadow(color: Color(0x2E4A3520), offset: Offset(0, 10), blurRadius: 30),
                           ],
                         ),
                         child: const Text(
                           'Tap a wooden peg to lift it, then tap an empty hole. '
-                          'Untangle every rope so none cross.',
+                          'Resolve every twist so no ropes cross.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 12.5,

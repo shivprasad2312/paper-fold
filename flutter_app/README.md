@@ -1,32 +1,29 @@
 # 🧶 Rope Untangle — Flutter app
 
 The Flutter port of the Rope Untangle puzzle, sharing the exact game design,
-artwork, background image, sound effects and curated levels with the web build
-in the repository root.
+artwork, background image, sound effects, **100 generated levels** and 13 board
+shapes with the web build. Level data is emitted from one generator into both
+TypeScript and Dart, so the two apps always play identical puzzles.
 
 Tap a wooden **peg** to lift it, then tap an **empty hole** to drop it there.
-Move pegs around the ring until **no two ropes cross** to win.
+Move pegs around the board until **no two ropes cross** to win.
 
 ## First-time setup
 
-This repository contains the app sources, assets and tests but no
-SDK-generated platform folders (they can't be checked in portably). Generate
-them once with the Flutter SDK installed:
+This repository contains app sources, assets and tests but no SDK-generated
+platform folders. Generate them once with the Flutter SDK installed:
 
 ```bash
 cd flutter_app
-flutter create .                 # adds android/ ios/ web/ ... around the existing app
-flutter pub get
-flutter run                      # pick a device / emulator / Chrome
+flutter create .                 # adds android/ ios/ web/ ... around the app
+flutter pub get                  # audioplayers + shared_preferences
+flutter run                      # device / emulator / Chrome
 ```
-
-`flutter create .` keeps every existing file; it only fills in missing
-platform scaffolding.
 
 ## Commands
 
 ```bash
-flutter test                     # engine test suite (all levels solvable, etc.)
+flutter test                     # engine tests across all 100 levels
 flutter analyze                  # static analysis
 flutter run                      # run on a connected device
 flutter build apk                # Android
@@ -35,12 +32,12 @@ flutter build web                # web
 ```
 
 Without a Flutter SDK, `node tool/check_syntax.cjs` runs a string/comment-aware
-bracket-balance check over every Dart file (used during CI-less development).
+bracket-balance check over every Dart file.
 
 ## Re-generating the sound assets
 
-The five WAV effects are committed under `assets/sounds/`. To regenerate them
-(no dependencies beyond Python 3):
+The five WAV effects live under `assets/sounds/` and can be regenerated with
+Python 3 only:
 
 ```bash
 python3 tool/generate_sounds.py
@@ -50,40 +47,39 @@ python3 tool/generate_sounds.py
 
 ```
 lib/
-  main.dart                  # MaterialApp entry point
-  screens/game_screen.dart   # game state, input, animations, layout
+  main.dart                    # MaterialApp + game/level-select navigation
+  screens/
+    game_screen.dart           # game state, input, animations, layout
+    level_select_screen.dart   # tier-grouped 100-level map with locks/stars
   game/
-    engine.dart              # pure puzzle logic: levels, crossings, BFS hints
-    board_painter.dart       # CustomPainter: wooden ring, ropes, pegs, holes
-    sound_service.dart       # audioplayers wrapper for the WAV effects
+    shapes.dart                # 13 shape polylines + slot sampling
+    engine_core.dart           # crossings, weave assignment, BFS hints
+    engine.dart                # data-driven level construction
+    levels.data.dart           # 100 generated levels (auto-generated)
+    board_painter.dart         # CustomPainter: shape frames, ropes, pegs, weave
+    progress_service.dart      # shared_preferences stars/unlocks
+    sound_service.dart         # audioplayers wrapper
   widgets/
-    hud.dart                 # level title, stats, mute, level dots
-    wood_button.dart         # reusable wooden 3D button
-    win_overlay.dart         # solved card with star rating
+    hud.dart, wood_button.dart, win_overlay.dart
 assets/
-  images/bg.jpg              # embroidered-linen background (shared with web)
-  sounds/*.wav               # generated effects
+  images/bg.jpg                # embroidered-linen background (shared with web)
+  sounds/*.wav                 # generated effects
 test/
-  engine_test.dart           # parity tests for the ported engine
+  engine_test.dart             # parity tests across all levels
 tool/
-  generate_sounds.py         # WAV generator (Python stdlib only)
+  generate_sounds.py
+  check_syntax.cjs
 ```
 
 ## Notes on the port
 
-- `engine.dart` is a line-by-line port of the web `src/game/engine.ts`,
-  including the five BFS-verified `kCuratedStarts` layouts, so both builds play
-  identically.
-- The board is drawn with a single `CustomPainter` (`BoardPainter`) using
-  radial gradients, even-odd annulus paths, clip paths and mask filters —
-  the Flutter equivalent of the HTML5 Canvas renderer. Ropes are rendered as
-  realistic 3-ply twisted cotton (cylindrical gradient shading, spiral ply
-  grooves/ridges, loose fibers and fuzz hairs), matching the web renderer
-  feature-for-feature.
+- `engine_core.dart` / `shapes.dart` are line-by-line ports of the web
+  engine; `levels.data.dart` is generated by `scripts/gen-levels-v2.ts`.
+- The board is one `CustomPainter` (`BoardPainter`): even-odd shape annulus
+  paths for the wooden frame, clip paths and mask filters for the cotton
+  ropes, with an over/under bridge pass at every crossing using the same
+  deterministic weave assignment as the web renderer.
 - Peg movement runs on a 320 ms `AnimationController`; pulsing selection,
-  hint and hole indicators run on a repeating controller, both merged into the
+  hint and hole indicators run on a repeating controller, merged into the
   painter's `repaint` listenable.
-- Sounds use the `audioplayers` package with pre-generated WAV assets, matching
-  the WebAudio tones of the web build.
-- Mobile-first layout, pointer/touch input via `GestureDetector`, no remote
-  fonts or runtime network dependencies.
+- Progress (stars, unlocked levels) persists via `shared_preferences`.

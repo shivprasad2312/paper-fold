@@ -1,13 +1,17 @@
 // ─────────────────────────────────────────────────────────────
 // Board renderer: CustomPainter port of the web canvas renderer.
-// Wooden ring board, twisted ropes, pegs, holes and animations.
+// Shape-aware wooden frame, realistic twisted cotton ropes with
+// over/under weave at crossings, pegs, holes and animations.
 // ─────────────────────────────────────────────────────────────
 
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
 import 'engine.dart';
+import 'engine_core.dart';
+import 'shapes.dart';
 
 /// A peg currently flying from one slot to another.
 class PegMove {
@@ -21,18 +25,16 @@ class _Geom {
   const _Geom(this.size)
       : cx = size / 2,
         cy = size / 2,
-        outerR = size * 0.455,
-        innerR = size * 0.268,
-        ringR = size * 0.365,
-        pegR = size * 0.052,
-        ropeW = size * 0.027;
+        outerR = size * 0.43,
+        innerFactor = 0.59,
+        pegR = size * 0.05,
+        ropeW = size * 0.026;
 
   final double size;
   final double cx;
   final double cy;
   final double outerR;
-  final double innerR;
-  final double ringR;
+  final double innerFactor;
   final double pegR;
   final double ropeW;
 }
@@ -48,7 +50,6 @@ Color _shade(Color c, double amt) {
 Color _withAlpha(Color c, double a) =>
     Color.fromARGB((a.clamp(0, 1) * 255).round(), c.red, c.green, c.blue);
 
-/// Stable pseudo-random in [0,1) so fiber texture doesn't flicker between frames.
 double _hash01(double n) {
   final double x = math.sin(n * 127.1) * 43758.5453;
   return x - x.floorToDouble();
@@ -57,20 +58,19 @@ double _hash01(double n) {
 double _easeInOutCubic(double t) =>
     t < 0.5 ? 4 * t * t * t : 1 - math.pow(-2 * t + 2, 3) / 2;
 
-Offset slotXY(int i, int total, _Geom g) {
-  final Offset p = slotPos(i, total);
-  return Offset(g.cx + p.dx * g.ringR, g.cy + p.dy * g.ringR);
+Offset slotXY(int i, List<Offset> points, _Geom g) {
+  final Offset p = points[i];
+  return Offset(g.cx + p.dx * g.outerR, g.cy + p.dy * g.outerR);
 }
 
 /// Hit test: returns the slot index within tap range, or -1.
-int hitSlot(Offset local, double size, int total) {
+int hitSlot(Offset local, double size, List<Offset> points) {
   final _Geom g = _Geom(size);
-  final double limit = g.pegR * 1.25;
+  final double limit = g.pegR * 1.3;
   int best = -1;
   double bestD = limit;
-  for (int i = 0; i < total; i++) {
-    final Offset p = slotXY(i, total, g);
-    final double d = (local - p).distance;
+  for (int i = 0; i < points.length; i++) {
+    final double d = (local - slotXY(i, points, g)).distance;
     if (d < bestD) {
       bestD = d;
       best = i;
@@ -81,9 +81,11 @@ int hitSlot(Offset local, double size, int total) {
 
 class BoardPainter extends CustomPainter {
   BoardPainter({
+    required this.shape,
+    required this.points,
     required this.slots,
     required this.ropes,
-    required this.total,
+    required this.crossings,
     required this.selected,
     required this.hint,
     required this.move,
@@ -92,14 +94,30 @@ class BoardPainter extends CustomPainter {
     Listenable? repaint,
   }) : super(repaint: repaint);
 
+  final ShapeKind shape;
+  final List<Offset> points;
   final Slots slots;
   final List<RopeDef> ropes;
-  final int total;
+  final List<Crossing> crossings;
   final int? selected;
   final Hint? hint;
   final PegMove? move;
   final bool won;
-  final double pulse; // 0..1 ambient animation phase
+  final double pulse;
+
+  Path _polylinePath(List<Offset> line, _Geom g) {
+    final Path path = Path();
+    for (int i = 0; i < line.length; i++) {
+      final Offset p = Offset(g.cx + line[i].dx * g.outerR, g.cy + line[i].dy * g.outerR);
+      if (i == 0) {
+        path.moveTo(p.dx, p.dy);
+      } else {
+        path.lineTo(p.dx, p.dy);
+      }
+    }
+    path.close();
+    return path;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -112,9 +130,9 @@ class BoardPainter extends CustomPainter {
     final double eased = _easeInOutCubic(animT);
 
     Offset xy(int slot) {
-      final Offset base = slotXY(slot, total, g);
+      final Offset base = slotXY(slot, points, g);
       if (move != null && animActive && slot == move!.to) {
-        final Offset a = slotXY(move!.from, total, g);
+        final Offset a = slotXY(move!.from, points, g);
         return Offset(a.dx + (base.dx - a.dx) * eased, a.dy + (base.dy - a.dy) * eased);
       }
       return base;
@@ -123,9 +141,9 @@ class BoardPainter extends CustomPainter {
     _drawBoard(canvas, g, wave);
 
     // empty holes
-    for (int i = 0; i < total; i++) {
+    for (int i = 0; i < slots.length; i++) {
       if (slots[i] != null) continue;
-      final Offset p = slotXY(i, total, g);
+      final Offset p = slotXY(i, points, g);
       final bool isHintTarget = hint?.to == i;
       final bool selectable = selected != null && !isHintTarget;
       _drawEmptyHole(
@@ -142,7 +160,8 @@ class BoardPainter extends CustomPainter {
       if (isHintTarget) _drawCrosshair(canvas, p, g.pegR, wave);
     }
 
-    // ropes (under pegs)
+    // endpoint lookup for weave bridges
+    final Map<int, List<Offset>> endOf = <int, List<Offset>>{};
     for (int id = 0; id < ropes.length; id++) {
       int a = -1;
       int b = -1;
@@ -155,23 +174,57 @@ class BoardPainter extends CustomPainter {
           }
         }
       }
-      if (a == -1 || b == -1) continue;
-      final bool involvesHint = hint != null &&
-          (hint!.from == a || hint!.from == b || hint!.to == a || hint!.to == b);
-      _drawRope(canvas, xy(a), xy(b), ropes[id].color, g.ropeW, involvesHint);
+      if (a >= 0 && b >= 0) endOf[id] = <Offset>[xy(a), xy(b)];
+    }
+
+    final int? hintRope = hint != null ? slots[hint!.from] : null;
+
+    // pass 1: every rope drawn underneath (hint rope glows)
+    for (int id = 0; id < ropes.length; id++) {
+      final List<Offset>? ep = endOf[id];
+      if (ep == null) continue;
+      _drawRope(canvas, ep[0], ep[1], ropes[id].color, g.ropeW, id == hintRope);
+    }
+
+    // pass 2: over/under weave — under-rope gap shading then the over bridge
+    for (final Crossing c in crossings) {
+      final List<Offset>? overEp = endOf[c.over];
+      if (overEp == null) continue;
+      final Offset a = overEp[0];
+      final Offset b = overEp[1];
+      final Offset d = b - a;
+      final double len = d.distance == 0 ? 1 : d.distance;
+      final Offset u = d / len;
+      final double half = g.ropeW * 1.25;
+
+      // dark gap on the under rope
+      final Paint gap = Paint()..color = const Color(0x73301E0E);
+      canvas.save();
+      canvas.translate(c.point.dx * g.outerR + g.cx, c.point.dy * g.outerR + g.cy);
+      canvas.rotate(math.atan2(u.dy, u.dx));
+      canvas.drawOval(
+        Rect.fromCenter(center: Offset.zero, width: g.ropeW * 2.1, height: g.ropeW * 1.44),
+        gap,
+      );
+      canvas.restore();
+
+      // over rope bridge with full twisted texture
+      final Offset center = Offset(c.point.dx * g.outerR + g.cx, c.point.dy * g.outerR + g.cy);
+      final Offset pA = center - u * half;
+      final Offset pB = center + u * half;
+      _drawRope(canvas, pA, pB, ropes[c.over].color, g.ropeW, c.over == hintRope);
     }
 
     // pegs
-    for (int i = 0; i < total; i++) {
+    for (int i = 0; i < slots.length; i++) {
       if (slots[i] == null) continue;
-      if (animActive && move!.to == i) continue; // moving peg drawn separately
-      final Offset p = slotXY(i, total, g);
+      if (animActive && move!.to == i) continue;
+      final Offset p = slotXY(i, points, g);
       final _PegState state =
           selected == i ? _PegState.selected : hint?.from == i ? _PegState.hint : _PegState.normal;
       _drawPeg(canvas, p, g.pegR, state, wave);
     }
 
-    // moving peg on top
     if (move != null && animActive) {
       _drawPeg(canvas, xy(move!.to), g.pegR, _PegState.moving, wave);
     }
@@ -180,85 +233,72 @@ class BoardPainter extends CustomPainter {
   // ── board ─────────────────────────────────────────────────
 
   void _drawBoard(Canvas canvas, _Geom g, double wave) {
-    final Offset c = Offset(g.cx, g.cy);
-
-    // soft drop shadow
-    final Paint sh = Paint()
-      ..shader = RadialGradient(
-        colors: const <Color>[Color(0x593C2612), Color(0x003C2612)],
-        stops: const <double>[0, 1],
-      ).createShader(Rect.fromCircle(center: c.translate(0, g.outerR * 0.08), radius: g.outerR * 1.08));
-    canvas.drawCircle(c.translate(0, g.outerR * 0.06), g.outerR * 1.08, sh);
-
-    // wooden annulus (center stays transparent so the linen shows through)
+    final List<Offset> outerNorm = shapePolyline(shape);
+    final List<Offset> innerNorm = scalePolyline(outerNorm, g.innerFactor);
+    final Path outer = _polylinePath(outerNorm, g);
+    final Path inner = _polylinePath(innerNorm, g);
     final Path annulus = Path()
-      ..addOval(Rect.fromCircle(center: c, radius: g.outerR))
-      ..addOval(Rect.fromCircle(center: c, radius: g.innerR))
+      ..addPath(outer, Offset.zero)
+      ..addPath(inner, Offset.zero)
       ..fillType = PathFillType.evenOdd;
 
+    // soft drop shadow
+    canvas.save();
+    canvas.translate(0, g.outerR * 0.05);
+    final Paint shadow = Paint()
+      ..color = const Color(0x663C2612)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, g.outerR * 0.06);
+    canvas.drawPath(outer, shadow);
+    canvas.restore();
+
+    // wood fill
     final Paint wood = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.35, -0.4),
-        radius: 1.0,
+        radius: 1.25,
         colors: const <Color>[Color(0xFFF2D6AB), Color(0xFFDDB27C), Color(0xFFBD8750)],
         stops: const <double>[0, 0.55, 1],
-      ).createShader(Rect.fromCircle(center: c, radius: g.outerR));
+      ).createShader(Rect.fromCircle(center: Offset(g.cx, g.cy), radius: g.outerR * 1.25));
     canvas.drawPath(annulus, wood);
 
-    // wood grain — deterministic wavy annular strokes
+    // grain — short tangent strokes inside the frame band
     canvas.save();
     canvas.clipPath(annulus);
-    for (int i = 0; i < 90; i++) {
-      final double seed = i * 137.508;
-      final double r = g.innerR + ((i * 37.7) % (g.outerR - g.innerR));
-      final double alpha = 0.035 + (i % 5) * 0.012;
-      final Paint p = Paint()
-        ..color = Color.fromRGBO(110, 70, 32, alpha)
+    for (int i = 0; i < 95; i++) {
+      final int idx = (_hash01(i * 3.1) * outerNorm.length).floor() % outerNorm.length;
+      final double f = 0.63 + _hash01(i * 7.7) * 0.35;
+      final Offset p = outerNorm[idx];
+      final Offset q = outerNorm[(idx + 2) % outerNorm.length];
+      final Offset tangent = q - p;
+      final Offset base = Offset(g.cx + p.dx * g.outerR * f, g.cy + p.dy * g.outerR * f);
+      final double len = g.outerR * (0.03 + _hash01(i * 11.3) * 0.05);
+      final Paint gp = Paint()
+        ..color = Color.fromRGBO(110, 70, 32, 0.04 + (i % 5) * 0.012)
         ..strokeWidth = 1 + (i % 3) * 0.7
-        ..style = PaintingStyle.stroke
         ..strokeCap = StrokeCap.round;
-      final double startA = (seed % 360) * 0.01745;
-      final double len = 0.6 + (i % 7) * 0.28;
-      final Path path = Path();
-      for (int s = 0; s <= 24; s++) {
-        final double a = startA + (s / 24) * len;
-        final double wob = math.sin(a * 5 + i) * 2.2 + math.sin(a * 11 + i * 1.7) * 1.1;
-        final double rr = r + wob;
-        final Offset pt = Offset(g.cx + math.cos(a) * rr, g.cy + math.sin(a) * rr);
-        if (s == 0) {
-          path.moveTo(pt.dx, pt.dy);
-        } else {
-          path.lineTo(pt.dx, pt.dy);
-        }
-      }
-      canvas.drawPath(path, p);
+      canvas.drawLine(base, base + tangent * len * 4, gp);
     }
     canvas.restore();
 
-    // outer rim (two strokes)
+    // rims
     final Paint rim1 = Paint()
       ..color = const Color(0x8C7A4C22)
       ..style = PaintingStyle.stroke
       ..strokeWidth = g.outerR * 0.018;
-    canvas.drawCircle(c, g.outerR - rim1.strokeWidth / 2, rim1);
+    canvas.drawPath(outer, rim1);
     final Paint rim2 = Paint()
-      ..color = const Color(0x80FFF0D6)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = g.outerR * 0.008;
-    canvas.drawCircle(c, g.outerR - g.outerR * 0.028, rim2);
-
-    // inner hole: recessed shadow ring
-    final Paint hole = Paint()
-      ..shader = RadialGradient(
-        colors: const <Color>[Color(0x00462D14), Color(0x1F462D14), Color(0x8C34200E), Color(0xBF28180A)],
-        stops: const <double>[0, 0.82, 0.95, 1],
-      ).createShader(Rect.fromCircle(center: c, radius: g.innerR));
-    canvas.drawCircle(c, g.innerR, hole);
-    final Paint holeRim = Paint()
       ..color = const Color(0x995A381A)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = g.innerR * 0.03;
-    canvas.drawCircle(c, g.innerR - holeRim.strokeWidth / 2, holeRim);
+      ..strokeWidth = g.outerR * 0.012;
+    canvas.drawPath(inner, rim2);
+
+    // recessed inner edge shadow
+    final Paint recess = Paint()
+      ..color = const Color(0x8028180A)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = g.outerR * 0.035
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, g.outerR * 0.05);
+    canvas.drawPath(inner, recess);
 
     // win celebration ring
     if (won) {
@@ -267,7 +307,7 @@ class BoardPainter extends CustomPainter {
         ..color = Color.fromRGBO(232, 195, 58, 0.35 + pulseAmt * 0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = g.outerR * 0.012;
-      canvas.drawCircle(c, g.outerR * (0.97 - pulseAmt * 0.02), win);
+      canvas.drawPath(_polylinePath(scalePolyline(outerNorm, 0.97 - pulseAmt * 0.02), g), win);
     }
   }
 
@@ -283,7 +323,6 @@ class BoardPainter extends CustomPainter {
       ).createShader(Rect.fromCircle(center: c, radius: r));
     canvas.drawCircle(c, r, grad);
 
-    // rim light, top-left
     final Paint rim = Paint()
       ..color = const Color(0x66FFE8C4)
       ..style = PaintingStyle.stroke
@@ -320,16 +359,12 @@ class BoardPainter extends CustomPainter {
       const Offset(1, 0),
     ];
     for (final Offset d in dirs) {
-      canvas.drawLine(
-        c + d * (R - gap * r),
-        c + d * (R - gap * r - tick * r),
-        p,
-      );
+      canvas.drawLine(c + d * (R - gap * r), c + d * (R - gap * r - tick * r), p);
     }
     canvas.drawCircle(c, R - gap * r - tick * r - r * 0.12, p);
   }
 
-  // ── rope ──────────────────────────────────────────────────
+  // ── realistic twisted cotton rope ─────────────────────────
 
   void _drawRope(Canvas canvas, Offset p1, Offset p2, Color color, double w, bool highlight) {
     final Offset d = p2 - p1;
@@ -339,16 +374,14 @@ class BoardPainter extends CustomPainter {
 
     canvas.save();
     canvas.translate(p1.dx, p1.dy);
-    canvas.rotate(angle); // rope now runs along the local x-axis, centered on y=0
+    canvas.rotate(angle);
 
-    // soft drop shadow on the linen
     final Paint shadow = Paint()
       ..color = const Color(0x593A2612)
       ..strokeWidth = w * 1.12
       ..strokeCap = StrokeCap.round;
     canvas.drawLine(Offset(0, w * 0.2), Offset(len, w * 0.2), shadow);
 
-    // cotton fuzz halo (plus hint glow when highlighted)
     final Paint halo = Paint()
       ..color = _withAlpha(_shade(color, 0.32), 0.35)
       ..strokeWidth = w * 1.1
@@ -356,7 +389,7 @@ class BoardPainter extends CustomPainter {
       ..maskFilter = highlight ? MaskFilter.blur(BlurStyle.normal, w * 1.1) : null;
     canvas.drawLine(Offset.zero, Offset(len, 0), halo);
 
-    // stray cotton hairs poking past the rope edge
+    // stray cotton hairs
     final int hairCount = (len / (w * 0.9)).floor();
     for (int i = 0; i < hairCount; i++) {
       final double seed = (i * 17 + 3).toDouble();
@@ -369,14 +402,10 @@ class BoardPainter extends CustomPainter {
         ..color = _withAlpha(_shade(color, 0.4), 0.18 + _hash01(seed + 1) * 0.12)
         ..strokeWidth = math.max(1, w * 0.028)
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(hx, hy),
-        Offset(hx + math.cos(ha) * hlen, hy + math.sin(ha) * hlen),
-        hair,
-      );
+      canvas.drawLine(Offset(hx, hy), Offset(hx + math.cos(ha) * hlen, hy + math.sin(ha) * hlen), hair);
     }
 
-    // clip every interior detail to the rope's stadium-shaped body
+    // clip to the stadium-shaped body
     final Path body = Path()
       ..moveTo(0, -hw)
       ..lineTo(len, -hw)
@@ -386,7 +415,7 @@ class BoardPainter extends CustomPainter {
       ..close();
     canvas.clipPath(body);
 
-    // cylindrical base shading: dark edges, light spine
+    // cylindrical base shading
     final Paint cyl = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -402,8 +431,7 @@ class BoardPainter extends CustomPainter {
       ).createShader(Rect.fromLTRB(-w, -hw, len + w, hw));
     canvas.drawRect(Rect.fromLTWH(-w, -w, len + 2 * w, 2 * w), cyl);
 
-    // spiral-wrapping plies (Z-twist): broad groove, lit ridge and soft midtone,
-    // with slight spacing jitter so the lay feels hand-twisted rather than printed
+    // spiral-wrapping plies
     final double spacing = w * 0.82;
     final double ribRun = w * 0.66;
     int k = 0;
@@ -442,7 +470,7 @@ class BoardPainter extends CustomPainter {
       k++;
     }
 
-    // fine loose cotton fibers along the surface
+    // fine loose cotton fibers
     final int fiberCount = (len / (w * 0.32)).floor();
     for (int i = 0; i < fiberCount; i++) {
       final double seed = (i + k * 31).toDouble();
@@ -458,11 +486,7 @@ class BoardPainter extends CustomPainter {
         )
         ..strokeWidth = math.max(1, w * 0.03)
         ..strokeCap = StrokeCap.round;
-      canvas.drawLine(
-        Offset(fx, fy),
-        Offset(fx + math.cos(fa) * flen, fy + math.sin(fa) * flen),
-        fiber,
-      );
+      canvas.drawLine(Offset(fx, fy), Offset(fx + math.cos(fa) * flen, fy + math.sin(fa) * flen), fiber);
     }
 
     // top sheen and lower contact shade
@@ -488,7 +512,11 @@ class BoardPainter extends CustomPainter {
       rr = r * 1.1;
     }
 
-    // body with its own radial gradient; a soft disc underneath fakes the shadow
+    final Paint drop = Paint()
+      ..color = const Color(0x46462C10)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, rr * 0.25);
+    canvas.drawCircle(c.translate(0, rr * 0.16), rr * 0.98, drop);
+
     final Paint body = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.35, -0.4),
@@ -496,21 +524,14 @@ class BoardPainter extends CustomPainter {
         colors: const <Color>[Color(0xFFF4D49E), Color(0xFFCF9458), Color(0xFF96602C)],
         stops: const <double>[0.12, 0.55, 1],
       ).createShader(Rect.fromCircle(center: c, radius: rr));
-    // offset the shadow downward by drawing a translucent disc first
-    final Paint drop = Paint()
-      ..color = const Color(0x46462C10)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, rr * 0.25);
-    canvas.drawCircle(c.translate(0, rr * 0.16), rr * 0.98, drop);
     canvas.drawCircle(c, rr, body);
 
-    // rim
     final Paint rim = Paint()
       ..color = const Color(0xA66E441C)
       ..style = PaintingStyle.stroke
       ..strokeWidth = rr * 0.1;
     canvas.drawCircle(c, rr - rim.strokeWidth / 2, rim);
 
-    // glossy cap
     final Paint cap = Paint()
       ..shader = RadialGradient(
         center: const Alignment(-0.32, -0.38),
@@ -539,6 +560,9 @@ class BoardPainter extends CustomPainter {
   bool shouldRepaint(covariant BoardPainter old) =>
       old.slots != slots ||
       old.ropes != ropes ||
+      old.points != points ||
+      old.shape != shape ||
+      old.crossings != crossings ||
       old.selected != selected ||
       old.hint != hint ||
       old.move != move ||

@@ -4,98 +4,83 @@ A cozy, canvas-rendered rope-untangling puzzle inspired by the wooden-ring
 mobile puzzle (peg-and-rope board on embroidered linen).
 
 Tap a wooden **peg** to lift it, then tap an **empty hole** to drop it there.
-Each move shifts one peg around the ring. Untangle every rope so that **no two
-ropes cross** to win the level.
+Move pegs around the board until **no two ropes cross** to win. Ropes are
+rendered as realistic 3-ply twisted cotton cord, and at every crossing one rope
+visually passes **over** the other, so tangles read as real weaving.
+
+## Content
+
+- **100 hand-generated levels in 10 difficulty tiers** (3 → 10 ropes, ~3 → 38
+  twists), every one verified solvable through the in-game hint policy
+- **13 board shapes**: circle, oval, square, rounded square, triangle,
+  diamond, pentagon, hexagon, 5/6-point stars, heart, arrow and cross —
+  pegs are sampled evenly along each shape's perimeter
+- Star ratings (1–3 vs. par), per-level progress saved in localStorage, and a
+  tier-grouped level-select map with lock progression
+- BFS-powered hints that always find progress (escaping local minima), undo,
+  restart, prev/next, mute
+- Wooden shape frames, realistic twisted ropes with fuzz/fibers/sheen,
+  over/under weave bridges, glossy pegs and recessed holes via Canvas 2D
+- WebAudio sound effects (no audio files), mobile-first responsive layout
+
+See [`docs/RETENTION_DESIGN.md`](docs/RETENTION_DESIGN.md) for the full game
+design and retention roadmap (daily puzzle, streaks, knot-toggle mechanic,
+level editor, monetization…).
 
 ## How to play
 
-1. **Tap a peg** — it lifts with a golden ring, and every empty hole glows.
-2. **Tap an empty hole** — the peg flies there (animated) and both ropes follow.
-3. Keep moving pegs until the **Crossings** counter reaches `0`.
-4. Stuck? Use **💡 Hint** — a green crosshair marks the target hole and the
-   relevant peg pulses. **↩ Undo** rewinds your last move.
-5. Solve within **par** moves to earn three stars.
-
-## Features
-
-- 5 hand-curated levels (3–7 ropes, 8–16 slots), each verified solvable with a
-  known minimum depth
-- Exact segment-intersection crossing detection on a circular board
-- BFS-powered hint system that always finds progress (escapes local minima),
-  with a greedy fallback
-- Fully animated peg moves, pulsing selection/hint indicators, win celebration
-- Wooden ring and glossy pegs rendered with the Canvas 2D API, plus realistic
-  3-ply twisted cotton ropes: cylindrical shading, spiral-wrapping ply grooves
-  and ridges, loose cotton fibers/fuzz hairs and a soft contact shadow
-  (identical treatment in the Flutter `CustomPainter`)
-- No image assets besides the linen background
-- WebAudio sound effects (no audio files), with mute toggle
-- Mobile-first responsive layout, pointer events for touch and mouse
-- Undo, restart, level navigation, move/par/crossing stats and star ratings
-
-## 📱 Flutter app
-
-A full Flutter/Dart port lives in [`flutter_app/`](flutter_app/) with the same
-UI, artwork (`bg.jpg`), sound effects, five curated levels and game logic
-(engine ported line-for-line, board drawn with a `CustomPainter`). The sandbox
-has no Flutter SDK, so platform folders are generated on first run:
-
-```bash
-cd flutter_app
-flutter create .     # generates android/ ios/ web/ ... around the existing app
-flutter pub get
-flutter run
-flutter test         # engine parity tests
-```
-
-See [`flutter_app/README.md`](flutter_app/README.md) for details.
+1. **Tap a peg** — it lifts with a golden ring and empty holes glow.
+2. **Tap an empty hole** — the peg flies there (animated), ropes follow.
+3. Keep going until the **Twists** counter reaches `0`.
+4. Stuck? **💡 Hint** marks the peg and target hole (green crosshair).
 
 ## Tech stack
 
 React 18 + TypeScript + Vite, HTML5 Canvas rendering, plain CSS.
-Flutter port: Dart + CustomPainter + audioplayers (in `flutter_app/`).
+Flutter port: Dart + CustomPainter + audioplayers (in `flutter_app/`,
+same 100 levels — generated from one source into both languages).
 
 ## Project structure
 
 ```
 src/
   game/
-    engine.ts   # pure puzzle logic: levels, geometry, crossings, BFS hints
-    render.ts   # canvas renderer: board, ropes, pegs, holes, animations
-    sound.ts    # WebAudio blips (select / move / error / hint / win)
-  App.tsx       # game state, input handling, HUD and win overlay
-  styles.css
-public/
-  bg.jpg        # embroidered-linen background texture
+    shapes.ts        # 13 shape polylines + even arc-length slot sampling
+    engine-core.ts   # pure logic: crossings, weave assignment, BFS hints
+    engine.ts        # data-driven level construction
+    levels.data.ts   # 100 generated levels (auto-generated)
+    render.ts        # canvas renderer: shape frames, ropes, pegs, weave
+    progress.ts      # localStorage stars/unlocks
+    sound.ts         # WebAudio blips
+  components/
+    LevelSelect.tsx  # tier-grouped level map
+  App.tsx            # game state, input, HUD and win overlay
 scripts/
-  verify.ts       # engine test suite (`npm test`)
-  gen-levels.ts   # offline BFS curator that produced CURATED_STARTS
-  render-shot.ts  # headless board renderer for visual QA (`npm run shot`)
+  gen-levels-v2.ts   # the level generator; emits TS AND Dart level data
+  verify.ts          # verifies all 100 levels (npm test)
+  render-shot.ts     # headless board renderer for visual QA
+flutter_app/         # full Flutter/Dart port (see its README)
+docs/
+  RETENTION_DESIGN.md
 ```
 
 ## Scripts
 
 ```bash
 npm install
-npm run dev      # start the dev server
-npm run build    # type-check and production build
-npm test         # verify every level is valid and solvable
-npm run shot     # render a board to scripts/shot-*.png for visual QA
-npm run levels   # regenerate curated starting layouts
+npm run dev       # start the dev server
+npm run build     # type-check and production build
+npm test          # verify all 100 levels are valid and solvable
+npm run levels    # regenerate level data (TS + Dart) from the generator
+npm run shot      # render a board to scripts/shot-*.png for visual QA
 ```
 
-## Level design
+## Level generation
 
-Starting layouts are generated offline (`scripts/gen-levels.ts`) by random
-walks from a known non-crossing solution, then filtered with a breadth-first
-search so each level has a guaranteed minimum solution depth and a healthy
-number of crossings. The accepted layouts are stored as
-`CURATED_STARTS` in `src/game/engine.ts`, making gameplay deterministic while
-keeping the generator reproducible.
-
-## Roadmap ideas
-
-- More levels and a progression/save system (localStorage)
-- Haptic feedback and a mobile (Expo) port
-- Rope slack/physics curves instead of straight strands
-- Daily challenge and timed modes
+`scripts/gen-levels-v2.ts` builds each puzzle from a verified non-crossing
+matching of pegs on the shape perimeter, then runs a biased random walk that
+prefers crossing-creating moves. A candidate is accepted only when it exceeds
+the tier's minimum twist count and is re-solvable via the same hint policy the
+games use. The generator emits both `src/game/levels.data.ts` and
+`flutter_app/lib/game/levels.data.dart`, guaranteeing the web and Flutter
+apps always play identical puzzles.

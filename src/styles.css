@@ -144,11 +144,48 @@ h1 {
   color: #2e9e44;
 }
 
+.shape-tag {
+  margin: 3px 0 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--wood-dark);
+  opacity: 0.75;
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+  gap: 10px;
+}
+
+.mini-btn {
+  appearance: none;
+  border: 1px solid rgba(122, 79, 36, 0.25);
+  background: rgba(255, 249, 238, 0.9);
+  color: var(--brown);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(122, 79, 36, 0.25);
+  white-space: nowrap;
+}
+
+.mini-btn:active {
+  transform: translateY(2px);
+}
+
 .dots {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  justify-content: center;
+  gap: 7px;
+  justify-content: flex-end;
+  flex: 1;
 }
 
 .dot {
@@ -224,6 +261,10 @@ canvas {
 
 .btn-ghost {
   background: rgba(255, 249, 238, 0.9);
+}
+
+.btn-levels {
+  background: linear-gradient(180deg, #e8d3ac, #cfa96f);
 }
 
 .tip {
@@ -330,5 +371,159 @@ canvas {
   .stat {
     min-width: 50px;
     padding: 6px 8px;
+  }
+}
+
+/* ── level select map ───────────────────────────────── */
+
+.app-select {
+  max-width: 620px;
+}
+
+.select-screen {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 100%;
+}
+
+.select-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+}
+
+.star-total {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--brown);
+  background: rgba(214, 181, 135, 0.35);
+  padding: 8px 12px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.select-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 24px;
+}
+
+.tier {
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 20px;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.tier-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.tier-badge {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f2d274, #d9a92f);
+  color: #4a3520;
+  font-weight: 900;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 0 rgba(122, 79, 36, 0.35);
+}
+
+.tier-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.tier-meta {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--brown-soft);
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.level-card {
+  appearance: none;
+  border: 1px solid rgba(122, 79, 36, 0.22);
+  background: linear-gradient(180deg, #f6e2c1, #e3c08e);
+  border-radius: 14px;
+  padding: 9px 4px 8px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-family: inherit;
+  color: var(--brown);
+  box-shadow: 0 3px 0 rgba(122, 79, 36, 0.3);
+  transition: transform 0.08s ease;
+}
+
+.level-card:active {
+  transform: translateY(2px);
+}
+
+.level-no {
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.level-shape {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--brown-soft);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.level-stars {
+  font-size: 10px;
+  color: var(--gold);
+  letter-spacing: -1px;
+}
+
+.level-locked {
+  background: rgba(180, 160, 130, 0.35);
+  color: rgba(74, 53, 32, 0.5);
+  cursor: default;
+  box-shadow: none;
+}
+
+.level-locked .level-shape {
+  color: rgba(122, 92, 60, 0.5);
+}
+
+@media (max-width: 420px) {
+  .level-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

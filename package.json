@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx scripts/verify.ts",
-    "levels": "tsx scripts/gen-levels.ts",
+    "levels": "tsx scripts/gen-levels-v2.ts",
     "shot": "tsx scripts/render-shot.ts"
   },
   "dependencies": {

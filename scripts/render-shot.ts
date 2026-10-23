@@ -1,20 +1,18 @@
 // Headless render check: draws a board to a PNG so visuals can be inspected.
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import { writeFileSync } from 'node:fs';
-import { buildLevel, findHint, applyMove, isSolved, countCrossings, LEVELS } from '../src/game/engine';
-import { drawScene } from '../src/game/render';
+import { buildLevel, findHint, isSolved, countCrossings, findCrossings, LEVEL_COUNT } from '../src/game/engine';
 
-const levelIdx = Number(process.argv[2] ?? 2);
+const levelId = Number(process.argv[2] ?? 0);
 const mode = process.argv[3] ?? 'scrambled'; // scrambled | solved | hint
 
-const level = buildLevel(levelIdx);
+const level = buildLevel(levelId);
 const size = 900;
 const canvas = createCanvas(size, size);
 const ctx = canvas.getContext('2d');
 const sceneCanvas = createCanvas(size, size);
 const sceneCtx = sceneCanvas.getContext('2d');
 
-// composite over the linen background, like the browser page
 const bg = await loadImage('public/bg.jpg');
 const scale = Math.max(size / bg.width, size / bg.height);
 const bw = bg.width * scale;
@@ -30,13 +28,16 @@ if (mode === 'solved') {
   });
 }
 
-const hint = mode === 'hint' ? findHint(slots, level.ropes.length, level.def.total) : null;
+const hint = mode === 'hint' ? findHint(slots, level.ropes.length, level.points) : null;
 
+const { drawScene } = await import('../src/game/render');
 drawScene(sceneCtx, {
   size,
-  total: level.def.total,
+  shape: level.def.shape,
+  points: level.points,
   slots,
   ropes: level.ropes,
+  crossings: findCrossings(slots, level.ropes.length, level.points),
   selected: hint ? hint.from : mode === 'scrambled' ? level.start.findIndex((s) => s !== null) : null,
   hint,
   anim: null,
@@ -45,25 +46,26 @@ drawScene(sceneCtx, {
 });
 ctx.drawImage(sceneCanvas, 0, 0);
 
-const out = `scripts/shot-${mode}-lvl${levelIdx + 1}.png`;
+const out = `scripts/shot-${mode}-lvl${levelId + 1}.png`;
 writeFileSync(out, canvas.toBuffer('image/png'));
-console.log('wrote', out);
-console.log('crossings:', countCrossings(slots, level.ropes.length, level.def.total));
-console.log('solved:', isSolved(slots, level.ropes.length, level.def.total));
+console.log('wrote', out, '· shape:', level.def.shape, '· twists:', countCrossings(slots, level.ropes.length, level.points));
 
-// greedy-hint solvability check across all levels
-for (let i = 0; i < LEVELS.length; i++) {
-  const l = buildLevel(i);
-  let s = l.start;
-  let steps = 0;
-  const cap = 500;
-  while (!isSolved(s, l.ropes.length, l.def.total) && steps < cap) {
-    const h = findHint(s, l.ropes.length, l.def.total);
-    if (!h) break;
-    s = applyMove(s, h.from, h.to);
-    steps++;
+if (process.argv[4] === '--verify-all') {
+  let fails = 0;
+  for (let i = 0; i < LEVEL_COUNT; i++) {
+    const l = buildLevel(i);
+    let s = l.start;
+    let steps = 0;
+    while (!isSolved(s, l.ropes.length, l.points) && steps < 400) {
+      const h = findHint(s, l.ropes.length, l.points);
+      if (!h) break;
+      s = (s = (await import('../src/game/engine')).applyMove(s, h.from, h.to));
+      steps++;
+    }
+    if (!isSolved(s, l.ropes.length, l.points)) {
+      fails++;
+      console.log(`  ✗ level ${i + 1} NOT solvable via hints`);
+    }
   }
-  console.log(
-    `level ${i + 1}: ${isSolved(s, l.ropes.length, l.def.total) ? 'SOLVABLE' : 'FAILED'} in ${steps} hint steps`,
-  );
+  console.log(fails ? `${fails} failures` : `all ${LEVEL_COUNT} levels solvable via hints ✅`);
 }
