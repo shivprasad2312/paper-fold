@@ -47,10 +47,14 @@ python3 tool/generate_sounds.py
 
 ```
 lib/
-  main.dart                    # MaterialApp + game/level-select navigation
+  main.dart                    # MaterialApp; launches the Home screen
   screens/
-    game_screen.dart           # game state, input, animations, layout
-    level_select_screen.dart   # tier-grouped 100-level map with locks/stars
+    home_screen.dart           # screen 1: title, hero board, Play, how-to, mute
+    level_select_screen.dart   # screen 2: tier-grouped 100-level map, locks/stars
+    game_screen.dart           # screen 3: the actual puzzle board
+  widgets/
+    home_hero.dart             # animated mini tangled board for the Home screen
+    hud.dart, wood_button.dart, win_overlay.dart
   game/
     shapes.dart                # 13 shape polylines + slot sampling
     engine_core.dart           # crossings, weave assignment, BFS hints
@@ -58,9 +62,7 @@ lib/
     levels.data.dart           # 100 generated levels (auto-generated)
     board_painter.dart         # CustomPainter: shape frames, ropes, pegs, weave
     progress_service.dart      # shared_preferences stars/unlocks
-    sound_service.dart         # audioplayers wrapper
-  widgets/
-    hud.dart, wood_button.dart, win_overlay.dart
+    sound_service.dart         # audioplayers singleton (shared mute state)
 assets/
   images/bg.jpg                # embroidered-linen background (shared with web)
   sounds/*.wav                 # generated effects
@@ -70,6 +72,18 @@ tool/
   generate_sounds.py
   check_syntax.cjs
 ```
+
+## Navigation flow
+
+Three screens with standard `Navigator` routes (Android back / swipe gesture
+work automatically):
+
+1. **Home** — app title, animated mini-board, total stars and solved count,
+   Play, How-to-play dialog, sound toggle (persisted).
+2. **Levels** — the tier-grouped map with lock progression; a back button
+   returns to Home, picking a level opens the Game screen.
+3. **Game** — puzzle board; the `‹ Levels` HUD button pops back to the map,
+   and stars are saved on solve so the map refreshes on return.
 
 ## Notes on the port
 

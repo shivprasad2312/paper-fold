@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../game/engine.dart';
 import '../game/progress_service.dart';
+import 'game_screen.dart';
 
 const List<String> kTierNames = <String>[
   'First Knots',
@@ -16,11 +17,9 @@ const List<String> kTierNames = <String>[
   "Weaver's Nightmare",
 ];
 
+/// Screen 2 of 3 — the 100-level tier map.
 class LevelSelectScreen extends StatefulWidget {
-  const LevelSelectScreen({super.key, required this.stars, required this.onPick});
-
-  final Map<int, int> stars;
-  final ValueChanged<int> onPick;
+  const LevelSelectScreen({super.key});
 
   @override
   State<LevelSelectScreen> createState() => _LevelSelectScreenState();
@@ -28,6 +27,7 @@ class LevelSelectScreen extends StatefulWidget {
 
 class _LevelSelectScreenState extends State<LevelSelectScreen> {
   final ProgressService _progress = ProgressService();
+  Map<int, int> _stars = <int, int>{};
   int _unlocked = 0;
   int _earned = 0;
 
@@ -38,49 +38,58 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
   }
 
   Future<void> _refresh() async {
+    final Map<int, int> stars = await _progress.getStars();
     final int u = await _progress.maxUnlocked(kLevelCount);
-    int earned = 0;
-    widget.stars.values.forEach((int s) => earned += s);
-    if (mounted) {
-      setState(() {
-        _unlocked = u;
-        _earned = earned;
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _stars = stars;
+      _unlocked = u;
+      _earned = stars.values.fold(0, (int a, int b) => a + b);
+    });
+  }
+
+  Future<void> _openLevel(int id) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => GameScreen(initialLevelId: id)),
+    );
+    _refresh(); // return from the game — reload stars/unlocks
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        image: DecorationImage(image: AssetImage('assets/images/bg.jpg'), fit: BoxFit.cover),
-      ),
-      child: Container(
+    return Scaffold(
+      backgroundColor: const Color(0xFFE6DCC6),
+      body: Container(
         decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: <Color>[Color(0x40E6DCC6), Color(0x2E785F3C)],
-          ),
+          image: DecorationImage(image: AssetImage('assets/images/bg.jpg'), fit: BoxFit.cover),
         ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 620),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
-                child: Column(
-                  children: <Widget>[
-                    _header(),
-                    const SizedBox(height: 14),
-                    Expanded(
-                      child: ListView.separated(
-                        itemCount: 10,
-                        separatorBuilder: (BuildContext _, int __) => const SizedBox(height: 14),
-                        itemBuilder: (BuildContext _, int tier) => _tierSection(tier),
+        child: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: <Color>[Color(0x40E6DCC6), Color(0x2E785F3C)],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 620),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
+                  child: Column(
+                    children: <Widget>[
+                      _header(),
+                      const SizedBox(height: 14),
+                      Expanded(
+                        child: ListView.separated(
+                          itemCount: 10,
+                          separatorBuilder: (BuildContext _, int __) => const SizedBox(height: 14),
+                          itemBuilder: (BuildContext _, int tier) => _tierSection(tier),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -92,7 +101,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
 
   Widget _header() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xD1FFF9EE),
         borderRadius: BorderRadius.circular(20),
@@ -103,23 +112,25 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
       ),
       child: Row(
         children: <Widget>[
+          _BackButton(onTap: () => Navigator.of(context).maybePop()),
+          const SizedBox(width: 12),
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
-                  'ROPE UNTANGLE',
+                  'CHOOSE A PUZZLE',
                   style: TextStyle(
-                    fontSize: 11,
-                    letterSpacing: 1.4,
+                    fontSize: 10.5,
+                    letterSpacing: 1.2,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF7A5C3C),
                   ),
                 ),
                 SizedBox(height: 2),
                 Text(
-                  'Choose a puzzle',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Color(0xFF4A3520)),
+                  'Level map',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: Color(0xFF4A3520)),
                 ),
               ],
             ),
@@ -132,7 +143,7 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
             ),
             child: Text(
               '⭐ $_earned / ${kLevelCount * 3}',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15, color: Color(0xFF4A3520)),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Color(0xFF4A3520)),
             ),
           ),
         ],
@@ -216,9 +227,9 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
 
   Widget _levelCard(LevelData l) {
     final bool locked = l.id > _unlocked;
-    final int s = widget.stars[l.id] ?? 0;
+    final int s = _stars[l.id] ?? 0;
     return GestureDetector(
-      onTap: locked ? null : () => widget.onPick(l.id),
+      onTap: locked ? null : () => _openLevel(l.id),
       child: Opacity(
         opacity: locked ? 0.55 : 1,
         child: Container(
@@ -259,6 +270,33 @@ class _LevelSelectScreenState extends State<LevelSelectScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BackButton extends StatelessWidget {
+  const _BackButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: const Color(0xE6FFF9EE),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0x407A4F24)),
+          boxShadow: const <BoxShadow>[
+            BoxShadow(color: Color(0x407A4F24), offset: Offset(0, 3)),
+          ],
+        ),
+        child: const Icon(Icons.arrow_back_rounded, color: Color(0xFF4A3520), size: 22),
       ),
     );
   }

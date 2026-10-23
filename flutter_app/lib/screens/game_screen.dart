@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../game/board_painter.dart';
 import '../game/engine.dart';
 import '../game/engine_core.dart';
+import '../game/progress_service.dart';
 import '../game/sound_service.dart';
 import '../widgets/hud.dart';
 import '../widgets/win_overlay.dart';
@@ -17,23 +18,20 @@ class _Move {
   final int to;
 }
 
+/// Screen 3 of 3 — the actual puzzle board.
 class GameScreen extends StatefulWidget {
-  const GameScreen({
-    super.key,
-    required this.initialLevelId,
-    required this.onOpenLevels,
-    required this.onSolved,
-  });
+  const GameScreen({super.key, required this.initialLevelId});
 
   final int initialLevelId;
-  final VoidCallback onOpenLevels;
-  final void Function(int levelId, int stars) onSolved;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
 }
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
+  final SoundService _sound = SoundService.instance;
+  final ProgressService _progress = ProgressService();
+
   late int _levelId;
   late Level _level;
   late Slots _slots;
@@ -49,7 +47,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   int? _animFrom;
   int? _animTo;
 
-  final SoundService _sound = SoundService();
   Timer? _hintTimer;
   Timer? _winTimer;
 
@@ -63,6 +60,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _levelId = widget.initialLevelId;
     _level = buildLevel(_levelId);
     _slots = List<int?>.from(_level.start);
+    _muted = _sound.muted;
 
     _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1500))
       ..repeat();
@@ -78,7 +76,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _winTimer?.cancel();
     _pulse.dispose();
     _moveCtrl.dispose();
-    _sound.dispose();
     super.dispose();
   }
 
@@ -133,10 +130,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _winTimer?.cancel();
       _winTimer = Timer(const Duration(milliseconds: 480), () {
         if (mounted && isSolved(_slots, _ropeCount, _points)) {
-          final int stars = _stars;
           setState(() => _won = true);
           _sound.win();
-          widget.onSolved(_levelId, stars);
+          _progress.saveStars(_levelId, _stars);
         }
       });
     }
@@ -193,11 +189,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     });
   }
 
-  void _toggleMute() {
-    setState(() {
-      _muted = !_muted;
-      _sound.muted = _muted;
-    });
+  void _toggleMute() async {
+    final bool muted = await _sound.toggleMuted();
+    if (mounted) setState(() => _muted = muted);
   }
 
   int get _stars =>
@@ -229,7 +223,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 540),
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 18, 16, 26),
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 26),
                   child: Column(
                     children: <Widget>[
                       Hud(
@@ -240,7 +234,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         crossings: _crossings,
                         muted: _muted,
                         onToggleMute: _toggleMute,
-                        onOpenLevels: widget.onOpenLevels,
+                        onOpenLevels: () => Navigator.of(context).maybePop(),
                       ),
                       const SizedBox(height: 14),
                       Expanded(

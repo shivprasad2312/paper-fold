@@ -154,7 +154,7 @@ class Hud extends StatelessWidget {
                     ],
                   ),
                   child: const Text(
-                    '🗺 Levels',
+                    '‹ Levels',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFF4A3520)),
                   ),
                 ),
