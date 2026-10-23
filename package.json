@@ -1,0 +1,19 @@
+{
+  "name": "paper-fold",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "A paper-craft fruit merging game",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "matter-js": "^0.20.0"
+  },
+  "devDependencies": {
+    "vite": "^6.4.5"
+  }
+}
