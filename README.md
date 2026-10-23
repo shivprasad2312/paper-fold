@@ -30,9 +30,27 @@ ropes cross** to win the level.
 - Mobile-first responsive layout, pointer events for touch and mouse
 - Undo, restart, level navigation, move/par/crossing stats and star ratings
 
+## 📱 Flutter app
+
+A full Flutter/Dart port lives in [`flutter_app/`](flutter_app/) with the same
+UI, artwork (`bg.jpg`), sound effects, five curated levels and game logic
+(engine ported line-for-line, board drawn with a `CustomPainter`). The sandbox
+has no Flutter SDK, so platform folders are generated on first run:
+
+```bash
+cd flutter_app
+flutter create .     # generates android/ ios/ web/ ... around the existing app
+flutter pub get
+flutter run
+flutter test         # engine parity tests
+```
+
+See [`flutter_app/README.md`](flutter_app/README.md) for details.
+
 ## Tech stack
 
 React 18 + TypeScript + Vite, HTML5 Canvas rendering, plain CSS.
+Flutter port: Dart + CustomPainter + audioplayers (in `flutter_app/`).
 
 ## Project structure
 

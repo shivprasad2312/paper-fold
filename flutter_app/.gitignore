@@ -1,0 +1,29 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+.pub-preload-cache/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Platform scaffolding is generated locally via `flutter create .`
+# (kept out of git until generated to avoid stale SDK-specific files).
+android/
+ios/
+web/
+linux/
+macos/
+windows/
+
+# Misc
+.DS_Store
+*.log
