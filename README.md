@@ -24,8 +24,11 @@ ropes cross** to win the level.
 - BFS-powered hint system that always finds progress (escapes local minima),
   with a greedy fallback
 - Fully animated peg moves, pulsing selection/hint indicators, win celebration
-- Wooden ring, twisted-fiber ropes and glossy pegs rendered with the Canvas 2D
-  API — no image assets besides the linen background
+- Wooden ring and glossy pegs rendered with the Canvas 2D API, plus realistic
+  3-ply twisted cotton ropes: cylindrical shading, spiral-wrapping ply grooves
+  and ridges, loose cotton fibers/fuzz hairs and a soft contact shadow
+  (identical treatment in the Flutter `CustomPainter`)
+- No image assets besides the linen background
 - WebAudio sound effects (no audio files), with mute toggle
 - Mobile-first responsive layout, pointer events for touch and mouse
 - Undo, restart, level navigation, move/par/crossing stats and star ratings

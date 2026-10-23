@@ -46,6 +46,17 @@ function easeInOutCubic(t: number): number {
   return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 }
 
+function withAlpha(rgb: string, a: number): string {
+  const m = rgb.match(/\d+/g)!;
+  return `rgba(${m[0]},${m[1]},${m[2]},${a})`;
+}
+
+/** Stable pseudo-random in [0,1) so fiber texture doesn't flicker between frames. */
+function hash01(n: number): number {
+  const x = Math.sin(n * 127.1) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 // ── geometry ─────────────────────────────────────────────────
 
 interface Geom {
@@ -276,59 +287,142 @@ function drawRope(
   const dx = p2.x - p1.x;
   const dy = p2.y - p1.y;
   const len = Math.hypot(dx, dy) || 1;
-  const nx = -dy / len;
-  const ny = dx / len;
+  const angle = Math.atan2(dy, dx);
+  const hw = w / 2;
 
-  // drop shadow
   ctx.save();
+  ctx.translate(p1.x, p1.y);
+  ctx.rotate(angle); // rope now runs along the local x-axis, centered on y=0
   ctx.lineCap = 'round';
-  ctx.strokeStyle = 'rgba(58,38,18,0.32)';
-  ctx.lineWidth = w + w * 0.18;
-  ctx.beginPath();
-  ctx.moveTo(p1.x + w * 0.12, p1.y + w * 0.22);
-  ctx.lineTo(p2.x + w * 0.12, p2.y + w * 0.22);
-  ctx.stroke();
-  ctx.restore();
 
+  // soft drop shadow on the linen
+  ctx.strokeStyle = 'rgba(58,38,18,0.35)';
+  ctx.lineWidth = w * 1.12;
+  ctx.beginPath();
+  ctx.moveTo(0, w * 0.2);
+  ctx.lineTo(len, w * 0.2);
+  ctx.stroke();
+
+  // cotton fuzz halo (plus hint glow when highlighted)
   if (highlight) {
-    ctx.save();
     ctx.shadowColor = 'rgba(232,195,58,0.9)';
     ctx.shadowBlur = w * 1.1;
   }
-
-  // base strand
-  ctx.lineCap = 'round';
-  ctx.strokeStyle = color;
-  ctx.lineWidth = w;
+  ctx.strokeStyle = withAlpha(shade(color, 0.32), 0.35);
+  ctx.lineWidth = w * 1.1;
   ctx.beginPath();
-  ctx.moveTo(p1.x, p1.y);
-  ctx.lineTo(p2.x, p2.y);
+  ctx.moveTo(0, 0);
+  ctx.lineTo(len, 0);
   ctx.stroke();
+  ctx.shadowBlur = 0;
 
-  // twisted fiber strands (two offset dashed strokes, opposite phase)
-  const off = w * 0.24;
-  const dash = [w * 0.55, w * 0.55];
-  for (const side of [-1, 1]) {
-    ctx.strokeStyle = shade(color, side > 0 ? 0.22 : -0.18);
-    ctx.lineWidth = w * 0.17;
-    ctx.setLineDash(dash);
-    ctx.lineDashOffset = side > 0 ? 0 : w * 0.55;
+  // stray cotton hairs poking past the rope edge
+  const hairCount = Math.floor(len / (w * 0.9));
+  for (let i = 0; i < hairCount; i++) {
+    const seed = i * 17 + 3;
+    const hx = hash01(seed) * len;
+    const side = hash01(seed + 2) > 0.5 ? 1 : -1;
+    const hy = side * hw * (0.8 + hash01(seed + 4) * 0.25);
+    const hlen = w * (0.1 + hash01(seed + 6) * 0.16);
+    const ha = side * (Math.PI / 2 + (hash01(seed + 8) - 0.5) * 0.9);
+    ctx.strokeStyle = withAlpha(shade(color, 0.4), 0.18 + hash01(seed + 1) * 0.12);
+    ctx.lineWidth = Math.max(1, w * 0.028);
     ctx.beginPath();
-    ctx.moveTo(p1.x + nx * off * side, p1.y + ny * off * side);
-    ctx.lineTo(p2.x + nx * off * side, p2.y + ny * off * side);
+    ctx.moveTo(hx, hy);
+    ctx.lineTo(hx + Math.cos(ha) * hlen, hy + Math.sin(ha) * hlen);
     ctx.stroke();
   }
-  ctx.setLineDash([]);
 
-  // soft center highlight
-  ctx.strokeStyle = shade(color, 0.3);
+  // clip every interior detail to the rope's stadium-shaped body
+  ctx.beginPath();
+  ctx.moveTo(0, -hw);
+  ctx.lineTo(len, -hw);
+  ctx.arc(len, 0, hw, -Math.PI / 2, Math.PI / 2);
+  ctx.lineTo(0, hw);
+  ctx.arc(0, 0, hw, Math.PI / 2, Math.PI * 1.5);
+  ctx.closePath();
+  ctx.clip();
+
+  // cylindrical base shading: dark edges, light spine
+  const cyl = ctx.createLinearGradient(0, -hw, 0, hw);
+  cyl.addColorStop(0, shade(color, -0.22));
+  cyl.addColorStop(0.28, shade(color, 0.05));
+  cyl.addColorStop(0.5, shade(color, 0.26));
+  cyl.addColorStop(0.72, shade(color, 0.02));
+  cyl.addColorStop(1, shade(color, -0.24));
+  ctx.fillStyle = cyl;
+  ctx.fillRect(-w, -w, len + 2 * w, 2 * w);
+
+  // spiral-wrapping plies (Z-twist): broad groove, lit ridge and soft midtone,
+  // with slight spacing jitter so the lay feels hand-twisted rather than printed
+  const spacing = w * 0.82;
+  const ribRun = w * 0.66;
+  let k = 0;
+  let x = -w;
+  while (x < len + w) {
+    const jitter = (hash01(k * 7 + 1) - 0.5) * w * 0.12;
+    const gx = x + jitter;
+
+    ctx.strokeStyle = withAlpha(shade(color, -0.24), 0.7);
+    ctx.lineWidth = w * 0.24;
+    ctx.beginPath();
+    ctx.moveTo(gx, -hw * 1.2);
+    ctx.lineTo(gx + ribRun, hw * 1.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = withAlpha(shade(color, 0.38), 0.85);
+    ctx.lineWidth = w * 0.14;
+    ctx.beginPath();
+    ctx.moveTo(gx + w * 0.26, -hw * 1.2);
+    ctx.lineTo(gx + ribRun + w * 0.26, hw * 1.2);
+    ctx.stroke();
+
+    ctx.strokeStyle = withAlpha(shade(color, 0.12), 0.5);
+    ctx.lineWidth = w * 0.08;
+    ctx.beginPath();
+    ctx.moveTo(gx + w * 0.46, -hw * 1.2);
+    ctx.lineTo(gx + ribRun + w * 0.46, hw * 1.2);
+    ctx.stroke();
+
+    x += spacing;
+    k++;
+  }
+
+  // fine loose cotton fibers along the surface
+  const fiberCount = Math.floor(len / (w * 0.32));
+  for (let i = 0; i < fiberCount; i++) {
+    const seed = i + k * 31;
+    const fx = hash01(seed) * len;
+    const fy = (hash01(seed + 99) - 0.5) * w * 0.82;
+    const flen = w * (0.12 + hash01(seed + 7) * 0.22);
+    const fa = (hash01(seed + 3) - 0.5) * 0.5;
+    const light = hash01(seed + 5) > 0.5;
+    ctx.strokeStyle = withAlpha(
+      light ? shade(color, 0.45) : shade(color, -0.3),
+      0.1 + hash01(seed + 1) * 0.08,
+    );
+    ctx.lineWidth = Math.max(1, w * 0.03);
+    ctx.beginPath();
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(fx + Math.cos(fa) * flen, fy + Math.sin(fa) * flen);
+    ctx.stroke();
+  }
+
+  // top sheen and lower contact shade
+  ctx.strokeStyle = withAlpha(shade(color, 0.5), 0.55);
+  ctx.lineWidth = w * 0.1;
+  ctx.beginPath();
+  ctx.moveTo(0, -hw * 0.32);
+  ctx.lineTo(len, -hw * 0.32);
+  ctx.stroke();
+  ctx.strokeStyle = withAlpha(shade(color, -0.3), 0.5);
   ctx.lineWidth = w * 0.08;
   ctx.beginPath();
-  ctx.moveTo(p1.x - nx * off * 0.4, p1.y - ny * off * 0.4);
-  ctx.lineTo(p2.x - nx * off * 0.4, p2.y - ny * off * 0.4);
+  ctx.moveTo(0, hw * 0.82);
+  ctx.lineTo(len, hw * 0.82);
   ctx.stroke();
 
-  if (highlight) ctx.restore();
+  ctx.restore();
 }
 
 function drawPeg(

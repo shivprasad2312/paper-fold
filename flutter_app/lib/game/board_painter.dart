@@ -45,6 +45,15 @@ Color _shade(Color c, double amt) {
   return Color.fromARGB(c.alpha, (c.red * m).round(), (c.green * m).round(), (c.blue * m).round());
 }
 
+Color _withAlpha(Color c, double a) =>
+    Color.fromARGB((a.clamp(0, 1) * 255).round(), c.red, c.green, c.blue);
+
+/// Stable pseudo-random in [0,1) so fiber texture doesn't flicker between frames.
+double _hash01(double n) {
+  final double x = math.sin(n * 127.1) * 43758.5453;
+  return x - x.floorToDouble();
+}
+
 double _easeInOutCubic(double t) =>
     t < 0.5 ? 4 * t * t * t : 1 - math.pow(-2 * t + 2, 3) / 2;
 
@@ -325,61 +334,150 @@ class BoardPainter extends CustomPainter {
   void _drawRope(Canvas canvas, Offset p1, Offset p2, Color color, double w, bool highlight) {
     final Offset d = p2 - p1;
     final double len = d.distance == 0 ? 1 : d.distance;
-    final Offset n = Offset(-d.dy / len, d.dx / len);
-    final double off = w * 0.24;
+    final double angle = math.atan2(d.dy, d.dx);
+    final double hw = w / 2;
 
-    // drop shadow
+    canvas.save();
+    canvas.translate(p1.dx, p1.dy);
+    canvas.rotate(angle); // rope now runs along the local x-axis, centered on y=0
+
+    // soft drop shadow on the linen
     final Paint shadow = Paint()
-      ..color = const Color(0x523A2612)
-      ..strokeWidth = w + w * 0.18
+      ..color = const Color(0x593A2612)
+      ..strokeWidth = w * 1.12
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(p1.translate(w * 0.12, w * 0.22), p2.translate(w * 0.12, w * 0.22), shadow);
+    canvas.drawLine(Offset(0, w * 0.2), Offset(len, w * 0.2), shadow);
 
-    // base strand (with a soft glow when this rope is part of the hint)
-    final Paint base = Paint()
-      ..color = color
-      ..strokeWidth = w
+    // cotton fuzz halo (plus hint glow when highlighted)
+    final Paint halo = Paint()
+      ..color = _withAlpha(_shade(color, 0.32), 0.35)
+      ..strokeWidth = w * 1.1
       ..strokeCap = StrokeCap.round
-      ..maskFilter = highlight ? MaskFilter.blur(BlurStyle.normal, w * 0.55) : null;
-    canvas.drawLine(p1, p2, base);
+      ..maskFilter = highlight ? MaskFilter.blur(BlurStyle.normal, w * 1.1) : null;
+    canvas.drawLine(Offset.zero, Offset(len, 0), halo);
 
-    // twisted fiber strands (two offset dashed strokes, opposite phase)
-    final double dash = w * 0.55;
-    for (final int side in <int>[-1, 1]) {
-      final Paint strand = Paint()
-        ..color = _shade(color, side > 0 ? 0.22 : -0.18)
-        ..strokeWidth = w * 0.17
+    // stray cotton hairs poking past the rope edge
+    final int hairCount = (len / (w * 0.9)).floor();
+    for (int i = 0; i < hairCount; i++) {
+      final double seed = (i * 17 + 3).toDouble();
+      final double hx = _hash01(seed) * len;
+      final double side = _hash01(seed + 2) > 0.5 ? 1 : -1;
+      final double hy = side * hw * (0.8 + _hash01(seed + 4) * 0.25);
+      final double hlen = w * (0.1 + _hash01(seed + 6) * 0.16);
+      final double ha = side * (math.pi / 2 + (_hash01(seed + 8) - 0.5) * 0.9);
+      final Paint hair = Paint()
+        ..color = _withAlpha(_shade(color, 0.4), 0.18 + _hash01(seed + 1) * 0.12)
+        ..strokeWidth = math.max(1, w * 0.028)
         ..strokeCap = StrokeCap.round;
-      _drawDashedLine(
-        canvas,
-        p1 + n * (off * side),
-        p2 + n * (off * side),
-        dash,
-        dash,
-        side > 0 ? 0 : dash,
-        strand,
+      canvas.drawLine(
+        Offset(hx, hy),
+        Offset(hx + math.cos(ha) * hlen, hy + math.sin(ha) * hlen),
+        hair,
       );
     }
 
-    // soft center highlight
-    final Paint hi = Paint()
-      ..color = _shade(color, 0.3)
+    // clip every interior detail to the rope's stadium-shaped body
+    final Path body = Path()
+      ..moveTo(0, -hw)
+      ..lineTo(len, -hw)
+      ..arcToPoint(Offset(len, hw), radius: Radius.circular(hw), clockwise: true)
+      ..lineTo(0, hw)
+      ..arcToPoint(Offset(0, -hw), radius: Radius.circular(hw), clockwise: true)
+      ..close();
+    canvas.clipPath(body);
+
+    // cylindrical base shading: dark edges, light spine
+    final Paint cyl = Paint()
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: <Color>[
+          _shade(color, -0.22),
+          _shade(color, 0.05),
+          _shade(color, 0.26),
+          _shade(color, 0.02),
+          _shade(color, -0.24),
+        ],
+        stops: const <double>[0, 0.28, 0.5, 0.72, 1],
+      ).createShader(Rect.fromLTRB(-w, -hw, len + w, hw));
+    canvas.drawRect(Rect.fromLTWH(-w, -w, len + 2 * w, 2 * w), cyl);
+
+    // spiral-wrapping plies (Z-twist): broad groove, lit ridge and soft midtone,
+    // with slight spacing jitter so the lay feels hand-twisted rather than printed
+    final double spacing = w * 0.82;
+    final double ribRun = w * 0.66;
+    int k = 0;
+    double x = -w;
+    while (x < len + w) {
+      final double jitter = (_hash01(k * 7 + 1) - 0.5) * w * 0.12;
+      final double gx = x + jitter;
+
+      final Paint groove = Paint()
+        ..color = _withAlpha(_shade(color, -0.24), 0.7)
+        ..strokeWidth = w * 0.24
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(Offset(gx, -hw * 1.2), Offset(gx + ribRun, hw * 1.2), groove);
+
+      final Paint ridge = Paint()
+        ..color = _withAlpha(_shade(color, 0.38), 0.85)
+        ..strokeWidth = w * 0.14
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        Offset(gx + w * 0.26, -hw * 1.2),
+        Offset(gx + ribRun + w * 0.26, hw * 1.2),
+        ridge,
+      );
+
+      final Paint midtone = Paint()
+        ..color = _withAlpha(_shade(color, 0.12), 0.5)
+        ..strokeWidth = w * 0.08
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        Offset(gx + w * 0.46, -hw * 1.2),
+        Offset(gx + ribRun + w * 0.46, hw * 1.2),
+        midtone,
+      );
+
+      x += spacing;
+      k++;
+    }
+
+    // fine loose cotton fibers along the surface
+    final int fiberCount = (len / (w * 0.32)).floor();
+    for (int i = 0; i < fiberCount; i++) {
+      final double seed = (i + k * 31).toDouble();
+      final double fx = _hash01(seed) * len;
+      final double fy = (_hash01(seed + 99) - 0.5) * w * 0.82;
+      final double flen = w * (0.12 + _hash01(seed + 7) * 0.22);
+      final double fa = (_hash01(seed + 3) - 0.5) * 0.5;
+      final bool light = _hash01(seed + 5) > 0.5;
+      final Paint fiber = Paint()
+        ..color = _withAlpha(
+          light ? _shade(color, 0.45) : _shade(color, -0.3),
+          0.1 + _hash01(seed + 1) * 0.08,
+        )
+        ..strokeWidth = math.max(1, w * 0.03)
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        Offset(fx, fy),
+        Offset(fx + math.cos(fa) * flen, fy + math.sin(fa) * flen),
+        fiber,
+      );
+    }
+
+    // top sheen and lower contact shade
+    final Paint sheen = Paint()
+      ..color = _withAlpha(_shade(color, 0.5), 0.55)
+      ..strokeWidth = w * 0.1
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(0, -hw * 0.32), Offset(len, -hw * 0.32), sheen);
+    final Paint contact = Paint()
+      ..color = _withAlpha(_shade(color, -0.3), 0.5)
       ..strokeWidth = w * 0.08
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(p1 - n * (off * 0.4), p2 - n * (off * 0.4), hi);
-  }
+    canvas.drawLine(Offset(0, hw * 0.82), Offset(len, hw * 0.82), contact);
 
-  void _drawDashedLine(Canvas canvas, Offset a, Offset b, double dash, double gap, double startOffset, Paint p) {
-    final Offset dir = b - a;
-    final double total = dir.distance;
-    final Offset unit = dir / total;
-    double pos = -startOffset;
-    while (pos < total) {
-      final double s = math.max(0, pos);
-      final double e = math.min(total, pos + dash);
-      if (e > s) canvas.drawLine(a + unit * s, a + unit * e, p);
-      pos += dash + gap;
-    }
+    canvas.restore();
   }
 
   // ── peg ───────────────────────────────────────────────────

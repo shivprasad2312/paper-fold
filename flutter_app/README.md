@@ -75,8 +75,11 @@ tool/
   including the five BFS-verified `kCuratedStarts` layouts, so both builds play
   identically.
 - The board is drawn with a single `CustomPainter` (`BoardPainter`) using
-  radial gradients, even-odd annulus paths, dashed strands and mask filters —
-  the Flutter equivalent of the HTML5 Canvas renderer.
+  radial gradients, even-odd annulus paths, clip paths and mask filters —
+  the Flutter equivalent of the HTML5 Canvas renderer. Ropes are rendered as
+  realistic 3-ply twisted cotton (cylindrical gradient shading, spiral ply
+  grooves/ridges, loose fibers and fuzz hairs), matching the web renderer
+  feature-for-feature.
 - Peg movement runs on a 320 ms `AnimationController`; pulsing selection,
   hint and hole indicators run on a repeating controller, both merged into the
   painter's `repaint` listenable.
