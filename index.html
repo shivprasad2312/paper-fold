@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#05070f" />
+    <meta name="description" content="KUBIK — roll a cube through floating geometric puzzles. A minimalist puzzle game inspired by EDGE." />
+    <title>KUBIK — a cube-rolling puzzle</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <canvas id="scene"></canvas>
+    <div id="vignette"></div>
+
+    <!-- ===== HUD ===== -->
+    <div id="hud" class="hidden">
+      <div class="hud-left">
+        <button class="icon-btn" id="btn-pause" aria-label="Menu">&#9776;</button>
+        <div class="hud-level">
+          <span class="hud-index" id="hud-index">01</span>
+          <span class="hud-name" id="hud-name">First Light</span>
+        </div>
+      </div>
+      <div class="hud-center">
+        <span class="timer" id="hud-timer">0:00.0</span>
+      </div>
+      <div class="hud-right">
+        <div class="shard-meter" id="hud-shards">
+          <svg viewBox="0 0 24 24" class="shard-icon" aria-hidden="true"><path d="M12 2 21 12 12 22 3 12Z"/></svg>
+          <span id="hud-shard-count">0/0</span>
+        </div>
+        <button class="icon-btn" id="btn-restart" aria-label="Restart level">&#8635;</button>
+        <button class="icon-btn" id="btn-sound" aria-label="Toggle sound">&#9834;</button>
+      </div>
+    </div>
+
+    <div id="hint" class="hint hidden"></div>
+
+    <!-- ===== TITLE ===== -->
+    <div id="menu" class="screen">
+      <div class="menu-inner">
+        <div class="eyebrow">a cube-rolling puzzle</div>
+        <h1 class="logo">KUBIK</h1>
+        <p class="tagline">Push the cube. Find the way. Don't look down.</p>
+        <div class="menu-buttons">
+          <button class="btn primary" id="btn-play">Play</button>
+          <button class="btn" id="btn-levels">Levels</button>
+        </div>
+        <div class="controls-help">
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to roll</span>
+          <span><kbd>R</kbd> restart</span>
+          <span><kbd>M</kbd> sound</span>
+          <span class="touch-only">swipe or use the pad</span>
+        </div>
+        <p class="credit">Built from scratch · an homage to Mobigame's EDGE</p>
+      </div>
+    </div>
+
+    <!-- ===== LEVEL SELECT ===== -->
+    <div id="levels" class="screen hidden">
+      <div class="levels-inner">
+        <div class="levels-head">
+          <h2>Levels</h2>
+          <button class="icon-btn" id="btn-levels-back" aria-label="Back">&#10005;</button>
+        </div>
+        <div class="level-grid" id="level-grid"></div>
+      </div>
+    </div>
+
+    <!-- ===== WIN ===== -->
+    <div id="win" class="overlay hidden">
+      <div class="panel win-panel">
+        <div class="win-eyebrow" id="win-eyebrow">level clear</div>
+        <h2 id="win-title">First Light</h2>
+        <div class="win-stats">
+          <div class="stat"><span class="stat-label">time</span><span class="stat-value" id="win-time">0:00.0</span></div>
+          <div class="stat"><span class="stat-label">shards</span><span class="stat-value" id="win-shards">0/0</span></div>
+          <div class="stat"><span class="stat-label">best</span><span class="stat-value" id="win-best">—</span></div>
+        </div>
+        <div class="win-buttons">
+          <button class="btn primary" id="btn-next">Next level</button>
+          <button class="btn ghost" id="btn-replay">Replay</button>
+          <button class="btn ghost" id="btn-win-levels">Levels</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== PAUSE ===== -->
+    <div id="pause" class="overlay hidden">
+      <div class="panel pause-panel">
+        <h2>Paused</h2>
+        <div class="pause-buttons">
+          <button class="btn primary" id="btn-resume">Resume</button>
+          <button class="btn ghost" id="btn-pause-restart">Restart</button>
+          <button class="btn ghost" id="btn-pause-levels">Levels</button>
+          <button class="btn ghost" id="btn-pause-menu">Title</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== TOUCH PAD ===== -->
+    <div id="pad" class="pad hidden">
+      <button class="pad-btn up" data-dir="up" aria-label="Roll up">&#9650;</button>
+      <button class="pad-btn left" data-dir="left" aria-label="Roll left">&#9664;</button>
+      <button class="pad-btn right" data-dir="right" aria-label="Roll right">&#9654;</button>
+      <button class="pad-btn down" data-dir="down" aria-label="Roll down">&#9660;</button>
+    </div>
+
+    <div id="flash"></div>
+    <div id="toast" class="toast hidden"></div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
