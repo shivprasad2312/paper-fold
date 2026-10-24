@@ -13,9 +13,13 @@ Every level is proven solvable by an automated verifier, each clear earns a
 bronze/silver/gold **medal**, your best run replays as a translucent **ghost**, and a
 fresh **Daily Challenge** is generated (and solver-checked) for every date.
 
-![KUBIK](docs/level-01.png)
+The world comes in **two themes**: a dark starfield void and a high-key "paper" sky —
+one sun, two moods, switchable from the menu or the in-game HUD and remembered
+between sessions.
 
-<img src="docs/level-12.png" width="49%" /> <img src="docs/level-13.png" width="24%" /> <img src="docs/mobile.png" width="24%" />
+![KUBIK — light world](docs/level-01-light.png)
+
+<img src="docs/level-01-dark.png" width="49%" /> <img src="docs/menu-light.png" width="24%" /> <img src="docs/mobile.png" width="24%" />
 
 ---
 
@@ -33,7 +37,7 @@ Other commands:
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
 | `npm run verify` | prove all 13 levels + 14 daily layouts are solvable (pure Node, no browser) |
-| `npm run playtest` | scripted browser playtest of the mechanics (50 checks: win, death, push, wind, key, bridge, ghost, medal, daily…) |
+| `npm run playtest` | scripted browser playtest of the mechanics (57 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme switch…) |
 | `npm run autoplay` | plays all 13 levels end to end in a headless browser |
 
 The two browser-based scripts drive Chromium through `puppeteer-core`; point them at a
@@ -78,6 +82,24 @@ invariants so no shipped level can waste your time — the goal is always reacha
 **no reachable tile is a dead end** (zero soft-locks), a crumble-aware search proves the
 cracked slabs never seal the only route, no sentinel may spawn on top of the player or
 the goal, and levels with pushes are proven solvable with the pushes they grant.
+
+## Two themes, one world
+
+Like EDGE, KUBIK has two moods for the same platforms:
+
+* **Dark** — a starfield void, warm key light, deep blue fill, star particles and a
+  touch of bloom. The classic night run.
+* **Light** — a high-key near-white sky, brighter sun, no stars, softer shadows. The
+  porcelain "paper" run.
+
+The switch only re-tunes the lighting rig (background, hemisphere/key/fill lights,
+exposure, bloom, stars) — the slabs, hazards and rules are identical, so a run feels
+the same in either world. The UI re-skins to match: ink-on-paper panels, a light
+minimap, deeper-blue accents.
+
+Toggle it with the **moon/sun button** in the HUD (top right) or the **Theme** button
+on the title menu. The choice is saved in your progress and restored on the next
+visit.
 
 ## Levels
 
@@ -153,13 +175,14 @@ src/
   levels.js     the thirteen levels as ASCII maps
   daily.js      seeded daily-level generator (date → solvable layout)
   levelView.js  3D scene graph: slabs, blocks, bridges, key/lock, wind, sentinels
-  stage.js      renderer, orthographic 3/4 camera, shadows, lights, starfield
+  stage.js      renderer, orthographic 3/4 camera, shadows, lights, starfield, themes
   audio.js      synthesised soundtrack + SFX (Web Audio, zero sample files)
-  save.js       localStorage: bests, medals, ghost runs, daily results
+  save.js       localStorage: bests, medals, ghost runs, daily results, theme
   textures.js   generated glow/beam textures
+  style.css     UI skin — dark default + `body.light` high-key override
 scripts/
   verify-levels.mjs   solvability + soft-lock + spawn-safety proof (levels + 14 dailies)
-  playtest.mjs        50 scripted browser checks of the mechanics
+  playtest.mjs        57 scripted browser checks of the mechanics + theme switch
   autoplay.mjs        full 13-level completion run in a browser
   shoot.mjs / mobile-shots.mjs   screenshot helpers
 ```
@@ -176,6 +199,12 @@ Notable details:
   dead, and the void is a slow-drifting starfield. Each level gets its own vivid
   cube colour and accent edge colour, and the goal is a glowing pad with a beam of
   light rising out of the frame.
+* **Two themes, one world.** `Stage.setTheme('dark'|'light')` swaps the whole
+  lighting rig — background, hemisphere/key/fill lights, tone-mapping exposure,
+  bloom and the starfield — while the geometry, materials and rules stay identical,
+  so the game plays the same in either mood. `body.light` re-skins the UI to an
+  ink-on-paper high-key look (light panels, brighter minimap, deeper-blue accents)
+  and the choice is persisted in the save and restored on load.
 * **True 3D rolling.** Each move rotates the cube a quarter turn around the edge it
   tips over, easing in and out, with the exact height change applied on landing.
 * **Score + par.** Every roll is counted by a floating 3D step counter (drawn to a

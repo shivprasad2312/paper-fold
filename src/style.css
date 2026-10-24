@@ -651,3 +651,99 @@ kbd {
   .chip { font-size: 8px; padding: 3px 6px; }
   .win-medal { width: 48px; height: 48px; line-height: 48px; font-size: 9px; }
 }
+
+/* ============================================================ LIGHT WORLD */
+/* High-key "paper" world: near-white sky, ink-on-paper UI. The 3D scene    */
+/* switches lighting in Stage.setTheme('light') — same slabs, new sun.      */
+body.light {
+  --bg: #e9edf4;
+  --ink: #131a26;
+  --dim: #5c6a82;
+  --panel: rgba(255, 255, 255, 0.85);
+  --line: rgba(40, 60, 100, 0.16);
+  background: radial-gradient(120% 90% at 50% -10%, #ffffff 0%, #eef2f9 45%, #dde5f0 72%);
+}
+body.light #vignette {
+  background: radial-gradient(80% 65% at 50% 45%, transparent 45%, rgba(125, 145, 180, 0.28) 100%);
+}
+body.light #minimap {
+  border-color: rgba(40, 60, 100, 0.25);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 6px 20px rgba(60, 90, 140, 0.18);
+}
+body.light .hud-index,
+body.light .eyebrow,
+body.light .levels-head h2,
+body.light .win-eyebrow,
+body.light .level-card .best { color: #2f5fe0; }
+body.light .level-card.current { border-color: rgba(47, 95, 224, 0.55); }
+body.light .level-card.current .num::after { background: #2f5fe0; box-shadow: 0 0 8px rgba(47, 95, 224, 0.7); }
+body.light .hud-name { color: #1a2438; }
+body.light .timer { color: #35415a; background: rgba(255, 255, 255, 0.7); }
+body.light .shard-meter { color: #8a5a00; background: rgba(255, 255, 255, 0.7); border-color: rgba(180, 130, 20, 0.3); }
+body.light .shard-icon { fill: #c07f00; filter: drop-shadow(0 0 5px rgba(192, 127, 0, 0.5)); }
+body.light .icon-btn { color: #3a4a68; background: rgba(255, 255, 255, 0.75); }
+body.light .icon-btn:hover { border-color: rgba(47, 95, 224, 0.55); color: #131a26; background: rgba(255, 255, 255, 0.92); }
+body.light .hint { color: #4a5a78; background: rgba(255, 255, 255, 0.78); }
+body.light .screen {
+  background:
+    radial-gradient(90% 70% at 50% 30%, rgba(255, 255, 255, 0.6), transparent 70%),
+    rgba(233, 238, 244, 0.62);
+}
+body.light .logo {
+  background: linear-gradient(180deg, #1f5cff 0%, #4d7dff 55%, #7a4dff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  filter: drop-shadow(0 2px 24px rgba(77, 125, 255, 0.35));
+}
+body.light .btn {
+  color: #2a3a58;
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(40, 60, 100, 0.22);
+}
+body.light .btn:hover { border-color: rgba(47, 95, 224, 0.6); }
+body.light .btn.primary {
+  color: #fff;
+  background: linear-gradient(180deg, #5b8cff, #2f5fe0);
+  border-color: transparent;
+  box-shadow: 0 8px 30px -8px rgba(47, 95, 224, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+body.light .btn.primary:hover { box-shadow: 0 10px 38px -8px rgba(47, 95, 224, 0.75); }
+body.light .controls-help { color: #6a7a94; }
+body.light kbd { color: #3a4a68; background: rgba(40, 60, 100, 0.08); border-color: rgba(40, 60, 100, 0.2); }
+body.light .credit { color: #7a88a0; }
+body.light .level-card {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(228, 236, 248, 0.95));
+}
+body.light .level-card::after { background: radial-gradient(100% 80% at 20% 0%, rgba(47, 95, 224, 0.14), transparent 60%); }
+body.light .level-card:hover:not(.locked) { border-color: rgba(47, 95, 224, 0.5); box-shadow: 0 12px 32px -16px rgba(47, 95, 224, 0.5); }
+body.light .level-card .num { color: #16213a; }
+body.light .level-card .lname { color: #64748f; }
+body.light .level-card.locked { background: rgba(190, 199, 212, 0.55); }
+body.light .level-card.locked .num { color: #8b98ad; }
+body.light .overlay { background: rgba(215, 224, 238, 0.55); }
+body.light .panel {
+  background: linear-gradient(170deg, rgba(255, 255, 255, 0.98), rgba(243, 247, 254, 0.99));
+  border-color: rgba(40, 60, 100, 0.18);
+  box-shadow: 0 40px 90px -40px rgba(30, 50, 90, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+body.light .stat-label { color: #7484a0; }
+body.light .stat-value { color: #1a2438; }
+body.light .pad-btn { color: #2a3a58; background: rgba(255, 255, 255, 0.82); border-color: rgba(40, 60, 100, 0.25); }
+body.light .pad-btn:active { background: rgba(47, 95, 224, 0.25); }
+body.light .toast { color: #22304c; background: rgba(255, 255, 255, 0.95); }
+body.light .chip-nudge { color: #0f8a5f; border-color: rgba(15, 138, 95, 0.35); }
+body.light .chip-nudge.empty { color: #8b98ad; }
+body.light .chip-key { color: #a06a00; border-color: rgba(160, 106, 0, 0.4); }
+body.light .chip-key.on { color: #3f9e1f; border-color: rgba(63, 158, 31, 0.4); }
+body.light .chip-wind { color: #2f6fd0; border-color: rgba(47, 111, 208, 0.4); }
+body.light .chip-bridge { color: #4a63c8; border-color: rgba(74, 99, 200, 0.4); }
+body.light .medal-gold { color: #8a5a00; }
+body.light .medal-silver { color: #4a5568; }
+body.light .medal-bronze { color: #7a4a1a; }
+body.light .daily-card {
+  border-color: rgba(190, 130, 20, 0.4);
+  background: linear-gradient(160deg, rgba(255, 240, 200, 0.75), rgba(255, 255, 255, 0.92));
+}
+body.light .daily-card:hover:not(.locked) { border-color: rgba(190, 130, 20, 0.75); box-shadow: 0 12px 32px -16px rgba(190, 130, 20, 0.5); }
+body.light .daily-card .num { color: #a06a00; }

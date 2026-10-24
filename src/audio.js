@@ -138,9 +138,11 @@ export class AudioEngine {
 
   setLevel(seed) {
     this.levelSeed = seed;
-    this.progressionIndex = seed % PROGRESSIONS.length;
+    // the daily challenge passes -1 — keep the index in range either way
+    const n = PROGRESSIONS.length;
+    this.progressionIndex = ((seed % n) + n) % n;
     // lift the key a little as the levels go on, but stay in a comfy range
-    this.transpose = [0, 2, -3, 5, 0, -2, 3, 0, -5, 2, 0, 4][seed % 12] || 0;
+    this.transpose = [0, 2, -3, 5, 0, -2, 3, 0, -5, 2, 0, 4][((seed % 12) + 12) % 12] || 0;
   }
 
   schedule() {
@@ -155,7 +157,7 @@ export class AudioEngine {
   }
 
   chordAt(bar) {
-    const prog = PROGRESSIONS[this.progressionIndex];
+    const prog = PROGRESSIONS[this.progressionIndex] || PROGRESSIONS[0];
     return prog[bar % prog.length].map((n) => n + this.transpose);
   }
 

@@ -9,6 +9,40 @@ const YAW = 0.20;
 const PITCH = 0.95; // ~54 degrees
 const DIST = 80;
 
+// Two worlds, one engine: the dark void (floating in space) and the light
+// high-key room (soft white sky, gentle shadows). Same slabs, same shadows —
+// only the light changes, which is what makes both looks read as clean.
+const THEMES = {
+  dark: {
+    background: 0x020309,
+    hemiSky: 0xdde6f2,
+    hemiGround: 0x0a0d14,
+    hemiIntensity: 0.85,
+    sunColor: 0xfff6e8,
+    sunIntensity: 3.0,
+    fillColor: 0x9db8e8,
+    fillIntensity: 0.5,
+    exposure: 1.12,
+    bloomStrength: 0.5,
+    bloomThreshold: 0.94,
+    stars: 0.7,
+  },
+  light: {
+    background: 0xe9edf4,
+    hemiSky: 0xffffff,
+    hemiGround: 0xaebcd2,
+    hemiIntensity: 1.2,
+    sunColor: 0xfff4e0,
+    sunIntensity: 2.7,
+    fillColor: 0xcfe0f5,
+    fillIntensity: 0.9,
+    exposure: 1.06,
+    bloomStrength: 0.3,
+    bloomThreshold: 0.97,
+    stars: 0,
+  },
+};
+
 export class Stage {
   constructor(canvas) {
     this.canvas = canvas;
@@ -48,6 +82,7 @@ export class Stage {
     this.time = 0;
     this.bloomEnabled = true;
     this.quality = 1;
+    this.theme = 'dark';
 
     this.buildLights();
     this.buildStars();
@@ -59,6 +94,28 @@ export class Stage {
     this.composer.addPass(new OutputPass());
 
     this.resize();
+    this.setTheme('dark');
+  }
+
+  /** Swap the world: 'dark' void or 'light' high-key. Instant, no rebuilds. */
+  setTheme(name) {
+    const t = THEMES[name] || THEMES.dark;
+    this.theme = name;
+    this.renderer.setClearColor(t.background, 1);
+    this.scene.background.set(t.background);
+    const { hemi, key, fill } = this.ambientLights;
+    hemi.color.set(t.hemiSky);
+    hemi.groundColor.set(t.hemiGround);
+    hemi.intensity = t.hemiIntensity;
+    key.color.set(t.sunColor);
+    key.intensity = t.sunIntensity;
+    fill.color.set(t.fillColor);
+    fill.intensity = t.fillIntensity;
+    this.renderer.toneMappingExposure = t.exposure;
+    this.bloom.strength = t.bloomStrength;
+    this.bloom.threshold = t.bloomThreshold;
+    this.stars.material.opacity = t.stars;
+    this.stars.visible = t.stars > 0;
   }
 
   buildLights() {

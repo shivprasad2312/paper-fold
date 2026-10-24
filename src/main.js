@@ -36,11 +36,40 @@ const el = {
   pad: $('pad'),
   flash: $('flash'),
   soundBtn: $('btn-sound'),
+  btnTheme: $('btn-theme'),
+  btnThemeMenu: $('btn-theme-menu'),
 };
 
 function todayStr() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ---------------------------------------------------------------- theme ----
+// Two worlds, one engine: the same slabs and shadows, different light.
+const MOON_ICON = '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M20.6 14.6A8.8 8.8 0 0 1 9.4 3.4a9 9 0 1 0 11.2 11.2Z"/></svg>';
+const SUN_ICON =
+  '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true">' +
+  '<circle cx="12" cy="12" r="4.2"/>' +
+  '<g stroke="currentColor" stroke-width="1.9" stroke-linecap="round">' +
+  '<line x1="12" y1="1.6" x2="12" y2="4.4"/><line x1="12" y1="19.6" x2="12" y2="22.4"/>' +
+  '<line x1="1.6" y1="12" x2="4.4" y2="12"/><line x1="19.6" y1="12" x2="22.4" y2="12"/>' +
+  '<line x1="4.6" y1="4.6" x2="6.6" y2="6.6"/><line x1="17.4" y1="17.4" x2="19.4" y2="19.4"/>' +
+  '<line x1="4.6" y1="19.4" x2="6.6" y2="17.4"/><line x1="17.4" y1="6.6" x2="19.4" y2="4.6"/>' +
+  '</g></svg>';
+
+function applyTheme(t) {
+  save.theme = t;
+  document.body.classList.toggle('light', t === 'light');
+  game.stage.setTheme(t);
+  el.btnTheme.innerHTML = t === 'light' ? SUN_ICON : MOON_ICON;
+  el.btnThemeMenu.textContent = `Theme: ${t === 'light' ? 'Light' : 'Dark'}`;
+  writeSave(save);
+}
+
+function toggleTheme() {
+  audio.sfx('ui');
+  applyTheme(save.theme === 'light' ? 'dark' : 'light');
 }
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -118,43 +147,67 @@ function drawMinimap() {
   const pz = (z) => oy + (z - minZ) * cell;
   const s = cell * 0.9;
 
+  // theme-aware palette: the minimap panel is light in the light world
+  const C = document.body.classList.contains('light')
+    ? {
+        crumble: 'rgba(186,116,32,0.95)',
+        tile: (h) => `hsl(214 32% ${72 - h * 7}%)`,
+        goal: '#e8930c',
+        shard: '#d9720f',
+        orb: '#e02456',
+        bridge: 'rgba(47,108,255,0.95)',
+        block: '#525c72',
+        key: '#c47d08',
+        player: '#18213a',
+      }
+    : {
+        crumble: 'rgba(206,150,80,0.95)',
+        tile: (h) => `hsl(212 22% ${42 + h * 9}%)`,
+        goal: '#ffd15a',
+        shard: '#ff9d2e',
+        orb: '#ff3f74',
+        bridge: 'rgba(140,190,255,0.9)',
+        block: '#2b2f3a',
+        key: '#ffd15a',
+        player: '#ffffff',
+      };
+
   for (const t of lvl.tiles.values()) {
-    if (t.crumble) ctx.fillStyle = 'rgba(206,150,80,0.95)';
-    else ctx.fillStyle = `hsl(212 22% ${42 + t.h * 9}%)`;
+    ctx.fillStyle = t.crumble ? C.crumble : C.tile(t.h);
     ctx.fillRect(px(t.x) - s / 2, pz(t.z) - s / 2, s, s);
   }
-  ctx.fillStyle = '#ffd15a';
+  ctx.fillStyle = C.goal;
   ctx.beginPath();
   ctx.arc(px(lvl.goal.x), pz(lvl.goal.z), s * 0.3, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = '#ff9d2e';
+  ctx.fillStyle = C.shard;
   for (const sh of view.shards) {
     if (sh.collected) continue;
     ctx.fillRect(px(sh.x) - 2.4, pz(sh.z) - 2.4, 4.8, 4.8);
   }
-  ctx.fillStyle = '#ff3f74';
+  ctx.fillStyle = C.orb;
   for (const o of view.orbs) {
     ctx.beginPath();
     ctx.arc(px(o.holder.position.x), pz(o.holder.position.z), 3, 0, Math.PI * 2);
     ctx.fill();
   }
   // sliding bridges (dashed outline)
-  ctx.strokeStyle = 'rgba(140,190,255,0.9)';
+  ctx.strokeStyle = C.bridge;
   ctx.lineWidth = 1;
   for (const sl of view.sliders) {
     const { tile } = sl;
     ctx.strokeRect(px(tile.x) - s / 2, pz(tile.z) - s / 2, s, s);
   }
   // obstacle blocks
-  ctx.fillStyle = '#2b2f3a';
+  ctx.fillStyle = C.block;
   for (const b of view.blocks.values()) {
     ctx.fillRect(px(b.x) - s * 0.3, pz(b.z) - s * 0.3, s * 0.6, s * 0.6);
   }
   // the gate key
   const gk = lvl.gateKey;
   if (gk && !game.hasKey) {
-    ctx.fillStyle = '#ffd15a';
+    ctx.fillStyle = C.key;
     ctx.beginPath();
     ctx.arc(px(gk.x), pz(gk.z), 3.2, 0, Math.PI * 2);
     ctx.fill();
@@ -162,7 +215,7 @@ function drawMinimap() {
 
   const cx = game.cubeMesh.position.x;
   const cz = game.cubeMesh.position.z;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = C.player;
   ctx.fillRect(px(cx) - s * 0.32, pz(cz) - s * 0.32, s * 0.64, s * 0.64);
 }
 
@@ -493,6 +546,8 @@ $('btn-restart').addEventListener('click', () => {
   restartLevel();
 });
 $('btn-sound').addEventListener('click', toggleSound);
+el.btnTheme.addEventListener('click', toggleTheme);
+el.btnThemeMenu.addEventListener('click', toggleTheme);
 $('btn-resume').addEventListener('click', () => {
   audio.sfx('ui');
   resumeGame();
@@ -646,6 +701,7 @@ document.addEventListener('keydown', () => unlockAudio(), { once: true });
 window.addEventListener('resize', () => game.stage.resize());
 
 // ------------------------------------------------------------------ boot ----
+applyTheme(save.theme); // before the first frame: no theme flash
 el.soundBtn.classList.toggle('muted', !save.sound);
 document.body.classList.toggle('touch', isTouch);
 
@@ -657,4 +713,4 @@ updateMechanicHud();
 tickUI();
 
 // handy for debugging from the console
-window.__kubik = { game, startLevel, startDaily, restartLevel, openLevels, save };
+window.__kubik = { game, startLevel, startDaily, restartLevel, openLevels, openMenu, save };

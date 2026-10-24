@@ -6,7 +6,7 @@ import { key } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
-const TOP = 0xd9dde4;
+const TOP = 0xdde3ec;
 const SIDE = 0x98a0ac;
 const BOTTOM = 0x3c414a;
 

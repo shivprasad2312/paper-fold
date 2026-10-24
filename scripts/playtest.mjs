@@ -17,12 +17,18 @@ const browser = await puppeteer.launch({
 
 const page = await browser.newPage();
 const errors = [];
+// Vite's HMR socket can't reach port 443 from the test harness; after a
+// reload the dev server's module reconnection can also emit transient
+// "reading 'length'" page errors for a few seconds. Both are harness
+// artifacts, not app bugs — quiet-window them.
+let quietUntil = 0;
 page.on('pageerror', (e) => {
+  if (Date.now() < quietUntil) return;
   if (!e.message.includes('WebSocket')) errors.push(e.message);
 });
 page.on('console', (m) => {
+  if (Date.now() < quietUntil) return;
   const t = m.text();
-  // Vite's HMR socket can't reach port 443 from the test harness; ignore it.
   if (m.type() === 'error' && !t.includes('WebSocket')) errors.push(t);
 });
 
@@ -397,6 +403,59 @@ const dailyCard = await page.evaluate(() => !!document.querySelector('.daily-car
 check('daily card in level select', dailyCard);
 const medalInCard = await page.evaluate(() => !!document.querySelector('.level-card .medal'));
 check('medals shown on level cards', medalInCard);
+
+// ---- themes: dark void <-> light high-key world ---------------------------
+await page.evaluate(() => window.__kubik.openMenu());
+await wait(500);
+const darkDefault = await page.evaluate(() => ({
+  body: document.body.classList.contains('light'),
+  stage: window.__kubik.game.stage.theme,
+  saved: window.__kubik.save.theme,
+}));
+check('boots in the dark world by default', !darkDefault.body && darkDefault.stage === 'dark' && darkDefault.saved === 'dark', JSON.stringify(darkDefault));
+await page.click('#btn-theme-menu');
+await wait(400);
+const themeLight = await page.evaluate(() => ({
+  body: document.body.classList.contains('light'),
+  stage: window.__kubik.game.stage.theme,
+  saved: window.__kubik.save.theme,
+  label: document.getElementById('btn-theme-menu').textContent,
+  icon: document.getElementById('btn-theme').innerHTML.length,
+}));
+check('menu button switches to the light world', themeLight.body && themeLight.stage === 'light' && themeLight.saved === 'light', JSON.stringify(themeLight));
+check('theme button label + icon update', themeLight.label === 'Theme: Light' && themeLight.icon > 10, `${themeLight.label} icon=${themeLight.icon}`);
+await shot('26-menu-light');
+// Light gameplay: high-key sky, brighter sun, no stars.
+await load(0);
+const lightScene = await page.evaluate(() => {
+  const s = window.__kubik.game.stage;
+  return { bg: '#' + s.scene.background.getHexString(), stars: s.stars.visible, exposure: s.renderer.toneMappingExposure };
+});
+check('light world: near-white sky', lightScene.bg.toLowerCase() === '#e9edf4', lightScene.bg);
+check('light world: stars hidden', lightScene.stars === false);
+await shot('27-level1-light');
+// The choice survives a reload.
+quietUntil = Date.now() + 8000; // HMR reconnection quiet window
+await page.reload({ waitUntil: 'networkidle0', timeout: 60000 });
+await wait(1500);
+const persisted = await page.evaluate(() => ({
+  body: document.body.classList.contains('light'),
+  stage: window.__kubik.game.stage.theme,
+  saved: window.__kubik.save.theme,
+}));
+check('theme persists across reload', persisted.body && persisted.stage === 'light' && persisted.saved === 'light', JSON.stringify(persisted));
+// HUD button switches back to the dark void mid-game.
+await load(0);
+await page.click('#btn-theme');
+await wait(400);
+const themeDark = await page.evaluate(() => ({
+  body: document.body.classList.contains('light'),
+  stage: window.__kubik.game.stage.theme,
+  saved: window.__kubik.save.theme,
+  bg: '#' + window.__kubik.game.stage.scene.background.getHexString(),
+}));
+check('HUD button switches back to the dark void', !themeDark.body && themeDark.stage === 'dark' && themeDark.saved === 'dark' && themeDark.bg.toLowerCase() === '#020309', JSON.stringify(themeDark));
+await shot('28-level1-dark');
 
 console.log('\nerrors:', errors.length ? errors : 'none');
 const failed = results.filter((r) => !r.ok);

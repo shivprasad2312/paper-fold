@@ -5,6 +5,7 @@ const DEFAULTS = {
   best: {}, // id -> { time, shards, moves, medal }
   ghosts: {}, // id -> { time, moves, log: [{t,x,z,h}] } — the fastest win, replayed
   daily: {}, // 'YYYY-MM-DD' -> { time, shards, total, moves, par, medal }
+  theme: 'dark', // 'dark' void or 'light' high-key world
   sound: true,
   lastLevel: 1,
 };
@@ -22,6 +23,7 @@ export function loadSave() {
       best: data.best || {},
       ghosts: data.ghosts || {},
       daily: data.daily || {},
+      theme: data.theme === 'light' ? 'light' : 'dark',
     };
   } catch {
     return { ...DEFAULTS, best: {}, ghosts: {}, daily: {} };
