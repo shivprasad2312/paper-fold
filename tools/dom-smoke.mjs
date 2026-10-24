@@ -162,6 +162,7 @@ console.log('overlay open after boot:', overlay.classList.contains('is-open'));
 console.log('card has play button:', !!card.querySelector('[data-action="play"]'));
 console.log('mini canvases painted:', card.querySelectorAll('canvas.mini').length);
 console.log('title text:', card.querySelector('h1')?.textContent.trim());
+const hook = window.__paperfold;
 
 function screenAction(action) {
   const button = card.querySelector(`[data-action="${action}"]`);
@@ -172,6 +173,50 @@ function screenAction(action) {
 
 screenAction('levels');
 console.log('levels screen nodes:', card.querySelectorAll('.level-node').length);
+if (card.querySelectorAll('.level-node').length !== 12 || !card.querySelector('.level-goal-mini')) throw new Error('level goal nodes did not render');
+screenAction('home');
+screenAction('neighborhood');
+console.log('neighborhood theme:', card.querySelector('.habitat-stage')?.dataset.theme);
+if (!card.querySelector('.habitat-tabs') || !card.querySelector('.decor-list')) throw new Error('neighborhood did not render');
+hook.progress.coins += 300;
+hook.showNeighborhood();
+card.querySelector('[data-action="buy-decor"]').click();
+tick(3);
+console.log('decoration purchase persisted:', hook.progress.habitatDecor?.includes('cloud:cloud-cottage'));
+if (!hook.progress.habitatDecor?.includes('cloud:cloud-cottage')) throw new Error('decoration purchase did not persist');
+screenAction('home');
+screenAction('collection');
+card.querySelector('[data-action="buddy"][data-tier="0"]').click();
+tick(3);
+console.log('passport personality:', card.querySelector('.passport-personality')?.textContent);
+if (!card.querySelector('.passport-stats') || !card.querySelector('[data-action="visit-habitat"]')) throw new Error('pal passport did not render');
+screenAction('collection');
+screenAction('home');
+screenAction('weekly');
+if (!card.querySelector('.weekly-goal') || !card.querySelector('.weekly-refresh')) throw new Error('weekly puzzle did not render');
+card.querySelector('[data-action="start-weekly"]').click();
+tick(3);
+const weekly = hook.activeWeekly;
+function satisfyWeeklyGoal() {
+  const goal = hook.activeWeekly.goal;
+  if (goal.type === 'score') hook.game.score = goal.target;
+  if (goal.type === 'create') hook.goalRun.created = goal.count;
+  if (goal.type === 'combo') hook.goalRun.bestCombo = goal.target;
+  if (goal.type === 'reach') hook.game.topTier = goal.tier;
+  hook.checkActiveGoal();
+  tick(3);
+}
+satisfyWeeklyGoal();
+console.log('weekly first clear:', card.querySelector('.result-ribbon')?.textContent.trim());
+if (!hook.progress.weeklyCompleted?.includes(weekly.key)) throw new Error('weekly clear was not saved');
+const firstClearCoins = hook.progress.coins;
+const firstClearStars = hook.progress.stars;
+card.querySelector('[data-action="weekly-again"]').click();
+tick(3);
+if (hook.activeWeekly.seed !== weekly.seed) throw new Error('weekly replay changed the seed');
+satisfyWeeklyGoal();
+console.log('weekly replay:', card.querySelector('.result-ribbon')?.textContent.trim());
+if (hook.progress.coins !== firstClearCoins || hook.progress.stars !== firstClearStars) throw new Error('weekly replay repeated first-clear rewards');
 screenAction('home');
 screenAction('collection');
 console.log('collection pals:', card.querySelectorAll('.pal-card').length, 'painted minis:', card.querySelectorAll('canvas.mini').length);
@@ -228,7 +273,6 @@ tick(2);
 console.log('muted class:', doc.getElementById('btn-sound').classList.contains('is-muted'));
 
 // ── game over via the dev hook ───────────────────────────────────────────
-const hook = window.__paperfold;
 console.log('dev hook present:', !!hook);
 hook.game.score = 4820;
 hook.game.merges = 37;
@@ -246,13 +290,34 @@ console.log('new best ribbon:', card.querySelector('.result-ribbon')?.textConten
 card.querySelector('[data-action="restart"]').click();
 tick(10);
 console.log('restarted & overlay hidden:', !overlay.classList.contains('is-open'), 'score reset:', hook.game.score === 0);
-const goal = 120;
-hook.game.emit('score', { score: goal });
+hook.game.score = 120;
+hook.checkActiveGoal();
 tick(4);
 console.log('level complete popup:', card.querySelector('.result-ribbon')?.textContent.trim());
 card.querySelector('[data-action="next-level"]').click();
 tick(6);
 console.log('next level starts:', hook.state === 'playing', 'unlocked level:', hook.progress.unlocked);
+screenAction('home');
+screenAction('levels');
+card.querySelector('[data-action="level"][data-level="1"]').click();
+tick(4);
+const starsAfterFirstClear = hook.progress.stars;
+hook.game.score = 120;
+hook.game.topTier = 0;
+hook.checkActiveGoal();
+tick(3);
+console.log('same-star replay reward:', card.querySelector('.reward-pills')?.textContent.trim());
+if (hook.progress.stars !== starsAfterFirstClear || !card.querySelector('.reward-pills')?.textContent.includes('+0')) throw new Error('replaying a level repeated its star reward');
+screenAction('home');
+screenAction('levels');
+card.querySelector('[data-action="level"][data-level="1"]').click();
+tick(4);
+hook.game.score = 120;
+hook.game.topTier = 2;
+hook.checkActiveGoal();
+tick(3);
+console.log('improved-star replay total:', hook.progress.stars);
+if (hook.progress.stars !== starsAfterFirstClear + 1) throw new Error('level replay did not grant only the improved stars');
 
 console.log('ERRORS:', errors.length ? errors : 'none');
 fs.unlinkSync(outfile);

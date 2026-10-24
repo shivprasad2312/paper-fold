@@ -1,6 +1,6 @@
 import Matter from 'matter-js';
 import { FRUITS, SPAWN_WEIGHTS, MERGE_SCORES } from './fruits.js';
-import { clamp } from './utils.js';
+import { clamp, mulberry32 } from './utils.js';
 
 const { Engine, World, Bodies, Body, Composite, Events, Sleeping } = Matter;
 
@@ -20,9 +20,9 @@ const DANGER_GRACE = 950;
 const DANGER_TIME = 1150;
 const MAX_SPEED = 16;
 
-export function pickSpawnTier() {
+export function pickSpawnTier(random = Math.random) {
   const total = SPAWN_WEIGHTS.reduce((a, b) => a + b, 0);
-  let roll = Math.random() * total;
+  let roll = random() * total;
   for (let i = 0; i < SPAWN_WEIGHTS.length; i++) {
     roll -= SPAWN_WEIGHTS[i];
     if (roll <= 0) return i;
@@ -56,7 +56,8 @@ export class Game {
     this.lastDropAt = -9999;
     this.started = false;
     this.now = 0;
-    this.nextTier = pickSpawnTier();
+    this.random = Math.random;
+    this.nextTier = pickSpawnTier(this.random);
     this.time = 0;
 
     this.buildStatic();
@@ -105,7 +106,9 @@ export class Game {
     return this.fruits.find((f) => f.body === body);
   }
 
-  newGame() {
+  newGame({ seed = null } = {}) {
+    // Seeded runs make the weekly puzzle use the same drop sequence for everyone.
+    this.random = seed === null ? Math.random : mulberry32(seed >>> 0);
     // Remove any fruit bodies, keep the static jar.
     for (const fruit of this.fruits) World.remove(this.world, fruit.body);
     this.fruits = [];
@@ -119,7 +122,7 @@ export class Game {
     this.over = false;
     this.overAt = 0;
     this.lastDropAt = -9999;
-    this.nextTier = pickSpawnTier();
+    this.nextTier = pickSpawnTier(this.random);
     this.started = false;
     this.emit('reset');
     this.emit('score', { score: 0, best: this.best, delta: 0 });
@@ -167,7 +170,7 @@ export class Game {
       id: body.id,
     };
     this.fruits.push(record);
-    this.nextTier = pickSpawnTier();
+    this.nextTier = pickSpawnTier(this.random);
     this.lastDropAt = now;
     this.started = true;
     this.emit('drop', { tier, x: cx });

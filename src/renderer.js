@@ -39,14 +39,17 @@ export class Renderer {
     return { look, blink };
   }
 
-  drawBuddy(ctx, tier, x, y, size, angle = 0, seed = 0) {
+  drawBuddy(ctx, tier, x, y, size, angle = 0, seed = 0, lookOverride = null, blinkOverride = null, squish = 0) {
     const sprite = this.sprites[tier];
     const buddy = FRUITS[tier];
     const radius = buddy.r * (size / sprite.size);
-    const { look, blink } = this.faceMood(seed);
+    const mood = this.faceMood(seed);
+    const look = lookOverride === null ? mood.look : lookOverride;
+    const blink = blinkOverride === null ? mood.blink : blinkOverride;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
+    ctx.scale(1 + squish * 0.08, 1 - squish * 0.055);
     ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
     // The sprite body's center sits just below the image center.
     ctx.translate(0, radius * 0.04);
@@ -517,7 +520,18 @@ export class Renderer {
       const popT = clamp(1 - fruit.pop, 0, 1);
       const popScale = fruit.pop > 0 ? 0.45 + 0.55 * easeOutBack(popT) : 1;
       const size = sprite.size * k * popScale;
-      this.drawBuddy(ctx, fruit.tier, p.x, p.y, size, fruit.body.angle, fruit.id);
+      const aimLook = this.showAim ? clamp((this.aim - fruit.body.position.x) / 48, -1, 1) : null;
+      const age = this.game.now - fruit.bornAt;
+      const landingSquish = fruit.spawn && age >= 0 && age < 300
+        ? Math.sin((age / 300) * Math.PI) * Math.exp(-age / 230)
+        : 0;
+      const nearbyMerge = this.game.effects.some((effect) => {
+        if (effect.kind !== 'merge' || effect.t > 230) return false;
+        const dx = fruit.body.position.x - effect.x;
+        const dy = fruit.body.position.y - effect.y;
+        return dx * dx + dy * dy < Math.pow(FRUITS[effect.tier].r * 2.8, 2);
+      });
+      this.drawBuddy(ctx, fruit.tier, p.x, p.y, size, fruit.body.angle, fruit.id, aimLook, nearbyMerge ? true : null, landingSquish);
     }
     ctx.restore();
   }

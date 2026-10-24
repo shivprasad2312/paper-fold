@@ -72,6 +72,7 @@ test('the two largest fruits politely refuse to fold', () => {
 
 test('a full jar ends the run', () => {
   const game = new Game();
+  game.newGame({ seed: 1 });
   let over = null;
   game.on('gameover', (payload) => (over = payload));
 
@@ -110,4 +111,40 @@ test('a fresh game is clean', () => {
   assert.equal(game.score, 0);
   assert.equal(game.over, false);
   assert.ok(game.best >= 0);
+});
+
+test('seeded games generate the same weekly drop sequence', () => {
+  function sequence(seed) {
+    const game = new Game();
+    game.newGame({ seed });
+    const tiers = [];
+    for (let i = 0; i < 10; i++) {
+      const pal = game.drop(WORLD.width / 2);
+      assert.ok(pal);
+      tiers.push(pal.tier);
+      run(game, 300);
+    }
+    return tiers;
+  }
+  assert.deepEqual(sequence(20260601), sequence(20260601));
+  assert.notDeepEqual(sequence(20260601), sequence(20260602));
+});
+
+test('weekly challenge stays the same for a whole UTC week', async () => {
+  const { weeklyChallenge } = await import('../src/content.js');
+  const monday = new Date('2026-06-01T08:00:00Z');
+  const sunday = new Date('2026-06-07T23:00:00Z');
+  const nextMonday = new Date('2026-06-08T00:05:00Z');
+  assert.deepEqual(weeklyChallenge(monday), weeklyChallenge(sunday));
+  assert.notEqual(weeklyChallenge(monday).key, weeklyChallenge(nextMonday).key);
+});
+
+test('score, pal-making, combo and tier goals each have clear completion rules', async () => {
+  const { goalMet } = await import('../src/content.js');
+  const runState = { created: 2, bestCombo: 4 };
+  assert.equal(goalMet({ type: 'score', target: 120 }, runState, 120, 0), true);
+  assert.equal(goalMet({ type: 'create', tier: 1, count: 3 }, runState, 900, 4), false);
+  assert.equal(goalMet({ type: 'create', tier: 1, count: 2 }, runState, 0, 0), true);
+  assert.equal(goalMet({ type: 'combo', target: 4 }, runState, 0, 0), true);
+  assert.equal(goalMet({ type: 'reach', tier: 3 }, runState, 0, 3), true);
 });

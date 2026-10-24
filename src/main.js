@@ -5,6 +5,7 @@ import { Sfx } from './audio.js';
 import { FRUITS } from './fruits.js';
 import { makeFruitSprite } from './art.js';
 import { clamp } from './utils.js';
+import { HABITATS, LEVELS, PAL_PROFILES, goalMet, goalProgress, goalText, weekKey, weeklyChallenge } from './content.js';
 
 const canvas = document.getElementById('board');
 const overlay = document.getElementById('overlay');
@@ -29,14 +30,12 @@ const DAILY = [
   { stars: 3, icon: '🌟' },
   { coins: 500, icon: '👑' },
 ];
-const LEVELS = Array.from({ length: 12 }, (_, i) => ({
-  number: i + 1,
-  target: Math.round(120 * (1 + i * 0.72)),
-  name: ['First Fluff', 'Bouncy Buddies', 'Puddle Party', 'Paw Parade', 'Cloud Nine', 'Starry Paws', 'Cozy Camp', 'Dreamy Den', 'Big Snuggle', 'Moonlight Mix', 'Super Snuggle', 'Fluff Forever'][i],
-}));
-
 let state = 'intro'; // intro | playing | paused | over
 let currentLevel = 1;
+let runMode = 'level'; // level | weekly
+let activeWeekly = null;
+let goalRun = { created: 0, bestCombo: 0 };
+let selectedHabitat = 'cloud';
 let levelCompleteShown = false;
 let pointerDown = false;
 let overTimer = 0;
@@ -47,7 +46,7 @@ let haptics = true;
 try { haptics = localStorage.getItem('fluffy.haptics') !== 'off'; } catch { /* storage is optional */ }
 
 function readProgress() {
-  const fallback = { coins: 0, stars: 0, unlocked: 1, unlockedTier: 0, levelStars: {}, lastDaily: '', streak: 0 };
+  const fallback = { coins: 0, stars: 0, unlocked: 1, unlockedTier: 0, levelStars: {}, lastDaily: '', streak: 0, habitatDecor: [], palMerges: {}, discoveredAt: {}, weeklyCompleted: [], weeklyBests: {} };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem('fluffy.progress') || '{}') };
   } catch {
@@ -82,6 +81,13 @@ syncSoundButton();
 
 // ── game events ─────────────────────────────────────────────────────────
 game.on('merge', ({ tier, x, y, points, combo }) => {
+  goalRun.bestCombo = Math.max(goalRun.bestCombo, combo);
+  if (runMode === 'level' && LEVELS[currentLevel - 1]?.goal.type === 'create' && LEVELS[currentLevel - 1].goal.tier === tier) goalRun.created++;
+  if (runMode === 'weekly' && activeWeekly?.goal.type === 'create' && activeWeekly.goal.tier === tier) goalRun.created++;
+  progress.palMerges ||= {};
+  progress.discoveredAt ||= {};
+  progress.palMerges[tier] = (progress.palMerges[tier] || 0) + 1;
+  if (!progress.discoveredAt[tier]) progress.discoveredAt[tier] = runMode === 'weekly' ? 'Weekly Puzzle' : `Level ${currentLevel}`;
   game.effects.push({ kind: 'merge', tier, x, y, points, combo, t: 0, dur: 640, seed: Math.floor(Math.random() * 1e6) });
   sfx.merge(tier, combo);
   renderer.bump(2 + tier * 0.55);
@@ -89,10 +95,14 @@ game.on('merge', ({ tier, x, y, points, combo }) => {
   const pal = FRUITS[Math.min(tier, FRUITS.length - 1)];
   setHint(combo >= 3 ? `fluffy combo ×${Math.min(combo, 8)}!` : `${pal.name} is growing!`, 'hot');
   hintHold = 1500;
-  const justDiscovered = tier > progress.unlockedTier;
+  const previousUnlockedTier = progress.unlockedTier;
+  const justDiscovered = tier > previousUnlockedTier;
   progress.unlockedTier = Math.max(progress.unlockedTier, tier);
   saveProgress();
-  if (justDiscovered && tier < FRUITS.length - 1) showToast(`${pal.name} joined your Pal Pouch!`);
+  const newlyOpenHabitat = HABITATS.find((habitat) => habitat.unlockTier > previousUnlockedTier && habitat.unlockTier <= tier);
+  if (newlyOpenHabitat) showToast(`${newlyOpenHabitat.name} is ready to explore!`);
+  else if (justDiscovered && tier < FRUITS.length - 1) showToast(`${pal.name} joined your Pal Pouch!`);
+  checkActiveGoal();
   if (tier === FRUITS.length - 1) {
     game.effects.push({ kind: 'confetti', x: WORLD.width / 2, y: 0, t: 0, dur: 2200, seed: Math.floor(Math.random() * 1e6) });
     setTimeout(() => sfx.win(), 220);
@@ -100,12 +110,15 @@ game.on('merge', ({ tier, x, y, points, combo }) => {
   }
 });
 game.on('drop', () => { sfx.unlock(); sfx.drop(); });
-game.on('score', ({ score }) => {
-  if (state === 'playing' && !levelCompleteShown && score >= LEVELS[currentLevel - 1].target) completeLevel();
-});
+game.on('score', () => checkActiveGoal());
 game.on('gameover', (payload) => {
   if (state === 'over') return;
   state = 'over';
+  if (runMode === 'weekly' && activeWeekly) {
+    progress.weeklyBests ||= {};
+    progress.weeklyBests[activeWeekly.key] = Math.max(progress.weeklyBests[activeWeekly.key] || 0, payload.score);
+    saveProgress();
+  }
   sfx.gameOver();
   buzz([28, 60, 28]);
   game.effects.push({ kind: 'confetti', x: WORLD.width / 2, y: 0, t: 0, dur: 1800, seed: Math.floor(Math.random() * 1e6) });
@@ -146,8 +159,8 @@ function paintMinis(root) {
 function wallet() {
   return `<div class="wallet"><span>🪙 <b>${formatScore(progress.coins)}</b></span><span>⭐ <b>${progress.stars}</b></span><button data-action="rewards" aria-label="Daily rewards">＋</button></div>`;
 }
-function pageHead(title, subtitle = '') {
-  return `<div class="page-head"><button class="back-btn" data-action="home" aria-label="Back">‹</button><div><h2>${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ''}</div>${wallet()}</div>`;
+function pageHead(title, subtitle = '', backAction = 'home') {
+  return `<div class="page-head"><button class="back-btn" data-action="${backAction}" aria-label="Back">‹</button><div><h2>${title}</h2>${subtitle ? `<p>${subtitle}</p>` : ''}</div>${wallet()}</div>`;
 }
 
 function showHome() {
@@ -160,7 +173,7 @@ function showHome() {
     <div class="home-hero"><span class="sparkle sparkle-a">✦</span><span class="sparkle sparkle-b">✧</span><div class="hero-orbit"></div><img class="hero-bunny" src="/fluffy-bunny.png" alt="A soft fluffy bunny pal"/><div class="speech-bubble">Hi, friend! <span>♡</span></div></div>
     <div class="home-copy"><p class="eyebrow">A pocket full of pals</p><h1>Fluffy <em>Merge</em></h1><p>Two little buddies become one big cuddle.</p></div>
     <button class="btn btn-primary btn-play" data-action="play">Play level ${currentLevel}<span>▶</span></button>
-    <div class="home-shortcuts"><button class="shortcut" data-action="levels"><span>🗺️</span>Levels</button><button class="shortcut" data-action="collection"><span>🐾</span>My pals</button><button class="shortcut" data-action="rewards"><span>${dayClaimed ? '🎀' : '🎁'}</span>Daily gift${dayClaimed ? ' ✓' : ''}</button><button class="shortcut" data-action="settings"><span>⚙️</span>Settings</button></div>
+    <div class="home-shortcuts"><button class="shortcut" data-action="levels"><span>🗺️</span>Levels</button><button class="shortcut" data-action="neighborhood"><span>🏡</span>Neighborhood</button><button class="shortcut" data-action="collection"><span>📖</span>Pal Passport</button><button class="shortcut" data-action="weekly"><span>🧩</span>Weekly Puzzle</button><button class="shortcut" data-action="rewards"><span>${dayClaimed ? '🎀' : '🎁'}</span>Daily gift${dayClaimed ? ' ✓' : ''}</button><button class="shortcut" data-action="settings"><span>⚙️</span>Settings</button></div>
     <div class="home-foot"><span>BEST FLUFF SCORE</span><b>${formatScore(game.best)}</b><span>·</span><span>12 cuddle levels</span></div>
   `, { screen: 'home' });
 }
@@ -170,7 +183,7 @@ function showLevels() {
     const cleared = level.number < progress.unlocked;
     const earnedStars = Math.min(3, progress.levelStars?.[level.number] || (cleared ? 1 : 0));
     const starsText = `${'★'.repeat(earnedStars)}${'☆'.repeat(3 - earnedStars)}`;
-    return `<button class="level-node ${unlocked ? 'unlocked' : 'locked'} ${cleared ? 'cleared' : ''}" data-action="level" data-level="${level.number}" ${unlocked ? '' : 'aria-disabled="true"'}><span class="node-icon">${unlocked ? (cleared ? '✓' : level.number) : '🔒'}</span><b>Level ${level.number}</b><small>${level.name}</small><span class="node-stars">${starsText}</span></button>`;
+    return `<button class="level-node ${unlocked ? 'unlocked' : 'locked'} ${cleared ? 'cleared' : ''}" data-action="level" data-level="${level.number}" ${unlocked ? '' : 'aria-disabled="true"'}><span class="node-icon">${unlocked ? (cleared ? '✓' : level.number) : '🔒'}</span><b>Level ${level.number}</b><small>${level.name}</small><small class="level-goal-mini">${goalText(level.goal)}</small><span class="node-stars">${starsText}</span></button>`;
   }).join('');
   setOverlay(`${pageHead('Cuddle Trail', 'Choose your next little adventure')}<div class="level-progress"><span>PAL POWER</span><b>${Math.min(progress.unlocked, 12)} / 12</b><div><i style="width:${Math.min(100, (progress.unlocked / 12) * 100)}%"></i></div></div><div class="levels-grid">${nodes}</div><p class="screen-note">Clear a level to unlock the next cozy stop!</p>`, { screen: 'levels' });
 }
@@ -181,6 +194,100 @@ function showCollection() {
   }).join('');
   setOverlay(`${pageHead('Pal Pouch', `${progress.unlockedTier + 1} of ${FRUITS.length} pals discovered`)}<div class="collection-grid">${pals}</div><p class="screen-note">Every pal has its own fluffy look. Merge to meet them all!</p>`, { screen: 'collection' });
 }
+function habitatByKey(key) { return HABITATS.find((habitat) => habitat.key === key) || HABITATS[0]; }
+function isHabitatOpen(habitat) { return progress.unlockedTier >= habitat.unlockTier; }
+function decorationKey(habitatKey, decorId) { return `${habitatKey}:${decorId}`; }
+function showNeighborhood(key = selectedHabitat) {
+  selectedHabitat = key;
+  const habitat = habitatByKey(key);
+  if (!isHabitatOpen(habitat)) {
+    showToast(`Meet ${FRUITS[habitat.unlockTier].name} to open ${habitat.name}!`);
+    return;
+  }
+  const tabs = HABITATS.map((item) => {
+    const open = isHabitatOpen(item);
+    return `<button class="habitat-tab ${item.key === key ? 'active' : ''} ${open ? '' : 'locked'}" data-action="habitat-select" data-habitat="${item.key}">${item.emoji}<small>${open ? item.name : `🔒 ${item.name}`}</small></button>`;
+  }).join('');
+  const residents = habitat.residents.filter((tier) => tier <= progress.unlockedTier).slice(0, 4);
+  const owned = (progress.habitatDecor || []).filter((id) => id.startsWith(`${key}:`));
+  const decorIcons = owned.map((ownedId) => {
+    const id = ownedId.split(':')[1];
+    return habitat.decor.find((item) => item.id === id)?.emoji || '';
+  }).filter(Boolean);
+  const decor = habitat.decor.map((item) => {
+    const ownedItem = owned.includes(decorationKey(key, item.id));
+    const balance = item.currency === 'stars' ? progress.stars : progress.coins;
+    return `<article class="decor-card ${ownedItem ? 'owned' : ''}"><span class="decor-icon">${item.emoji}</span><div><b>${item.name}</b><small>${ownedItem ? 'Placed in your habitat' : `${item.price} ${item.currency}`}</small></div><button data-action="buy-decor" data-habitat="${key}" data-decor="${item.id}" ${ownedItem || balance < item.price ? 'disabled' : ''}>${ownedItem ? 'Placed ✓' : balance < item.price ? 'Keep playing' : `Add ${item.currency === 'stars' ? '⭐' : '🪙'} ${item.price}`}</button></article>`;
+  }).join('');
+  setOverlay(`${pageHead('Pal Neighborhood', 'Earn coins and stars to make it cozy')}<div class="habitat-tabs">${tabs}</div><div class="habitat-intro"><h3>${habitat.emoji} ${habitat.name}</h3><p>${habitat.subtitle}</p></div><div class="habitat-stage" data-theme="${key}"><span class="scene-cloud scene-cloud-a">☁️</span><span class="scene-cloud scene-cloud-b">☁️</span><span class="scene-sun">${key === 'moon' ? '🌙' : '☀️'}</span><div class="scene-decor">${decorIcons.length ? decorIcons.map((icon) => `<span>${icon}</span>`).join('') : '<span class="empty-scene">✨ &nbsp; Your cozy touches go here &nbsp; ✨</span>'}</div><div class="scene-residents">${residents.map((tier) => `<div class="scene-pal" title="${FRUITS[tier].name}">${miniFruit(tier, 54)}</div>`).join('')}</div><div class="scene-ground"></div></div><div class="habitat-meter"><span>COZY LEVEL</span><b>${owned.length} / ${habitat.decor.length} touches</b><div><i style="width:${Math.round((owned.length / habitat.decor.length) * 100)}%"></i></div></div><div class="decor-heading"><h3>Make it yours</h3><span>Coins & stars from play</span></div><div class="decor-list">${decor}</div><p class="screen-note">No timers, no pressure—decorate whenever you like.</p>`, { screen: 'habitat' });
+}
+function buyDecoration(habitatKey, decorId) {
+  const habitat = habitatByKey(habitatKey);
+  const item = habitat.decor.find((decorItem) => decorItem.id === decorId);
+  if (!item || !isHabitatOpen(habitat)) return;
+  progress.habitatDecor ||= [];
+  const key = decorationKey(habitatKey, decorId);
+  if (progress.habitatDecor.includes(key)) return showToast('That cozy touch is already placed!');
+  const field = item.currency;
+  if (progress[field] < item.price) return showToast(`Play levels to earn more ${item.currency}!`);
+  progress[field] -= item.price;
+  progress.habitatDecor.push(key);
+  saveProgress();
+  sfx.unlock(); sfx.click(); buzz(12);
+  showNeighborhood(habitatKey);
+  showToast(`${item.name} added to ${habitat.name}!`);
+}
+function showPassport(tier) {
+  const pal = FRUITS[tier];
+  if (!pal || tier > progress.unlockedTier) return showToast(`Merge pals to meet ${pal?.name || 'this buddy'}!`);
+  const profile = PAL_PROFILES[tier];
+  const habitat = habitatByKey(profile.habitat);
+  const made = progress.palMerges?.[tier] || 0;
+  const met = progress.discoveredAt?.[tier] || 'Your first Pal Pouch entry';
+  setOverlay(`${pageHead('Pal Passport', 'A little story for every friend', 'collection')}<div class="passport-card"><div class="passport-art">${miniFruit(tier, 116)}</div><span class="passport-stamp">🐾 PAL #${String(tier + 1).padStart(2, '0')}</span><h3>${pal.name}</h3><p class="passport-personality">${profile.personality}</p><div class="passport-fact">“${profile.fact}”</div><div class="passport-stats"><div><small>HOME</small><b>${habitat.emoji} ${habitat.name}</b></div><div><small>MADE</small><b>${made || (tier === 0 ? 1 : 0)} time${made === 1 || (tier === 0 && made === 0) ? '' : 's'}</b></div><div><small>FIRST MET</small><b>${met}</b></div></div><button class="btn btn-primary" data-action="visit-habitat" data-habitat="${habitat.key}">Visit ${habitat.name}</button><button class="btn btn-quiet" data-action="collection">Back to Pal Pouch</button></div>`, { screen: 'passport' });
+}
+
+function showWeekly() {
+  const challenge = weeklyChallenge();
+  const cleared = (progress.weeklyCompleted || []).includes(challenge.key);
+  const best = progress.weeklyBests?.[challenge.key] || 0;
+  setOverlay(`${pageHead('Weekly Puzzle', 'One shared seed for everyone')}<div class="weekly-card"><div class="weekly-badge">🧩 THIS WEEK’S COZY CHALLENGE</div><div class="weekly-hero">${miniFruit((challenge.seed >>> 4) % 5, 84)}<span>✨</span>${miniFruit((challenge.seed >>> 9) % 5, 84)}</div><h3>${challenge.name}</h3><p class="weekly-goal">${goalText(challenge.goal)}</p><div class="weekly-details"><span>🎲 Same pal-drop order for everyone</span><span>🔁 Retry as often as you like</span><span>🏅 ${cleared ? 'Puzzle cleared!' : 'First clear earns 100 coins + 2 stars'}</span>${best ? `<span>🌟 Your best this week: ${formatScore(best)}</span>` : ''}</div><button class="btn btn-primary" data-action="start-weekly">${cleared ? 'Play again (practice)' : 'Start weekly puzzle'}</button><small class="weekly-refresh">New puzzle each Monday · no streaks to lose</small></div>`, { screen: 'weekly' });
+}
+function startWeekly() {
+  runMode = 'weekly';
+  activeWeekly = weeklyChallenge();
+  currentLevel = Math.min(progress.unlocked, 12);
+  goalRun = { created: 0, bestCombo: 0 };
+  levelCompleteShown = false;
+  clearTimeout(overTimer);
+  game.newGame({ seed: activeWeekly.seed });
+  sfx.unlock(); sfx.click();
+  hideOverlay();
+  state = 'playing';
+  game.start();
+  setHint(`Weekly Puzzle · ${goalText(activeWeekly.goal)}`);
+  showToast('Same weekly puzzle for everyone!');
+}
+function completeWeekly() {
+  if (levelCompleteShown || !activeWeekly) return;
+  levelCompleteShown = true;
+  state = 'over';
+  game.over = true;
+  const firstClear = !(progress.weeklyCompleted || []).includes(activeWeekly.key);
+  progress.weeklyCompleted ||= [];
+  progress.weeklyBests ||= {};
+  progress.weeklyBests[activeWeekly.key] = Math.max(progress.weeklyBests[activeWeekly.key] || 0, game.score);
+  if (firstClear) {
+    progress.weeklyCompleted.push(activeWeekly.key);
+    progress.coins += 100;
+    progress.stars += 2;
+  }
+  saveProgress();
+  sfx.win(); buzz([12, 24, 18]);
+  game.effects.push({ kind: 'confetti', x: WORLD.width / 2, y: 0, t: 0, dur: 2200, seed: Math.floor(Math.random() * 1e6) });
+  setOverlay(`<div class="result-ribbon">${firstClear ? 'WEEKLY PUZZLE CLEAR!' : 'PRACTICE COMPLETE!'}</div><div class="result-pal">${miniFruit(Math.min(game.topTier, FRUITS.length - 1), 112)}</div><h2 class="result-title">Puzzle pal!<small>${activeWeekly.name}</small></h2><p class="weekly-goal">${goalText(activeWeekly.goal)}</p><div class="reward-pills"><span>🪙 <b>${firstClear ? '+100' : '+0'}</b></span><span>⭐ <b>${firstClear ? '+2' : '+0'}</b></span></div><button class="btn btn-primary" data-action="weekly-again">Practice again</button><button class="btn btn-quiet" data-action="weekly-screen">Weekly puzzle</button><button class="btn btn-quiet" data-action="home">Home</button>`, { screen: 'result' });
+}
+
 function rewardLabel(reward) {
   if (reward.coins) return `${reward.coins} coins`;
   if (reward.stars) return `${reward.stars} ${reward.stars === 1 ? 'star' : 'stars'}`;
@@ -217,6 +324,22 @@ function showHelp(resume = false) {
 function showPaused() {
   setOverlay(`${pageHead('Taking a breather?', 'Your pals are waiting')}<div class="pause-pal">${miniFruit(game.nextTier, 100)}<span>zzz...</span></div><button class="btn btn-primary" data-action="resume">Keep playing</button><button class="btn btn-secondary" data-action="levels">Change level</button><button class="btn btn-quiet" data-action="home">Save & go home</button>`, { screen: 'pause' });
 }
+function activeGoal() {
+  return runMode === 'weekly' ? activeWeekly?.goal : LEVELS[currentLevel - 1]?.goal;
+}
+function checkActiveGoal() {
+  if (state !== 'playing' || levelCompleteShown) return;
+  const goal = activeGoal();
+  if (!goal || !goalMet(goal, goalRun, game.score, game.topTier)) return;
+  if (runMode === 'weekly') completeWeekly();
+  else completeLevel();
+}
+function currentGoalLabel() {
+  const goal = activeGoal();
+  if (!goal) return '';
+  return goalProgress(goal, goalRun, game.score, game.topTier);
+}
+
 function showGameOver(payload) {
   const top = FRUITS[Math.min(payload.topTier, FRUITS.length - 1)];
   const earned = Math.max(5, Math.floor(payload.score / 20));
@@ -233,17 +356,22 @@ function completeLevel() {
   const coins = 30 + currentLevel * 12;
   const stars = 1 + Number(game.topTier >= 2) + Number(game.topTier >= 4);
   progress.coins += coins;
-  progress.stars += stars;
   progress.levelStars ||= {};
-  progress.levelStars[currentLevel] = Math.max(progress.levelStars[currentLevel] || 0, stars);
+  const previousStars = progress.levelStars[currentLevel] || 0;
+  const newStars = Math.max(0, stars - previousStars);
+  progress.stars += newStars;
+  progress.levelStars[currentLevel] = Math.max(previousStars, stars);
   progress.unlocked = Math.max(progress.unlocked, Math.min(12, currentLevel + 1));
   saveProgress();
   sfx.win(); buzz([12, 24, 18]);
   game.effects.push({ kind: 'confetti', x: WORLD.width / 2, y: 0, t: 0, dur: 2200, seed: Math.floor(Math.random() * 1e6) });
-  setOverlay(`<div class="result-ribbon">LEVEL ${currentLevel} COMPLETE!</div><div class="result-pal">${miniFruit(Math.min(game.topTier, FRUITS.length - 1), 120)}</div><h2 class="result-title">Paw-some!<small>${level.name}</small></h2><div class="star-rating">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div><div class="reward-pills"><span>🪙 <b>+${coins}</b></span><span>⭐ <b>+${stars}</b></span></div><button class="btn btn-primary" data-action="next-level">${currentLevel < 12 ? 'Next level' : 'Play again'} <span>→</span></button><button class="btn btn-quiet" data-action="home">Home</button>`, { screen: 'result' });
+  setOverlay(`<div class="result-ribbon">LEVEL ${currentLevel} COMPLETE!</div><div class="result-pal">${miniFruit(Math.min(game.topTier, FRUITS.length - 1), 120)}</div><h2 class="result-title">Paw-some!<small>${level.name}</small></h2><div class="star-rating">${'⭐'.repeat(stars)}${'☆'.repeat(3 - stars)}</div><div class="reward-pills"><span>🪙 <b>+${coins}</b></span><span>⭐ <b>+${newStars}</b></span></div><button class="btn btn-primary" data-action="next-level">${currentLevel < 12 ? 'Next level' : 'Play again'} <span>→</span></button><button class="btn btn-quiet" data-action="home">Home</button>`, { screen: 'result' });
 }
 function startLevel(level = currentLevel) {
+  runMode = 'level';
+  activeWeekly = null;
   currentLevel = clamp(Number(level), 1, progress.unlocked);
+  goalRun = { created: 0, bestCombo: 0 };
   levelCompleteShown = false;
   clearTimeout(overTimer);
   game.newGame();
@@ -251,10 +379,10 @@ function startLevel(level = currentLevel) {
   hideOverlay();
   state = 'playing';
   game.start();
-  setHint(`${LEVELS[currentLevel - 1].name} · score ${LEVELS[currentLevel - 1].target} to win`);
+  setHint(`${LEVELS[currentLevel - 1].name} · ${goalText(LEVELS[currentLevel - 1].goal)}`);
   showToast(`Level ${currentLevel}: ${LEVELS[currentLevel - 1].name}`);
 }
-function restart() { startLevel(currentLevel); }
+function restart() { if (runMode === 'weekly') startWeekly(); else startLevel(currentLevel); }
 function home() {
   state = 'intro';
   game.over = true;
@@ -268,8 +396,8 @@ function setHint(text, tone = '') {
 function updateHint(dt) {
   if (hintHold > 0) { hintHold -= dt; return; }
   if (state === 'playing') {
-    const target = LEVELS[currentLevel - 1];
-    setHint(`${target.name} · ${formatScore(Math.max(0, target.target - game.score))} to goal`, game.dangerLevel() > 0.42 ? 'warn' : '');
+    const label = runMode === 'weekly' ? 'Weekly Puzzle' : LEVELS[currentLevel - 1].name;
+    setHint(`${label} · ${currentGoalLabel()}`, game.dangerLevel() > 0.42 ? 'warn' : '');
   }
 }
 function showToast(message) {
@@ -338,6 +466,13 @@ overlay.addEventListener('click', async (event) => {
   else if (action === 'home') home();
   else if (action === 'levels') showLevels();
   else if (action === 'collection') showCollection();
+  else if (action === 'neighborhood') showNeighborhood();
+  else if (action === 'habitat-select') showNeighborhood(button.dataset.habitat);
+  else if (action === 'buy-decor') buyDecoration(button.dataset.habitat, button.dataset.decor);
+  else if (action === 'visit-habitat') showNeighborhood(button.dataset.habitat);
+  else if (action === 'weekly') showWeekly();
+  else if (action === 'start-weekly' || action === 'weekly-again') startWeekly();
+  else if (action === 'weekly-screen') showWeekly();
   else if (action === 'rewards') showRewards();
   else if (action === 'settings') showSettings();
   else if (action === 'help') showHelp(state === 'playing');
@@ -349,11 +484,7 @@ overlay.addEventListener('click', async (event) => {
   else if (action === 'haptic-setting') { haptics = !haptics; try { localStorage.setItem('fluffy.haptics', haptics ? 'on' : 'off'); } catch { /* optional */ } showSettings(); }
   else if (action === 'next-level') startLevel(Math.min(currentLevel + 1, 12));
   else if (action === 'share') shareScore();
-  else if (action === 'buddy') {
-    const tier = Number(button.dataset.tier);
-    const pal = FRUITS[tier];
-    showToast(tier <= progress.unlockedTier ? `${pal.name} says hi! ♡` : `Merge pals to meet ${pal.name}!`);
-  }
+  else if (action === 'buddy') showPassport(Number(button.dataset.tier));
 });
 
 function toggleSound() {
@@ -384,6 +515,6 @@ function frame(now) {
 }
 
 // Handy dev handle for inspecting save data and screen flow.
-if (import.meta.env?.DEV) window.__paperfold = { game, renderer, sfx, get progress() { return progress; }, get state() { return state; }, showHome, showLevels, showRewards, showCollection, showSettings };
+if (import.meta.env?.DEV) window.__paperfold = { game, renderer, sfx, get progress() { return progress; }, get state() { return state; }, get runMode() { return runMode; }, get goalRun() { return goalRun; }, get activeWeekly() { return activeWeekly; }, showHome, showLevels, showRewards, showCollection, showSettings, showNeighborhood, showWeekly, checkActiveGoal };
 showHome();
 requestAnimationFrame((t) => { last = t; frame(t); });

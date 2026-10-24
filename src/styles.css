@@ -635,7 +635,7 @@ body {
 .btn-primary:active { box-shadow:inset 0 1px rgba(255,255,255,.5),0 1px 0 #d88c31; }
 .btn-play { position:relative; margin:8px 0 10px; padding:14px 18px; font-size:15px; color:#684316; }
 .btn-play span { position:absolute; right:18px; font-size:15px; }
-.home-shortcuts { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+.home-shortcuts { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; }
 .shortcut { min-width:0; display:grid; justify-items:center; gap:3px; padding:8px 2px 7px; border:1px solid #e8def2; border-radius:16px; background:linear-gradient(#fff,#f7f2fc); color:#78638e; font:800 9px var(--font); cursor:pointer; box-shadow:0 3px 0 #e6d9f0; }
 .shortcut span { font-size:22px; line-height:1.05; }
 .shortcut:active { transform:translateY(2px); box-shadow:0 1px 0 #e6d9f0; }
@@ -709,3 +709,51 @@ body {
   }
   * { scroll-behavior: auto; }
 }
+
+/* Neighborhood, weekly puzzle and Pal Passport */
+.habitat-tabs { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin:0 0 10px; }
+.habitat-tab { display:grid; justify-items:center; gap:3px; padding:7px 2px; border:1px solid #e7def0; border-radius:14px; background:linear-gradient(#fff,#f5effa); color:#78648d; font-size:19px; cursor:pointer; box-shadow:0 2px 0 #e6d9ef; }
+.habitat-tab small { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:7px; font-weight:800; }
+.habitat-tab.active { border-color:#b99be6; background:linear-gradient(#f8f0ff,#e9dcfb); box-shadow:0 2px 0 #bba2dc; }
+.habitat-tab.locked { filter:saturate(.45); opacity:.7; }
+.habitat-intro h3,.decor-heading h3 { margin:4px 0 2px; color:#624b7b; font-size:15px; }
+.habitat-intro p { margin:0 0 8px; color:#9c89a9; font-size:9px; }
+.habitat-stage { position:relative; display:flex; flex-direction:column; justify-content:flex-end; min-height:180px; padding:10px 8px 18px; overflow:hidden; border:1px solid rgba(193,174,220,.7); border-radius:23px; background:linear-gradient(180deg,#cde9ff 0%,#ebf5ff 55%,#dce9fa 100%); box-shadow:inset 0 2px rgba(255,255,255,.75),0 5px 13px rgba(88,67,120,.11); }
+.habitat-stage[data-theme='forest'] { background:linear-gradient(180deg,#c8edda 0%,#edf9e8 56%,#c4e3c7 100%); }
+.habitat-stage[data-theme='moon'] { background:linear-gradient(180deg,#7775ac 0%,#bcb0e4 55%,#eddefb 100%); }
+.scene-cloud { position:absolute; z-index:0; top:17px; font-size:38px; opacity:.72; filter:drop-shadow(0 4px 3px rgba(97,92,138,.1)); animation:cloudFloat 4s ease-in-out infinite; }
+.scene-cloud-a { left:8%; }.scene-cloud-b { top:37px; right:9%; font-size:30px; animation-delay:1.2s; }
+@keyframes cloudFloat { 50% { transform:translateY(-5px); } }
+.scene-sun { position:absolute; right:16%; top:12px; font-size:27px; filter:drop-shadow(0 2px 5px #fff7); }
+.habitat-stage[data-theme='moon'] .scene-cloud { opacity:.36; }
+.scene-decor { position:absolute; z-index:1; top:8px; left:8px; right:8px; min-height:30px; display:flex; justify-content:center; align-items:center; gap:5px; }
+.scene-decor span { display:grid; place-items:center; min-width:28px; height:28px; padding:2px; border-radius:10px; background:rgba(255,255,255,.78); font-size:18px; box-shadow:0 2px 5px rgba(87,68,115,.1); animation:decorPop .3s ease both; }
+.scene-decor .empty-scene { background:transparent; box-shadow:none; color:#887ba4; font-size:9px; font-weight:800; }
+@keyframes decorPop { from { transform:scale(.5); opacity:0; } to { transform:scale(1); opacity:1; } }
+.scene-residents { position:relative; z-index:2; display:flex; align-items:flex-end; justify-content:center; gap:4px; margin:20px auto 0; }
+.scene-pal { width:58px; height:68px; display:grid; place-items:end center; animation:residentBob 2.6s ease-in-out infinite; }
+.scene-pal:nth-child(even) { animation-delay:.7s; }
+@keyframes residentBob { 50% { transform:translateY(-4px) rotate(2deg); } }
+.scene-ground { position:absolute; z-index:1; bottom:-28px; left:-5%; width:110%; height:76px; border-radius:50% 50% 0 0; background:linear-gradient(180deg,#a9d8b3,#81c696); box-shadow:0 -5px 12px rgba(98,159,119,.12); }
+.habitat-stage[data-theme='forest'] .scene-ground { background:linear-gradient(180deg,#82c38b,#4f9a6e); }
+.habitat-stage[data-theme='moon'] .scene-ground { background:linear-gradient(180deg,#d6bdf1,#a98cd6); }
+.habitat-meter { display:grid; grid-template-columns:1fr auto; gap:4px; margin:9px 2px 7px; text-align:left; color:#9c8ba9; font-size:8px; font-weight:900; letter-spacing:.7px; }
+.habitat-meter b { color:#705986; }.habitat-meter div { grid-column:1/-1; height:6px; border-radius:99px; overflow:hidden; background:#eee6f5; }.habitat-meter i { display:block; height:100%; border-radius:99px; background:linear-gradient(90deg,#8dd0a0,#a98cdf); }
+.decor-heading { display:flex; align-items:baseline; justify-content:space-between; margin:6px 1px; }.decor-heading span { color:#a291ae; font-size:8px; }
+.decor-list { display:grid; gap:6px; max-height:230px; overflow:auto; padding:2px 3px 4px; }
+.decor-card { display:flex; align-items:center; gap:8px; padding:7px; border:1px solid #e9dff2; border-radius:14px; background:rgba(255,255,255,.8); text-align:left; box-shadow:0 2px 0 #ebdff1; }
+.decor-card.owned { background:#f0faef; border-color:#d3e8d2; }
+.decor-icon { flex:0 0 34px; display:grid; place-items:center; width:34px; height:34px; border-radius:11px; background:#f3edfa; font-size:21px; }
+.decor-card div { display:grid; flex:1; gap:2px; min-width:0; }.decor-card b { color:#66517c; font-size:9px; }.decor-card small { color:#a18daa; font-size:7px; }
+.decor-card button { max-width:112px; padding:6px 7px; border:0; border-radius:10px; background:#f4c95d; color:#6d501c; font:800 7px var(--font); cursor:pointer; box-shadow:0 2px 0 #deb34c; }
+.decor-card button:disabled { background:#eee9f2; color:#95889e; box-shadow:none; opacity:.85; cursor:default; }
+
+.weekly-card { padding:7px 5px 0; }.weekly-badge { display:inline-block; padding:6px 11px; border-radius:99px; background:#ebe2ff; color:#755e9c; font-size:8px; font-weight:1000; letter-spacing:.8px; }
+.weekly-hero { display:flex; align-items:center; justify-content:center; gap:7px; min-height:108px; margin:7px 0 2px; border-radius:20px; background:linear-gradient(135deg,#eef6ff,#f5eaff); }.weekly-hero span { color:#f2bd4f; font-size:22px; }
+.weekly-card h3 { margin:5px 0 2px; color:#5e477a; font-size:21px; }.weekly-goal { margin:4px 0 9px; color:#856e9b; font-size:11px; font-weight:800; }
+.weekly-details { display:grid; gap:6px; margin:8px 0 13px; padding:11px; border-radius:15px; background:#f8f4fc; color:#877592; text-align:left; font-size:9px; }
+.weekly-refresh { display:block; margin:8px 0 2px; color:#a191ae; font-size:8px; }
+.passport-card { display:grid; justify-items:center; padding:4px 8px 0; }.passport-art { display:grid; place-items:center; width:145px; height:145px; border-radius:50%; background:radial-gradient(circle,#fff,#efe7fa); box-shadow:inset 0 2px 8px #d9cbe9; }
+.passport-stamp { margin-top:8px; color:#9a81b2; font-size:8px; font-weight:1000; letter-spacing:1.4px; }.passport-card h3 { margin:2px 0 0; color:#5e477a; font-size:23px; }.passport-personality { margin:2px 0 10px; color:#d778a0; font-size:11px; font-weight:800; }.passport-fact { max-width:300px; padding:11px 14px; border-radius:15px; background:#f8f1fd; color:#79668b; font-size:10px; font-style:italic; line-height:1.45; }
+.passport-stats { width:100%; display:grid; gap:5px; margin:11px 0 5px; }.passport-stats div { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:12px; background:#fff; border:1px solid #eee5f5; }.passport-stats small { color:#a08cac; font-size:7px; font-weight:900; letter-spacing:.8px; }.passport-stats b { color:#705a87; font-size:9px; text-align:right; }
+@media (prefers-reduced-motion: reduce) { .scene-cloud,.scene-pal,.scene-decor span { animation:none; } }
