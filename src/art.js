@@ -106,8 +106,63 @@ function drawFuzz(ctx, buddy, cx, cy, rx, ry, r, random) {
   ctx.restore();
 }
 
+/** Draw a separate expressive face layer so game sprites can blink and glance. */
+export function drawBuddyFace(ctx, buddy, r, look = 0, closed = false) {
+  const faceY = -r * 0.12;
+  const eyeR = Math.max(1.35, r * 0.105);
+  const eyeX = r * 0.28;
+  const blush = `${buddy.accent}aa`;
+  ellipse(ctx, -r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, blush);
+  ellipse(ctx, r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, blush);
+
+  if (closed) {
+    ctx.strokeStyle = '#594454';
+    ctx.lineWidth = Math.max(0.9, r * 0.065);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    [-1, 1].forEach((side) => {
+      const x = side * eyeX;
+      ctx.beginPath();
+      ctx.moveTo(x - eyeR * 1.15, faceY + eyeR * 0.18);
+      ctx.quadraticCurveTo(x, faceY - eyeR * 0.95, x + eyeR * 1.15, faceY + eyeR * 0.18);
+      ctx.stroke();
+    });
+  } else {
+    [-1, 1].forEach((side) => {
+      const x = side * eyeX;
+      // Warm ivory eye whites make the tiny moving pupils easy to read.
+      ellipse(ctx, x, faceY, eyeR * 1.28, eyeR * 1.5, '#fff9ff');
+      const pupilX = x + look * eyeR * 0.52;
+      ellipse(ctx, pupilX, faceY + eyeR * 0.1, eyeR * 0.76, eyeR * 0.92, '#342a3c');
+      ellipse(ctx, pupilX - eyeR * 0.19, faceY - eyeR * 0.28, eyeR * 0.25, eyeR * 0.25, '#fff');
+    });
+  }
+
+  // Tiny beak or nose, plus a little curved smile.
+  if (buddy.species === 'chick' || buddy.species === 'penguin' || buddy.species === 'owl') {
+    ctx.fillStyle = buddy.accent;
+    ctx.beginPath();
+    ctx.moveTo(0, faceY + r * 0.11);
+    ctx.lineTo(-r * 0.1, faceY + r * 0.23);
+    ctx.quadraticCurveTo(0, faceY + r * 0.32, r * 0.1, faceY + r * 0.23);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ellipse(ctx, 0, faceY + r * 0.14, Math.max(1, r * 0.07), Math.max(0.9, r * 0.055), buddy.species === 'fox' ? '#60403a' : buddy.accent);
+  }
+  ctx.strokeStyle = '#5a4050';
+  ctx.lineWidth = Math.max(0.65, r * 0.035);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, faceY + r * 0.18);
+  ctx.quadraticCurveTo(-r * 0.035, faceY + r * 0.28, -r * 0.1, faceY + r * 0.27);
+  ctx.moveTo(0, faceY + r * 0.18);
+  ctx.quadraticCurveTo(r * 0.035, faceY + r * 0.28, r * 0.1, faceY + r * 0.27);
+  ctx.stroke();
+}
+
 /** Render one soft, fuzzy companion into a cached canvas sprite. */
-export function makeFruitSprite(buddy, resolution = 2) {
+export function makeFruitSprite(buddy, resolution = 2, withFace = true) {
   const r = buddy.r;
   const pad = Math.ceil(r * 0.82) + 10;
   const size = Math.ceil((r + pad) * 2);
@@ -193,41 +248,6 @@ export function makeFruitSprite(buddy, resolution = 2) {
     ellipse(ctx, cx + r * 0.23, cy + r * 0.77, r * 0.22, r * 0.1, buddy.accent);
   }
 
-  // Soft cheek blush.
-  const faceY = cy - r * 0.12;
-  ellipse(ctx, cx - r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, `${buddy.accent}aa`);
-  ellipse(ctx, cx + r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, `${buddy.accent}aa`);
-
-  // Shiny bead eyes with tiny catchlights.
-  const eye = buddy.species === 'panda' ? '#302b36' : '#342a3c';
-  const eyeR = Math.max(1.35, r * 0.105);
-  [-1, 1].forEach((side) => {
-    ellipse(ctx, cx + side * r * 0.28, faceY, eyeR, eyeR * 1.2, eye);
-    ellipse(ctx, cx + side * r * 0.28 - eyeR * 0.23, faceY - eyeR * 0.32, eyeR * 0.32, eyeR * 0.32, '#fff');
-  });
-
-  // Beak or tiny heart-shaped nose and smile.
-  if (buddy.species === 'chick' || buddy.species === 'penguin' || buddy.species === 'owl') {
-    ctx.fillStyle = buddy.accent;
-    ctx.beginPath();
-    ctx.moveTo(cx, faceY + r * 0.11);
-    ctx.lineTo(cx - r * 0.1, faceY + r * 0.23);
-    ctx.quadraticCurveTo(cx, faceY + r * 0.32, cx + r * 0.1, faceY + r * 0.23);
-    ctx.closePath();
-    ctx.fill();
-  } else {
-    ellipse(ctx, cx, faceY + r * 0.14, Math.max(1, r * 0.07), Math.max(0.9, r * 0.055), buddy.species === 'fox' ? '#60403a' : buddy.accent);
-  }
-  ctx.strokeStyle = '#5a4050';
-  ctx.lineWidth = Math.max(0.65, r * 0.035);
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx, faceY + r * 0.18);
-  ctx.quadraticCurveTo(cx - r * 0.035, faceY + r * 0.28, cx - r * 0.1, faceY + r * 0.27);
-  ctx.moveTo(cx, faceY + r * 0.18);
-  ctx.quadraticCurveTo(cx + r * 0.035, faceY + r * 0.28, cx + r * 0.1, faceY + r * 0.27);
-  ctx.stroke();
-
   // Higher tiers earn a tiny accessory so progression reads at a glance.
   if (buddy.species === 'lamb' || buddy.species === 'unicorn') {
     for (let i = -1; i <= 1; i++) {
@@ -239,6 +259,13 @@ export function makeFruitSprite(buddy, resolution = 2) {
   }
   if (buddy.species === 'unicorn') {
     ellipse(ctx, cx + r * 0.48, cy - r * 0.69, r * 0.18, r * 0.13, '#fb91c8');
+  }
+
+  if (withFace) {
+    ctx.save();
+    ctx.translate(cx, cy);
+    drawBuddyFace(ctx, buddy, r);
+    ctx.restore();
   }
 
   return { canvas, size, pad, resolution };

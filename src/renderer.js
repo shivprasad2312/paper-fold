@@ -1,7 +1,7 @@
 import { FRUITS } from './fruits.js';
 import { WORLD } from './game.js';
 import { TAU, clamp, easeOutCubic, mulberry32, hexA, roundRect } from './utils.js';
-import { makeFruitSprite, drawPageTexture, drawTornStrip, font } from './art.js';
+import { makeFruitSprite, drawBuddyFace, drawPageTexture, drawTornStrip, font } from './art.js';
 
 const RATIO = WORLD.width / WORLD.height;
 const DANGER_COLOR = '#e979a8';
@@ -20,7 +20,7 @@ export class Renderer {
     this.w = 0;
     this.h = 0;
     this.page = null;
-    this.sprites = FRUITS.map((f) => makeFruitSprite(f, 2));
+    this.sprites = FRUITS.map((f) => makeFruitSprite(f, 2, false));
     this.shake = 0;
     this.time = 0;
     this.aim = WORLD.width / 2;
@@ -30,6 +30,28 @@ export class Renderer {
 
   bump(amount) {
     this.shake = Math.min(13, this.shake + amount);
+  }
+
+  faceMood(seed = 0) {
+    const phase = ((this.time / 1000 + seed * 0.371) % 6.2 + 6.2) % 6.2;
+    const look = phase < 1.05 ? -1 : phase > 2.05 && phase < 3.1 ? 1 : 0;
+    const blink = (phase > 4.55 && phase < 4.72) || (phase > 4.92 && phase < 5.08);
+    return { look, blink };
+  }
+
+  drawBuddy(ctx, tier, x, y, size, angle = 0, seed = 0) {
+    const sprite = this.sprites[tier];
+    const buddy = FRUITS[tier];
+    const radius = buddy.r * (size / sprite.size);
+    const { look, blink } = this.faceMood(seed);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
+    // The sprite body's center sits just below the image center.
+    ctx.translate(0, radius * 0.04);
+    drawBuddyFace(ctx, buddy, radius, look, blink);
+    ctx.restore();
   }
 
   resize() {
@@ -200,14 +222,17 @@ export class Renderer {
     ctx.letterSpacing = '0px';
 
     const nextFruit = FRUITS[this.game.nextTier];
-    const sprite = this.sprites[this.game.nextTier];
     const art = Math.min(cardH * 0.72, nextW * 0.5);
     const bob = Math.sin(this.time / 260) * 1.3;
-    ctx.save();
-    ctx.translate(nx + nextW - 10 - art / 2, cardY + cardH * 0.54 + bob);
-    ctx.rotate(Math.sin(this.time / 700) * 0.07);
-    ctx.drawImage(sprite.canvas, -art / 2, -art / 2, art, art);
-    ctx.restore();
+    this.drawBuddy(
+      ctx,
+      this.game.nextTier,
+      nx + nextW - 10 - art / 2,
+      cardY + cardH * 0.54 + bob,
+      art,
+      Math.sin(this.time / 700) * 0.07,
+      this.game.nextTier + 29
+    );
 
     ctx.font = font(700, clamp(cardH * 0.14, 8, 9.4));
     ctx.fillStyle = '#75608f';
@@ -492,11 +517,7 @@ export class Renderer {
       const popT = clamp(1 - fruit.pop, 0, 1);
       const popScale = fruit.pop > 0 ? 0.45 + 0.55 * easeOutBack(popT) : 1;
       const size = sprite.size * k * popScale;
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(fruit.body.angle);
-      ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
-      ctx.restore();
+      this.drawBuddy(ctx, fruit.tier, p.x, p.y, size, fruit.body.angle, fruit.id);
     }
     ctx.restore();
   }
@@ -510,9 +531,7 @@ export class Renderer {
       const size = sprite.size * k * (1 - progress * 0.5);
       ctx.save();
       ctx.globalAlpha = 1 - progress * 0.75;
-      ctx.translate(p.x, p.y);
-      ctx.rotate(progress * 0.5);
-      ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
+      this.drawBuddy(ctx, item.tier - 1, p.x, p.y, size, progress * 0.5, item.tier + 37);
       ctx.restore();
     }
   }
@@ -543,9 +562,7 @@ export class Renderer {
     ctx.fill();
 
     ctx.globalAlpha = this.game.canDrop() ? 1 : 0.55;
-    ctx.translate(p.x, p.y + bob);
-    ctx.rotate(Math.sin(this.time / 520) * 0.05);
-    ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
+    this.drawBuddy(ctx, tier, p.x, p.y + bob, size, Math.sin(this.time / 520) * 0.05, tier + 53);
     ctx.restore();
   }
 
@@ -578,7 +595,6 @@ export class Renderer {
     ctx.restore();
 
     for (let i = 0; i < count; i++) {
-      const sprite = this.sprites[i];
       const size = h * (0.66 + (FRUITS[i].r / maxR) * 0.34);
       const cx = x + slot * (i + 0.5);
       const cy = y + h - size * 0.47;
@@ -596,7 +612,7 @@ export class Renderer {
         ctx.stroke();
         ctx.globalAlpha = 0.34;
       }
-      ctx.drawImage(sprite.canvas, -size / 2, -size / 2, size, size);
+      this.drawBuddy(ctx, i, 0, 0, size, 0, i + 79);
       ctx.restore();
     }
   }

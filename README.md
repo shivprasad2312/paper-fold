@@ -5,8 +5,9 @@ the cuddle jar, merge two matching buddies into a bigger one, and build a whole
 collection—from tiny Bunbun to legendary Starlight.
 
 Built with vanilla JavaScript, Canvas 2D and Matter.js. Character sprites are
-procedurally drawn with plush shading, cheeky faces and fine fur strokes. The
-home screen features a custom AI-generated bunny portrait.
+procedurally drawn with plush shading, cheeky faces and fine fur strokes. In play,
+pals blink and glance left or right. The home screen features a custom
+AI-generated bunny portrait.
 
 ## Run locally
 
