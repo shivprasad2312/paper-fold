@@ -16,4 +16,5 @@ mobile/.idea/
 # Generated browser preview artifacts (web/tools/preview.mjs)
 preview-*.png
 .tmp-*
+/mobile-flutter-project.zip
 .DS_Store
