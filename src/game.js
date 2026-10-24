@@ -188,8 +188,11 @@ export class Game {
     const vx = (fa.body.velocity.x + fb.body.velocity.x) / 2;
     const vy = (fa.body.velocity.y + fb.body.velocity.y) / 2;
 
-    this.removeFruit(fa, false);
-    this.removeFruit(fb, false);
+    // Remove both physics bodies immediately. The short pending sprite below is
+    // presentation only; leaving these bodies in Matter would make invisible,
+    // unrendered fruit continue to block the pile.
+    this.removeFruit(fa);
+    this.removeFruit(fb);
     this.pending.push({ x, y, vx, vy, tier, t: 0, dur: MERGE_TWEEN });
 
     this.combo = this.now - this.lastMergeAt <= COMBO_WINDOW ? this.combo + 1 : 1;

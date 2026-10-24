@@ -3,6 +3,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Game, WORLD, pickSpawnTier } from '../src/game.js';
 import { FRUITS, SPAWN_WEIGHTS } from '../src/fruits.js';
+import Matter from 'matter-js';
 
 const STEP = 1000 / 60;
 
@@ -47,6 +48,14 @@ test('two of a kind fold into the next tier and score', () => {
   assert.ok(
     game.fruits.some((f) => f.tier === 1),
     'a tier-1 fruit exists after the fold'
+  );
+  const worldBodies = Matter.Composite.allBodies(game.world);
+  assert.ok(!worldBodies.includes(a.body), 'first merged body was removed from physics');
+  assert.ok(!worldBodies.includes(b.body), 'second merged body was removed from physics');
+  assert.equal(
+    worldBodies.length,
+    game.statics.length + game.fruits.length,
+    'no invisible merged bodies remain in the physics world'
   );
 });
 
