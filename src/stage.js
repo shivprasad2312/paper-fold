@@ -3,7 +3,6 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { glowTexture } from './textures.js';
 
 // Camera: a near-isometric 3/4 view, slightly yawed for that tilted-grid look.
 const YAW = 0.20;
@@ -19,12 +18,16 @@ export class Stage {
       powerPreference: 'high-performance',
       alpha: false,
     });
-    this.renderer.setClearColor(0x05070f, 1);
+    this.renderer.setClearColor(0x020309, 1);
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.08;
+    this.renderer.toneMappingExposure = 1.12;
+    // Real-time shadows: soft sun from high above.
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x020309);
 
     this.camera = new THREE.OrthographicCamera(-8, 8, 8, -8, 0.1, 260);
     this.camera.up.set(0, 1, 0);
@@ -47,11 +50,11 @@ export class Stage {
     this.quality = 1;
 
     this.buildLights();
-    this.buildDust();
+    this.buildStars();
 
     this.composer = new EffectComposer(this.renderer);
     this.composer.addPass(new RenderPass(this.scene, this.camera));
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.55, 0.5, 0.92);
+    this.bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.5, 0.5, 0.94);
     this.composer.addPass(this.bloom);
     this.composer.addPass(new OutputPass());
 
@@ -59,55 +62,65 @@ export class Stage {
   }
 
   buildLights() {
-    const hemi = new THREE.HemisphereLight(0xa8d4ff, 0x121a2c, 1.5);
+    // Soft daylight from the sky; the ground side stays dark space.
+    const hemi = new THREE.HemisphereLight(0xdde6f2, 0x0a0d14, 0.85);
     this.scene.add(hemi);
 
-    const key = new THREE.DirectionalLight(0xdfefff, 2.6);
-    key.position.set(-6, 12, 8);
+    // The sun: high above, slightly forward-left, casting the level's shadow.
+    const key = new THREE.DirectionalLight(0xfff6e8, 3.0);
+    key.position.set(10, 42, 14);
+    key.castShadow = true;
+    key.shadow.mapSize.set(2048, 2048);
+    key.shadow.camera.near = 8;
+    key.shadow.camera.far = 120;
+    key.shadow.camera.left = -14;
+    key.shadow.camera.right = 14;
+    key.shadow.camera.top = 14;
+    key.shadow.camera.bottom = -14;
+    key.shadow.bias = -0.0004;
+    key.shadow.normalBias = 0.03;
+    key.shadow.radius = 6;
+    key.shadow.blurSamples = 16;
     this.scene.add(key);
+    this.scene.add(key.target);
+    this.key = key;
 
-    const rim = new THREE.DirectionalLight(0x4f86ff, 1.3);
-    rim.position.set(8, 5, -10);
-    this.scene.add(rim);
+    // A faint cool fill so the shadowed faces aren't pure black.
+    const fill = new THREE.DirectionalLight(0x9db8e8, 0.5);
+    fill.position.set(-18, 26, -20);
+    this.scene.add(fill);
 
-    const warm = new THREE.PointLight(0xff5ad9, 15, 26, 2);
-    warm.position.set(-5, 6, -6);
-    this.scene.add(warm);
-
-    const cool = new THREE.PointLight(0x4fd3f7, 13, 24, 2);
-    cool.position.set(6, 4, 6);
-    this.scene.add(cool);
-
-    this.ambientLights = { hemi, key, rim, warm, cool };
+    this.ambientLights = { hemi, key, fill };
   }
 
-  buildDust() {
-    const count = 260;
+  /** A distant shell of faint stars — the floating-in-space void. */
+  buildStars() {
+    const count = 700;
     const pos = new Float32Array(count * 3);
-    const seed = new Float32Array(count);
+    const size = new Float32Array(count);
     for (let i = 0; i < count; i++) {
-      pos[i * 3 + 0] = (Math.random() - 0.5) * 40;
-      pos[i * 3 + 1] = Math.random() * 16 - 4;
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 40;
-      seed[i] = Math.random() * Math.PI * 2;
+      const r = 60 + Math.random() * 70;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      pos[i * 3 + 0] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.cos(phi) * 0.72 + 8;
+      pos[i * 3 + 2] = r * Math.sin(phi) * Math.sin(theta);
+      size[i] = Math.random() < 0.12 ? 0.8 : 0.4;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setAttribute('aSize', new THREE.BufferAttribute(size, 1));
     const m = new THREE.PointsMaterial({
-      size: 0.5,
-      map: glowTexture(),
-      color: 0x8fc8ff,
-      transparent: true,
-      opacity: 0.35,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      color: 0xc9d6ec,
+      size: 0.55,
       sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
     });
-    this.dust = new THREE.Points(g, m);
-    this.dust.frustumCulled = false;
-    this.scene.add(this.dust);
-    this.dustSeed = seed;
-    this.dustBase = pos.slice();
+    this.stars = new THREE.Points(g, m);
+    this.stars.frustumCulled = false;
+    this.scene.add(this.stars);
   }
 
   /** Fit the orthographic view around a level's world bounds. */
@@ -123,6 +136,21 @@ export class Stage {
     }
     this.target.copy(this.levelCenter);
     this.focus.set(0, 0, 0);
+
+    // Aim the sun at the level and size its shadow frustum to cover it.
+    const cx = this.levelCenter.x;
+    const cz = this.levelCenter.z;
+    const span = Math.max(max.x - min.x, max.z - min.z) * 0.5 + 5.5;
+    const sc = this.key.shadow.camera;
+    sc.left = -span;
+    sc.right = span;
+    sc.top = span;
+    sc.bottom = -span;
+    sc.updateProjectionMatrix();
+    this.key.position.set(cx + 9, max.y + 34, cz + 13);
+    this.key.target.position.set(cx, 0, cz);
+    this.key.target.updateMatrixWorld();
+
     this.applyFit();
   }
 
@@ -165,13 +193,22 @@ export class Stage {
     this.applyFit();
   }
 
-  /** Called when the device can't keep up: drop the expensive passes. */
+  /**
+   * Called (up to twice) when the device can't keep up:
+   * stage 2 drops shadow mapping, stage 3 drops bloom + resolution.
+   */
   reduceQuality() {
-    if (!this.bloomEnabled) return;
-    this.bloomEnabled = false;
-    this.bloom.enabled = false;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
-    this.composer.setPixelRatio?.(Math.min(window.devicePixelRatio || 1, 1.25));
+    if (this.quality >= 3) return;
+    this.quality++;
+    if (this.quality === 2) {
+      this.key.castShadow = false;
+    } else if (this.quality === 3) {
+      this.bloomEnabled = false;
+      this.bloom.enabled = false;
+      const pr = Math.min(window.devicePixelRatio || 1, 1.25);
+      this.renderer.setPixelRatio(pr);
+      this.composer.setPixelRatio?.(pr);
+    }
   }
 
   shake(amount = 0.25) {
@@ -192,17 +229,8 @@ export class Stage {
   update(dt) {
     this.time += dt;
 
-    // dust drift
-    if (this.dust) {
-      const arr = this.dust.geometry.attributes.position.array;
-      for (let i = 0; i < this.dustSeed.length; i++) {
-        const s = this.dustSeed[i];
-        arr[i * 3 + 1] += dt * (0.09 + 0.06 * Math.sin(s));
-        arr[i * 3 + 0] += dt * 0.05 * Math.sin(this.time * 0.25 + s);
-        if (arr[i * 3 + 1] > 14) arr[i * 3 + 1] = -5;
-      }
-      this.dust.geometry.attributes.position.needsUpdate = true;
-    }
+    // stars drift almost imperceptibly
+    if (this.stars) this.stars.rotation.y += dt * 0.004;
 
     // gentle camera easing
     const desired = new THREE.Vector3(

@@ -7,6 +7,8 @@ import { parseLevel, DIRS, checkRoll, key } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 const ROLL_TIME = 0.17;
+// Vivid cube colour per level, like EDGE's recolouring between stages.
+const CUBE_COLORS = [0xff5ad9, 0x5be07c, 0x5b8cff, 0xff9f3d, 0xffd14d, 0xb07cff, 0x7dffce, 0xff6a5e, 0x4fd8ff, 0xff8a4f, 0xff4f8e, 0xc8ff5e];
 const DROP_TIME = 0.11;
 const HALF = 0.5;
 const ORB_KILL_RADIUS = 0.62;
@@ -56,21 +58,22 @@ export class Game {
   buildCube() {
     const geo = new RoundedBoxGeometry(0.93, 0.93, 0.93, 4, 0.09);
     const mat = new THREE.MeshStandardMaterial({
-      color: 0x8ea9d6,
-      roughness: 0.38,
-      metalness: 0.35,
-      emissive: new THREE.Color(0x16307a),
-      emissiveIntensity: 0.5,
+      color: 0xff5ad9,
+      roughness: 0.34,
+      metalness: 0.1,
+      emissive: new THREE.Color(0xff5ad9).multiplyScalar(0.12),
+      emissiveIntensity: 1,
     });
+    this.cubeMat = mat;
     this.cubeMesh = new THREE.Mesh(geo, mat);
+    this.cubeMesh.castShadow = true;
 
     const edges = new THREE.LineSegments(
       new THREE.EdgesGeometry(new THREE.BoxGeometry(0.99, 0.99, 0.99), 30),
       new THREE.LineBasicMaterial({
-        color: 0x7fe9ff,
+        color: 0xffffff,
         transparent: true,
-        opacity: 0.55,
-        blending: THREE.AdditiveBlending,
+        opacity: 0.22,
         depthWrite: false,
       }),
     );
@@ -79,35 +82,19 @@ export class Game {
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: glowTexture(),
-        color: 0x63d8ff,
+        color: 0xffffff,
         transparent: true,
-        opacity: 0.3,
+        opacity: 0.1,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
-    glow.scale.setScalar(1.8);
+    glow.scale.setScalar(1.7);
     this.cubeMesh.add(glow);
     this.cubeGlow = glow;
 
     this.cubeMesh.visible = false;
     this.stage.scene.add(this.cubeMesh);
-
-    // soft contact shadow under the cube
-    const shadow = new THREE.Mesh(
-      new THREE.CircleGeometry(0.52, 28),
-      new THREE.MeshBasicMaterial({
-        map: glowTexture(),
-        color: 0x000000,
-        transparent: true,
-        opacity: 0.5,
-        depthWrite: false,
-      }),
-    );
-    shadow.rotation.x = -Math.PI / 2;
-    this.cubeShadow = shadow;
-    this.cubeShadow.visible = false;
-    this.stage.scene.add(shadow);
   }
 
   // --------------------------------------------------------------- level ---
@@ -123,6 +110,12 @@ export class Game {
     }
     this.view = buildLevelView(this.level);
     this.stage.scene.add(this.view.group);
+
+    // recolor the cube for this level
+    const c = CUBE_COLORS[(def.id - 1) % CUBE_COLORS.length];
+    this.cubeMat.color.set(c);
+    this.cubeMat.emissive.set(c).multiplyScalar(0.12);
+    this.cubeGlow.material.color.set(c);
 
     this.stage.fitLevel(this.view.bounds.min, this.view.bounds.max);
     this.stage.setFocus(this.level.start.x, this.level.start.z);
@@ -162,7 +155,6 @@ export class Game {
     this.cubeMesh.rotation.set(0, 0, 0);
     this.cubeMesh.scale.setScalar(0.001);
     this.spawnScale = 0;
-    this.cubeShadow.visible = true;
   }
 
   restart() {
@@ -267,13 +259,18 @@ export class Game {
     const raw = this.clock.getDelta();
     const dt = Math.min(raw, 0.05);
 
-    // If the device is struggling, shed the bloom pass once and for all.
-    if (this.fpsSamples.length < 90 && raw > 0) {
+    // If the device is struggling, shed quality in stages: shadows, then bloom.
+    if (this.fpsSamples.length < 180 && raw > 0) {
       this.fpsSamples.push(raw);
+      const avgOf = (n) => {
+        const tail = this.fpsSamples.slice(-n);
+        return tail.reduce((a, b) => a + b, 0) / tail.length;
+      };
       if (this.fpsSamples.length === 90) {
-        const avg = this.fpsSamples.reduce((a, b) => a + b, 0) / this.fpsSamples.length;
-        this.fps = 1 / avg;
-        if (avg > 1 / 42) this.stage.reduceQuality();
+        this.fps = 1 / avgOf(90);
+        if (this.fps < 42) this.stage.reduceQuality();
+      } else if (this.fpsSamples.length === 180) {
+        if (avgOf(90) > 1 / 38) this.stage.reduceQuality();
       }
     }
     const time = this.clock.elapsedTime;
@@ -335,8 +332,6 @@ export class Game {
       // keep the cube glued to its slab (parallax-free)
       const tile = this.tileAt(this.cube.x, this.cube.z);
       if (tile) mesh.position.set(tile.x, tile.h + HALF, tile.z);
-      this.cubeShadow.position.set(mesh.position.x, (tile ? tile.h : mesh.position.y - HALF) + 0.02, mesh.position.z);
-      this.cubeShadow.material.opacity = 0.45;
       return;
     }
 
@@ -388,15 +383,6 @@ export class Game {
       const q = new THREE.Quaternion().setFromAxisAngle(a.spin, a.t * 4.2);
       mesh.quaternion.copy(q).multiply(a.fromQuat);
       if (a.t > 0.32 && this.state === 'playing') this.die();
-      this.cubeShadow.material.opacity = Math.max(0, 0.45 - a.t);
-    }
-
-    // shadow follows
-    const tile = this.tileAt(this.cube.x, this.cube.z);
-    if (a.type !== 'fall') {
-      const baseY = (tile ? tile.h : 0) + 0.02;
-      this.cubeShadow.position.set(mesh.position.x, baseY, mesh.position.z);
-      this.cubeShadow.material.opacity = 0.4;
     }
   }
 
@@ -404,7 +390,6 @@ export class Game {
     this.cube.anim = null;
     this.cubeMesh.position.set(target.x, target.h + HALF, target.z);
     this.cube.quat.copy(this.cubeMesh.quaternion);
-    this.cubeShadow.position.set(target.x, target.h + 0.02, target.z);
 
     if (target.crumble) this.view.breakAt(target.x, target.z);
     this.emit('land', target);

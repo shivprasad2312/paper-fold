@@ -122,7 +122,7 @@ src/
   rules.js      pure level rules + solvability analysis (no DOM, no rendering)
   levels.js     the twelve levels as ASCII maps
   levelView.js  3D scene graph for a level: slabs, rims, shards, gate, orbs
-  stage.js      renderer, orthographic 3/4 camera, bloom, lights, dust
+  stage.js      renderer, orthographic 3/4 camera, shadows, lights, starfield
   audio.js      synthesised soundtrack + SFX (Web Audio, zero sample files)
   save.js       localStorage progress, best times, formatting
   textures.js   generated glow/beam textures
@@ -139,14 +139,21 @@ Notable details:
   pads, bass, arpeggio, percussion — is scheduled with oscillators and noise on a
   100 BPM grid that shifts key per level. There is not one image or audio file in the
   repo.
+* **Real-world lighting.** A soft sun high above the level casts true PCF soft
+  shadows onto the matte porcelain slabs; a cool fill keeps shaded faces from going
+  dead, and the void is a slow-drifting starfield. Each level gets its own vivid
+  cube colour and accent edge colour, and the goal is a glowing pad with a beam of
+  light rising out of the frame.
 * **True 3D rolling.** Each move rotates the cube a quarter turn around the edge it
   tips over, easing in and out, with the exact height change applied on landing.
 * **Camera.** An orthographic camera at a 3/4 angle, fitted to each level's bounds, with
   a gentle focus drift toward the cube and a shake on impacts.
-* **Post-processing.** Unreal bloom plus ACES tone mapping for the neon look. If the
-  device can't hold ~42 fps in the first few seconds, bloom is dropped automatically.
-* **Readable performance.** A single merged mesh per level, no shadows, capped pixel
-  ratio, and a fixed-step-ish delta clamp so slow frames never teleport the cube.
+* **Post-processing.** Unreal bloom plus ACES tone mapping on top of the lit scene.
+  If the device can't hold ~42 fps in the first few seconds, the renderer sheds
+  quality in stages — shadows first, then bloom and resolution.
+* **Readable performance.** A single merged mesh per level (which still casts and
+  receives shadows), capped pixel ratio, and a delta clamp so slow frames never
+  teleport the cube.
 
 ## Licence
 

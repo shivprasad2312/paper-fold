@@ -1,20 +1,24 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
 import { key } from './rules.js';
 
 const THICK = 0.42;
-const SIDE = 0x22354f;
-const TOP = 0x4d6f9e;
-const BOTTOM = 0x0c1524;
-const RIM = 0x63e4ff;
-const EDGE = 0x27496f;
+// Matte, porcelain-like slabs lit by the sun (see stage.js).
+const TOP = 0xd9dde4;
+const SIDE = 0x98a0ac;
+const BOTTOM = 0x3c414a;
 
-const C_SIDE = 0x6e4522;
-const C_TOP = 0xc9853f;
-const C_RIM = 0xffb44d;
+// Warm sandstone for cracked slabs.
+const C_TOP = 0xcfa871;
+const C_SIDE = 0x96703f;
+const C_BOTTOM = 0x221709;
+const C_RIM = 0xffa13d;
 
-const tmpColor = new THREE.Color();
+// Thin coloured edge highlights, one accent per level (EDGE-style).
+const ACCENTS = [0x59ff7c, 0xff4fd8, 0xffe14f, 0x4fd8ff, 0xff8a4f, 0xb07cff, 0x7dffce, 0xff6a5e, 0x9dff4f, 0xff4f8e, 0x4fc8ff, 0xc8ff5e];
+const ACCENT_BY_ID = new Map(ACCENTS.map((c, i) => [i + 1, c]));
 
 function paintBox(geo, topHex, sideHex, bottomHex) {
   const count = geo.attributes.position.count;
@@ -78,7 +82,9 @@ export function buildLevelView(level) {
   const brightSegs = [];
   const dimSegs = [];
   const crumbles = new Map();
-  const crumbleMeshes = [];
+
+  const accent = ACCENT_BY_ID.get(level.id) || 0x59ff7c;
+  const accentDim = new THREE.Color(accent).multiplyScalar(0.4);
 
   const bounds = {
     min: new THREE.Vector3(Infinity, Infinity, Infinity),
@@ -87,14 +93,14 @@ export function buildLevelView(level) {
 
   const slabMat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.55,
-    metalness: 0.22,
+    roughness: 0.92,
+    metalness: 0.0,
     flatShading: true,
   });
   const crumbleMat = new THREE.MeshStandardMaterial({
     vertexColors: true,
-    roughness: 0.72,
-    metalness: 0.12,
+    roughness: 0.85,
+    metalness: 0.0,
     flatShading: true,
   });
 
@@ -115,24 +121,23 @@ export function buildLevelView(level) {
     bounds.max.y = Math.max(bounds.max.y, tile.h + 1.6);
   }
 
-  // Merge all static slabs into a single draw call.
+  // Merge all static slabs into a single draw call (still casts/receives shadows).
   if (staticGeos.length) {
     const merged = mergeGeometries(staticGeos, false);
     staticGeos.forEach((g) => g.dispose());
     const mesh = new THREE.Mesh(merged, slabMat);
-    mesh.castShadow = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     group.add(mesh);
   }
 
   const brightRimMat = new THREE.LineBasicMaterial({
-    color: RIM,
+    color: accent,
     transparent: true,
-    opacity: 0.8,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+    opacity: 0.95,
   });
   const dimRimMat = new THREE.LineBasicMaterial({
-    color: EDGE,
+    color: accentDim,
     transparent: true,
     opacity: 0.5,
   });
@@ -143,17 +148,17 @@ export function buildLevelView(level) {
   const crumbleRimMat = new THREE.LineBasicMaterial({
     color: C_RIM,
     transparent: true,
-    opacity: 0.7,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
+    opacity: 0.95,
   });
 
   for (const tile of level.tiles.values()) {
     if (!tile.crumble) continue;
     // A thinner, inset plate so cracked ground reads as a separate piece.
-    const g = slabGeometry(tile.h - 0.02, C_TOP, C_SIDE, 0x1a1109);
+    const g = slabGeometry(tile.h - 0.02, C_TOP, C_SIDE, C_BOTTOM);
     g.scale(0.94, 1, 0.94);
     const mesh = new THREE.Mesh(g, crumbleMat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     const holder = new THREE.Group();
     holder.add(mesh);
 
@@ -175,97 +180,98 @@ export function buildLevelView(level) {
       spin: new THREE.Vector3(),
       baseY: 0,
     });
-    crumbleMeshes.push(mesh);
   }
 
-  // ---- goal gate -----------------------------------------------------------
+  // ---- goal: a glowing pad with a beam of light rising into space ----------
   const goal = new THREE.Group();
-  const goalMat = new THREE.MeshStandardMaterial({
-    color: 0x0a2740,
-    emissive: new THREE.Color(0x5ce1ff),
+  const padMat = new THREE.MeshStandardMaterial({
+    color: 0x33312a,
+    emissive: new THREE.Color(0xffe9a8),
     emissiveIntensity: 1.15,
-    roughness: 0.4,
-    metalness: 0.3,
+    roughness: 0.45,
+    metalness: 0.1,
   });
-  const postGeo = new THREE.BoxGeometry(0.07, 0.86, 0.07);
-  const postL = new THREE.Mesh(postGeo, goalMat);
-  postL.position.set(-0.33, 0.43, 0);
-  const postR = postL.clone();
-  postR.position.x = 0.33;
-  const lintel = new THREE.Mesh(new THREE.BoxGeometry(0.73, 0.07, 0.07), goalMat);
-  lintel.position.set(0, 0.86, 0);
-  goal.add(postL, postR, lintel);
+  const pad = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.08, 0.82), padMat);
+  pad.position.y = 0.04;
+  pad.castShadow = true;
+  goal.add(pad);
 
-  const veil = new THREE.Mesh(
-    new THREE.PlaneGeometry(0.62, 0.8),
-    new THREE.MeshBasicMaterial({
-      color: 0x39c8ff,
-      transparent: true,
-      opacity: 0.1,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    }),
-  );
-  veil.position.set(0, 0.43, 0);
-  goal.add(veil);
+  const beamMat = new THREE.MeshBasicMaterial({
+    map: beamTexture(),
+    color: 0xbfe9ff,
+    transparent: true,
+    opacity: 0.5,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.3, 30, 14, 1, true), beamMat);
+  beam.position.y = 15;
+  goal.add(beam);
 
-  const halo = new THREE.Sprite(
-    new THREE.SpriteMaterial({
-      map: glowTexture(),
-      color: 0x5ce1ff,
-      transparent: true,
-      opacity: 0.45,
-      blending: THREE.AdditiveBlending,
-      depthWrite: false,
-    }),
-  );
-  halo.scale.setScalar(1.9);
-  halo.position.set(0, 0.45, 0);
-  goal.add(halo);
-
-  const ring = new THREE.Mesh(
-    new THREE.TorusGeometry(0.46, 0.012, 8, 48),
-    new THREE.MeshBasicMaterial({ color: 0x9df1ff, transparent: true, opacity: 0.85 }),
-  );
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0xfff3c8, transparent: true, opacity: 0.9 });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.014, 8, 48), ringMat);
   ring.rotation.x = Math.PI / 2;
-  ring.position.y = 0.02;
+  ring.position.y = 0.09;
   goal.add(ring);
+
+  const haloMat = new THREE.SpriteMaterial({
+    map: glowTexture(),
+    color: 0xffe9a8,
+    transparent: true,
+    opacity: 0.3,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const halo = new THREE.Sprite(haloMat);
+  halo.scale.setScalar(1.8);
+  halo.position.set(0, 0.35, 0);
+  goal.add(halo);
 
   goal.position.set(level.goal.x, level.goal.h, level.goal.z);
   group.add(goal);
 
-  // ---- shards --------------------------------------------------------------
+  // ---- shards: small floating orange cubes ---------------------------------
   const shardMat = new THREE.MeshStandardMaterial({
-    color: 0x6b4a00,
-    emissive: new THREE.Color(0xffc857),
-    emissiveIntensity: 1.3,
-    roughness: 0.25,
-    metalness: 0.6,
+    color: 0xff9d2e,
+    emissive: new THREE.Color(0xff6a00),
+    emissiveIntensity: 0.5,
+    roughness: 0.35,
+    metalness: 0.1,
   });
+  const shardGeo = new THREE.BoxGeometry(0.24, 0.24, 0.24);
   const shards = level.shards.map((s, i) => {
     const tile = level.tiles.get(s.id);
     const holder = new THREE.Group();
-    const mesh = new THREE.Mesh(new THREE.OctahedronGeometry(0.15, 0), shardMat);
+    const mesh = new THREE.Mesh(shardGeo, shardMat);
+    mesh.castShadow = true;
     holder.add(mesh);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: glowTexture(),
-        color: 0xffc857,
+        color: 0xff9d2e,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.5,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
-    glow.scale.setScalar(0.72);
+    glow.scale.setScalar(0.65);
     holder.add(glow);
     holder.position.set(s.x, tile.h + 0.5, s.z);
     group.add(holder);
     return { ...s, holder, mesh, glow, phase: i * 1.7, collected: false, anim: 0 };
   });
 
-  // ---- orbs ----------------------------------------------------------------
+  // ---- sentinels: dark patrol cubes with a glowing face ---------------------
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2f333d, roughness: 0.5, metalness: 0.35 });
+  const eyeMat = new THREE.MeshStandardMaterial({
+    color: 0x140008,
+    emissive: new THREE.Color(0xff2e6a),
+    emissiveIntensity: 2.4,
+  });
+  const bodyGeo = new RoundedBoxGeometry(0.44, 0.44, 0.44, 3, 0.07);
+  const eyeGeo = new THREE.SphereGeometry(0.05, 10, 10);
   const orbs = level.orbs.map((def, i) => {
     const pts = def.path.map(([x, z]) => new THREE.Vector2(x, z));
     const segs = [];
@@ -280,48 +286,38 @@ export function buildLevelView(level) {
       }
     }
     const holder = new THREE.Group();
-    const core = new THREE.Mesh(
-      new THREE.IcosahedronGeometry(0.2, 1),
-      new THREE.MeshStandardMaterial({
-        color: 0x3a0018,
-        emissive: new THREE.Color(0xff2e6a),
-        emissiveIntensity: 1.7,
-        roughness: 0.3,
-        metalness: 0.4,
-      }),
-    );
-    holder.add(core);
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.castShadow = true;
+    holder.add(body);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeL.position.set(-0.095, 0.05, 0.19);
+    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    eyeR.position.set(0.095, 0.05, 0.19);
+    holder.add(eyeL, eyeR);
     const glow = new THREE.Sprite(
       new THREE.SpriteMaterial({
         map: glowTexture(),
         color: 0xff3f74,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.3,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
       }),
     );
-    glow.scale.setScalar(1.5);
+    glow.scale.setScalar(1.0);
     holder.add(glow);
-    const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.36, 0.012, 6, 36),
-      new THREE.MeshBasicMaterial({ color: 0xff8fb0, transparent: true, opacity: 0.8 }),
-    );
-    ring.rotation.x = Math.PI / 2.4;
-    holder.add(ring);
     group.add(holder);
     return {
       def,
       holder,
       glow,
-      core,
-      ring,
+      body,
       segs,
       total: Math.max(total, 0.001),
       dist: (def.phase || 0) * total,
       h: 0,
       pos: new THREE.Vector3(),
-      prevKey: null,
+      prev: new THREE.Vector3(),
     };
   });
 
@@ -332,7 +328,7 @@ export function buildLevelView(level) {
   function update(dt, time, cubePos) {
     clock.t = time;
 
-    // shards
+    // shards: bob and slowly tumble
     for (const s of shards) {
       if (s.collected) {
         s.anim += dt * 3.2;
@@ -348,14 +344,14 @@ export function buildLevelView(level) {
       s.mesh.rotation.x += dt * 0.8;
       const tile = tileAt(s.x, s.z);
       s.holder.position.y = tile.h + 0.52 + Math.sin(time * 2 + s.phase) * 0.07;
-      s.glow.material.opacity = 0.45 + Math.sin(time * 3 + s.phase) * 0.1;
+      s.glow.material.opacity = 0.4 + Math.sin(time * 3 + s.phase) * 0.12;
     }
 
-    // goal
+    // goal pad
     ring.rotation.z += dt * 0.9;
     ring.scale.setScalar(1 + Math.sin(time * 2.4) * 0.06);
-    halo.material.opacity = 0.42 + Math.sin(time * 2.2) * 0.08;
-    veil.material.opacity = 0.13 + Math.sin(time * 3.1) * 0.05;
+    halo.material.opacity = 0.26 + Math.sin(time * 2.2) * 0.06;
+    beamMat.opacity = 0.4 + Math.sin(time * 1.4) * 0.08;
 
     // crumbles
     for (const c of crumbles.values()) {
@@ -387,7 +383,7 @@ export function buildLevelView(level) {
       }
     }
 
-    // orbs
+    // sentinels: patrol, face their heading
     for (const o of orbs) {
       o.dist = (o.dist + o.def.speed * dt) % o.total;
       let seg = o.segs[o.segs.length - 1];
@@ -404,9 +400,16 @@ export function buildLevelView(level) {
       if (t) o.h = t.h;
       o.holder.position.set(x, o.h + 0.5 + Math.sin(time * 2.6) * 0.05, z);
       o.pos.copy(o.holder.position);
-      o.core.rotation.y += dt * 2.4;
-      o.ring.rotation.z += dt * 1.7;
-      o.glow.material.opacity = 0.5 + Math.sin(time * 6.4) * 0.12;
+      const dx = x - o.prev.x;
+      const dz = z - o.prev.z;
+      if (dx * dx + dz * dz > 1e-10) {
+        const targetY = Math.atan2(dx, dz);
+        let d = targetY - o.holder.rotation.y;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        o.holder.rotation.y += d * Math.min(1, dt * 8);
+      }
+      o.prev.set(x, 0, z);
+      o.glow.material.opacity = 0.26 + Math.sin(time * 5.2) * 0.1;
     }
   }
 
@@ -442,9 +445,12 @@ export function buildLevelView(level) {
       s.holder.visible = true;
       s.holder.scale.setScalar(1);
       s.holder.position.set(s.x, level.tiles.get(s.id).h + 0.5, s.z);
-      s.glow.material.opacity = 0.8;
+      s.glow.material.opacity = 0.5;
     }
-    for (const o of orbs) o.dist = (o.def.phase || 0) * o.total;
+    for (const o of orbs) {
+      o.dist = (o.def.phase || 0) * o.total;
+      o.holder.rotation.set(0, 0, 0);
+    }
   }
 
   function dispose() {
@@ -455,7 +461,15 @@ export function buildLevelView(level) {
     dimRimMat.dispose();
     crumbleRimMat.dispose();
     shardMat.dispose();
-    goalMat.dispose();
+    shardGeo.dispose();
+    padMat.dispose();
+    beamMat.dispose();
+    ringMat.dispose();
+    haloMat.dispose();
+    bodyMat.dispose();
+    eyeMat.dispose();
+    bodyGeo.dispose();
+    eyeGeo.dispose();
   }
 
   return {
