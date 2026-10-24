@@ -1,59 +1,46 @@
-# Fluffy Merge
+# Isometric Path
 
-A soft, cheerful Suika-style game about fuzzy animal friends. Drop a pal into
-the cuddle jar, merge two matching buddies into a bigger one, and build a whole
-collection—from tiny Bunbun to legendary Starlight.
+A Flutter puzzle game inspired by the supplied block-world references. It uses a
+hand-painted isometric renderer: stacked white platforms, deep gaps, a bright
+player cube, readable route cues, and a glowing exit. Three short routes are
+playable with diagonal movement controls.
 
-Built with vanilla JavaScript, Canvas 2D and Matter.js. Character sprites are
-procedurally drawn with plush shading, cheeky faces and fine fur strokes. In play,
-pals blink, glance toward the pointer, wobble on landing and celebrate nearby
-merges. The home screen features a custom AI-generated bunny portrait.
+## Flutter app
 
-## Run locally
+The Flutter entry point is `lib/main.dart`. It includes a live light/dark theme
+switch and an adjustable lighting control that changes ambient glow, highlights,
+face brightness, and shadows without changing the puzzle layout.
+
+Flutter is not installed in this workspace, so platform scaffolding and runtime
+validation have not been generated here. With Flutter 3.3 or newer installed:
 
 ```bash
-npm install
-npm run dev       # http://localhost:5173
-npm test          # gameplay logic and deterministic-seed tests
-npm run smoke     # DOM and canvas-shim screen-flow smoke test
-npm run build     # production bundle in dist/
-npm run preview
+flutter create --platforms=android,ios,web .
+flutter pub get
+flutter run -d chrome
+flutter test
 ```
 
-## What’s in the game
+## Game design notes
 
-- **11 fuzzy friends:** Bunbun, Peep, Momo, Puddle, Poppy, Twickle, Foxy, Panda,
-  Lamby, Sprout and Starlight. Each has its own silhouette, palette and face.
-- **Merge physics:** two matching pals become the next buddy. Combo chains,
-  score and a cloud danger line keep the pile lively.
-- **Gentle first-run tour:** a skippable four-step guide to dropping, merging,
-  level goals and decorating, with a quick-tour button for later.
-- **Cuddle Trail:** 12 levels with score, pal-making, merge-combo and tier goals.
-  Clear goals to unlock levels and earn replay-safe stars and coins.
-- **Puzzle corner:** a shared weekly challenge plus hand-built puzzle packs with
-  different starting boards, fixed pal sequences and limited drops.
-- **Pal Neighborhood:** decorate Cloud Island, Forest Nook and Moonlit Den with
-  coins and stars. Pals celebrate new decorations, and every habitat has a
-  themed wish with a small one-time reward.
-- **Collection milestones:** claim small rewards for meeting more pals and
-  completing habitat sets; each milestone can only be claimed once.
-- **Pal Passport:** discover each friend's personality, habitat, merge count and
-  first-met milestone.
-- **Daily snuggles:** a seven-day reward track for coins, stars and surprises,
-  saved locally in the browser.
-- **Touch, pointer and keyboard controls**, sound toggle and optional haptics.
+- **Isometric geometry:** each platform is drawn as a top diamond with two
+  shaded side faces; raised scenery blocks create depth and negative space.
+- **Readable puzzles:** the player can move only between adjacent route tiles.
+  Each level has a start marker, an exit marker, a reset, and a level picker.
+- **Lighting as a control:** the slider changes scene illumination in real time;
+  higher values lift the faces and add more ambient glow.
+- **Two palettes:** light mode uses a misty slate world; dark mode keeps the void
+  deep and shifts the platforms to cool, luminous whites.
+- **Responsive layout:** controls move beside the board in landscape and remain
+  below it in portrait.
 
-Progress is stored in browser `localStorage`; no account or server is needed.
+## Tests
 
-## Source map
+`test/puzzle_logic_test.dart` covers route adjacency and invalid movement.
+`test/widget_test.dart` covers theme switching and a valid move. Run them with
+`flutter test` after installing Flutter.
 
-- `src/game.js` — Matter.js physics, seeded spawn randomness, scoring and danger logic.
-- `src/content.js` — level goals, habitats, pal profiles, weekly challenge and curated puzzle data.
-- `src/fruits.js` — pal roster, sizes, colors and progression order.
-- `src/art.js` — cached fluffy character sprites and playroom background.
-- `src/renderer.js` — gameplay canvas, plush reactions and merge effects.
-- `src/main.js` — screen flow, goals, local progression, rewards and input.
-- `src/styles.css` — responsive plush-toy UI.
-- `public/fluffy-bunny.png` — home-screen character portrait.
-- `tests/game.test.mjs` — gameplay logic tests.
-- `tools/dom-smoke.mjs` — DOM-level flow coverage for new and existing screens.
+## Legacy browser prototype
+
+The earlier Fluffy Merge web prototype remains under `src/` and can be run with
+`npm install && npm run dev`.

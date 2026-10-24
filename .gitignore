@@ -2,6 +2,17 @@ node_modules/
 dist/
 .DS_Store
 
+# Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.idea/
+android/local.properties
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
 # render previews from tools/preview.mjs
 preview-*.png
 .tmp-*
