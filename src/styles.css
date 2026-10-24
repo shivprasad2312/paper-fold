@@ -757,3 +757,39 @@ body {
 .passport-stamp { margin-top:8px; color:#9a81b2; font-size:8px; font-weight:1000; letter-spacing:1.4px; }.passport-card h3 { margin:2px 0 0; color:#5e477a; font-size:23px; }.passport-personality { margin:2px 0 10px; color:#d778a0; font-size:11px; font-weight:800; }.passport-fact { max-width:300px; padding:11px 14px; border-radius:15px; background:#f8f1fd; color:#79668b; font-size:10px; font-style:italic; line-height:1.45; }
 .passport-stats { width:100%; display:grid; gap:5px; margin:11px 0 5px; }.passport-stats div { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:12px; background:#fff; border:1px solid #eee5f5; }.passport-stats small { color:#a08cac; font-size:7px; font-weight:900; letter-spacing:.8px; }.passport-stats b { color:#705a87; font-size:9px; text-align:right; }
 @media (prefers-reduced-motion: reduce) { .scene-cloud,.scene-pal,.scene-decor span { animation:none; } }
+
+/* Cozy onboarding, challenge packs and small collection goals */
+.quick-tour { margin-left:5px; padding:4px 7px; border:1px solid #e5d7f0; border-radius:99px; background:#fff; color:#826995; font:800 8px var(--font); letter-spacing:0; cursor:pointer; }
+.tutorial-head { display:grid; justify-items:center; gap:7px; }
+.tutorial-mark { display:grid; place-items:center; width:82px; height:82px; border-radius:50%; background:radial-gradient(circle at 35% 28%,#fff,#f0e5fc 72%); box-shadow:inset 0 2px 7px #ddcdea,0 4px 0 #e8dcf1; font-size:38px; animation:tutorialFloat 2.4s ease-in-out infinite; }
+@keyframes tutorialFloat { 50% { transform:translateY(-4px) rotate(3deg); } }
+.tutorial-head .eyebrow { margin:3px 0 0; color:#a28aaf; font-size:8px; letter-spacing:1.3px; }
+.tutorial-title { margin:7px 0 5px; color:#5f4779; font-size:25px; }
+.tutorial-copy { max-width:285px; margin:0 auto 12px; color:#7d6a8b; font-size:12px; line-height:1.55; }
+.tutorial-note { padding:10px 12px; border-radius:14px; background:#f5effa; color:#917c9d; font-size:9px; font-weight:800; }
+.tutorial-dots { display:flex; justify-content:center; gap:6px; margin:16px 0 13px; }
+.tutorial-dots i { width:7px; height:7px; border-radius:50%; background:#ded2e9; }.tutorial-dots i.active { width:20px; border-radius:9px; background:#a588d5; }
+.tutorial-actions { display:grid; grid-template-columns:1fr 1.2fr; align-items:center; gap:8px; }.tutorial-actions .btn { margin:0; }
+.puzzle-pack-list { display:grid; gap:8px; max-height:56dvh; overflow:auto; padding:2px 3px 7px; }
+.puzzle-pack { display:grid; grid-template-columns:54px minmax(0,1fr); align-items:center; gap:7px; padding:9px; border:1px solid #e7ddef; border-radius:17px; background:linear-gradient(145deg,#fff,#f8f3fc); text-align:left; box-shadow:0 3px 0 #e8ddef; }
+.puzzle-pack.cleared { border-color:#cde4c9; background:linear-gradient(145deg,#fff,#f0faef); }
+.puzzle-pack.locked { opacity:.72; }
+.puzzle-pack-board { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:0; min-height:50px; border-radius:14px; background:radial-gradient(circle,#fff,#ede4f6); }
+.puzzle-pack-copy { min-width:0; }.puzzle-pack-kicker { color:#a08aad; font-size:6px; font-weight:1000; letter-spacing:.8px; }.puzzle-pack h3 { margin:2px 0; color:#5f4979; font-size:13px; }.puzzle-pack p { margin:0 0 3px; color:#907e9c; font-size:8px; }.puzzle-pack small { color:#876e99; font-size:7px; font-weight:800; }
+.puzzle-pack > button { grid-column:1/-1; justify-self:stretch; min-height:33px; margin-top:2px; padding:7px; font-size:9px; }
+.puzzle-pack-list + .btn { width:100%; margin:6px 0 0; font-size:9px; }.puzzles-card .screen-note { margin-bottom:0; }
+.milestones-heading { display:flex; align-items:baseline; justify-content:space-between; gap:5px; margin:9px 2px 5px; text-align:left; }.milestones-heading h3 { margin:0; color:#66517b; font-size:12px; }.milestones-heading small { color:#a08ca9; font-size:7px; }
+.milestone-list { display:grid; gap:5px; max-height:27dvh; overflow:auto; padding:1px 2px 5px; }
+.milestone-card { display:grid; grid-template-columns:30px minmax(0,1fr) auto; align-items:center; gap:6px; padding:6px; border:1px solid #ece3f2; border-radius:12px; background:rgba(255,255,255,.8); text-align:left; }
+.milestone-card.ready { border-color:#f0d992; background:#fffaf0; }.milestone-card.claimed { border-color:#cfe5cf; background:#f2fbf0; }
+.milestone-icon { display:grid; place-items:center; width:28px; height:28px; border-radius:10px; background:#f0e9f8; font-size:15px; }.milestone-copy { display:grid; gap:2px; min-width:0; }.milestone-copy b { color:#66517b; font-size:8px; }.milestone-copy small { color:#9886a3; font-size:6.5px; line-height:1.25; }
+.milestone-card button { max-width:92px; padding:5px 6px; border:0; border-radius:9px; background:#f3c95d; color:#76541d; font:800 6.5px var(--font); cursor:pointer; }.milestone-card button:disabled { background:#eee9f2; color:#988ca0; cursor:default; }
+.collection-card .collection-grid { max-height:34dvh; }.collection-card .milestone-list { max-height:25dvh; }
+.habitat-wish { display:grid; grid-template-columns:30px minmax(0,1fr) auto; align-items:center; gap:7px; margin:8px 1px 7px; padding:8px; border:1px solid #eadff1; border-radius:15px; background:linear-gradient(145deg,#fff,#f8f3fc); text-align:left; }.habitat-wish.ready { border-color:#f0d68c; background:#fffaf0; }.habitat-wish.claimed { border-color:#cfe5cf; background:#f2fbf0; }
+.wish-icon { display:grid; place-items:center; width:29px; height:29px; border-radius:10px; background:#f3ecfb; font-size:15px; }.habitat-wish > div:nth-child(2) { display:grid; gap:2px; }.habitat-wish small { color:#a08dac; font-size:6.5px; font-weight:900; letter-spacing:.4px; }.habitat-wish b { color:#68537e; font-size:8px; }.habitat-wish p { margin:0; color:#94819f; font-size:7px; line-height:1.3; }.habitat-wish button { max-width:75px; padding:6px; border:0; border-radius:9px; background:#f2c85c; color:#75541d; font:800 7px var(--font); cursor:pointer; }.habitat-wish button:disabled { background:#eee9f2; color:#988ca0; cursor:default; }
+.scene-bubble { position:absolute; z-index:4; left:50%; top:38px; max-width:78%; padding:7px 10px; border-radius:13px 13px 13px 4px; background:#fff; color:#755f8a; box-shadow:0 3px 10px #68508025; font-size:8px; font-weight:900; transform:translateX(-50%); animation:bubbleIn .32s cubic-bezier(.2,1.4,.4,1) both; }.scene-bubble::after { position:absolute; left:12px; bottom:-5px; width:10px; height:10px; content:''; background:#fff; transform:rotate(45deg); }
+@keyframes bubbleIn { from { opacity:0; transform:translate(-50%,5px) scale(.8); } to { opacity:1; transform:translate(-50%,0) scale(1); } }
+.habitat-stage.is-reacting .scene-pal { animation:palCelebrate .48s ease-in-out 3; }
+@keyframes palCelebrate { 50% { transform:translateY(-13px) rotate(-7deg) scale(1.08); } }
+@media (max-width:360px) { .tutorial-title { font-size:22px; }.milestone-copy small { font-size:6px; }.puzzle-pack { grid-template-columns:46px minmax(0,1fr); gap:5px; padding:7px; } }
+@media (prefers-reduced-motion: reduce) { .tutorial-mark,.habitat-stage.is-reacting .scene-pal { animation:none !important; }.scene-bubble { animation:none !important; } }

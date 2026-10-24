@@ -18,7 +18,7 @@ export const LEVELS = [
 export const HABITATS = [
   {
     key: 'cloud', name: 'Cloud Island', emoji: '☁️', subtitle: 'A floaty home above the clouds', unlockTier: 0,
-    residents: [0, 1, 3, 10], decor: [
+    residents: [0, 1, 3, 10], objective: { title: 'Light the cloud path', description: 'Place a Cloud Cottage and a Star Lantern so the pals can find their way home.', decorIds: ['cloud-cottage', 'star-lantern'], reward: { stars: 1 } }, decor: [
       { id: 'cloud-cottage', name: 'Cloud Cottage', emoji: '🏠', price: 90, currency: 'coins' },
       { id: 'star-lantern', name: 'Star Lantern', emoji: '🏮', price: 140, currency: 'coins' },
       { id: 'rainbow-bridge', name: 'Rainbow Bridge', emoji: '🌈', price: 2, currency: 'stars' },
@@ -27,7 +27,7 @@ export const HABITATS = [
   },
   {
     key: 'forest', name: 'Forest Nook', emoji: '🌿', subtitle: 'A leafy hideaway for woodland pals', unlockTier: 2,
-    residents: [2, 6, 7, 9], decor: [
+    residents: [2, 6, 7, 9], objective: { title: 'Make a firefly picnic', description: 'Set out a Mushroom Home and Firefly Lights for the woodland pals.', decorIds: ['mushroom-home', 'firefly-lights'], reward: { coins: 70 } }, decor: [
       { id: 'mushroom-home', name: 'Mushroom Home', emoji: '🍄', price: 140, currency: 'coins' },
       { id: 'firefly-lights', name: 'Firefly Lights', emoji: '✨', price: 2, currency: 'stars' },
       { id: 'berry-bush', name: 'Berry Bush', emoji: '🫐', price: 200, currency: 'coins' },
@@ -36,7 +36,7 @@ export const HABITATS = [
   },
   {
     key: 'moon', name: 'Moonlit Den', emoji: '🌙', subtitle: 'A sleepy nook beneath the stars', unlockTier: 5,
-    residents: [4, 5, 8], decor: [
+    residents: [4, 5, 8], objective: { title: 'Build a dream nest', description: 'Add a Pillow Nest and Dream Lamp to make bedtime extra cozy.', decorIds: ['pillow-nest', 'dream-lamp'], reward: { stars: 1 } }, decor: [
       { id: 'moon-window', name: 'Moon Window', emoji: '🌙', price: 180, currency: 'coins' },
       { id: 'pillow-nest', name: 'Pillow Nest', emoji: '🛏️', price: 2, currency: 'stars' },
       { id: 'dream-lamp', name: 'Dream Lamp', emoji: '💡', price: 240, currency: 'coins' },
@@ -64,6 +64,36 @@ export const WEEKLY_GOALS = [
   { type: 'combo', target: 4 },
   { type: 'create', tier: 2, count: 2 },
   { type: 'reach', tier: 4 },
+];
+
+export const PUZZLE_PACKS = [
+  {
+    id: 'cloud-hop', name: 'Cloud Hop', subtitle: 'A little lift for Bunbun', unlockTier: 0,
+    goal: { type: 'reach', tier: 2 }, dropLimit: 5, seed: 20411,
+    startingBoard: [{ tier: 0, x: 92, y: 525 }, { tier: 1, x: 276, y: 525 }],
+    spawnSequence: [0, 1, 0, 1, 0],
+  },
+  {
+    id: 'forest-friends', name: 'Forest Friends', subtitle: 'Help two woodland pals meet', unlockTier: 2,
+    goal: { type: 'create', tier: 2, count: 1 }, dropLimit: 5, seed: 20412,
+    startingBoard: [{ tier: 1, x: 88, y: 525 }, { tier: 0, x: 184, y: 525 }, { tier: 1, x: 280, y: 525 }],
+    spawnSequence: [1, 1, 1, 1, 1],
+  },
+  {
+    id: 'moonlight-combo', name: 'Moonlight Combo', subtitle: 'A sleepy chain of fluffy folds', unlockTier: 5,
+    goal: { type: 'combo', target: 2 }, dropLimit: 6, seed: 20413,
+    startingBoard: [{ tier: 0, x: 76, y: 525 }, { tier: 0, x: 292, y: 525 }, { tier: 1, x: 184, y: 478 }],
+    spawnSequence: [0, 0, 1, 1, 1, 1],
+  },
+];
+
+export const COLLECTION_MILESTONES = [
+  { id: 'meet-three', title: 'First Friend Circle', description: 'Discover 3 different pals', type: 'discover', target: 3, reward: { coins: 45 } },
+  { id: 'meet-six', title: 'Cozy Crew', description: 'Discover 6 different pals', type: 'discover', target: 6, reward: { stars: 1 } },
+  { id: 'cloud-set', title: 'Cloud Island Set', description: 'Meet every Cloud Island resident', type: 'habitat', habitat: 'cloud', reward: { coins: 80 } },
+  { id: 'forest-set', title: 'Forest Nook Set', description: 'Meet every Forest Nook resident', type: 'habitat', habitat: 'forest', reward: { stars: 1 } },
+  { id: 'moon-set', title: 'Moonlit Den Set', description: 'Meet every Moonlit Den resident', type: 'habitat', habitat: 'moon', reward: { stars: 1 } },
+  { id: 'meet-all', title: 'Paw-some Collection', description: 'Discover all 11 pals', type: 'discover', target: FRUITS.length, reward: { stars: 2 } },
 ];
 
 export function goalText(goal) {

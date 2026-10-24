@@ -106,9 +106,14 @@ export class Game {
     return this.fruits.find((f) => f.body === body);
   }
 
-  newGame({ seed = null } = {}) {
-    // Seeded runs make the weekly puzzle use the same drop sequence for everyone.
+  newGame({ seed = null, startingBoard = [], dropLimit = null, spawnSequence = [] } = {}) {
+    // Seeded runs make weekly and curated puzzles deterministic.
     this.random = seed === null ? Math.random : mulberry32(seed >>> 0);
+    this.spawnSequence = Array.isArray(spawnSequence) ? [...spawnSequence] : [];
+    this.spawnSequenceIndex = 0;
+    this.dropLimit = Number.isFinite(dropLimit) ? Math.max(0, Math.floor(dropLimit)) : null;
+    this.dropsMade = 0;
+    this.exhaustionEmitted = false;
     // Remove any fruit bodies, keep the static jar.
     for (const fruit of this.fruits) World.remove(this.world, fruit.body);
     this.fruits = [];
@@ -122,8 +127,13 @@ export class Game {
     this.over = false;
     this.overAt = 0;
     this.lastDropAt = -9999;
-    this.nextTier = pickSpawnTier(this.random);
+    this.nextTier = this.nextSpawnTier();
     this.started = false;
+    for (const item of startingBoard) {
+      const tier = Math.max(0, Math.min(FRUITS.length - 1, Math.floor(item.tier)));
+      this.addFruit(tier, item.x, item.y, false);
+    }
+    this.topTier = this.fruits.reduce((max, fruit) => Math.max(max, fruit.tier), 0);
     this.emit('reset');
     this.emit('score', { score: 0, best: this.best, delta: 0 });
   }
@@ -138,18 +148,20 @@ export class Game {
     return clamp(x, r + 4, WORLD.width - r - 4);
   }
 
-  canDrop() {
-    return !this.over && this.now - this.lastDropAt >= DROP_COOLDOWN;
+  nextSpawnTier() {
+    if (this.spawnSequenceIndex < this.spawnSequence.length) {
+      const tier = Math.floor(this.spawnSequence[this.spawnSequenceIndex++]);
+      return Math.max(0, Math.min(SPAWN_WEIGHTS.length - 1, tier));
+    }
+    return pickSpawnTier(this.random);
   }
 
-  drop(x, now = this.now) {
-    if (!this.canDrop()) return null;
-    const tier = this.nextTier;
+  addFruit(tier, x, y, spawned = true) {
     const fruit = FRUITS[tier];
     const cx = this.clampAim(x, tier);
-    const body = Bodies.circle(cx, WORLD.spawnY, fruit.r, {
+    const body = Bodies.circle(cx, y, fruit.r, {
       label: 'fruit',
-      restitution: 0.06,
+      restitution: spawned ? 0.06 : 0.025,
       friction: 0.42,
       frictionStatic: 0.6,
       frictionAir: 0.004,
@@ -157,23 +169,28 @@ export class Game {
       slop: 0.02,
       sleepThreshold: 55,
     });
-    Body.setVelocity(body, { x: 0, y: 2 });
+    Body.setVelocity(body, { x: 0, y: spawned ? 2 : 0 });
     Composite.add(this.world, body);
-
-    const record = {
-      body,
-      tier,
-      bornAt: now,
-      merged: false,
-      dangerSince: 0,
-      spawn: 1,
-      id: body.id,
-    };
+    const record = { body, tier, bornAt: this.now, merged: false, dangerSince: 0, spawn: spawned ? 1 : 0, id: body.id };
     this.fruits.push(record);
-    this.nextTier = pickSpawnTier(this.random);
+    return record;
+  }
+
+  canDrop() {
+    return !this.over && (this.dropLimit === null || this.dropsMade < this.dropLimit) && this.now - this.lastDropAt >= DROP_COOLDOWN;
+  }
+
+  drop(x, now = this.now) {
+    if (!this.canDrop()) return null;
+    const tier = this.nextTier;
+    const cx = this.clampAim(x, tier);
+    const record = this.addFruit(tier, cx, WORLD.spawnY, true);
+    record.bornAt = now;
+    this.nextTier = this.nextSpawnTier();
     this.lastDropAt = now;
+    this.dropsMade++;
     this.started = true;
-    this.emit('drop', { tier, x: cx });
+    this.emit('drop', { tier, x: cx, dropsMade: this.dropsMade, dropLimit: this.dropLimit });
     this.emit('next', this.nextTier);
     return record;
   }
@@ -296,6 +313,7 @@ export class Game {
 
     this.checkDanger();
     this.checkEscape();
+    this.checkPuzzleExhaustion();
   }
 
   checkDanger() {
@@ -326,6 +344,15 @@ export class Game {
         return;
       }
     }
+  }
+
+  checkPuzzleExhaustion() {
+    if (this.over || this.exhaustionEmitted || this.dropLimit === null || this.dropsMade < this.dropLimit) return;
+    if (this.pending.length || this.now - this.lastDropAt < 700) return;
+    if (this.fruits.some((fruit) => fruit.body.speed >= 1.2 || Math.abs(fruit.body.angularSpeed) >= 0.25)) return;
+    this.exhaustionEmitted = true;
+    this.over = true;
+    this.emit('exhausted', { dropsMade: this.dropsMade, dropLimit: this.dropLimit, score: this.score, topTier: this.topTier });
   }
 
   dangerLevel() {

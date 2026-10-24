@@ -148,3 +148,37 @@ test('score, pal-making, combo and tier goals each have clear completion rules',
   assert.equal(goalMet({ type: 'combo', target: 4 }, runState, 0, 0), true);
   assert.equal(goalMet({ type: 'reach', tier: 3 }, runState, 0, 3), true);
 });
+
+test('curated puzzle boards use a fixed sequence and exhaust their drop budget', () => {
+  const game = new Game();
+  const startingBoard = [{ tier: 0, x: 90, y: 520 }];
+  game.newGame({ seed: 99, startingBoard, dropLimit: 2, spawnSequence: [2, 1] });
+  assert.equal(game.fruits.length, 1);
+  assert.equal(game.fruits[0].tier, 0);
+  assert.equal(game.nextTier, 2);
+  let exhausted = false;
+  game.on('exhausted', () => { exhausted = true; });
+  assert.ok(game.drop(170));
+  run(game, 300);
+  assert.equal(game.nextTier, 1);
+  assert.ok(game.drop(300));
+  run(game, 1200);
+  assert.equal(game.dropsMade, 2);
+  assert.equal(game.canDrop(), false);
+  assert.equal(exhausted, true);
+});
+
+test('puzzle pack specs have bounded drops, valid pals and one-time collection rewards', async () => {
+  const { PUZZLE_PACKS, COLLECTION_MILESTONES, HABITATS } = await import('../src/content.js');
+  assert.equal(new Set(PUZZLE_PACKS.map((pack) => pack.id)).size, PUZZLE_PACKS.length);
+  for (const pack of PUZZLE_PACKS) {
+    assert.ok(pack.dropLimit > 0);
+    assert.ok(pack.spawnSequence.length >= pack.dropLimit);
+    assert.ok(pack.startingBoard.length > 0);
+    assert.ok(pack.startingBoard.every((pal) => pal.tier >= 0 && pal.tier < FRUITS.length));
+    assert.ok(pack.spawnSequence.every((tier) => tier >= 0 && tier < SPAWN_WEIGHTS.length));
+  }
+  assert.equal(HABITATS.filter((habitat) => habitat.objective).length, 3);
+  assert.ok(COLLECTION_MILESTONES.some((milestone) => milestone.type === 'discover'));
+  assert.ok(COLLECTION_MILESTONES.some((milestone) => milestone.type === 'habitat'));
+});

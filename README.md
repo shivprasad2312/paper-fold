@@ -26,12 +26,17 @@ npm run preview
   Lamby, Sprout and Starlight. Each has its own silhouette, palette and face.
 - **Merge physics:** two matching pals become the next buddy. Combo chains,
   score and a cloud danger line keep the pile lively.
+- **Gentle first-run tour:** a skippable four-step guide to dropping, merging,
+  level goals and decorating, with a quick-tour button for later.
 - **Cuddle Trail:** 12 levels with score, pal-making, merge-combo and tier goals.
   Clear goals to unlock levels and earn replay-safe stars and coins.
+- **Puzzle corner:** a shared weekly challenge plus hand-built puzzle packs with
+  different starting boards, fixed pal sequences and limited drops.
 - **Pal Neighborhood:** decorate Cloud Island, Forest Nook and Moonlit Den with
-  coins and stars earned in play.
-- **Weekly Puzzle:** a shared, week-seeded pal sequence and goal for everyone.
-  Replays are always allowed and only the first clear earns the weekly reward.
+  coins and stars. Pals celebrate new decorations, and every habitat has a
+  themed wish with a small one-time reward.
+- **Collection milestones:** claim small rewards for meeting more pals and
+  completing habitat sets; each milestone can only be claimed once.
 - **Pal Passport:** discover each friend's personality, habitat, merge count and
   first-met milestone.
 - **Daily snuggles:** a seven-day reward track for coins, stars and surprises,
@@ -43,7 +48,7 @@ Progress is stored in browser `localStorage`; no account or server is needed.
 ## Source map
 
 - `src/game.js` — Matter.js physics, seeded spawn randomness, scoring and danger logic.
-- `src/content.js` — level goals, habitats, pal profiles and weekly puzzle data.
+- `src/content.js` — level goals, habitats, pal profiles, weekly challenge and curated puzzle data.
 - `src/fruits.js` — pal roster, sizes, colors and progression order.
 - `src/art.js` — cached fluffy character sprites and playroom background.
 - `src/renderer.js` — gameplay canvas, plush reactions and merge effects.
