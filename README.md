@@ -47,20 +47,22 @@ browser with `CHROME_PATH`, or install Playwright/Chrome beforehand.
 
 ## The rules
 
-* The cube rolls one tile at a time, in four directions.
-* You can **fall** onto a lower slab (up to two steps down) — you can **never climb**.
-  Rolling into a wall just bumps you back.
+* The cube rolls one tile at a time, in all four directions.
+* You can **fall** onto a lower slab (up to two steps down) or **climb** up a small step
+  (one up). You just can't leap a two-tile wall — that bumps you back.
 * Rolling off the edge drops you into the void. You respawn at the start.
 * **Cracked slabs** (orange) break shortly after you roll onto them.
-* **Sentinels** (red orbs) patrol a route and kill on contact.
-* Reach the cyan **gate** to clear the level. **Shards** are optional — grabbing all of
-  them is a perfect run.
+* **Sentinels** (dark cubes with glowing eyes) patrol a route and kill on contact.
+* Reach the glowing **gate** to clear the level. **Shards** are optional — grabbing all
+  of them is a perfect run.
+* Every roll is counted. Clearing in the fewest possible rolls (**par**) earns a
+  *par clear*; the floating number and the top-left minimap keep you oriented.
 
-Because you can only ever go down, every level is a one-way descent: route choice is the
-puzzle. The level verifier enforces two invariants so no shipped level can waste your
-time — the goal is always reachable, and **no reachable tile is a dead end**
-(zero soft-locks), plus a crumble-aware search proves the cracked slabs never seal the
-only route.
+Because climbing is capped at one step while falling is capped at two, most levels still
+read as a descent — but you can backtrack and explore. The level verifier enforces two
+invariants so no shipped level can waste your time — the goal is always reachable, and
+**no reachable tile is a dead end** (zero soft-locks), plus a crumble-aware search
+proves the cracked slabs never seal the only route.
 
 ## Levels
 
@@ -69,7 +71,7 @@ Twelve hand-designed levels introduce one idea at a time:
 | # | level | teaches |
 | --- | --- | --- |
 | 01 | First Light | rolling, shards, the gate |
-| 02 | Step Down | drops are allowed, climbing is not |
+| 02 | Step Down | you can fall 2 but only climb 1 |
 | 03 | Switchback | terraces and route choice |
 | 04 | Twin Bridges | two paths, one run |
 | 05 | Paper Bridge | cracked slabs |
@@ -117,11 +119,11 @@ unlock logic and camera framing all derive from the data.
 
 ```
 src/
-  main.js       UI glue: HUD, menus, input, save data, screen flow
+  main.js       UI glue: HUD + minimap, menus, input, save data, screen flow
   game.js       game loop: rolling animation, hazards, win/death states
   rules.js      pure level rules + solvability analysis (no DOM, no rendering)
   levels.js     the twelve levels as ASCII maps
-  levelView.js  3D scene graph for a level: slabs, rims, shards, gate, orbs
+  levelView.js  3D scene graph: slabs, rims, shards, gate beam, sentinels, step counter
   stage.js      renderer, orthographic 3/4 camera, shadows, lights, starfield
   audio.js      synthesised soundtrack + SFX (Web Audio, zero sample files)
   save.js       localStorage progress, best times, formatting
@@ -146,6 +148,10 @@ Notable details:
   light rising out of the frame.
 * **True 3D rolling.** Each move rotates the cube a quarter turn around the edge it
   tips over, easing in and out, with the exact height change applied on landing.
+* **Score + par.** Every roll is counted by a floating 3D step counter (drawn to a
+  canvas texture, so still no font asset). Each level's shortest route is computed by
+  BFS as its *par*; matching it earns a *par clear*, and best steps are saved alongside
+  best time. A live minimap in the HUD corner shows the layout, sentinels and shards.
 * **Camera.** An orthographic camera at a 3/4 angle, fitted to each level's bounds, with
   a gentle focus drift toward the cube and a shake on impacts.
 * **Post-processing.** Unreal bloom plus ACES tone mapping on top of the lit scene.

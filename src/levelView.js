@@ -131,6 +131,49 @@ export function buildLevelView(level) {
     group.add(mesh);
   }
 
+  // ---- step counter: a floating glowing number, EDGE-style ---------------
+  const counterCanvas = document.createElement('canvas');
+  counterCanvas.width = 256;
+  counterCanvas.height = 128;
+  const counterCtx = counterCanvas.getContext('2d');
+  const counterTex = new THREE.CanvasTexture(counterCanvas);
+  counterTex.colorSpace = THREE.SRGBColorSpace;
+  function drawCounter(n) {
+    const ctx = counterCtx;
+    ctx.clearRect(0, 0, 256, 128);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 26;
+    ctx.fillStyle = accent;
+    ctx.font = 'bold 82px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText(String(n), 128, 54);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = 'rgba(230,240,255,0.55)';
+    ctx.font = '600 19px "Segoe UI", system-ui, sans-serif';
+    ctx.fillText('S T E P S', 128, 106);
+    counterTex.needsUpdate = true;
+  }
+  drawCounter(0);
+  const counter = new THREE.Sprite(
+    new THREE.SpriteMaterial({ map: counterTex, transparent: true, depthWrite: false }),
+  );
+  counter.scale.set(2.5, 1.25, 1);
+  // Float it off to the side of the level (like EDGE's score) so it clears the
+  // goal's beam of light, and make sure the camera fit includes it.
+  const counterX = (bounds.min.x + bounds.max.x) / 2 + 2.3;
+  const counterY = bounds.max.y + 1.35;
+  const counterZ = (bounds.min.z + bounds.max.z) / 2;
+  counter.position.set(counterX, counterY, counterZ);
+  bounds.max.x = Math.max(bounds.max.x, counterX + 1.6);
+  bounds.max.y = Math.max(bounds.max.y, counterY + 1.2);
+  group.add(counter);
+  let counterPulse = 0;
+  function setSteps(n) {
+    drawCounter(n);
+    counterPulse = 1;
+  }
+
   const brightRimMat = new THREE.LineBasicMaterial({
     color: accent,
     transparent: true,
@@ -198,9 +241,9 @@ export function buildLevelView(level) {
 
   const beamMat = new THREE.MeshBasicMaterial({
     map: beamTexture(),
-    color: 0xbfe9ff,
+    color: 0x9fe6ff,
     transparent: true,
-    opacity: 0.5,
+    opacity: 0.55,
     blending: THREE.AdditiveBlending,
     depthWrite: false,
     side: THREE.DoubleSide,
@@ -327,6 +370,12 @@ export function buildLevelView(level) {
 
   function update(dt, time, cubePos) {
     clock.t = time;
+
+    // step counter pop
+    if (counterPulse > 0) {
+      counterPulse = Math.max(0, counterPulse - dt * 4);
+      counter.scale.set(2.5 + counterPulse * 0.35, 1.25 + counterPulse * 0.18, 1);
+    }
 
     // shards: bob and slowly tumble
     for (const s of shards) {
@@ -470,6 +519,7 @@ export function buildLevelView(level) {
     eyeMat.dispose();
     bodyGeo.dispose();
     eyeGeo.dispose();
+    counterTex.dispose();
   }
 
   return {
@@ -485,6 +535,7 @@ export function buildLevelView(level) {
     orbs,
     goal,
     update,
+    setSteps,
     breakAt,
     isBroken,
     collectShard,

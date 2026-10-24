@@ -5,9 +5,9 @@
 // Each column is X. A digit is the height of a slab's top surface.
 // '.' is empty space (a fall).
 //
-// Movement rule: you may roll onto a neighbouring slab whose top is at most
-// MAX_DROP lower than yours. Rolling UP is never possible. So every level is
-// a one-way descent towards the goal.
+// Movement rule: you may roll onto a neighbouring slab that is at most
+// MAX_DROP lower (a fall) or at most MAX_CLIMB higher (a step up). So you can
+// explore in all four directions — you just can't leap up a tall wall.
 // ---------------------------------------------------------------------------
 
 export const LEVELS = [
@@ -27,7 +27,7 @@ export const LEVELS = [
   {
     id: 2,
     name: 'Step Down',
-    hint: 'You can drop — you can never climb',
+    hint: 'You can fall 2 — but only climb 1',
     map: [
       '..000..',
       '..111..',

@@ -30,11 +30,12 @@ export function writeSave(data) {
   }
 }
 
-export function recordWin(data, id, time, shards) {
-  const prev = data.best[id] || { time: Infinity, shards: 0 };
+export function recordWin(data, id, time, shards, moves) {
+  const prev = data.best[id] || { time: Infinity, shards: 0, moves: Infinity };
   data.best[id] = {
     time: Math.min(prev.time, time),
     shards: Math.max(prev.shards, shards),
+    moves: Math.min(prev.moves ?? Infinity, moves ?? Infinity),
   };
   data.unlocked = Math.max(data.unlocked, id + 1);
   data.lastLevel = Math.min(id + 1, data.unlocked);

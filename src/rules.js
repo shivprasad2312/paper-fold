@@ -12,6 +12,8 @@ export const DIRS = {
 
 /** Maximum height difference you are allowed to fall in one roll. */
 export const MAX_DROP = 2;
+/** Maximum height difference you are allowed to climb in one roll. */
+export const MAX_CLIMB = 1;
 
 export const key = (x, z) => `${x},${z}`;
 
@@ -62,14 +64,15 @@ export function parseLevel(def) {
 
 /**
  * Can the cube roll from tile `from` to tile `to`?
- * Returns { ok, kind } where kind is 'flat' | 'drop' | 'void' | 'blocked'.
+ * You may fall up to MAX_DROP, or climb up to MAX_CLIMB.
+ * Returns { ok, kind } where kind is 'flat' | 'drop' | 'climb' | 'void' | 'blocked'.
  */
 export function checkRoll(level, from, to) {
   if (!to) return { ok: false, kind: 'void' };
-  const drop = from.h - to.h;
-  if (drop < 0) return { ok: false, kind: 'blocked' };
-  if (drop > MAX_DROP) return { ok: false, kind: 'blocked' };
-  return { ok: true, kind: drop === 0 ? 'flat' : 'drop' };
+  const delta = to.h - from.h;
+  if (delta > MAX_CLIMB) return { ok: false, kind: 'blocked' };
+  if (-delta > MAX_DROP) return { ok: false, kind: 'blocked' };
+  return { ok: true, kind: delta === 0 ? 'flat' : delta > 0 ? 'climb' : 'drop' };
 }
 
 /** Neighbours that are legal destinations from a tile (void excluded). */
@@ -126,6 +129,30 @@ export function canStillFinish(level) {
     }
   }
   return seen;
+}
+
+/**
+ * Shortest number of rolls from start to goal (BFS over legal moves).
+ * Used as the level's "par" — clearing in exactly this many rolls is a par run.
+ */
+export function shortestRoute(level) {
+  const goalKey = key(level.goal.x, level.goal.z);
+  const startKey = key(level.start.x, level.start.z);
+  if (startKey === goalKey) return 0;
+  const dist = new Map([[startKey, 0]]);
+  const queue = [level.start];
+  while (queue.length) {
+    const cur = queue.shift();
+    const d = dist.get(key(cur.x, cur.z));
+    for (const { to } of legalNeighbours(level, cur)) {
+      const k = key(to.x, to.z);
+      if (dist.has(k)) continue;
+      dist.set(k, d + 1);
+      if (k === goalKey) return d + 1;
+      queue.push(to);
+    }
+  }
+  return -1;
 }
 
 /**

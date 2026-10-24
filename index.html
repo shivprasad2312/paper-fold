@@ -15,10 +15,13 @@
     <!-- ===== HUD ===== -->
     <div id="hud" class="hidden">
       <div class="hud-left">
-        <button class="icon-btn" id="btn-pause" aria-label="Menu">&#9776;</button>
-        <div class="hud-level">
-          <span class="hud-index" id="hud-index">01</span>
-          <span class="hud-name" id="hud-name">First Light</span>
+        <canvas id="minimap" width="128" height="128" aria-label="Level minimap"></canvas>
+        <div class="hud-left-row">
+          <button class="icon-btn" id="btn-pause" aria-label="Menu">&#9776;</button>
+          <div class="hud-level">
+            <span class="hud-index" id="hud-index">01</span>
+            <span class="hud-name" id="hud-name">First Light</span>
+          </div>
         </div>
       </div>
       <div class="hud-center">
@@ -75,6 +78,7 @@
         <div class="win-stats">
           <div class="stat"><span class="stat-label">time</span><span class="stat-value" id="win-time">0:00.0</span></div>
           <div class="stat"><span class="stat-label">shards</span><span class="stat-value" id="win-shards">0/0</span></div>
+          <div class="stat"><span class="stat-label">steps</span><span class="stat-value" id="win-steps">—</span></div>
           <div class="stat"><span class="stat-label">best</span><span class="stat-value" id="win-best">—</span></div>
         </div>
         <div class="win-buttons">

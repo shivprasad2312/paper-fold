@@ -17,6 +17,8 @@ const el = {
   timer: $('hud-timer'),
   shardCount: $('hud-shard-count'),
   shards: $('hud-shards'),
+  mini: $('minimap'),
+  winSteps: $('win-steps'),
   hint: $('hint'),
   menu: $('menu'),
   levels: $('levels'),
@@ -82,8 +84,63 @@ function updateTimerHud() {
   }
 }
 
+const miniCtx = el.mini.getContext('2d');
+function drawMinimap() {
+  const lvl = game.level;
+  const view = game.view;
+  if (!lvl || !view) return;
+  const ctx = miniCtx;
+  const W = ctx.canvas.width;
+  const H = ctx.canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const t of lvl.tiles.values()) {
+    if (t.x < minX) minX = t.x;
+    if (t.x > maxX) maxX = t.x;
+    if (t.z < minZ) minZ = t.z;
+    if (t.z > maxZ) maxZ = t.z;
+  }
+  const pad = 0.6;
+  minX -= pad; maxX += pad; minZ -= pad; maxZ += pad;
+  const cell = Math.min(W / (maxX - minX), H / (maxZ - minZ));
+  const ox = (W - cell * (maxX - minX)) / 2;
+  const oy = (H - cell * (maxZ - minZ)) / 2;
+  const px = (x) => ox + (x - minX) * cell;
+  const pz = (z) => oy + (z - minZ) * cell;
+  const s = cell * 0.9;
+
+  for (const t of lvl.tiles.values()) {
+    if (t.crumble) ctx.fillStyle = 'rgba(206,150,80,0.95)';
+    else ctx.fillStyle = `hsl(212 22% ${42 + t.h * 9}%)`;
+    ctx.fillRect(px(t.x) - s / 2, pz(t.z) - s / 2, s, s);
+  }
+  ctx.fillStyle = '#ffd15a';
+  ctx.beginPath();
+  ctx.arc(px(lvl.goal.x), pz(lvl.goal.z), s * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#ff9d2e';
+  for (const sh of view.shards) {
+    if (sh.collected) continue;
+    ctx.fillRect(px(sh.x) - 2.4, pz(sh.z) - 2.4, 4.8, 4.8);
+  }
+  ctx.fillStyle = '#ff3f74';
+  for (const o of view.orbs) {
+    ctx.beginPath();
+    ctx.arc(px(o.holder.position.x), pz(o.holder.position.z), 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const cx = game.cubeMesh.position.x;
+  const cz = game.cubeMesh.position.z;
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(px(cx) - s * 0.32, pz(cz) - s * 0.32, s * 0.64, s * 0.64);
+}
+
 function tickUI() {
   updateTimerHud();
+  if (!el.hud.classList.contains('hidden')) drawMinimap();
   requestAnimationFrame(tickUI);
 }
 
@@ -376,13 +433,20 @@ game.on('respawn', () => {
 });
 
 game.on('win', (res) => {
-  save = recordWin(save, game.def.id, res.time, res.shards);
+  save = recordWin(save, game.def.id, res.time, res.shards, res.moves);
   audio.sfx('win', { transpose: game.levelIndex * 2 });
 
   el.winTitle.textContent = res.name;
-  el.winEyebrow.textContent = res.perfect ? 'perfect clear' : 'level clear';
+  el.winEyebrow.textContent = res.perfect && res.parClear
+    ? 'perfect par clear'
+    : res.perfect
+      ? 'perfect clear'
+      : res.parClear
+        ? 'par clear'
+        : 'level clear';
   el.winTime.textContent = fmtTime(res.time);
   el.winShards.textContent = `${res.shards}/${res.total}`;
+  el.winSteps.textContent = res.moves === res.par ? `${res.moves} (par)` : `${res.moves} / par ${res.par}`;
   const best = save.best[game.def.id];
   el.winBest.textContent = fmtTime(best.time);
   el.next.style.display = game.levelIndex + 1 < LEVELS.length ? '' : 'none';

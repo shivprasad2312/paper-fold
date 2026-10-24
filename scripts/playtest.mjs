@@ -84,20 +84,31 @@ let s1 = await state();
 check('roll up moves one tile', s1.cube.x === 3 && s1.cube.z === 1, JSON.stringify(s1.cube));
 check('shard picked up', s1.shards === 1, `shards=${s1.shards}`);
 
-// ---- level 2: climbing is impossible ------------------------------------
+// ---- level 2: a 2-step wall still can't be climbed -----------------------
 await load(1); // Step Down: heights 3 (start) → 1 → 0 (goal)
 let l2 = await state();
 check('level 2 loads', l2.cube.h === 3, `h=${l2.cube.h}`);
-await press('ArrowUp'); // 3 -> 1, a legal drop
+await press('ArrowUp'); // 3 -> 1, a legal 2-drop
 l2 = await state();
-check('can drop down a step', l2.cube.h === 1, `h=${l2.cube.h}`);
-await press('ArrowDown'); // 1 -> 3 would be a climb: refused
+check('can drop down two', l2.cube.h === 1, `h=${l2.cube.h}`);
+await press('ArrowDown'); // 1 -> 3 is a 2-climb: refused
 const blocked = await state();
-check('cannot climb back up', blocked.cube.x === 3 && blocked.cube.z === 1 && blocked.cube.h === 1,
+check('cannot climb a 2-step wall', blocked.cube.x === 3 && blocked.cube.z === 1 && blocked.cube.h === 1,
   `stayed at ${blocked.cube.x},${blocked.cube.z} h${blocked.cube.h}`);
 await press('ArrowUp'); // onto the goal terrace
 l2 = await state();
 check('rolls onto the goal terrace', l2.state === 'won', l2.state);
+
+// ---- level 3: a 1-step climb is now legal --------------------------------
+await load(2); // Switchback: start (5,6) h=3, row z=5 is h=2
+let l3 = await state();
+check('level 3 loads', l3.cube.x === 5 && l3.cube.z === 6 && l3.cube.h === 3, JSON.stringify(l3.cube));
+await press('ArrowUp'); // (5,6)h3 -> (5,5)h2, a drop
+l3 = await state();
+check('drops to the lower terrace', l3.cube.x === 5 && l3.cube.z === 5 && l3.cube.h === 2, JSON.stringify(l3.cube));
+await press('ArrowDown'); // (5,5)h2 -> (5,6)h3, a 1-step CLIMB (now legal)
+l3 = await state();
+check('can climb back up one step', l3.cube.x === 5 && l3.cube.z === 6 && l3.cube.h === 3, JSON.stringify(l3.cube));
 
 // ---- level 1 finish -------------------------------------------------------
 await load(0);

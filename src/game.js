@@ -3,7 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { Stage } from './stage.js';
 import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
-import { parseLevel, DIRS, checkRoll, key } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 const ROLL_TIME = 0.17;
@@ -31,6 +31,8 @@ export class Game {
     this.queue = [];
     this.shardsCollected = 0;
     this.totalShards = 0;
+    this.moves = 0;
+    this.par = 0;
 
     this.buildCube();
     this.clock = new THREE.Clock();
@@ -123,9 +125,12 @@ export class Game {
     this.totalShards = this.level.shards.length;
     this.shardsCollected = 0;
     this.elapsed = 0;
+    this.moves = 0;
+    this.par = Math.max(1, shortestRoute(this.level));
     this.queue.length = 0;
     this.deadTimer = 0;
     this.winTimer = 0;
+    this.view.setSteps(0);
 
     this.placeCubeAtStart();
     this.state = 'playing';
@@ -136,6 +141,7 @@ export class Game {
       def,
       level: this.level,
       shards: this.totalShards,
+      par: this.par,
     });
     return def;
   }
@@ -163,9 +169,11 @@ export class Game {
     this.totalShards = this.level.shards.length;
     this.shardsCollected = 0;
     this.elapsed = 0;
+    this.moves = 0;
     this.queue.length = 0;
     this.deadTimer = 0;
     this.winTimer = 0;
+    this.view.setSteps(0);
     this.placeCubeAtStart();
     this.state = 'playing';
     this.paused = false;
@@ -391,6 +399,9 @@ export class Game {
     this.cubeMesh.position.set(target.x, target.h + HALF, target.z);
     this.cube.quat.copy(this.cubeMesh.quaternion);
 
+    this.moves++;
+    this.view.setSteps(this.moves);
+
     if (target.crumble) this.view.breakAt(target.x, target.z);
     this.emit('land', target);
 
@@ -467,6 +478,8 @@ export class Game {
   respawn() {
     this.view.reset();
     this.shardsCollected = 0;
+    this.moves = 0;
+    this.view.setSteps(0);
     this.placeCubeAtStart();
     this.state = 'playing';
     this.emit('respawn', { index: this.levelIndex });
@@ -485,6 +498,9 @@ export class Game {
       shards: this.shardsCollected,
       total: this.totalShards,
       perfect: this.shardsCollected >= this.totalShards,
+      moves: this.moves,
+      par: this.par,
+      parClear: this.moves <= this.par,
     });
   }
 
