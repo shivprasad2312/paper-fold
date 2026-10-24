@@ -353,6 +353,41 @@ export class AudioEngine {
       case 'ui':
         this.blip(t, 620, 720, 0.07, 'sine', 0.07);
         break;
+      case 'push':
+        // a telekinetic shove: low effort growl + the block sliding
+        this.blip(t, 70, 44, 0.22, 'sawtooth', 0.14);
+        this.noiseHit(t + 0.03, 0.14, 500, 0.9, 0.12);
+        break;
+      case 'windNudge':
+        // a soft gust that carries the cube a tile
+        this.noiseHit(t, 0.28, 1600, 1.4, 0.07);
+        this.blip(t, 320, 520, 0.22, 'sine', 0.05);
+        break;
+      case 'key':
+        // the gate key: a bright golden pickup, one octave above a shard
+        this.blip(t, 1174, 1568, 0.12, 'sine', 0.2);
+        this.blip(t + 0.09, 1568, 2093, 0.16, 'triangle', 0.16);
+        this.blip(t + 0.2, 2093, 2637, 0.2, 'sine', 0.1);
+        break;
+      case 'gateLocked':
+        // the sealed gate refuses: a dull double knock
+        this.noiseHit(t, 0.05, 220, 1, 0.16);
+        this.blip(t, 140, 80, 0.09, 'square', 0.08);
+        this.noiseHit(t + 0.13, 0.05, 200, 1, 0.14);
+        this.blip(t + 0.13, 120, 70, 0.09, 'square', 0.07);
+        break;
+      case 'sliderFell':
+        // a bridge letting go: low creak into the void
+        this.blip(t, 180, 50, 0.5, 'sawtooth', 0.1);
+        this.noiseHit(t + 0.1, 0.35, 300, 0.5, 0.12);
+        break;
+      case 'medal':
+        // a medal chime layered on the win, pitched by tier
+        const shift = opts.tier === 'gold' ? 12 : opts.tier === 'silver' ? 7 : 0;
+        [0, 7, 12, 19].forEach((semi, i) => {
+          this.blip(t + i * 0.08, mtof(69 + semi + shift), mtof(69 + semi + shift), 0.5, 'triangle', 0.09);
+        });
+        break;
       default:
         break;
     }

@@ -1,7 +1,7 @@
 import { Game } from './game.js';
 import { LEVELS } from './levels.js';
 import { AudioEngine } from './audio.js';
-import { loadSave, writeSave, recordWin, fmtTime } from './save.js';
+import { loadSave, writeSave, recordWin, recordGhost, recordDaily, medalFor, fmtTime } from './save.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -18,7 +18,9 @@ const el = {
   shardCount: $('hud-shard-count'),
   shards: $('hud-shards'),
   mini: $('minimap'),
+  hudMech: $('hud-mech'),
   winSteps: $('win-steps'),
+  winMedal: $('win-medal'),
   hint: $('hint'),
   menu: $('menu'),
   levels: $('levels'),
@@ -36,10 +38,16 @@ const el = {
   soundBtn: $('btn-sound'),
 };
 
+function todayStr() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
 let hintTimer = null;
 let hintDismissed = false;
+let winShowTimer = null; // the win panel pops 900ms after clearing — cancel if the player leaves first
 
 // ---------------------------------------------------------------- helpers ---
 const show = (node) => node.classList.remove('hidden');
@@ -131,11 +139,47 @@ function drawMinimap() {
     ctx.arc(px(o.holder.position.x), pz(o.holder.position.z), 3, 0, Math.PI * 2);
     ctx.fill();
   }
+  // sliding bridges (dashed outline)
+  ctx.strokeStyle = 'rgba(140,190,255,0.9)';
+  ctx.lineWidth = 1;
+  for (const sl of view.sliders) {
+    const { tile } = sl;
+    ctx.strokeRect(px(tile.x) - s / 2, pz(tile.z) - s / 2, s, s);
+  }
+  // obstacle blocks
+  ctx.fillStyle = '#2b2f3a';
+  for (const b of view.blocks.values()) {
+    ctx.fillRect(px(b.x) - s * 0.3, pz(b.z) - s * 0.3, s * 0.6, s * 0.6);
+  }
+  // the gate key
+  const gk = lvl.gateKey;
+  if (gk && !game.hasKey) {
+    ctx.fillStyle = '#ffd15a';
+    ctx.beginPath();
+    ctx.arc(px(gk.x), pz(gk.z), 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
 
   const cx = game.cubeMesh.position.x;
   const cz = game.cubeMesh.position.z;
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(px(cx) - s * 0.32, pz(cz) - s * 0.32, s * 0.64, s * 0.64);
+}
+
+// Mechanic chips in the HUD: telekinesis, gate key, wind, bridges.
+function updateMechanicHud() {
+  const lvl = game.level;
+  const chips = [];
+  if (game.maxNudges > 0) {
+    chips.push(`<span class="chip chip-nudge${game.nudgeLeft === 0 ? ' empty' : ''}" title="Telekinesis — press against a dark cube to push it">PUSH ${game.nudgeLeft}</span>`);
+  }
+  if (lvl && lvl.gateKey) {
+    chips.push(`<span class="chip chip-key${game.hasKey ? ' on' : ''}" title="Gate key">${game.hasKey ? 'KEY ✓' : 'LOCKED'}</span>`);
+  }
+  if (lvl && lvl.wind) chips.push(`<span class="chip chip-wind" title="Wind">WIND</span>`);
+  if (lvl && lvl.sliders && lvl.sliders.length) chips.push(`<span class="chip chip-bridge" title="Sliding bridges">BRIDGE</span>`);
+  el.hudMech.innerHTML = chips.join('');
+  el.hudMech.classList.toggle('hidden', chips.length === 0);
 }
 
 function tickUI() {
@@ -150,10 +194,16 @@ function unlockAudio() {
 }
 
 // ------------------------------------------------------------- level flow ---
+function armGhost(id) {
+  const g = save.ghosts[id];
+  game.setGhost(g && g.log ? g.log : null);
+}
+
 function startLevel(index, { animate = true } = {}) {
   index = Math.max(0, Math.min(LEVELS.length - 1, index));
   unlockAudio();
   audio.setLevel(index);
+  clearTimeout(winShowTimer);
 
   hide(el.menu);
   hide(el.levels);
@@ -162,11 +212,13 @@ function startLevel(index, { animate = true } = {}) {
 
   const def = game.load(index);
   game.setPaused(false);
+  armGhost(def.id);
 
   el.index.textContent = String(def.id).padStart(2, '0');
   el.name.textContent = def.name;
   el.timer.textContent = fmtTime(0);
   updateShardHud();
+  updateMechanicHud();
   show(el.hud);
   if (isTouch) show(el.pad);
 
@@ -178,7 +230,40 @@ function startLevel(index, { animate = true } = {}) {
   if (animate) flash('load');
 }
 
+/** The daily challenge: seeded by today's date, verified solvable, same for everyone. */
+function startDaily() {
+  unlockAudio();
+  audio.setLevel(13);
+  clearTimeout(winShowTimer);
+
+  hide(el.menu);
+  hide(el.levels);
+  hide(el.win);
+  hide(el.pause);
+
+  const dateStr = todayStr();
+  const def = game.loadDaily(dateStr);
+  game.setPaused(false);
+  armGhost(`daily:${dateStr}`);
+
+  el.index.textContent = 'DAILY';
+  el.name.textContent = `${def.name} · ${dateStr.slice(5)}`;
+  el.timer.textContent = fmtTime(0);
+  updateShardHud();
+  updateMechanicHud();
+  show(el.hud);
+  if (isTouch) show(el.pad);
+
+  const prev = save.daily[dateStr];
+  const hintText = prev
+    ? `Yesterday's you set ${fmtTime(prev.time)} — beat it.`
+    : 'A fresh layout, generated for today. Same for everyone, always solvable.';
+  showHint(hintText, 6000);
+  flash('load');
+}
+
 function openMenu() {
+  clearTimeout(winShowTimer);
   hide(el.hud);
   hide(el.pad);
   hide(el.win);
@@ -192,6 +277,7 @@ function openMenu() {
 }
 
 function openLevels() {
+  clearTimeout(winShowTimer);
   hide(el.menu);
   hide(el.win);
   hide(el.pause);
@@ -201,8 +287,32 @@ function openLevels() {
   renderLevelGrid();
 }
 
+function medalBadge(medal) {
+  if (!medal || medal === 'none') return '';
+  return `<span class="medal medal-${medal}" title="${medal} medal">${medal[0].toUpperCase()}</span>`;
+}
+
 function renderLevelGrid() {
   el.grid.innerHTML = '';
+
+  // Daily challenge card, pinned to the top of the select screen.
+  const dateStr = todayStr();
+  const dailyPrev = save.daily[dateStr];
+  const dailyCard = document.createElement('button');
+  dailyCard.className = 'level-card daily-card';
+  dailyCard.innerHTML = `
+    <span class="num">DAILY</span>
+    ${medalBadge(dailyPrev?.medal)}
+    ${dailyPrev ? `<span class="best">${fmtTime(dailyPrev.time)}</span>` : ''}
+    <span class="lname">Daily Challenge</span>
+    <span class="ldesc">${dateStr.slice(5)} · fresh each day</span>
+  `;
+  dailyCard.addEventListener('click', () => {
+    audio.sfx('ui');
+    startDaily();
+  });
+  el.grid.appendChild(dailyCard);
+
   LEVELS.forEach((def, i) => {
     const locked = def.id > save.unlocked;
     const best = save.best[def.id];
@@ -213,6 +323,7 @@ function renderLevelGrid() {
     const got = best ? best.shards : 0;
     card.innerHTML = `
       <span class="num">${String(def.id).padStart(2, '0')}</span>
+      ${medalBadge(best?.medal)}
       ${best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
       <span class="lname">${def.name}</span>
       <span class="dots">${Array.from({ length: totalShards }, (_, d) =>
@@ -248,10 +359,15 @@ function togglePause() {
   else pauseGame();
 }
 
+function currentRunId() {
+  return game.dailyDate ? `daily:${game.dailyDate}` : game.def.id;
+}
+
 function restartLevel() {
   hide(el.pause);
   hide(el.win);
   game.restart();
+  armGhost(currentRunId());
   game.setPaused(false);
   show(el.hud);
   if (isTouch) show(el.pad);
@@ -262,6 +378,10 @@ function restartLevel() {
 }
 
 function nextLevel() {
+  if (game.levelIndex === -1) {
+    openLevels(); // a daily run ends back in the select
+    return;
+  }
   const next = game.levelIndex + 1;
   if (next < LEVELS.length) startLevel(next);
   else openLevels();
@@ -357,6 +477,10 @@ $('btn-levels').addEventListener('click', () => {
   audio.sfx('ui');
   openLevels();
 });
+$('btn-daily').addEventListener('click', () => {
+  audio.sfx('ui');
+  startDaily();
+});
 $('btn-levels-back').addEventListener('click', () => {
   audio.sfx('ui');
   openMenu();
@@ -421,6 +545,34 @@ game.on('shard', ({ collected, total }) => {
   if (collected === total && total > 0) showHint('All shards — now find the gate', 2200);
 });
 
+game.on('push', ({ left }) => {
+  audio.sfx('push');
+  game.stage.shake(0.1);
+  updateMechanicHud();
+  if (left === 0) showHint('No more pushes left', 1800);
+});
+
+game.on('windNudge', () => {
+  audio.sfx('windNudge');
+});
+
+game.on('key', () => {
+  audio.sfx('key');
+  flash('gold');
+  updateMechanicHud();
+  showHint('The gate is open', 2200);
+});
+
+game.on('gateLocked', () => {
+  audio.sfx('gateLocked');
+  game.stage.shake(0.12);
+  showHint('Sealed — find the key first', 2200);
+});
+
+game.on('sliderFell', () => {
+  audio.sfx('sliderFell');
+});
+
 game.on('death', () => {
   audio.sfx('death');
   flash('death');
@@ -430,11 +582,24 @@ game.on('death', () => {
 
 game.on('respawn', () => {
   updateShardHud();
+  armGhost(currentRunId()); // every life races the saved best again
 });
 
 game.on('win', (res) => {
-  save = recordWin(save, game.def.id, res.time, res.shards, res.moves);
-  audio.sfx('win', { transpose: game.levelIndex * 2 });
+  const isDaily = !!res.daily;
+  const id = isDaily ? `daily:${res.daily}` : game.def.id;
+  const medal = medalFor(res);
+  const log = game.getMoveLog();
+
+  if (isDaily) {
+    save = recordDaily(save, res.daily, res);
+  } else {
+    save = recordWin(save, game.def.id, res.time, res.shards, res.moves, { par: res.par, total: res.total });
+  }
+  save = recordGhost(save, id, res.time, log); // next run races this one
+
+  audio.sfx('win', { transpose: Math.max(0, game.levelIndex) * 2 });
+  if (medal !== 'none') setTimeout(() => audio.sfx('medal', { tier: medal }), 420);
 
   el.winTitle.textContent = res.name;
   el.winEyebrow.textContent = res.perfect && res.parClear
@@ -447,12 +612,17 @@ game.on('win', (res) => {
   el.winTime.textContent = fmtTime(res.time);
   el.winShards.textContent = `${res.shards}/${res.total}`;
   el.winSteps.textContent = res.moves === res.par ? `${res.moves} (par)` : `${res.moves} / par ${res.par}`;
-  const best = save.best[game.def.id];
-  el.winBest.textContent = fmtTime(best.time);
-  el.next.style.display = game.levelIndex + 1 < LEVELS.length ? '' : 'none';
-  el.next.textContent = game.levelIndex + 1 < LEVELS.length ? 'Next level' : 'Levels';
+  const best = isDaily ? save.daily[res.daily] : save.best[game.def.id];
+  el.winBest.textContent = best ? fmtTime(best.time) : '—';
 
-  setTimeout(() => {
+  el.winMedal.textContent = medal === 'none' ? '' : medal.toUpperCase();
+  el.winMedal.className = 'win-medal' + (medal !== 'none' ? ` medal-${medal}` : ' hidden');
+
+  el.next.style.display = isDaily || game.levelIndex + 1 >= LEVELS.length ? 'none' : '';
+  el.next.textContent = 'Next level';
+
+  clearTimeout(winShowTimer);
+  winShowTimer = setTimeout(() => {
     hide(el.pad);
     hideHint();
     show(el.win);
@@ -462,6 +632,7 @@ game.on('win', (res) => {
 game.on('level', ({ def }) => {
   el.index.textContent = String(def.id).padStart(2, '0');
   el.name.textContent = def.name;
+  updateMechanicHud();
 });
 
 // --------------------------------------------------------------- lifecycle --
@@ -479,9 +650,11 @@ el.soundBtn.classList.toggle('muted', !save.sound);
 document.body.classList.toggle('touch', isTouch);
 
 game.load(Math.max(0, Math.min(LEVELS.length - 1, (save.lastLevel || 1) - 1)));
+armGhost(game.def.id);
 game.setPaused(true);
 updateShardHud();
+updateMechanicHud();
 tickUI();
 
 // handy for debugging from the console
-window.__kubik = { game, startLevel, openLevels, save };
+window.__kubik = { game, startLevel, startDaily, restartLevel, openLevels, save };

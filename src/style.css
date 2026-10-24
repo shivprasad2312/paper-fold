@@ -583,3 +583,71 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.01ms !important; }
 }
+
+/* ===== mechanic chips (telekinesis / key / wind / bridges) ===== */
+.hud-mech { display: flex; gap: 6px; flex-wrap: wrap; max-width: 260px; }
+.chip {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(8, 13, 26, 0.72);
+  color: var(--dim);
+  backdrop-filter: blur(6px);
+}
+.chip-nudge { color: #8ef0c8; border-color: rgba(125, 255, 206, 0.35); }
+.chip-nudge.empty { color: #5b6c8c; border-color: var(--line); }
+.chip-key { color: var(--gold); border-color: rgba(255, 209, 102, 0.4); }
+.chip-key.on { color: #9dff5e; border-color: rgba(157, 255, 94, 0.4); }
+.chip-wind { color: #9fd4ff; border-color: rgba(159, 212, 255, 0.4); }
+.chip-bridge { color: #b9c8ff; border-color: rgba(185, 200, 255, 0.4); }
+
+/* ===== medals ===== */
+.medal {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  width: 20px;
+  height: 20px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 50%;
+  border: 1px solid;
+}
+.medal-gold { color: #ffe9a8; border-color: #ffd166; background: rgba(255, 209, 102, 0.14); box-shadow: 0 0 10px rgba(255, 209, 102, 0.45); }
+.medal-silver { color: #e6ecf7; border-color: #c3cddd; background: rgba(195, 205, 221, 0.12); box-shadow: 0 0 8px rgba(195, 205, 221, 0.3); }
+.medal-bronze { color: #f0c9a8; border-color: #d99a5e; background: rgba(217, 154, 94, 0.12); box-shadow: 0 0 8px rgba(217, 154, 94, 0.3); }
+.level-card .medal { position: absolute; top: 8px; right: 8px; }
+
+.win-medal {
+  margin: 10px auto 0;
+  width: 58px;
+  height: 58px;
+  line-height: 58px;
+  text-align: center;
+  border-radius: 50%;
+  border: 2px solid;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  animation: medal-pop 0.5s cubic-bezier(0.2, 1.6, 0.4, 1) 0.15s backwards;
+}
+@keyframes medal-pop {
+  from { transform: scale(0.2) rotate(-30deg); opacity: 0; }
+  to { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+/* ===== daily card in level select ===== */
+.daily-card { border-color: rgba(255, 209, 102, 0.4); background: linear-gradient(160deg, rgba(40, 34, 16, 0.55), rgba(12, 18, 32, 0.82)); }
+.daily-card:hover:not(.locked) { border-color: rgba(255, 209, 102, 0.75); box-shadow: 0 12px 32px -16px rgba(255, 209, 102, 0.8); }
+.daily-card .num { color: var(--gold); }
+.ldesc { font-size: 9px; color: var(--dim); letter-spacing: 0.06em; margin-top: 2px; }
+
+@media (max-width: 640px) {
+  .chip { font-size: 8px; padding: 3px 6px; }
+  .win-medal { width: 48px; height: 48px; line-height: 48px; font-size: 9px; }
+}

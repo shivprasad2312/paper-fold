@@ -57,18 +57,23 @@ export const LEVELS = [
   {
     id: 4,
     name: 'Twin Bridges',
-    hint: 'Two ways down. Only one run.',
+    hint: 'Two dark cubes guard the bridgeheads — push one aside, then cross',
     map: [
       '..00000..',
       '..00000..',
-      '..11.11..',
+      '..11111..',
       '..11.11..',
       '..22222..',
-      '..22222..',
+      '...222...',
     ],
     start: [4, 5],
     goal: [4, 0],
     shards: [[2, 2], [6, 2], [4, 1]],
+    // The lower deck is walled in: the only way across the gap is through one
+    // of the two bridgeheads — and a dark cube sits on each. Pushing one aside
+    // (telekinesis, 2 charges) opens the crossing.
+    blocks: [[3, 4], [5, 4]],
+    nudge: 2,
   },
   {
     id: 5,
@@ -125,6 +130,10 @@ export const LEVELS = [
       { path: [[2, 3], [6, 3]], speed: 2.1 },
       { path: [[6, 2], [2, 2]], speed: 1.5, phase: 0.5 },
     ],
+    // A single charge to shove the dark cube if you want a shortcut — or just
+    // go around the far side like everyone else.
+    blocks: [[5, 3]],
+    nudge: 1,
   },
   {
     id: 8,
@@ -142,6 +151,9 @@ export const LEVELS = [
     start: [4, 6],
     goal: [3, 0],
     shards: [[3, 5], [5, 3], [3, 2], [5, 1]],
+    // A steady breeze drags the cube toward the upper-left. Lean into it —
+    // and watch the wind streaks on the slabs.
+    wind: { x: -1, z: -1 },
   },
   {
     id: 9,
@@ -159,8 +171,10 @@ export const LEVELS = [
     goal: [6, 0],
     shards: [[1, 4], [4, 3], [7, 1], [6, 1]],
     crumble: [[3, 4], [4, 4]],
+    // The sweep starts at the far end so the spawn tile is safe — a sentinel
+    // must never occupy the player's starting slab.
     orbs: [
-      { path: [[1, 5], [7, 5]], speed: 1.9 },
+      { path: [[7, 5], [1, 5]], speed: 1.9 },
     ],
   },
   {
@@ -224,6 +238,49 @@ export const LEVELS = [
     orbs: [
       { path: [[1, 3], [7, 3]], speed: 2.0 },
       { path: [[1, 4], [7, 4]], speed: 1.5, phase: 0.4 },
+    ],
+    // The gate stays sealed until you touch the golden key on the east deck —
+    // it sits off the west-side route, so you must break detour for it.
+    key: [6, 4],
+  },
+  {
+    id: 13,
+    name: 'Boss: The Folded Keep',
+    hint: 'Sentinels, collapsing ground and a living bridge — all at once',
+    map: [
+      '...00000...',
+      '...00000...',
+      '...00000...',
+      '..1111111..',
+      '..1111111..',
+      '..2222222..',
+      '..2222222..',
+      '..2222222..',
+      '..3333333..',
+      '..3333333..',
+    ],
+    start: [5, 9],
+    goal: [5, 0],
+    shards: [
+      [2, 8],
+      [8, 8],
+      [3, 5],
+      [7, 4],
+      [5, 1],
+    ],
+    // Three patrols; none of them occupies the spawn or the goal.
+    orbs: [
+      { path: [[2, 8], [8, 8]], speed: 2.4, color: 0xd34a4a },
+      { path: [[8, 5], [2, 5]], speed: 1.7, color: 0xe0a53c, phase: 0.35 },
+      { path: [[3, 2], [7, 2]], speed: 2.6, color: 0xd34a4a, phase: 0.6 },
+    ],
+    // The mid deck crumbles as you cross, and the top deck's middle is
+    // cracked too — so the three ways over the upper gap each have their
+    // own price: a fast sprint or a timed wait on a sliding pier.
+    crumble: [[4, 4], [6, 4], [4, 5], [6, 5], [5, 2], [5, 1]],
+    sliders: [
+      { tiles: [[4, 2], [4, 1], [4, 0]], period: 3.6 },
+      { tiles: [[6, 2], [6, 1], [6, 0]], period: 3.6, phase: 0.5 },
     ],
   },
 

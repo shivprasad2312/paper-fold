@@ -17,8 +17,13 @@ const C_BOTTOM = 0x221709;
 const C_RIM = 0xffa13d;
 
 // Thin coloured edge highlights, one accent per level (EDGE-style).
-const ACCENTS = [0x59ff7c, 0xff4fd8, 0xffe14f, 0x4fd8ff, 0xff8a4f, 0xb07cff, 0x7dffce, 0xff6a5e, 0x9dff4f, 0xff4f8e, 0x4fc8ff, 0xc8ff5e];
+const ACCENTS = [0x59ff7c, 0xff4fd8, 0xffe14f, 0x4fd8ff, 0xff8a4f, 0xb07cff, 0x7dffce, 0xff6a5e, 0x9dff4f, 0xff4f8e, 0x4fc8ff, 0xc8ff5e, 0xffd23e, 0xff5e3a];
 const ACCENT_BY_ID = new Map(ACCENTS.map((c, i) => [i + 1, c]));
+
+function smooth(t) {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+}
 
 function paintBox(geo, topHex, sideHex, bottomHex) {
   const count = geo.attributes.position.count;
@@ -225,6 +230,47 @@ export function buildLevelView(level) {
     });
   }
 
+  // ---- sliding bridge tiles: they rise and sink on a clock ------------------
+  // Solid while level (phase < 0.5), they dip 0.4 into the void for the rest
+  // of the cycle, flashing amber in the last moment before they let go.
+  const sliders = [];
+  for (const gdef of level.sliders) {
+    for (const tile of level.tiles.values()) {
+      if (!gdef.tileSet.has(key(tile.x, tile.z))) continue;
+      const g = slabGeometry(tile.h, 0xbfc8d8, 0x78829a, BOTTOM);
+      const mat = slabMat.clone();
+      const mesh = new THREE.Mesh(g, mat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      const holder = new THREE.Group();
+      holder.add(mesh);
+      const { bright, dim } = rimLines(0, 0, tile.h, THICK);
+      holder.add(new THREE.LineSegments(linesGeometry(bright), brightRimMat));
+      holder.add(new THREE.LineSegments(linesGeometry(dim), dimRimMat));
+      holder.position.set(tile.x, 0, tile.z);
+      group.add(holder);
+      sliders.push({ tile, holder, mat, gdef });
+    }
+  }
+
+  // ---- obstacle blocks: dark cubes you can shove aside ----------------------
+  const blockMat = new THREE.MeshStandardMaterial({ color: 0x23262e, roughness: 0.6, metalness: 0.3 });
+  const blockGeo = new RoundedBoxGeometry(0.52, 0.52, 0.52, 3, 0.08);
+  const blocks = new Map();
+  const blockStarts = [];
+  for (const b of level.blocks) {
+    const tile = level.tiles.get(key(b.x, b.z));
+    const holder = new THREE.Group();
+    const mesh = new THREE.Mesh(blockGeo, blockMat);
+    mesh.castShadow = true;
+    holder.add(mesh);
+    holder.position.set(b.x, tile.h + 0.26, b.z);
+    group.add(holder);
+    const rec = { x: b.x, z: b.z, holder, anim: null, start: { x: b.x, z: b.z, h: tile.h } };
+    blocks.set(key(b.x, b.z), rec);
+    blockStarts.push(rec);
+  }
+
   // ---- goal: a glowing pad with a beam of light rising into space ----------
   const goal = new THREE.Group();
   const padMat = new THREE.MeshStandardMaterial({
@@ -273,6 +319,75 @@ export function buildLevelView(level) {
 
   goal.position.set(level.goal.x, level.goal.h, level.goal.z);
   group.add(goal);
+
+  // ---- locked goal: a padlock hovering over the gate until the key is found -
+  let gateLocked = false;
+  let lockSprite = null;
+  if (level.gateKey) {
+    gateLocked = true;
+    const lockCanvas = document.createElement('canvas');
+    lockCanvas.width = 128;
+    lockCanvas.height = 128;
+    const lc = lockCanvas.getContext('2d');
+    lc.clearRect(0, 0, 128, 128);
+    lc.strokeStyle = '#ffd76a';
+    lc.lineWidth = 9;
+    lc.beginPath();
+    lc.arc(64, 52, 22, Math.PI, 0); // shackle
+    lc.stroke();
+    lc.fillStyle = '#3a3f4d';
+    lc.strokeStyle = '#ffd76a';
+    lc.beginPath();
+    lc.roundRect(30, 52, 68, 54, 10); // body
+    lc.fill();
+    lc.stroke();
+    lc.fillStyle = '#ffd76a';
+    lc.beginPath();
+    lc.arc(64, 76, 8, 0, Math.PI * 2); // keyhole
+    lc.fill();
+    const lockTex = new THREE.CanvasTexture(lockCanvas);
+    lockTex.colorSpace = THREE.SRGBColorSpace;
+    lockSprite = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: lockTex, transparent: true, depthWrite: false }),
+    );
+    lockSprite.scale.set(0.85, 0.85, 1);
+    lockSprite.position.set(level.goal.x, level.goal.h + 1.15, level.goal.z);
+    group.add(lockSprite);
+  }
+
+  // ---- the gate key: a golden octahedron that floats where you must go ------
+  let keyItem = null;
+  if (level.gateKey) {
+    const ktile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
+    const holder = new THREE.Group();
+    const mesh = new THREE.Mesh(
+      new THREE.OctahedronGeometry(0.2),
+      new THREE.MeshStandardMaterial({
+        color: 0xffd23e,
+        emissive: new THREE.Color(0xffb300),
+        emissiveIntensity: 0.9,
+        roughness: 0.25,
+        metalness: 0.6,
+      }),
+    );
+    mesh.castShadow = true;
+    holder.add(mesh);
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTexture(),
+        color: 0xffd23e,
+        transparent: true,
+        opacity: 0.6,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    glow.scale.setScalar(0.9);
+    holder.add(glow);
+    holder.position.set(level.gateKey.x, ktile.h + 0.55, level.gateKey.z);
+    group.add(holder);
+    keyItem = { holder, mesh, glow, collected: false, anim: 0 };
+  }
 
   // ---- shards: small floating orange cubes ---------------------------------
   const shardMat = new THREE.MeshStandardMaterial({
@@ -363,6 +478,41 @@ export function buildLevelView(level) {
       prev: new THREE.Vector3(),
     };
   });
+
+  // ---- wind: faint streaks swept across the level in the breeze's direction -
+  const windStreaks = [];
+  if (level.wind) {
+    const dir = new THREE.Vector3(level.wind.x, 0, level.wind.z);
+    if (dir.lengthSq() > 0) {
+      dir.normalize();
+      const rotY = Math.atan2(-dir.z, dir.x);
+      const len = Math.max(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) + 3;
+      const cx = (bounds.min.x + bounds.max.x) / 2;
+      const cz = (bounds.min.z + bounds.max.z) / 2;
+      for (let i = 0; i < 14; i++) {
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0xbfe8ff,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+        });
+        const geo = new THREE.PlaneGeometry(len, 0.03);
+        geo.rotateX(-Math.PI / 2); // lie flat
+        const m = new THREE.Mesh(geo, mat);
+        m.rotation.y = rotY;
+        m.position.y = 0.25 + Math.random() * 2.4;
+        // keep each streak offset slightly to the side of the centre line
+        const side = (Math.random() - 0.5) * (Math.min(bounds.max.x - bounds.min.x, bounds.max.z - bounds.min.z) + 1);
+        const px = -dir.z, pz = dir.x; // perpendicular
+        m.position.x = cx + px * side;
+        m.position.z = cz + pz * side;
+        group.add(m);
+        windStreaks.push({ m, offset: Math.random(), speed: 0.16 + Math.random() * 0.1, len, dir, px, pz, side, cx, cz });
+      }
+    }
+  }
 
   // ---------------------------------------------------------------- update --
   const clock = { t: 0 };
@@ -460,6 +610,70 @@ export function buildLevelView(level) {
       o.prev.set(x, 0, z);
       o.glow.material.opacity = 0.26 + Math.sin(time * 5.2) * 0.1;
     }
+
+    // sliding bridges: level while up, a dip into the void while sunk,
+    // amber warning in the last moment before they let go
+    for (const s of sliders) {
+      const ph = ((time / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
+      let off = 0;
+      if (ph >= 0.42 && ph < 0.5) off = -0.4 * smooth((ph - 0.42) / 0.08);
+      else if (ph >= 0.5 && ph < 0.92) off = -0.4;
+      else if (ph >= 0.92) off = -0.4 * (1 - smooth((ph - 0.92) / 0.08));
+      s.holder.position.y = off;
+      const warn = ph >= 0.34 && ph < 0.5 ? (ph - 0.34) / 0.16 : 0;
+      s.mat.emissive.setRGB(warn * 0.55, warn * 0.18, 0);
+      s.mat.emissiveIntensity = 1;
+    }
+
+    // obstacle blocks: settle to their pushed tile
+    for (const b of blocks.values()) {
+      if (!b.anim) continue;
+      b.anim.t += dt / 0.22;
+      const k = Math.min(1, b.anim.t);
+      b.holder.position.lerpVectors(b.anim.from, b.anim.to, smooth(k));
+      b.holder.rotation.z = Math.sin(k * Math.PI) * 0.12;
+      if (k >= 1) {
+        b.anim = null;
+        b.holder.rotation.z = 0;
+      }
+    }
+
+    // gate key: bob, spin and shine
+    if (keyItem) {
+      if (keyItem.collected) {
+        keyItem.anim += dt * 3.2;
+        const k = Math.min(1, keyItem.anim);
+        keyItem.holder.scale.setScalar(1 + k * 1.8);
+        keyItem.holder.position.y += dt * 2.2;
+        keyItem.mesh.rotation.y += dt * 12;
+        keyItem.glow.material.opacity = Math.max(0, 0.8 * (1 - k));
+        keyItem.holder.visible = k < 1;
+      } else {
+        keyItem.mesh.rotation.y += dt * 1.4;
+        const kt = tileAt(keyItem.holder.position.x, keyItem.holder.position.z);
+        keyItem.holder.position.y = (kt ? kt.h : 0) + 0.55 + Math.sin(time * 2.2) * 0.07;
+        keyItem.glow.material.opacity = 0.5 + Math.sin(time * 3.1) * 0.15;
+      }
+    }
+
+    // locked goal: dimmed pad and beam, padlock bobbing overhead
+    const targetEmit = gateLocked ? 0.3 : 1.15;
+    padMat.emissiveIntensity += (targetEmit - padMat.emissiveIntensity) * Math.min(1, dt * 5);
+    if (lockSprite) {
+      lockSprite.visible = gateLocked;
+      lockSprite.position.y = level.goal.h + 1.15 + Math.sin(time * 1.8) * 0.08;
+    }
+    beamMat.opacity = (gateLocked ? 0.08 : 0.4) + (gateLocked ? 0 : Math.sin(time * 1.4) * 0.08);
+    halo.material.opacity = gateLocked ? 0.06 : 0.26 + Math.sin(time * 2.2) * 0.06;
+    ringMat.opacity = gateLocked ? 0.25 : 0.9;
+
+    // wind streaks: fade in, sweep, fade out
+    for (const w of windStreaks) {
+      const p = (time * w.speed + w.offset) % 1;
+      w.m.position.x = w.cx + w.dir.x * (-w.len / 2 + p * w.len) + w.px * w.side;
+      w.m.position.z = w.cz + w.dir.z * (-w.len / 2 + p * w.len) + w.pz * w.side;
+      w.m.material.opacity = Math.sin(p * Math.PI) * 0.32;
+    }
   }
 
   function breakAt(x, z) {
@@ -475,12 +689,75 @@ export function buildLevelView(level) {
     return !!c && (c.state === 'falling' || c.state === 'gone');
   }
 
+  /** Is the sliding bridge at (x, z) currently up? Shares the render clock. */
+  function sliderUp(x, z) {
+    for (const s of sliders) {
+      if (s.tile.x === x && s.tile.z === z) {
+        const ph = ((clock.t / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
+        return ph < 0.5;
+      }
+    }
+    return true;
+  }
+
   function collectShard(shard) {
     shard.collected = true;
     shard.anim = 0;
   }
 
+  function collectGateKey() {
+    if (keyItem && !keyItem.collected) {
+      keyItem.collected = true;
+      keyItem.anim = 0;
+      gateLocked = false;
+    }
+  }
+
+  function setGoalLocked(locked) {
+    gateLocked = locked;
+  }
+
+  /** Slide a block one tile after the game has resolved the push. */
+  function pushBlockVisual(x, z, dx, dz) {
+    const b = blocks.get(key(x, z));
+    if (!b) return;
+    const nx = x + dx;
+    const nz = z + dz;
+    const tile = level.tiles.get(key(nx, nz));
+    if (!tile) return;
+    blocks.delete(key(x, z));
+    b.x = nx;
+    b.z = nz;
+    blocks.set(key(nx, nz), b);
+    b.anim = {
+      t: 0,
+      from: b.holder.position.clone(),
+      to: new THREE.Vector3(nx, tile.h + 0.26, nz),
+    };
+  }
+
   function reset() {
+    blocks.clear();
+    for (const b of blockStarts) {
+      const tile = level.tiles.get(key(b.start.x, b.start.z));
+      b.x = b.start.x;
+      b.z = b.start.z;
+      b.anim = null;
+      b.holder.position.set(b.start.x, tile.h + 0.26, b.start.z);
+      b.holder.rotation.set(0, 0, 0);
+      blocks.set(key(b.x, b.z), b);
+    }
+    if (keyItem) {
+      keyItem.collected = false;
+      keyItem.anim = 0;
+      keyItem.holder.visible = true;
+      keyItem.holder.scale.setScalar(1);
+      const kt = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
+      keyItem.holder.position.set(level.gateKey.x, kt.h + 0.55, level.gateKey.z);
+      keyItem.glow.material.opacity = 0.6;
+    }
+    gateLocked = !!level.gateKey;
+    if (padMat) padMat.emissiveIntensity = gateLocked ? 0.3 : 1.15;
     for (const c of crumbles.values()) {
       c.state = 'idle';
       c.holder.visible = true;
@@ -520,6 +797,22 @@ export function buildLevelView(level) {
     bodyGeo.dispose();
     eyeGeo.dispose();
     counterTex.dispose();
+    blockMat.dispose();
+    blockGeo.dispose();
+    for (const s of sliders) s.mat.dispose();
+    for (const w of windStreaks) {
+      w.m.material.dispose();
+      w.m.geometry.dispose();
+    }
+    if (lockSprite) {
+      lockSprite.material.map.dispose();
+      lockSprite.material.dispose();
+    }
+    if (keyItem) {
+      keyItem.mesh.material.dispose();
+      keyItem.mesh.geometry.dispose();
+      keyItem.glow.material.dispose();
+    }
   }
 
   return {
@@ -533,12 +826,18 @@ export function buildLevelView(level) {
     crumbles,
     shards,
     orbs,
+    blocks,
     goal,
+    sliders,
     update,
     setSteps,
     breakAt,
     isBroken,
+    sliderUp,
     collectShard,
+    collectGateKey,
+    setGoalLocked,
+    pushBlockVisual,
     reset,
     dispose,
   };

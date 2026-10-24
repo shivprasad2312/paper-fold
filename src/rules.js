@@ -50,6 +50,40 @@ export function parseLevel(def) {
     return { x, z, id: key(x, z) };
   });
 
+  // ---- obstacle blocks (telekinesis) ---------------------------------------
+  const blocks = (def.blocks || []).map(([x, z]) => {
+    if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] block ${x},${z} is not a slab`);
+    return { x, z };
+  });
+  const blockTiles = new Set(blocks.map((b) => key(b.x, b.z)));
+  if (blockTiles.has(key(startTile.x, startTile.z))) throw new Error(`[${def.name}] block on the start tile`);
+  if (blockTiles.has(key(goalTile.x, goalTile.z))) throw new Error(`[${def.name}] block on the goal tile`);
+
+  // ---- sliding bridge tiles -------------------------------------------------
+  const sliderTiles = new Set();
+  const sliders = (def.sliders || []).map((g) => {
+    const tileSet = new Set(
+      g.tiles.map(([x, z]) => {
+        if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] slider tile ${x},${z} is not a slab`);
+        sliderTiles.add(key(x, z));
+        return key(x, z);
+      }),
+    );
+    return { tileSet, period: g.period || 3.2, phase: g.phase || 0 };
+  });
+
+  // ---- gate key -------------------------------------------------------------
+  let gateKey = null;
+  if (def.key) {
+    const [kx, kz] = def.key;
+    if (!tiles.has(key(kx, kz))) throw new Error(`[${def.name}] key ${kx},${kz} is not a slab`);
+    if (kx === goalTile.x && kz === goalTile.z) throw new Error(`[${def.name}] key sits on the goal`);
+    gateKey = { x: kx, z: kz };
+  }
+
+  const wind = def.wind || null;
+  const nudge = def.nudge || 0;
+
   return {
     def,
     tiles,
@@ -59,6 +93,13 @@ export function parseLevel(def) {
     goal: goalTile,
     shards,
     orbs: def.orbs || [],
+    blocks,
+    blockTiles,
+    sliders,
+    sliderTiles,
+    gateKey,
+    wind,
+    nudge,
   };
 }
 
@@ -84,6 +125,34 @@ export function legalNeighbours(level, tile) {
     if (res.ok) out.push({ name, to, kind: res.kind });
   }
   return out;
+}
+
+/** Is a sliding-bridge tile currently up (solid) at time `t`? */
+export function sliderUp(level, t, x, z) {
+  const k = key(x, z);
+  for (const g of level.sliders) {
+    if (g.tileSet.has(k)) {
+      const ph = (t / g.period + g.phase) % 1;
+      return ph < 0.55; // up ~55% of the cycle, sinking the rest
+    }
+  }
+  return true;
+}
+
+/**
+ * Can the block at (x, z) be pushed by (dx, dz)?
+ * Blocks only move onto plain slabs — never onto the goal, other blocks,
+ * cracked slabs, sliders, or the key.
+ */
+export function canPushBlock(level, x, z, dx, dz) {
+  const to = level.tiles.get(key(x + dx, z + dz));
+  if (!to) return false;
+  if (to.x === level.goal.x && to.z === level.goal.z) return false;
+  if (level.blockTiles.has(key(to.x, to.z))) return false;
+  if (to.crumble) return false;
+  if (level.sliderTiles.has(key(to.x, to.z))) return false;
+  if (level.gateKey && to.x === level.gateKey.x && to.z === level.gateKey.z) return false;
+  return true;
 }
 
 /** Every tile reachable from the start, ignoring crumble timers and orbs. */
@@ -156,27 +225,110 @@ export function shortestRoute(level) {
 }
 
 /**
- * State-space search that DOES model the crumble timers (a crumble slab
- * disappears once you step off it) and treats orbs as absent.
+ * State-space search that models BOTH crumble timers (a crumble slab
+ * disappears once you step off it) and obstacle blocks (which can be pushed,
+ * spending nudges). Orbs/sentinels and sliders are treated as absent/always
+ * solid — timing hazards you can simply wait out.
  * Used to prove the intended route is survivable without dashing.
  */
-export function solveWithCrumble(level) {
+export function solveHazards(level) {
   const start = level.start;
-  const startState = `${key(start.x, start.z)}|`;
-  const queue = [[start, new Set()]];
+  const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z)).sort().join(';');
+  const startBlocks = level.blocks.map((b) => ({ x: b.x, z: b.z }));
+  const startState = `${key(start.x, start.z)}|${blockSig(startBlocks)}|${level.nudge}|`;
+  const queue = [[start, new Set(), startBlocks, level.nudge]];
   const seen = new Set([startState]);
+  let guard = 0;
   while (queue.length) {
-    const [tile, broken] = queue.shift();
-    if (tile === level.goal) return true;
-    for (const { to } of legalNeighbours(level, tile)) {
-      if (broken.has(key(to.x, to.z))) continue;
-      const nextBroken = new Set(broken);
-      if (tile.crumble) nextBroken.add(key(tile.x, tile.z));
-      const sig = `${key(to.x, to.z)}|${[...nextBroken].sort().join(';')}`;
+    if (++guard > 400000) return { ok: false, capped: true };
+    const [tile, broken, blocks, left] = queue.shift();
+    if (tile.x === level.goal.x && tile.z === level.goal.z) return { ok: true };
+    for (const [name, d] of Object.entries(DIRS)) {
+      const tx = tile.x + d.dx;
+      const tz = tile.z + d.dz;
+      const bk = key(tx, tz);
+      const blockIdx = blocks.findIndex((b) => b.x === tx && b.z === tz);
+
+      if (blockIdx >= 0) {
+        // A block is in the way: the cube stays, the block slides (costs a nudge).
+        if (left <= 0) continue;
+        const b = blocks[blockIdx];
+        if (!canPushBlock(level, b.x, b.z, d.dx, d.dz)) continue;
+        const nb = blocks.map((p, i) => (i === blockIdx ? { x: b.x + d.dx, z: b.z + d.dz } : p));
+        const sig = `${key(tile.x, tile.z)}|${blockSig(nb)}|${left - 1}|`;
+        if (seen.has(sig)) continue;
+        seen.add(sig);
+        queue.push([tile, broken, nb, left - 1]);
+        continue;
+      }
+
+      const to = level.tiles.get(bk);
+      if (!to) continue;
+      if (!checkRoll(level, tile, to).ok) continue;
+      if (broken.has(bk)) continue;
+      const nextBroken = tile.crumble ? new Set([...broken, key(tile.x, tile.z)]) : broken;
+      const sig = `${bk}|${blockSig(blocks)}|${left}|`;
       if (seen.has(sig)) continue;
       seen.add(sig);
-      queue.push([to, nextBroken]);
+      queue.push([to, nextBroken, blocks, left]);
     }
   }
-  return false;
+  return { ok: false };
+}
+
+/** Backwards-compatible name. */
+export const solveWithCrumble = (level) => solveHazards(level).ok;
+
+/**
+ * Distance (Chebyshev) from tile to the nearest point of a sentinel's path.
+ * Exported so level data and the daily generator can be checked for the
+ * "hazard spawns on top of the start tile" class of bugs.
+ */
+export function sentinelClearance(level, tile) {
+  let best = Infinity;
+  for (const orb of level.orbs) {
+    for (const [px, pz] of orb.path) {
+      const d = Math.max(Math.abs(px - tile.x), Math.abs(pz - tile.z));
+      if (d < best) best = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Spawn-safety audit for a parsed level:
+ *  - no sentinel path point on the start or goal tile (instant-kill loop),
+ *  - every sentinel path point sits on a slab,
+ *  - no shard/block/key stacked on start or goal,
+ *  - start and goal are on slabs, and the start is not a crumble slab.
+ * Returns a list of problem strings (empty = safe).
+ */
+export function spawnProblems(level) {
+  const probs = [];
+  const startK = key(level.start.x, level.start.z);
+  const goalK = key(level.goal.x, level.goal.z);
+  for (const orb of level.orbs) {
+    orb.path.forEach(([px, pz], i) => {
+      if (!level.tiles.has(key(px, pz))) probs.push(`orb ${i} path point ${px},${pz} is not a slab`);
+    });
+    // The patrol may cross the start tile (that's timing play), but its
+    // SPAWN point must not sit on it — that's the instant-death loop the
+    // Fault Line shipped with. Same for the goal.
+    const [sx, sz] = orb.path[0];
+    if (sx === level.start.x && sz === level.start.z) probs.push(`orb ${level.orbs.indexOf(orb)} spawns on the player spawn tile`);
+    if (sx === level.goal.x && sz === level.goal.z) probs.push(`orb ${level.orbs.indexOf(orb)} spawns on the goal tile`);
+  }
+  if (!level.tiles.has(startK)) probs.push('start tile is not a slab');
+  if (!level.tiles.has(goalK)) probs.push('goal tile is not a slab');
+  if (level.start.crumble) probs.push('start tile is a crumble slab');
+  for (const s of level.shards) if (s.id === startK || s.id === goalK) probs.push(`shard on ${s.id === startK ? 'start' : 'goal'} tile`);
+  for (const b of level.blocks) {
+    const k = key(b.x, b.z);
+    if (k === startK || k === goalK) probs.push(`block on ${k === startK ? 'start' : 'goal'} tile`);
+  }
+  if (level.gateKey) {
+    const k = key(level.gateKey.x, level.gateKey.z);
+    if (k === startK || k === goalK) probs.push('key on start/goal tile');
+  }
+  return probs;
 }
