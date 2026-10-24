@@ -6,31 +6,31 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1"
     />
-    <meta name="theme-color" content="#f6ecda" />
+    <meta name="theme-color" content="#f4effc" />
     <meta
       name="description"
-      content="Paper Fold — a cosy paper-craft fruit merging game. Drop fruit into the jar, fold two of a kind, and don't overflow the limit line."
+      content="Fluffy Merge — drop fuzzy pals, merge matching buddies, and collect the whole cuddle crew!"
     />
-    <meta property="og:title" content="Paper Fold — a fruit merging game" />
+    <meta property="og:title" content="Fluffy Merge — a cozy game of fuzzy friends" />
     <meta
       property="og:description"
-      content="Drop fruit, fold two of a kind, and grow the biggest fruit in the jar."
+      content="Drop two matching fluffy pals together and discover a bigger buddy."
     />
     <meta property="og:type" content="website" />
     <link
       rel="icon"
-      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='15' fill='%23fff8ec'/><circle cx='32' cy='38' r='17' fill='%23e2565c'/><circle cx='26' cy='32' r='5' fill='%23ff9b9f' opacity='.8'/><path d='M32 21c0-8 7-11 12-11' fill='none' stroke='%236f9349' stroke-width='3.4' stroke-linecap='round'/></svg>"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='18' fill='%23f3eaff'/><circle cx='32' cy='37' r='17' fill='%23bd9ee8'/><circle cx='20' cy='18' r='7' fill='%23bd9ee8'/><circle cx='44' cy='18' r='7' fill='%23bd9ee8'/><circle cx='27' cy='35' r='2.3' fill='%233d3048'/><circle cx='37' cy='35' r='2.3' fill='%233d3048'/><circle cx='23' cy='41' r='3' fill='%23ef9fbd'/><circle cx='41' cy='41' r='3' fill='%23ef9fbd'/></svg>"
     />
-    <title>Paper Fold — fruit merging game</title>
+    <title>Fluffy Merge — a game of fuzzy friends</title>
   </head>
   <body>
     <div id="app">
       <div class="frame" id="frame">
-        <canvas id="board" aria-label="Paper Fold play field — tap to drop fruit"></canvas>
+        <canvas id="board" aria-label="Fluffy Merge play field — tap to drop a pal"></canvas>
 
         <div class="hud">
           <button class="icon-btn" id="btn-sound" type="button" aria-label="Mute sound"></button>
-          <div class="hint">fold two of a kind</div>
+          <div class="hint">match two fluffy pals</div>
           <button class="icon-btn" id="btn-help" type="button" aria-label="How to play">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <circle cx="12" cy="12" r="9.1" fill="none" stroke="currentColor" stroke-width="1.8" />
@@ -68,7 +68,7 @@
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
         <div class="overlay" id="overlay" aria-hidden="true">
-          <div class="card" id="card" role="dialog" aria-modal="true" aria-label="Paper Fold"></div>
+          <div class="card" id="card" role="dialog" aria-modal="true" aria-label="Fluffy Merge"></div>
         </div>
       </div>
     </div>

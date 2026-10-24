@@ -51,9 +51,9 @@ global.document = {
   },
 };
 
-const { Game } = await import('./src/game.js');
-const { Renderer } = await import('./src/renderer.js');
-const { FRUITS } = await import('./src/fruits.js');
+const { Game } = await import('../src/game.js');
+const { Renderer } = await import('../src/renderer.js');
+const { FRUITS } = await import('../src/fruits.js');
 
 const canvas = new FakeCanvas();
 const game = new Game();

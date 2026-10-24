@@ -4,7 +4,7 @@ import { TAU, clamp, easeOutCubic, mulberry32, hexA, roundRect } from './utils.j
 import { makeFruitSprite, drawPageTexture, drawTornStrip, font } from './art.js';
 
 const RATIO = WORLD.width / WORLD.height;
-const DANGER_COLOR = '#bd5344';
+const DANGER_COLOR = '#e979a8';
 
 /**
  * All world coordinates map onto the jar's *well* (the inner play area).
@@ -134,21 +134,26 @@ export class Renderer {
     const cardH = clamp(this.headerH * 0.66, 58, 84);
     const cardY = this.headerH - cardH - 4;
 
-    // washi title tape
-    const tw = Math.min(w * 0.42, 172);
+    // little toy-logo pill
+    const tw = Math.min(w * 0.46, 190);
+    const ty = clamp(this.headerH * 0.2, 15, 21);
     ctx.save();
-    ctx.translate(w / 2, clamp(this.headerH * 0.2, 15, 21));
-    ctx.rotate(-0.018);
-    ctx.fillStyle = 'rgba(223, 194, 155, 0.62)';
-    ctx.fillRect(-tw / 2, -9, tw, 20);
-    ctx.fillStyle = 'rgba(255,255,255,0.3)';
-    ctx.fillRect(-tw / 2 + 3, -7, tw - 6, 2);
-    ctx.font = font(700, clamp(w * 0.027, 9.5, 11.5));
-    ctx.fillStyle = '#8a7052';
+    ctx.shadowColor = 'rgba(111,82,150,.2)';
+    ctx.shadowBlur = 8;
+    ctx.shadowOffsetY = 3;
+    roundRect(ctx, w / 2 - tw / 2, ty - 10, tw, 21, 11);
+    const logo = ctx.createLinearGradient(0, ty - 10, 0, ty + 11);
+    logo.addColorStop(0, '#d9c6fa');
+    logo.addColorStop(1, '#bda3ee');
+    ctx.fillStyle = logo;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    ctx.font = font(800, clamp(w * 0.027, 9.5, 11.5));
+    ctx.fillStyle = '#fff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.letterSpacing = '3.4px';
-    ctx.fillText('PAPER FOLD', 2, 1);
+    ctx.letterSpacing = '2.1px';
+    ctx.fillText('FLUFFY MERGE', w / 2, ty + 0.5);
     ctx.letterSpacing = '0px';
     ctx.restore();
 
@@ -158,7 +163,7 @@ export class Renderer {
     ctx.textBaseline = 'alphabetic';
     ctx.letterSpacing = '1.8px';
     ctx.font = font(700, 8.6);
-    ctx.fillStyle = '#a58d70';
+    ctx.fillStyle = '#8e7aa9';
     ctx.fillText('SCORE', pad + 13, cardY + 15);
     ctx.letterSpacing = '0px';
 
@@ -170,17 +175,17 @@ export class Renderer {
       scoreSize -= 1;
       ctx.font = font(700, scoreSize);
     }
-    ctx.fillStyle = '#463527';
+    ctx.fillStyle = '#453452';
     ctx.fillText(scoreText, pad + 12, cardY + cardH * 0.68);
 
     const bestLabel = `BEST ${formatScore(Math.max(this.game.best, this.game.score))}`;
     ctx.font = font(700, 8.2);
     const bw = ctx.measureText(bestLabel).width + 14;
     const bh = 15;
-    ctx.fillStyle = 'rgba(232, 214, 185, 0.7)';
+    ctx.fillStyle = 'rgba(224, 210, 249, 0.82)';
     roundRect(ctx, pad + scoreW - bw - 7, cardY + cardH - bh - 6, bw, bh, 7.5);
     ctx.fill();
-    ctx.fillStyle = '#9a8163';
+    ctx.fillStyle = '#75608f';
     ctx.letterSpacing = '0.5px';
     ctx.fillText(bestLabel, pad + scoreW - bw, cardY + cardH - bh + 3.6);
     ctx.letterSpacing = '0px';
@@ -190,8 +195,8 @@ export class Renderer {
     drawTornStrip(ctx, nx, cardY, nextW, cardH, '#fffdf6', 23);
     ctx.letterSpacing = '1.8px';
     ctx.font = font(700, 8.6);
-    ctx.fillStyle = '#a58d70';
-    ctx.fillText('NEXT', nx + 13, cardY + 15);
+    ctx.fillStyle = '#8e7aa9';
+    ctx.fillText('NEXT PAL', nx + 13, cardY + 15);
     ctx.letterSpacing = '0px';
 
     const nextFruit = FRUITS[this.game.nextTier];
@@ -205,7 +210,7 @@ export class Renderer {
     ctx.restore();
 
     ctx.font = font(700, clamp(cardH * 0.14, 8, 9.4));
-    ctx.fillStyle = '#9a8163';
+    ctx.fillStyle = '#75608f';
     ctx.letterSpacing = '0.7px';
     ctx.fillText(nextFruit.name.toUpperCase(), nx + 13, cardY + cardH - 9);
     ctx.letterSpacing = '0px';
@@ -229,29 +234,29 @@ export class Renderer {
     ctx.fill();
     ctx.restore();
 
-    // paper sleeve
+    // softly rounded acrylic cuddle jar
     ctx.save();
-    ctx.shadowColor = 'rgba(100, 69, 36, 0.44)';
+    ctx.shadowColor = 'rgba(88, 65, 116, 0.3)';
     ctx.shadowBlur = 30;
     ctx.shadowOffsetY = 13;
     roundRect(ctx, x, y, w, h, radius);
     const sleeve = ctx.createLinearGradient(x, y, x + w, y + h);
-    sleeve.addColorStop(0, '#fffefa');
-    sleeve.addColorStop(0.45, '#fdf7ea');
-    sleeve.addColorStop(1, '#f2e4cd');
+    sleeve.addColorStop(0, '#fffaff');
+    sleeve.addColorStop(0.42, '#eee4ff');
+    sleeve.addColorStop(1, '#cbb8ed');
     ctx.fillStyle = sleeve;
     ctx.fill();
     ctx.restore();
 
-    // deckle edge
+    // glossy rim and inner edge
     ctx.save();
     roundRect(ctx, x + 0.6, y + 0.6, w - 1.2, h - 1.2, radius);
-    ctx.strokeStyle = 'rgba(186, 156, 116, 0.8)';
+    ctx.strokeStyle = 'rgba(151, 125, 188, 0.68)';
     ctx.lineWidth = 1.3;
     ctx.stroke();
     ctx.restore();
 
-    // ink hairline where the sleeve folds into the well
+    // luminous clear play well
     const ix = well.x;
     const iy = well.y;
     const iw = well.w;
@@ -260,13 +265,13 @@ export class Renderer {
 
     roundRect(ctx, ix, iy, iw, ih, ir);
     const interior = ctx.createLinearGradient(ix, iy, ix, iy + ih);
-    interior.addColorStop(0, '#e7d3b2');
-    interior.addColorStop(0.32, '#f1e2c8');
-    interior.addColorStop(1, '#e2cca8');
+    interior.addColorStop(0, '#e4dcfa');
+    interior.addColorStop(0.35, '#faf5ff');
+    interior.addColorStop(1, '#e8f1ff');
     ctx.fillStyle = interior;
     ctx.fill();
 
-    // faint paper mottling inside the well
+    // subtle lavender cloud tint inside the well
     ctx.save();
     roundRect(ctx, ix, iy, iw, ih, ir);
     ctx.clip();
@@ -275,7 +280,7 @@ export class Renderer {
       const cxp = ix + random() * iw;
       const cyp = iy + random() * ih;
       const rr = 40 + random() * 70;
-      ctx.fillStyle = `rgba(198, 170, 132, ${0.035 + random() * 0.035})`;
+      ctx.fillStyle = `rgba(161, 134, 195, ${0.012 + random() * 0.015})`;
       ctx.beginPath();
       ctx.ellipse(cxp, cyp, rr, rr * (0.5 + random() * 0.5), random() * 3, 0, TAU);
       ctx.fill();
@@ -284,17 +289,17 @@ export class Renderer {
 
     ctx.save();
     roundRect(ctx, ix, iy, iw, ih, ir);
-    ctx.strokeStyle = 'rgba(148, 116, 78, 0.5)';
+    ctx.strokeStyle = 'rgba(157, 128, 192, 0.52)';
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
 
     // vertical shading down the walls
     const side = ctx.createLinearGradient(ix, 0, ix + iw, 0);
-    side.addColorStop(0, 'rgba(112, 80, 48, 0.16)');
-    side.addColorStop(0.07, 'rgba(112, 80, 48, 0)');
-    side.addColorStop(0.93, 'rgba(112, 80, 48, 0)');
-    side.addColorStop(1, 'rgba(112, 80, 48, 0.16)');
+    side.addColorStop(0, 'rgba(93, 70, 128, 0.14)');
+    side.addColorStop(0.07, 'rgba(93, 70, 128, 0)');
+    side.addColorStop(0.93, 'rgba(93, 70, 128, 0)');
+    side.addColorStop(1, 'rgba(93, 70, 128, 0.14)');
     ctx.fillStyle = side;
     roundRect(ctx, ix, iy, iw, ih, ir);
     ctx.fill();
@@ -348,11 +353,11 @@ export class Renderer {
     roundRect(ctx, x, y, w, h, radius);
     ctx.clip();
     const rim = ctx.createLinearGradient(0, y, 0, y + border * 1.3);
-    rim.addColorStop(0, 'rgba(255, 254, 249, 1)');
-    rim.addColorStop(1, 'rgba(247, 236, 217, 0.92)');
+    rim.addColorStop(0, 'rgba(255, 253, 255, 1)');
+    rim.addColorStop(1, 'rgba(239, 227, 255, 0.92)');
     ctx.fillStyle = rim;
     ctx.fillRect(x, y, w, border * 1.3);
-    ctx.strokeStyle = 'rgba(190, 160, 120, 0.55)';
+    ctx.strokeStyle = 'rgba(159, 129, 194, 0.48)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(x, y + border * 1.3);
@@ -399,7 +404,7 @@ export class Renderer {
     ctx.restore();
 
     // flag sits on the inner edge so it never touches the sleeve
-    const flagW = 44;
+    const flagW = 48;
     const flagH = 13;
     const fx = ix + iw - flagW - 7;
     ctx.save();
@@ -411,7 +416,7 @@ export class Renderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.letterSpacing = '0.8px';
-    ctx.fillText('LIMIT', fx + flagW / 2, lineY + 0.5);
+    ctx.fillText('CLOUD LINE', fx + flagW / 2, lineY + 0.5);
     ctx.letterSpacing = '0px';
     ctx.restore();
   }
@@ -436,8 +441,8 @@ export class Renderer {
     const start = this.toScreen(x, WORLD.spawnY);
     const end = this.toScreen(x, landing);
     const grad = ctx.createLinearGradient(0, start.y, 0, end.y);
-    grad.addColorStop(0, 'rgba(122, 92, 58, 0.4)');
-    grad.addColorStop(1, 'rgba(122, 92, 58, 0.08)');
+    grad.addColorStop(0, 'rgba(118, 91, 151, 0.38)');
+    grad.addColorStop(1, 'rgba(118, 91, 151, 0.08)');
     ctx.save();
     ctx.setLineDash([4, 7]);
     ctx.lineDashOffset = -this.time / 70;
@@ -455,7 +460,7 @@ export class Renderer {
     ctx.lineDashOffset = this.time / 60;
     ctx.beginPath();
     ctx.arc(0, 0, r * k * 0.82, 0, TAU);
-    ctx.strokeStyle = 'rgba(112, 82, 50, 0.45)';
+    ctx.strokeStyle = 'rgba(112, 82, 150, 0.4)';
     ctx.lineWidth = 1.4;
     ctx.stroke();
     ctx.restore();
@@ -526,7 +531,7 @@ export class Renderer {
     // thread from above the jar mouth
     const top = { x: p.x, y: this.well.y - this.jar.border * 0.6 };
     ctx.save();
-    ctx.strokeStyle = 'rgba(126, 96, 62, 0.45)';
+    ctx.strokeStyle = 'rgba(126, 96, 162, 0.4)';
     ctx.lineWidth = 1.3;
     ctx.beginPath();
     ctx.moveTo(top.x, top.y);
@@ -534,7 +539,7 @@ export class Renderer {
     ctx.stroke();
     ctx.beginPath();
     ctx.arc(top.x, top.y + 1.5, 2.4, 0, TAU);
-    ctx.fillStyle = 'rgba(126, 96, 62, 0.55)';
+    ctx.fillStyle = 'rgba(126, 96, 162, 0.48)';
     ctx.fill();
 
     ctx.globalAlpha = this.game.canDrop() ? 1 : 0.55;
@@ -557,13 +562,13 @@ export class Renderer {
     const maxR = FRUITS[count - 1].r;
 
     const shelf = ctx.createLinearGradient(0, y + h, 0, y + h + 12);
-    shelf.addColorStop(0, 'rgba(112, 84, 52, 0.18)');
-    shelf.addColorStop(1, 'rgba(112, 84, 52, 0)');
+    shelf.addColorStop(0, 'rgba(112, 82, 150, 0.14)');
+    shelf.addColorStop(1, 'rgba(112, 82, 150, 0)');
     ctx.fillStyle = shelf;
     ctx.fillRect(x + 10, y + h, stripW - 20, 12);
 
     ctx.save();
-    ctx.strokeStyle = 'rgba(194, 166, 130, 0.75)';
+    ctx.strokeStyle = 'rgba(176, 152, 203, 0.68)';
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 5]);
     ctx.beginPath();
@@ -586,7 +591,7 @@ export class Renderer {
         ctx.arc(0, 0, size * 0.42, 0, TAU);
         ctx.fill();
         ctx.setLineDash([2, 3]);
-        ctx.strokeStyle = 'rgba(168, 140, 104, 0.75)';
+        ctx.strokeStyle = 'rgba(156, 130, 183, 0.7)';
         ctx.lineWidth = 1;
         ctx.stroke();
         ctx.globalAlpha = 0.34;

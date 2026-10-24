@@ -1,113 +1,115 @@
-import { TAU, mulberry32, clamp } from './utils.js';
+import { TAU, mulberry32, clamp, roundRect } from './utils.js';
 
-const FONT = `"Trebuchet MS", "Segoe UI", ui-rounded, system-ui, sans-serif`;
+const FONT = '"Trebuchet MS", "Segoe UI", ui-rounded, system-ui, sans-serif';
+export const font = (weight, size) => `${weight} ${size}px ${FONT}`;
 
-export function font(weight, size) {
-  return `${weight} ${size}px ${FONT}`;
+const hash = (text) => {
+  let h = 2166136261;
+  for (const char of text) h = Math.imul(h ^ char.charCodeAt(0), 16777619);
+  return h >>> 0;
+};
+
+function ellipse(ctx, x, y, rx, ry, color) {
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, TAU);
+  ctx.fill();
 }
 
-function leafPath(ctx, x, y, len, wid, rot) {
+function roundedTriangle(ctx, x, y, size, color, inner) {
   ctx.save();
   ctx.translate(x, y);
-  ctx.rotate(rot);
+  ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.quadraticCurveTo(len * 0.45, -wid, len, 0);
-  ctx.quadraticCurveTo(len * 0.45, wid * 0.8, 0, 0);
+  ctx.moveTo(-size * 0.55, size * 0.48);
+  ctx.quadraticCurveTo(-size * 0.58, -size * 0.18, -size * 0.05, -size * 0.58);
+  ctx.quadraticCurveTo(0, -size * 0.66, size * 0.1, -size * 0.52);
+  ctx.quadraticCurveTo(size * 0.58, -size * 0.14, size * 0.55, size * 0.48);
   ctx.closePath();
+  ctx.fill();
+  if (inner) {
+    ctx.fillStyle = inner;
+    ctx.beginPath();
+    ctx.ellipse(0, size * 0.03, size * 0.24, size * 0.32, 0, 0, TAU);
+    ctx.fill();
+  }
   ctx.restore();
 }
 
-function drawLeaf(ctx, x, y, len, wid, rot, colors) {
-  leafPath(ctx, x, y, len, wid, rot);
-  const g = ctx.createLinearGradient(x, y - wid, x + len * 0.7, y + wid);
-  g.addColorStop(0, colors.light);
-  g.addColorStop(1, colors.dark);
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(40,45,30,0.28)';
-  ctx.lineWidth = Math.max(1, len * 0.05);
-  ctx.stroke();
-  // central vein
+function drawEars(ctx, buddy, cx, cy, r) {
+  const s = buddy.species;
+  const fur = buddy.base;
+  const inner = buddy.accent;
+  if (s === 'bunny' || s === 'unicorn') {
+    ellipse(ctx, cx - r * 0.34, cy - r * 0.72, r * 0.19, r * 0.48, fur);
+    ellipse(ctx, cx + r * 0.34, cy - r * 0.72, r * 0.19, r * 0.48, fur);
+    ellipse(ctx, cx - r * 0.34, cy - r * 0.74, r * 0.09, r * 0.3, inner);
+    ellipse(ctx, cx + r * 0.34, cy - r * 0.74, r * 0.09, r * 0.3, inner);
+  } else if (s === 'cat' || s === 'fox' || s === 'dragon') {
+    roundedTriangle(ctx, cx - r * 0.48, cy - r * 0.57, r * 0.64, fur, inner);
+    roundedTriangle(ctx, cx + r * 0.48, cy - r * 0.57, r * 0.64, fur, inner);
+  } else if (s === 'bear' || s === 'panda') {
+    ellipse(ctx, cx - r * 0.55, cy - r * 0.46, r * 0.27, r * 0.29, s === 'panda' ? '#35313d' : fur);
+    ellipse(ctx, cx + r * 0.55, cy - r * 0.46, r * 0.27, r * 0.29, s === 'panda' ? '#35313d' : fur);
+    if (s === 'bear') {
+      ellipse(ctx, cx - r * 0.55, cy - r * 0.46, r * 0.13, r * 0.15, inner);
+      ellipse(ctx, cx + r * 0.55, cy - r * 0.46, r * 0.13, r * 0.15, inner);
+    }
+  } else if (s === 'owl') {
+    ellipse(ctx, cx - r * 0.48, cy - r * 0.62, r * 0.2, r * 0.23, fur);
+    ellipse(ctx, cx + r * 0.48, cy - r * 0.62, r * 0.2, r * 0.23, fur);
+  } else if (s === 'lamb') {
+    for (let i = 0; i < 5; i++) {
+      const a = Math.PI + (i / 4) * Math.PI;
+      ellipse(ctx, cx + Math.cos(a) * r * 0.52, cy + Math.sin(a) * r * 0.53, r * 0.22, r * 0.22, buddy.light);
+    }
+  }
+}
+
+function drawFuzz(ctx, buddy, cx, cy, rx, ry, r, random) {
+  // Soft outer halo and fine flyaway fibers make the sprite read as plush.
+  ctx.save();
+  ctx.strokeStyle = buddy.fur;
+  ctx.lineCap = 'round';
+  const strands = Math.round(140 + r * 2.5);
+  for (let i = 0; i < strands; i++) {
+    const a = random() * TAU;
+    const ex = cx + Math.cos(a) * rx;
+    const ey = cy + Math.sin(a) * ry;
+    const len = r * (0.025 + random() * 0.065);
+    ctx.globalAlpha = 0.22 + random() * 0.38;
+    ctx.lineWidth = Math.max(0.65, r * (0.012 + random() * 0.018));
+    ctx.beginPath();
+    ctx.moveTo(ex - Math.cos(a) * len * 0.35, ey - Math.sin(a) * len * 0.35);
+    ctx.lineTo(ex + Math.cos(a) * len, ey + Math.sin(a) * len);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // Brushed fibers inside the plush, clipped to the body oval.
+  ctx.save();
   ctx.beginPath();
-  ctx.moveTo(x + Math.cos(rot) * len * 0.08, y + Math.sin(rot) * len * 0.08);
-  ctx.lineTo(
-    x + Math.cos(rot) * len * 0.88,
-    y + Math.sin(rot) * len * 0.88
-  );
-  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-  ctx.lineWidth = Math.max(0.8, len * 0.035);
-  ctx.stroke();
-}
-
-/**
- * Pre-render one fruit into a canvas. Sprites are cached so the render loop
- * only ever does a single drawImage per fruit.
- */
-/** Silhouette of each fruit, as a radial multiplier on the physics circle. */
-function shapeFactor(shape, theta) {
-  const sin = Math.sin(theta);
-  const cos = Math.cos(theta);
-  const top = Math.max(0, -sin);
-  const side = Math.abs(cos);
-  switch (shape) {
-    case 'cherry':
-      return 1 - 0.1 * Math.pow(top, 12);
-    case 'apple':
-      return 1 - 0.13 * Math.pow(top, 14) + 0.025 * Math.pow(sin, 2);
-    case 'peach':
-      return 1 - 0.075 * Math.pow(top, 8) + 0.035 * Math.pow(Math.max(0, sin), 6);
-    case 'pear':
-      return (1 + 0.16 * sin) / 1.16;
-    case 'lemon':
-      return (0.945 + 0.13 * Math.pow(side, 14)) * (1 - 0.03 * sin * sin);
-    case 'grape':
-      return 1 + 0.02 * Math.cos(theta * 7);
-    case 'pineapple':
-      return 1 - 0.055 * sin * sin + 0.015 * side;
-    default:
-      return 1;
+  ctx.ellipse(cx, cy, rx * 0.98, ry * 0.98, 0, 0, TAU);
+  ctx.clip();
+  for (let i = 0; i < Math.round(90 + r * 2); i++) {
+    const x = cx + (random() * 2 - 1) * rx * 0.91;
+    const y = cy + (random() * 2 - 1) * ry * 0.91;
+    const len = r * (0.025 + random() * 0.09);
+    ctx.globalAlpha = 0.12 + random() * 0.2;
+    ctx.strokeStyle = random() > 0.48 ? '#fffefb' : buddy.dark;
+    ctx.lineWidth = Math.max(0.55, r * 0.013);
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + (random() - 0.5) * len, y - len * 0.45);
+    ctx.stroke();
   }
+  ctx.restore();
 }
 
-function topFactor(shape) {
-  switch (shape) {
-    case 'cherry':
-      return 0.9;
-    case 'apple':
-      return 0.87;
-    case 'peach':
-      return 0.93;
-    case 'pear':
-      return 0.8;
-    case 'lemon':
-      return 0.93;
-    default:
-      return 0.99;
-  }
-}
-
-function traceShape(ctx, shape, cx, cy, radius, wobble = 0, seed = 0) {
-  const random = mulberry32(seed);
-  const steps = Math.max(48, Math.round(radius * 1.6));
-  ctx.beginPath();
-  for (let i = 0; i <= steps; i++) {
-    const a = (i / steps) * TAU;
-    const f =
-      shapeFactor(shape, a) *
-      (1 + (wobble ? (random() - 0.5) * wobble + Math.sin(a * 7) * wobble * 0.4 : 0));
-    const px = cx + Math.cos(a) * radius * f;
-    const py = cy + Math.sin(a) * radius * f;
-    if (i === 0) ctx.moveTo(px, py);
-    else ctx.lineTo(px, py);
-  }
-  ctx.closePath();
-}
-
-export function makeFruitSprite(fruit, resolution = 2) {
-  const r = fruit.r;
-  const shape = fruit.shape || 'circle';
-  const pad = Math.ceil(r * 0.72) + 14;
+/** Render one soft, fuzzy companion into a cached canvas sprite. */
+export function makeFruitSprite(buddy, resolution = 2) {
+  const r = buddy.r;
+  const pad = Math.ceil(r * 0.82) + 10;
   const size = Math.ceil((r + pad) * 2);
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(size * resolution);
@@ -115,493 +117,187 @@ export function makeFruitSprite(fruit, resolution = 2) {
   const ctx = canvas.getContext('2d');
   ctx.scale(resolution, resolution);
   const cx = size / 2;
-  const cy = size / 2;
-  const random = mulberry32(hashString(fruit.key));
-  const top = topFactor(shape);
+  const cy = size / 2 + r * 0.04;
+  const random = mulberry32(hash(buddy.key));
+  const rx = r * (buddy.species === 'penguin' ? 0.79 : 0.88);
+  const ry = r * (buddy.species === 'penguin' ? 0.96 : 0.84);
 
-  // ---- soft contact shadow -------------------------------------------------
+  // Grounding shadow beneath the toy.
   ctx.save();
-  ctx.translate(cx + r * 0.08, cy + r * 0.26);
-  ctx.scale(1, 0.74);
-  const sh = ctx.createRadialGradient(0, 0, r * 0.42, 0, 0, r * 1.14);
-  sh.addColorStop(0, 'rgba(96, 66, 42, 0.2)');
-  sh.addColorStop(0.8, 'rgba(96, 66, 42, 0.07)');
-  sh.addColorStop(1, 'rgba(96, 66, 42, 0)');
-  ctx.fillStyle = sh;
+  ctx.translate(cx, cy + ry * 0.9);
+  ctx.scale(1, 0.23);
+  const shadow = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 1.25);
+  shadow.addColorStop(0, 'rgba(59,48,77,.22)');
+  shadow.addColorStop(1, 'rgba(59,48,77,0)');
+  ctx.fillStyle = shadow;
   ctx.beginPath();
-  ctx.arc(0, 0, r * 1.14, 0, TAU);
+  ctx.arc(0, 0, r * 1.25, 0, TAU);
   ctx.fill();
   ctx.restore();
 
-  // ---- stems / crowns behind the body -------------------------------------
-  if (fruit.deco === 'stem' || shape === 'cherry' || shape === 'apple') {
-    const stemTop = cy - r * top * 1.1;
-    ctx.save();
-    ctx.strokeStyle = '#8a5a34';
-    ctx.lineWidth = Math.max(2, r * 0.082);
-    ctx.lineCap = 'round';
+  // Ears, horns, wings and tufts sit behind the plush body.
+  drawEars(ctx, buddy, cx, cy, r);
+  if (buddy.species === 'unicorn') {
+    ctx.fillStyle = '#ffd56f';
     ctx.beginPath();
-    ctx.moveTo(cx + r * 0.04, cy - r * top * 0.96);
-    ctx.quadraticCurveTo(cx + r * 0.2, stemTop + r * 0.08, cx + r * 0.09, stemTop - r * 0.16);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
-    ctx.lineWidth = Math.max(1, r * 0.026);
-    ctx.beginPath();
-    ctx.moveTo(cx + r * 0.02, cy - r * top * 0.98);
-    ctx.quadraticCurveTo(cx + r * 0.17, stemTop + r * 0.1, cx + r * 0.06, stemTop - r * 0.15);
-    ctx.stroke();
-    ctx.restore();
-  }
-
-  if (fruit.deco === 'crown') {
-    const leaves = [-1.15, -0.72, -0.3, 0.14, 0.58, 0.95];
-    leaves.forEach((a, i) => {
-      drawLeaf(
-        ctx,
-        cx + r * 0.02,
-        cy - r * top * 0.92,
-        r * (0.5 + (Math.abs(a) < 0.4 ? 0.28 : i % 2 ? 0.02 : 0.12)),
-        r * 0.135,
-        -Math.PI / 2 + a * 0.7,
-        { light: i % 2 ? '#9cbe68' : '#86a955', dark: '#4b6c32' }
-      );
-    });
-  }
-
-  // ---- layered paper backing (offset like a hand-cut layer) ---------------
-  ctx.save();
-  ctx.translate(cx + r * 0.012, cy + r * 0.02);
-  ctx.rotate(0.04);
-  traceShape(ctx, shape, 0, 0, r * 1.045, 0.018, hashString(fruit.key) + 7);
-  const back = ctx.createLinearGradient(-r, -r, r, r);
-  back.addColorStop(0, '#fffdf6');
-  back.addColorStop(0.6, '#fdf5e4');
-  back.addColorStop(1, '#f0e2c9');
-  ctx.fillStyle = back;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(150, 118, 82, 0.32)';
-  ctx.lineWidth = Math.max(0.9, r * 0.026);
-  ctx.stroke();
-  ctx.restore();
-
-  // ---- coloured body ------------------------------------------------------
-  const bodyR = r * 0.958;
-  const gradient = ctx.createLinearGradient(
-    cx - r * 0.6,
-    cy - r * 0.72,
-    cx + r * 0.62,
-    cy + r * 0.78
-  );
-  gradient.addColorStop(0, fruit.light);
-  gradient.addColorStop(0.44, fruit.base);
-  gradient.addColorStop(1, fruit.dark);
-
-  ctx.save();
-  traceShape(ctx, shape, cx, cy, bodyR);
-  ctx.fillStyle = gradient;
-  ctx.fill();
-  ctx.clip();
-
-  // matte light from the top-left
-  const hi = ctx.createRadialGradient(
-    cx - r * 0.34,
-    cy - r * 0.4,
-    r * 0.06,
-    cx - r * 0.34,
-    cy - r * 0.4,
-    r * 1.1
-  );
-  hi.addColorStop(0, 'rgba(255,255,255,0.3)');
-  hi.addColorStop(0.42, 'rgba(255,255,255,0.09)');
-  hi.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.fillStyle = hi;
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-
-  const shadeG = ctx.createRadialGradient(
-    cx + r * 0.52,
-    cy + r * 0.58,
-    r * 0.1,
-    cx + r * 0.52,
-    cy + r * 0.58,
-    r * 1.14
-  );
-  shadeG.addColorStop(0, 'rgba(62,34,26,0.23)');
-  shadeG.addColorStop(1, 'rgba(62,34,26,0)');
-  ctx.fillStyle = shadeG;
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-
-  drawDeco(ctx, fruit, cx, cy, r, random);
-  if (fruit.skin) drawDeco(ctx, { ...fruit, deco: fruit.skin }, cx, cy, r, random);
-  if (fruit.blush) drawDeco(ctx, { ...fruit, deco: fruit.blush }, cx, cy, r, random);
-
-  // paper grain
-  for (let i = 0; i < 30; i++) {
-    const a = random() * TAU;
-    const d = Math.sqrt(random()) * r;
-    const len = r * (0.06 + random() * 0.14);
-    ctx.strokeStyle =
-      random() > 0.45 ? 'rgba(255,255,255,0.15)' : 'rgba(70,50,30,0.085)';
-    ctx.lineWidth = Math.max(0.5, r * 0.011);
-    ctx.beginPath();
-    const px = cx + Math.cos(a) * d;
-    const py = cy + Math.sin(a) * d;
-    ctx.moveTo(px, py);
-    ctx.lineTo(px + Math.cos(a + 1.4) * len, py + Math.sin(a + 1.4) * len);
+    ctx.moveTo(cx, cy - r * 1.11);
+    ctx.lineTo(cx - r * 0.13, cy - r * 0.73);
+    ctx.lineTo(cx + r * 0.13, cy - r * 0.73);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = '#e5a74b';
+    ctx.lineWidth = Math.max(0.7, r * 0.025);
     ctx.stroke();
   }
+  if (buddy.species === 'penguin') {
+    ellipse(ctx, cx - rx * 0.86, cy + r * 0.12, r * 0.24, r * 0.43, buddy.dark);
+    ellipse(ctx, cx + rx * 0.86, cy + r * 0.12, r * 0.24, r * 0.43, buddy.dark);
+  }
 
-  // inset fold shadow
-  const inner = ctx.createRadialGradient(cx, cy, bodyR * 0.74, cx, cy, bodyR * 1.02);
-  inner.addColorStop(0, 'rgba(70,44,26,0)');
-  inner.addColorStop(1, 'rgba(70,44,26,0.19)');
-  ctx.fillStyle = inner;
-  ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
-  ctx.restore();
+  // Plush body: softly shaded, fuzzy edge, no hard paper outline.
+  const body = ctx.createRadialGradient(cx - r * 0.34, cy - r * 0.46, r * 0.05, cx, cy, r * 1.22);
+  body.addColorStop(0, buddy.light);
+  body.addColorStop(0.58, buddy.base);
+  body.addColorStop(1, buddy.dark);
+  ellipse(ctx, cx, cy, rx, ry, body);
+  drawFuzz(ctx, buddy, cx, cy, rx, ry, r, random);
 
-  // crease where the colour meets the card stock
-  traceShape(ctx, shape, cx, cy, bodyR);
-  ctx.strokeStyle = 'rgba(58, 36, 26, 0.28)';
-  ctx.lineWidth = Math.max(0.9, r * 0.021);
+  // Character-specific belly/chest bib.
+  if (['penguin', 'chick', 'dragon', 'bear', 'panda'].includes(buddy.species)) {
+    ellipse(ctx, cx, cy + r * 0.35, rx * 0.57, ry * 0.47, buddy.belly);
+  }
+  if (buddy.species === 'fox') {
+    ellipse(ctx, cx, cy + r * 0.35, rx * 0.63, ry * 0.42, buddy.belly);
+    ellipse(ctx, cx, cy + r * 0.01, r * 0.42, r * 0.25, buddy.belly);
+  }
+  if (buddy.species === 'panda') {
+    ellipse(ctx, cx - r * 0.31, cy - r * 0.08, r * 0.2, r * 0.26, buddy.accent);
+    ellipse(ctx, cx + r * 0.31, cy - r * 0.08, r * 0.2, r * 0.26, buddy.accent);
+  }
+  if (buddy.species === 'owl') {
+    ellipse(ctx, cx - r * 0.24, cy + r * 0.32, r * 0.25, r * 0.33, buddy.belly);
+    ellipse(ctx, cx + r * 0.24, cy + r * 0.32, r * 0.25, r * 0.33, buddy.belly);
+  }
+  if (buddy.species === 'lamb') {
+    for (let i = 0; i < 7; i++) {
+      const a = Math.PI + (i / 6) * Math.PI;
+      ellipse(ctx, cx + Math.cos(a) * r * 0.68, cy + Math.sin(a) * r * 0.58, r * 0.25, r * 0.25, buddy.light);
+    }
+  }
+
+  // Tiny paws and feet.
+  ellipse(ctx, cx - r * 0.34, cy + r * 0.64, r * 0.2, r * 0.17, buddy.light);
+  ellipse(ctx, cx + r * 0.34, cy + r * 0.64, r * 0.2, r * 0.17, buddy.light);
+  if (buddy.species === 'chick' || buddy.species === 'penguin') {
+    ellipse(ctx, cx - r * 0.23, cy + r * 0.77, r * 0.22, r * 0.1, buddy.accent);
+    ellipse(ctx, cx + r * 0.23, cy + r * 0.77, r * 0.22, r * 0.1, buddy.accent);
+  }
+
+  // Soft cheek blush.
+  const faceY = cy - r * 0.12;
+  ellipse(ctx, cx - r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, `${buddy.accent}aa`);
+  ellipse(ctx, cx + r * 0.48, faceY + r * 0.24, r * 0.14, r * 0.09, `${buddy.accent}aa`);
+
+  // Shiny bead eyes with tiny catchlights.
+  const eye = buddy.species === 'panda' ? '#302b36' : '#342a3c';
+  const eyeR = Math.max(1.35, r * 0.105);
+  [-1, 1].forEach((side) => {
+    ellipse(ctx, cx + side * r * 0.28, faceY, eyeR, eyeR * 1.2, eye);
+    ellipse(ctx, cx + side * r * 0.28 - eyeR * 0.23, faceY - eyeR * 0.32, eyeR * 0.32, eyeR * 0.32, '#fff');
+  });
+
+  // Beak or tiny heart-shaped nose and smile.
+  if (buddy.species === 'chick' || buddy.species === 'penguin' || buddy.species === 'owl') {
+    ctx.fillStyle = buddy.accent;
+    ctx.beginPath();
+    ctx.moveTo(cx, faceY + r * 0.11);
+    ctx.lineTo(cx - r * 0.1, faceY + r * 0.23);
+    ctx.quadraticCurveTo(cx, faceY + r * 0.32, cx + r * 0.1, faceY + r * 0.23);
+    ctx.closePath();
+    ctx.fill();
+  } else {
+    ellipse(ctx, cx, faceY + r * 0.14, Math.max(1, r * 0.07), Math.max(0.9, r * 0.055), buddy.species === 'fox' ? '#60403a' : buddy.accent);
+  }
+  ctx.strokeStyle = '#5a4050';
+  ctx.lineWidth = Math.max(0.65, r * 0.035);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx, faceY + r * 0.18);
+  ctx.quadraticCurveTo(cx - r * 0.035, faceY + r * 0.28, cx - r * 0.1, faceY + r * 0.27);
+  ctx.moveTo(cx, faceY + r * 0.18);
+  ctx.quadraticCurveTo(cx + r * 0.035, faceY + r * 0.28, cx + r * 0.1, faceY + r * 0.27);
   ctx.stroke();
 
-  // matte sheen
-  ctx.save();
-  ctx.beginPath();
-  ctx.ellipse(cx - r * 0.32, cy - r * 0.42, r * 0.25, r * 0.14, -0.62, 0, TAU);
-  ctx.fillStyle = 'rgba(255, 253, 244, 0.24)';
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(cx + r * 0.3, cy + r * 0.34, r * 0.15, r * 0.085, -0.5, 0, TAU);
-  ctx.fillStyle = 'rgba(255, 253, 244, 0.09)';
-  ctx.fill();
-  ctx.restore();
-
-  // ---- leaf tucked under the stem -----------------------------------------
-  if (['stem', 'peach', 'speckle', 'kiwi', 'apple'].includes(fruit.deco)) {
-    drawLeaf(
-      ctx,
-      cx + r * 0.13,
-      cy - r * top * 0.95,
-      r * 0.44,
-      r * 0.15,
-      -0.5,
-      { light: '#aecb7a', dark: '#61863c' }
-    );
+  // Higher tiers earn a tiny accessory so progression reads at a glance.
+  if (buddy.species === 'lamb' || buddy.species === 'unicorn') {
+    for (let i = -1; i <= 1; i++) {
+      ellipse(ctx, cx + i * r * 0.18, cy - r * 0.68, r * 0.075, r * 0.075, ['#ffd16b', '#ff9fbd', '#9fe1cf'][i + 1]);
+    }
+  }
+  if (buddy.species === 'dragon') {
+    ellipse(ctx, cx, cy - r * 0.78, r * 0.11, r * 0.15, buddy.accent);
+  }
+  if (buddy.species === 'unicorn') {
+    ellipse(ctx, cx + r * 0.48, cy - r * 0.69, r * 0.18, r * 0.13, '#fb91c8');
   }
 
   return { canvas, size, pad, resolution };
 }
 
-function drawDeco(ctx, fruit, cx, cy, r, random) {
-  switch (fruit.deco) {
-    case 'stripes': {
-      ctx.strokeStyle = 'rgba(38, 74, 42, 0.55)';
-      ctx.lineWidth = r * 0.15;
-      for (let i = -2; i <= 2; i++) {
-        const x = cx + i * r * 0.44;
-        ctx.beginPath();
-        ctx.moveTo(x - r * 0.16, cy - r);
-        ctx.quadraticCurveTo(x + r * 0.2, cy, x - r * 0.16, cy + r);
-        ctx.stroke();
-      }
-      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-      ctx.lineWidth = r * 0.04;
-      for (let i = -2; i <= 2; i++) {
-        const x = cx + i * r * 0.44 - r * 0.09;
-        ctx.beginPath();
-        ctx.moveTo(x - r * 0.16, cy - r);
-        ctx.quadraticCurveTo(x + r * 0.2, cy, x - r * 0.16, cy + r);
-        ctx.stroke();
-      }
-      break;
-    }
-    case 'net': {
-      ctx.strokeStyle = 'rgba(255,255,255,0.42)';
-      ctx.lineWidth = r * 0.022;
-      for (let i = -3; i <= 3; i++) {
-        ctx.beginPath();
-        ctx.moveTo(cx - r, cy + i * r * 0.3);
-        ctx.quadraticCurveTo(cx, cy + i * r * 0.3 + r * 0.22, cx + r, cy + i * r * 0.3);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx + i * r * 0.3, cy - r);
-        ctx.quadraticCurveTo(cx + i * r * 0.3, cy, cx + i * r * 0.3, cy + r);
-        ctx.stroke();
-      }
-      break;
-    }
-    case 'blush': {
-      // soft rosy cheekbands, like pounced chalk on paper
-      const cheeks = [
-        [-0.42, -0.08, 0.42, 0.3],
-        [0.44, 0.04, 0.36, 0.26],
-      ];
-      cheeks.forEach(([dx, dy, rw, rh]) => {
-        const g = ctx.createRadialGradient(
-          cx + dx * r,
-          cy + dy * r,
-          r * 0.02,
-          cx + dx * r,
-          cy + dy * r,
-          r * rw
-        );
-        g.addColorStop(0, 'rgba(255, 196, 150, 0.34)');
-        g.addColorStop(1, 'rgba(255, 196, 150, 0)');
-        ctx.fillStyle = g;
-        ctx.beginPath();
-        ctx.ellipse(cx + dx * r, cy + dy * r, r * rw, r * rh, 0.2, 0, TAU);
-        ctx.fill();
-      });
-      break;
-    }
-    case 'crosshatch': {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(150, 104, 28, 0.34)';
-      ctx.lineWidth = Math.max(0.9, r * 0.028);
-      const step = r * 0.26;
-      for (let i = -8; i <= 8; i++) {
-        ctx.beginPath();
-        ctx.moveTo(cx - r + i * step, cy - r);
-        ctx.lineTo(cx - r + i * step + r * 2, cy + r);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(cx - r + i * step, cy + r);
-        ctx.lineTo(cx - r + i * step + r * 2, cy - r);
-        ctx.stroke();
-      }
-      // little studs at the crossings
-      ctx.fillStyle = 'rgba(255, 226, 158, 0.42)';
-      for (let row = 0; row < 7; row++) {
-        for (let col = 0; col < 7; col++) {
-          const px = cx - r + col * step * 1.35 + (row % 2 ? step * 0.68 : 0);
-          const py = cy - r * 0.9 + row * step * 1.05;
-          if (Math.hypot(px - cx, py - cy) > r * 0.93) continue;
-          ctx.beginPath();
-          ctx.arc(px, py, Math.max(0.8, r * 0.028), 0, TAU);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
-      break;
-    }
-    case 'peach': {
-      const crease = ctx.createLinearGradient(cx, cy - r, cx, cy + r);
-      crease.addColorStop(0, 'rgba(160,60,60,0)');
-      crease.addColorStop(0.4, 'rgba(160,60,60,0.28)');
-      crease.addColorStop(1, 'rgba(160,60,60,0)');
-      ctx.strokeStyle = crease;
-      ctx.lineWidth = r * 0.09;
-      ctx.beginPath();
-      ctx.moveTo(cx - r * 0.06, cy - r);
-      ctx.quadraticCurveTo(cx + r * 0.22, cy, cx - r * 0.04, cy + r);
-      ctx.stroke();
-      break;
-    }
-    case 'kiwi': {
-      ctx.beginPath();
-      ctx.arc(cx + r * 0.06, cy + r * 0.05, r * 0.62, 0, TAU);
-      const g = ctx.createRadialGradient(
-        cx + r * 0.06,
-        cy + r * 0.05,
-        r * 0.05,
-        cx + r * 0.06,
-        cy + r * 0.05,
-        r * 0.62
-      );
-      g.addColorStop(0, '#f3f5d8');
-      g.addColorStop(0.55, '#dfeab0');
-      g.addColorStop(1, '#c2d78b');
-      ctx.fillStyle = g;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-      ctx.lineWidth = r * 0.03;
-      ctx.stroke();
-      for (let i = 0; i < 18; i++) {
-        const a = (i / 18) * TAU + 0.2;
-        const d = r * 0.34 + (i % 3) * r * 0.075;
-        ctx.beginPath();
-        ctx.ellipse(
-          cx + r * 0.06 + Math.cos(a) * d,
-          cy + r * 0.05 + Math.sin(a) * d,
-          r * 0.026,
-          r * 0.05,
-          a,
-          0,
-          TAU
-        );
-        ctx.fillStyle = 'rgba(48, 52, 28, 0.75)';
-        ctx.fill();
-      }
-      break;
-    }
-    case 'grapes': {
-      const bunch = [
-        [-0.36, -0.26, 0.3],
-        [0.02, -0.44, 0.27],
-        [0.3, -0.08, 0.23],
-        [-0.12, 0.3, 0.24],
-        [0.45, 0.34, 0.19],
-      ];
-      bunch.forEach(([dx, dy, rr]) => {
-        ctx.beginPath();
-        ctx.arc(cx + dx * r, cy + dy * r, r * rr, 0, TAU);
-        const g = ctx.createRadialGradient(
-          cx + dx * r - r * 0.1,
-          cy + dy * r - r * 0.1,
-          r * 0.03,
-          cx + dx * r,
-          cy + dy * r,
-          r * rr
-        );
-        g.addColorStop(0, 'rgba(255,255,255,0.55)');
-        g.addColorStop(0.5, 'rgba(255,255,255,0.1)');
-        g.addColorStop(1, 'rgba(60,30,90,0.3)');
-        ctx.fillStyle = g;
-        ctx.fill();
-        ctx.strokeStyle = 'rgba(70,40,100,0.3)';
-        ctx.lineWidth = r * 0.02;
-        ctx.stroke();
-      });
-      break;
-    }
-    case 'speckle':
-    case 'stem':
-    case 'peach-freckle':
-    default: {
-      if (fruit.deco === 'speckle' || fruit.deco === 'stem') {
-        ctx.fillStyle = 'rgba(80, 60, 30, 0.16)';
-        for (let i = 0; i < 26; i++) {
-          const a = random() * TAU;
-          const d = Math.sqrt(random()) * r * 0.92;
-          ctx.beginPath();
-          ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, r * 0.022, 0, TAU);
-          ctx.fill();
-        }
-      }
-      break;
-    }
-  }
-}
-
-function mix(a, b, t) {
-  const pa = parseHex(a);
-  const pb = parseHex(b);
-  const r = Math.round(pa[0] + (pb[0] - pa[0]) * t);
-  const g = Math.round(pa[1] + (pb[1] - pa[1]) * t);
-  const bl = Math.round(pa[2] + (pb[2] - pa[2]) * t);
-  return `rgb(${r}, ${g}, ${bl})`;
-}
-
-function parseHex(hex) {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function hashString(str) {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/** Warm, grainy sheet of paper for the page background. */
+/** Soft pastel playroom backdrop: clean gradients, floating dots and sparkles. */
 export function drawPageTexture(ctx, w, h, resolution = 1) {
   ctx.save();
   ctx.scale(resolution, resolution);
-  ctx.fillStyle = '#f6ecdc';
+  ctx.fillStyle = '#f5efff';
   ctx.fillRect(0, 0, w, h);
-
-  const g = ctx.createRadialGradient(w * 0.5, h * 0.35, 40, w * 0.5, h * 0.5, Math.max(w, h) * 0.85);
-  g.addColorStop(0, 'rgba(255, 253, 245, 0.85)');
-  g.addColorStop(0.55, 'rgba(250, 238, 218, 0.2)');
-  g.addColorStop(1, 'rgba(216, 190, 158, 0.55)');
-  ctx.fillStyle = g;
+  const wash = ctx.createRadialGradient(w * 0.48, h * 0.24, 12, w * 0.5, h * 0.53, Math.max(w, h) * 0.86);
+  wash.addColorStop(0, '#fffdfd');
+  wash.addColorStop(0.54, '#f8f1ff');
+  wash.addColorStop(1, '#e6eafc');
+  ctx.fillStyle = wash;
   ctx.fillRect(0, 0, w, h);
-
-  const random = mulberry32(7);
-  // fibres
-  for (let i = 0; i < 900; i++) {
+  const random = mulberry32(934);
+  for (let i = 0; i < 36; i++) {
     const x = random() * w;
     const y = random() * h;
-    const len = 2 + random() * 12;
-    const a = random() * TAU;
-    ctx.strokeStyle =
-      random() > 0.5 ? 'rgba(255,255,255,0.22)' : 'rgba(160,130,100,0.07)';
-    ctx.lineWidth = 0.6 + random() * 0.7;
+    const r = 1 + random() * 3.8;
+    ctx.globalAlpha = 0.11 + random() * 0.15;
+    ctx.fillStyle = ['#f3a5c2', '#a990df', '#92c9e9', '#f2cc67'][i % 4];
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
-    ctx.stroke();
+    ctx.arc(x, y, r, 0, TAU);
+    ctx.fill();
   }
-  // grain
-  for (let i = 0; i < 2600; i++) {
-    const x = random() * w;
-    const y = random() * h;
-    ctx.fillStyle =
-      random() > 0.5
-        ? `rgba(255,255,255,${0.04 + random() * 0.07})`
-        : `rgba(140,110,80,${0.02 + random() * 0.04})`;
-    ctx.fillRect(x, y, 1.2, 1.2);
+  ctx.globalAlpha = 0.2;
+  ctx.font = '14px sans-serif';
+  for (let i = 0; i < 12; i++) {
+    ctx.fillStyle = i % 2 ? '#f1bd59' : '#bb9ce8';
+    ctx.fillText('✦', random() * w, random() * h);
   }
   ctx.restore();
 }
 
-/** Card stock with a torn top edge — used for the header strip. */
+/** Rounded toy-like score panel, not a torn paper strip. */
 export function drawTornStrip(ctx, x, y, w, h, color, seed = 3) {
-  const random = mulberry32(seed);
   ctx.save();
-  ctx.beginPath();
-  ctx.moveTo(x, y + 10);
-  const steps = Math.max(8, Math.round(w / 26));
-  for (let i = 0; i <= steps; i++) {
-    const px = x + (i / steps) * w;
-    const py = y + Math.sin(i * 2.1) * 2.4 + random() * 5;
-    ctx.lineTo(px, py);
-  }
-  ctx.lineTo(x + w, y + h);
-  ctx.lineTo(x, y + h);
-  ctx.closePath();
-  const g = ctx.createLinearGradient(x, y, x, y + h);
-  g.addColorStop(0, color);
-  g.addColorStop(1, shade(color, -0.06));
-  ctx.fillStyle = g;
-  ctx.shadowColor = 'rgba(110, 80, 50, 0.22)';
+  const radius = Math.min(16, h * 0.22);
+  ctx.shadowColor = 'rgba(92,67,125,.16)';
   ctx.shadowBlur = 10;
   ctx.shadowOffsetY = 4;
+  roundRect(ctx, x, y + 3, w, h - 3, radius);
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, color);
+  g.addColorStop(1, seed % 2 ? '#f6f0ff' : '#fff8fc');
+  ctx.fillStyle = g;
   ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = 'rgba(202,183,225,.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.restore();
 }
 
 export function shade(hex, amount) {
-  const [r, g, b] = parseHex(hex);
-  const m = (v) =>
-    clamp(Math.round(amount >= 0 ? v + (255 - v) * amount : v * (1 + amount)), 0, 255);
-  return `rgb(${m(r)}, ${m(g)}, ${m(b)})`;
-}
-
-/** Wobbly hand-cut rectangle path (in place, no fill). */
-export function paperRect(ctx, x, y, w, h, radius, seed = 1) {
-  const random = mulberry32(seed);
-  const rings = [
-    [x + radius, y, w - radius * 2],
-    [x + w, y + radius, h - radius * 2],
-  ];
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.quadraticCurveTo(x + w / 2, y - 1 + random() * 2, x + w - radius, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-  ctx.quadraticCurveTo(x + w + 1 - random() * 2, y + h / 2, x + w, y + h - radius);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-  ctx.quadraticCurveTo(x + w / 2, y + h + 1 - random() * 2, x + radius, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-  ctx.quadraticCurveTo(x - 1 + random() * 2, y + h / 2, x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
-  ctx.closePath();
-  void rings;
+  const h = hex.replace('#', '');
+  const values = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16));
+  return `rgb(${values.map((v) => clamp(Math.round(v * (1 + amount)), 0, 255)).join(',')})`;
 }

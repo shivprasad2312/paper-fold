@@ -1,70 +1,47 @@
-# Paper Fold
+# Fluffy Merge
 
-A cosy fruit-merging game made of paper. Drop fruit into the jar, fold two of a
-kind into the next fruit, and keep the pile below the limit line.
+A soft, cheerful Suika-style game about fuzzy animal friends. Drop a pal into
+the cuddle jar, merge two matching buddies into a bigger one, and build a whole
+collection—from tiny Bunbun to legendary Starlight.
 
-Built with vanilla JavaScript, Canvas 2D and [Matter.js](https://brm.io/matter-js/)
-for the physics. Every fruit, label and texture is drawn procedurally at runtime —
-there are no image or audio files in the repo.
+Built with vanilla JavaScript, Canvas 2D and Matter.js. Character sprites are
+procedurally drawn with plush shading, cheeky faces and fine fur strokes. The
+home screen features a custom AI-generated bunny portrait.
 
-## Play
+## Run locally
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
+npm run dev       # http://localhost:5173
+npm test          # merge + physics regression tests
+npm run build     # production bundle in dist/
+npm run preview
 ```
 
-```bash
-npm run build    # static build in dist/
-npm run preview  # serve the build
-npm test         # game logic tests (node:test, no browser needed)
-```
+## What’s in the game
 
-## How it works
+- **11 fuzzy friends:** Bunbun, Peep, Momo, Puddle, Poppy, Twickle, Foxy, Panda,
+  Lamby, Sprout and Starlight. Each has its own silhouette, palette and face.
+- **Merge physics:** two identical pals become the next buddy. Combo chains,
+  score, and a cloud danger line keep the pile lively.
+- **Cuddle Trail:** 12 score-goal levels. Clear a level to unlock the next and
+  earn stars and coins.
+- **Pal Pouch:** collection gallery showing discovered and not-yet-found pals.
+- **Daily snuggles:** a seven-day reward track for coins, stars and surprises,
+  saved locally in the browser.
+- **Screens & popups:** home, levels, collection, daily rewards, settings,
+  how-to-play, pause, level complete and game-over reward screens.
+- **Touch, pointer and keyboard controls**, sound toggle and optional haptics.
 
-- **Drop** — tap/click the jar, or use `←` `→` and `space`. The fruit hangs from a
-  thread at the top and shows a dashed landing marker.
-- **Fold** — two fruits of the same size become the next fruit in the chain.
-  Cherry → grape → tangerine → lemon → kiwi → peach → apple → pear → pineapple →
-  melon → watermelon.
-- **Combos** — folds within 0.85 s of each other stack a multiplier (up to ×8).
-  Points per fold: cherry 5, then 10, 20, 35, 55, 80, 120, 170, 230, 300, 400.
-- **Limit line** — a settled fruit resting above the dashed line for ~1.2 s ends
-  the run. Movement buys you time.
-- Best score lives in `localStorage`.
+Progress is stored in browser `localStorage`; no account or server is needed.
 
-### Files
+## Source map
 
-| Path | Purpose |
-| --- | --- |
-| `src/game.js` | Physics world, folding rules, scoring, danger + game-over logic |
-| `src/renderer.js` | Canvas layout (world → jar mapping), HUD, juice |
-| `src/art.js` | Procedural paper-craft sprites, page texture, typography helpers |
-| `src/fruits.js` | The eleven fruits: size, palette, silhouette, surface detail |
-| `src/audio.js` | Synthesised sound effects (WebAudio, no assets) |
-| `src/main.js` | DOM shell, input, overlay screens |
-| `src/styles.css` | Paper card UI |
-
-## Development tooling
-
-`tools/` holds two scripts that helped while building this. They need extra
-dev dependencies that aren't required to run the game:
-
-```bash
-npm i --no-save @napi-rs/canvas jsdom esbuild
-
-node tools/preview.mjs          # renders preview-*.png straight from the canvas
-W=360 H=640 TAG=-small node tools/preview.mjs
-node tools/dom-smoke.mjs        # boots the real bundle in jsdom and plays it
-```
-
-`preview.mjs` renders the game's own `Renderer` offscreen, which is handy for
-eyeballing art changes without a browser.
-
-## Notes
-
-- Mobile-first: the layout recomputes the jar from the viewport on resize, and
-  the physics world is fixed-size, so behaviour is identical on every screen.
-- Physics is stepped in ≤16.6 ms slices, so slow frames never make the pile
-  deform or tunnel through the jar walls.
-- `prefers-reduced-motion` is respected for UI animation.
+- `src/game.js` — Matter.js physics, merge chain, scoring and danger logic.
+- `src/fruits.js` — pal roster, sizes, colors and progression order.
+- `src/art.js` — cached fluffy character sprites and playroom background.
+- `src/renderer.js` — gameplay canvas, jar, HUD and merge effects.
+- `src/main.js` — screen flow, local progression, rewards and input.
+- `src/styles.css` — responsive plush-toy UI.
+- `public/fluffy-bunny.png` — home-screen character portrait.
+- `tests/game.test.mjs` — dependency-free Node logic tests.

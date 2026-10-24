@@ -163,6 +163,30 @@ console.log('card has play button:', !!card.querySelector('[data-action="play"]'
 console.log('mini canvases painted:', card.querySelectorAll('canvas.mini').length);
 console.log('title text:', card.querySelector('h1')?.textContent.trim());
 
+function screenAction(action) {
+  const button = card.querySelector(`[data-action="${action}"]`);
+  if (!button) throw new Error(`missing screen action: ${action}`);
+  button.click();
+  tick(3);
+}
+
+screenAction('levels');
+console.log('levels screen nodes:', card.querySelectorAll('.level-node').length);
+screenAction('home');
+screenAction('collection');
+console.log('collection pals:', card.querySelectorAll('.pal-card').length, 'painted minis:', card.querySelectorAll('canvas.mini').length);
+screenAction('home');
+screenAction('rewards');
+console.log('daily reward days:', card.querySelectorAll('.reward-day').length);
+screenAction('claim');
+console.log('daily coins saved:', window.__paperfold.progress.coins);
+screenAction('home');
+screenAction('settings');
+const hapticBefore = card.querySelector('[data-action="haptic-setting"]').getAttribute('aria-pressed');
+screenAction('haptic-setting');
+console.log('settings toggle works:', hapticBefore !== card.querySelector('[data-action="haptic-setting"]').getAttribute('aria-pressed'));
+screenAction('home');
+
 // click Play
 card.querySelector('[data-action="play"]').click();
 tick(5);
@@ -196,7 +220,7 @@ tick(5);
 // help button
 doc.getElementById('btn-help').click();
 tick(3);
-console.log('help opened intro/resume:', overlay.classList.contains('is-open'), card.querySelector('[data-action="play"]')?.textContent.trim());
+console.log('pause screen opened:', overlay.classList.contains('is-open'), card.querySelector('.page-head h2')?.textContent.trim());
 
 // mute toggle
 doc.getElementById('btn-sound').click();
@@ -214,14 +238,21 @@ await new Promise((r) => setTimeout(r, 1000));
 tick(4);
 console.log('game over overlay:', overlay.classList.contains('is-open'));
 console.log('buttons:', [...card.querySelectorAll('[data-action]')].map((b) => b.dataset.action));
-console.log('score title:', card.querySelector('.title')?.textContent.trim());
+console.log('score title:', card.querySelector('.result-title')?.textContent.trim());
 console.log('stats:', [...card.querySelectorAll('.stats b')].map((b) => b.textContent));
-console.log('biggest:', card.querySelector('.biggest strong')?.textContent);
-console.log('new best badge:', !!card.querySelector('.badge'));
+console.log('biggest:', card.querySelector('.biggest')?.textContent.trim());
+console.log('new best ribbon:', card.querySelector('.result-ribbon')?.textContent.trim());
 
 card.querySelector('[data-action="restart"]').click();
 tick(10);
 console.log('restarted & overlay hidden:', !overlay.classList.contains('is-open'), 'score reset:', hook.game.score === 0);
+const goal = 120;
+hook.game.emit('score', { score: goal });
+tick(4);
+console.log('level complete popup:', card.querySelector('.result-ribbon')?.textContent.trim());
+card.querySelector('[data-action="next-level"]').click();
+tick(6);
+console.log('next level starts:', hook.state === 'playing', 'unlocked level:', hook.progress.unlocked);
 
 console.log('ERRORS:', errors.length ? errors : 'none');
 fs.unlinkSync(outfile);
