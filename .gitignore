@@ -1,18 +1,19 @@
+# JavaScript dependencies and build output
 node_modules/
 dist/
-.DS_Store
 
-# Flutter
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.packages
-build/
-.idea/
-android/local.properties
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
+# Flutter generated files
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.idea/
+/mobile/android/local.properties
+/mobile/ios/Flutter/Generated.xcconfig
+/mobile/ios/Flutter/flutter_export_environment.sh
 
-# render previews from tools/preview.mjs
+# Generated browser preview artifacts (web/tools/preview.mjs)
 preview-*.png
 .tmp-*
+.DS_Store
