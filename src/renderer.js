@@ -25,6 +25,7 @@ export class Renderer {
     this.time = 0;
     this.aim = WORLD.width / 2;
     this.showAim = false;
+    this.habitatScene = { key: 'cloud', decor: [] };
     this.resize();
   }
 
@@ -118,6 +119,10 @@ export class Renderer {
 
   setShowAim(v) {
     this.showAim = v;
+  }
+
+  setHabitatScene(key = 'cloud', decor = []) {
+    this.habitatScene = { key, decor: [...decor] };
   }
 
   render(dt) {
@@ -244,6 +249,165 @@ export class Renderer {
     ctx.letterSpacing = '0px';
   }
 
+  drawHabitatBackdrop(ctx, ix, iy, iw, ih) {
+    const scene = this.habitatScene || { key: 'cloud', decor: [] };
+    const key = scene.key || 'cloud';
+    ctx.save();
+    roundRect(ctx, ix, iy, iw, ih, Math.max(7, this.jar.radius * 0.5));
+    ctx.clip();
+
+    const wash = key === 'forest' ? '#a7dfb0' : key === 'moon' ? '#a99be0' : '#bfe5fb';
+    ctx.globalAlpha = 0.16;
+    ctx.fillStyle = wash;
+    ctx.fillRect(ix, iy, iw, ih);
+
+    const horizon = iy + ih * 0.84;
+    ctx.globalAlpha = 0.18;
+    ctx.fillStyle = key === 'moon' ? '#b6a0dc' : key === 'forest' ? '#8bc795' : '#a9d8ef';
+    ctx.beginPath();
+    ctx.moveTo(ix, horizon + ih * 0.04);
+    ctx.bezierCurveTo(ix + iw * 0.24, horizon - ih * 0.13, ix + iw * 0.34, horizon + ih * 0.06, ix + iw * 0.58, horizon - ih * 0.02);
+    ctx.bezierCurveTo(ix + iw * 0.77, horizon - ih * 0.1, ix + iw * 0.9, horizon + ih * 0.03, ix + iw, horizon - ih * 0.04);
+    ctx.lineTo(ix + iw, iy + ih);
+    ctx.lineTo(ix, iy + ih);
+    ctx.closePath();
+    ctx.fill();
+    ctx.globalAlpha = 0.24;
+    ctx.fillStyle = key === 'moon' ? '#c6afd9' : key === 'forest' ? '#8fc99a' : '#a1d8b1';
+    ctx.beginPath();
+    ctx.moveTo(ix, iy + ih * 0.91);
+    ctx.quadraticCurveTo(ix + iw * 0.48, iy + ih * 0.78, ix + iw, iy + ih * 0.9);
+    ctx.lineTo(ix + iw, iy + ih);
+    ctx.lineTo(ix, iy + ih);
+    ctx.closePath();
+    ctx.fill();
+
+    if (key === 'moon') {
+      ctx.globalAlpha = 0.32;
+      ctx.fillStyle = '#fff5cb';
+      for (const [x, y, r] of [[0.16, 0.19, 1.7], [0.33, 0.29, 1.1], [0.75, 0.18, 1.5], [0.88, 0.34, 1], [0.54, 0.12, 1]]) {
+        ctx.beginPath(); ctx.arc(ix + iw * x, iy + ih * y, r, 0, TAU); ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(ix + iw * 0.79, iy + ih * 0.16, 10, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 0.27;
+      ctx.fillStyle = '#8475b4';
+      ctx.beginPath(); ctx.arc(ix + iw * 0.83, iy + ih * 0.13, 9, 0, TAU); ctx.fill();
+    } else {
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = '#fff';
+      for (const [x, y, r] of [[0.15, 0.2, 13], [0.82, 0.28, 10]]) {
+        ctx.beginPath(); ctx.arc(ix + iw * x, iy + ih * y, r, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(ix + iw * (x + 0.07), iy + ih * (y + 0.01), r * 0.75, 0, TAU); ctx.fill();
+      }
+    }
+
+    if (key === 'forest') {
+      ctx.globalAlpha = 0.17;
+      ctx.fillStyle = '#5b9b76';
+      for (const x of [0.05, 0.92]) {
+        const bx = ix + iw * x;
+        const by = iy + ih * 0.83;
+        ctx.fillRect(bx - 2, by - 26, 4, 28);
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath(); ctx.arc(bx, by - 27 - i * 8, 12 - i * 2, 0, TAU); ctx.fill();
+        }
+      }
+    }
+
+    for (const id of scene.decor || []) this.drawHabitatProp(ctx, id, ix, iy, iw, ih);
+    ctx.restore();
+  }
+
+  drawHabitatProp(ctx, id, ix, iy, iw, ih) {
+    const places = {
+      'cloud-cottage': [0.13, 0.9, 0.17], 'star-lantern': [0.31, 0.86, 0.09],
+      'rainbow-bridge': [0.5, 0.96, 0.2], 'blossom-garden': [0.84, 0.91, 0.15],
+      'mushroom-home': [0.13, 0.91, 0.17], 'firefly-lights': [0.58, 0.54, 0.13],
+      'berry-bush': [0.84, 0.92, 0.16], 'treehouse': [0.84, 0.82, 0.19],
+      'moon-window': [0.15, 0.32, 0.14], 'pillow-nest': [0.34, 0.97, 0.16],
+      'dream-lamp': [0.83, 0.9, 0.12], 'comet-chime': [0.68, 0.29, 0.14],
+    };
+    const place = places[id];
+    if (!place) return;
+    const [rx, ry, scale] = place;
+    const cx = ix + iw * rx;
+    const base = iy + ih * ry;
+    const size = iw * scale;
+    ctx.save();
+    ctx.globalAlpha = 0.42;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    if (id === 'cloud-cottage' || id === 'treehouse') {
+      if (id === 'treehouse') {
+        ctx.strokeStyle = '#8c684e'; ctx.lineWidth = size * 0.1;
+        ctx.beginPath(); ctx.moveTo(cx, base); ctx.lineTo(cx, base - size * 0.65); ctx.stroke();
+        ctx.fillStyle = '#8fc99a';
+        for (const [dx, dy, r] of [[-0.2, -0.62, 0.23], [0.08, -0.72, 0.26], [0.29, -0.59, 0.21]]) {
+          ctx.beginPath(); ctx.arc(cx + size * dx, base + size * dy, size * r, 0, TAU); ctx.fill();
+        }
+      }
+      const houseY = id === 'treehouse' ? base - size * 0.5 : base - size * 0.68;
+      const houseW = size * 0.74, houseH = size * 0.56;
+      ctx.fillStyle = id === 'treehouse' ? '#f0c88f' : '#f3d2e4';
+      roundRect(ctx, cx - houseW / 2, houseY, houseW, houseH, size * 0.08); ctx.fill();
+      ctx.fillStyle = id === 'treehouse' ? '#ad7b68' : '#ce91b6';
+      ctx.beginPath(); ctx.moveTo(cx - houseW * 0.62, houseY + 2); ctx.lineTo(cx, houseY - size * 0.32); ctx.lineTo(cx + houseW * 0.62, houseY + 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#fff3bd'; roundRect(ctx, cx - size * 0.09, houseY + houseH * 0.48, size * 0.18, houseH * 0.52, size * 0.05); ctx.fill();
+      ctx.fillStyle = '#a8d8ee'; roundRect(ctx, cx - houseW * 0.34, houseY + houseH * 0.2, size * 0.15, size * 0.14, size * 0.04); ctx.fill();
+    } else if (id === 'star-lantern' || id === 'dream-lamp') {
+      ctx.strokeStyle = '#947b9f'; ctx.lineWidth = size * 0.055;
+      ctx.beginPath(); ctx.moveTo(cx, base); ctx.lineTo(cx, base - size * 0.82); ctx.stroke();
+      ctx.fillStyle = id === 'dream-lamp' ? '#f8d67c' : '#f7bca5';
+      ctx.beginPath(); ctx.ellipse(cx, base - size * 0.78, size * 0.19, size * 0.24, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#fff4cb'; ctx.lineWidth = size * 0.04;
+      ctx.beginPath(); ctx.moveTo(cx - size * 0.16, base - size * 0.78); ctx.lineTo(cx + size * 0.16, base - size * 0.78); ctx.stroke();
+      ctx.fillStyle = '#8b759a'; ctx.beginPath(); ctx.ellipse(cx, base, size * 0.18, size * 0.05, 0, 0, TAU); ctx.fill();
+    } else if (id === 'rainbow-bridge') {
+      const colors = ['#ef9db8', '#f4ca67', '#82c99a', '#83b9eb', '#b29add'];
+      ctx.lineWidth = Math.max(2, size * 0.085);
+      colors.forEach((color, i) => {
+        ctx.strokeStyle = color;
+        ctx.beginPath(); ctx.ellipse(cx, base, size * (0.47 - i * 0.07), size * (0.32 - i * 0.04), 0, Math.PI, TAU); ctx.stroke();
+      });
+    } else if (id === 'blossom-garden') {
+      for (let i = 0; i < 3; i++) {
+        const fx = cx + size * (i - 1) * 0.24, fy = base - size * (0.28 + (i % 2) * 0.12);
+        ctx.strokeStyle = '#6fac7e'; ctx.lineWidth = size * 0.035; ctx.beginPath(); ctx.moveTo(fx, base); ctx.lineTo(fx, fy); ctx.stroke();
+        ctx.fillStyle = ['#f19fbd', '#f7cf67', '#b39add'][i];
+        for (let petal = 0; petal < 5; petal++) { const a = petal * TAU / 5; ctx.beginPath(); ctx.arc(fx + Math.cos(a) * size * 0.07, fy + Math.sin(a) * size * 0.07, size * 0.055, 0, TAU); ctx.fill(); }
+        ctx.fillStyle = '#fff0a4'; ctx.beginPath(); ctx.arc(fx, fy, size * 0.035, 0, TAU); ctx.fill();
+      }
+    } else if (id === 'mushroom-home') {
+      ctx.fillStyle = '#f3d7c1'; roundRect(ctx, cx - size * 0.18, base - size * 0.4, size * 0.36, size * 0.4, size * 0.09); ctx.fill();
+      ctx.fillStyle = '#d97889'; ctx.beginPath(); ctx.ellipse(cx, base - size * 0.39, size * 0.4, size * 0.25, 0, Math.PI, TAU); ctx.fill();
+      ctx.fillStyle = '#fff1dd'; for (const dx of [-0.18, 0.12]) { ctx.beginPath(); ctx.arc(cx + size * dx, base - size * 0.51, size * 0.045, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#ad7d68'; roundRect(ctx, cx - size * 0.055, base - size * 0.18, size * 0.11, size * 0.18, size * 0.04); ctx.fill();
+    } else if (id === 'firefly-lights') {
+      for (let i = 0; i < 5; i++) {
+        const fx = cx + Math.sin(i * 4.1) * size * 0.42, fy = base + Math.cos(i * 5.2) * size * 0.35;
+        const glow = ctx.createRadialGradient(fx, fy, 0, fx, fy, size * 0.13);
+        glow.addColorStop(0, 'rgba(255,240,143,.9)'); glow.addColorStop(1, 'rgba(255,240,143,0)');
+        ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(fx, fy, size * 0.13, 0, TAU); ctx.fill();
+      }
+    } else if (id === 'berry-bush') {
+      ctx.fillStyle = '#8fc99a';
+      for (const [dx, dy, r] of [[-0.22, -0.11, 0.25], [0, -0.21, 0.29], [0.24, -0.1, 0.23]]) { ctx.beginPath(); ctx.arc(cx + size * dx, base + size * dy, size * r, 0, TAU); ctx.fill(); }
+      ctx.fillStyle = '#c86f91'; for (const [dx, dy] of [[-0.18, -0.26], [0.05, -0.35], [0.25, -0.18]]) { ctx.beginPath(); ctx.arc(cx + size * dx, base + size * dy, size * 0.06, 0, TAU); ctx.fill(); }
+    } else if (id === 'moon-window') {
+      ctx.fillStyle = '#766eaa'; ctx.beginPath(); ctx.arc(cx, base, size * 0.38, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#f2d89a'; ctx.lineWidth = size * 0.08; ctx.beginPath(); ctx.arc(cx, base, size * 0.34, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,248,220,.8)'; ctx.lineWidth = size * 0.035; ctx.beginPath(); ctx.moveTo(cx - size * 0.3, base); ctx.lineTo(cx + size * 0.3, base); ctx.moveTo(cx, base - size * 0.3); ctx.lineTo(cx, base + size * 0.3); ctx.stroke();
+    } else if (id === 'pillow-nest') {
+      ctx.fillStyle = '#eac5ee'; ctx.beginPath(); ctx.ellipse(cx, base, size * 0.48, size * 0.2, -0.08, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff1fd'; ctx.beginPath(); ctx.ellipse(cx, base - size * 0.06, size * 0.31, size * 0.13, -0.08, 0, TAU); ctx.fill();
+    } else if (id === 'comet-chime') {
+      ctx.strokeStyle = '#a99bd2'; ctx.lineWidth = size * 0.035; ctx.beginPath(); ctx.moveTo(cx, base - size * 0.6); ctx.lineTo(cx, base + size * 0.25); ctx.stroke();
+      for (const [dx, dy, r] of [[0, -0.45, 0.11], [-0.22, -0.12, 0.08], [0.2, 0.02, 0.09]]) { ctx.fillStyle = '#ffe18b'; ctx.beginPath(); ctx.arc(cx + size * dx, base + size * dy, size * r, 0, TAU); ctx.fill(); }
+    }
+    ctx.restore();
+  }
+
   // ── jar ───────────────────────────────────────────────────────────────────
   drawJar(ctx) {
     const { x, y, w, h, border, radius } = this.jar;
@@ -298,6 +462,7 @@ export class Renderer {
     interior.addColorStop(1, '#e8f1ff');
     ctx.fillStyle = interior;
     ctx.fill();
+    this.drawHabitatBackdrop(ctx, ix, iy, iw, ih);
 
     // subtle lavender cloud tint inside the well
     ctx.save();

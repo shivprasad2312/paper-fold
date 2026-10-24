@@ -49,7 +49,7 @@ let haptics = true;
 try { haptics = localStorage.getItem('fluffy.haptics') !== 'off'; } catch { /* storage is optional */ }
 
 function readProgress() {
-  const fallback = { coins: 0, stars: 0, unlocked: 1, unlockedTier: 0, levelStars: {}, lastDaily: '', streak: 0, habitatDecor: [], palMerges: {}, discoveredAt: {}, weeklyCompleted: [], weeklyBests: {}, puzzlesCompleted: [], collectionMilestones: [], habitatObjectives: [], tutorialSeen: false };
+  const fallback = { coins: 0, stars: 0, unlocked: 1, unlockedTier: 0, levelStars: {}, lastDaily: '', streak: 0, habitatDecor: [], activeHabitat: 'cloud', palMerges: {}, discoveredAt: {}, weeklyCompleted: [], weeklyBests: {}, puzzlesCompleted: [], collectionMilestones: [], habitatObjectives: [], tutorialSeen: false };
   try {
     return { ...fallback, ...JSON.parse(localStorage.getItem('fluffy.progress') || '{}') };
   } catch {
@@ -57,6 +57,7 @@ function readProgress() {
   }
 }
 let progress = readProgress();
+selectedHabitat = HABITATS.some((habitat) => habitat.key === progress.activeHabitat) ? progress.activeHabitat : 'cloud';
 function saveProgress() {
   try { localStorage.setItem('fluffy.progress', JSON.stringify(progress)); } catch { /* private mode */ }
 }
@@ -264,13 +265,23 @@ function claimCollectionMilestone(id) {
 function habitatByKey(key) { return HABITATS.find((habitat) => habitat.key === key) || HABITATS[0]; }
 function isHabitatOpen(habitat) { return progress.unlockedTier >= habitat.unlockTier; }
 function decorationKey(habitatKey, decorId) { return `${habitatKey}:${decorId}`; }
+function syncHabitatScene(key = selectedHabitat) {
+  const habitat = habitatByKey(key);
+  const decor = (progress.habitatDecor || []).filter((id) => id.startsWith(`${habitat.key}:`)).map((id) => id.split(':')[1]);
+  renderer.setHabitatScene(habitat.key, decor);
+}
 function showNeighborhood(key = selectedHabitat) {
-  selectedHabitat = key;
   const habitat = habitatByKey(key);
   if (!isHabitatOpen(habitat)) {
     showToast(`Meet ${FRUITS[habitat.unlockTier].name} to open ${habitat.name}!`);
     return;
   }
+  selectedHabitat = habitat.key;
+  if (progress.activeHabitat !== habitat.key) {
+    progress.activeHabitat = habitat.key;
+    saveProgress();
+  }
+  syncHabitatScene(habitat.key);
   const tabs = HABITATS.map((item) => {
     const open = isHabitatOpen(item);
     return `<button class="habitat-tab ${item.key === key ? 'active' : ''} ${open ? '' : 'locked'}" data-action="habitat-select" data-habitat="${item.key}">${item.emoji}<small>${open ? item.name : `🔒 ${item.name}`}</small></button>`;
@@ -279,7 +290,8 @@ function showNeighborhood(key = selectedHabitat) {
   const owned = (progress.habitatDecor || []).filter((id) => id.startsWith(`${key}:`));
   const decorIcons = owned.map((ownedId) => {
     const id = ownedId.split(':')[1];
-    return habitat.decor.find((item) => item.id === id)?.emoji || '';
+    const item = habitat.decor.find((decorItem) => decorItem.id === id);
+    return item ? `<span class="scene-object scene-object-${id}" title="${item.name}" aria-label="${item.name}">${item.emoji}</span>` : '';
   }).filter(Boolean);
   const decor = habitat.decor.map((item) => {
     const ownedItem = owned.includes(decorationKey(key, item.id));
@@ -292,7 +304,7 @@ function showNeighborhood(key = selectedHabitat) {
   const wishReady = wishItems.length === wish.decorIds.length;
   const momentText = habitatMoment?.habitat === key ? habitatMoment.text : '';
   const wishCard = `<article class="habitat-wish ${wishReady ? 'ready' : ''} ${wishClaimed ? 'claimed' : ''}"><div class="wish-icon">${wishReady ? '✨' : '💭'}</div><div><small>HABITAT WISH</small><b>${wish.title}</b><p>${wish.description}</p><small>${wishItems.length} / ${wish.decorIds.length} special touches · ${rewardText(wish.reward)}</small></div><button data-action="claim-habitat" data-habitat="${key}" ${!wishReady || wishClaimed ? 'disabled' : ''}>${wishClaimed ? 'Wish granted ✓' : wishReady ? 'Claim' : 'In progress'}</button></article>`;
-  setOverlay(`${pageHead('Pal Neighborhood', 'Earn coins and stars to make it cozy')}<div class="habitat-tabs">${tabs}</div><div class="habitat-intro"><h3>${habitat.emoji} ${habitat.name}</h3><p>${habitat.subtitle}</p></div><div class="habitat-stage ${momentText ? 'is-reacting' : ''}" data-theme="${key}"><span class="scene-cloud scene-cloud-a">☁️</span><span class="scene-cloud scene-cloud-b">☁️</span><span class="scene-sun">${key === 'moon' ? '🌙' : '☀️'}</span>${momentText ? `<div class="scene-bubble" role="status">${momentText}</div>` : ''}<div class="scene-decor">${decorIcons.length ? decorIcons.map((icon) => `<span>${icon}</span>`).join('') : '<span class="empty-scene">✨ &nbsp; Your cozy touches go here &nbsp; ✨</span>'}</div><div class="scene-residents ${momentText ? 'reacting' : ''}">${residents.map((tier) => `<div class="scene-pal" title="${FRUITS[tier].name}">${miniFruit(tier, 54)}</div>`).join('')}</div><div class="scene-ground"></div></div><div class="habitat-meter"><span>COZY LEVEL</span><b>${owned.length} / ${habitat.decor.length} touches</b><div><i style="width:${Math.round((owned.length / habitat.decor.length) * 100)}%"></i></div></div>${wishCard}<div class="decor-heading"><h3>Make it yours</h3><span>Coins & stars from play</span></div><div class="decor-list">${decor}</div><p class="screen-note">No timers, no pressure—decorate whenever you like.</p>`, { screen: 'habitat' });
+  setOverlay(`${pageHead('Pal Neighborhood', 'Your active home appears in the game')}<div class="habitat-tabs">${tabs}</div><div class="habitat-intro"><h3>${habitat.emoji} ${habitat.name}</h3><p>${habitat.subtitle}</p></div><div class="habitat-stage ${momentText ? 'is-reacting' : ''}" data-theme="${key}"><span class="scene-cloud scene-cloud-a">☁️</span><span class="scene-cloud scene-cloud-b">☁️</span><span class="scene-sun">${key === 'moon' ? '🌙' : '☀️'}</span>${momentText ? `<div class="scene-bubble" role="status">${momentText}</div>` : ''}<div class="scene-decor">${decorIcons.length ? decorIcons.map((icon) => `<span>${icon}</span>`).join('') : '<span class="empty-scene">✨ &nbsp; Your cozy touches go here &nbsp; ✨</span>'}</div><div class="scene-residents ${momentText ? 'reacting' : ''}">${residents.map((tier) => `<div class="scene-pal" title="${FRUITS[tier].name}">${miniFruit(tier, 54)}</div>`).join('')}</div><div class="scene-ground"></div></div><div class="habitat-meter"><span>COZY LEVEL</span><b>${owned.length} / ${habitat.decor.length} touches</b><div><i style="width:${Math.round((owned.length / habitat.decor.length) * 100)}%"></i></div></div>${wishCard}<div class="decor-heading"><h3>Make it yours</h3><span>Coins & stars from play</span></div><div class="decor-list">${decor}</div><p class="screen-note">No timers, no pressure—decorate whenever you like.</p>`, { screen: 'habitat' });
 }
 function buyDecoration(habitatKey, decorId) {
   const habitat = habitatByKey(habitatKey);
@@ -679,6 +691,7 @@ function frame(now) {
 
 // Handy dev handle for inspecting save data and screen flow.
 if (import.meta.env?.DEV) window.__paperfold = { game, renderer, sfx, get progress() { return progress; }, get state() { return state; }, get runMode() { return runMode; }, get goalRun() { return goalRun; }, get activeWeekly() { return activeWeekly; }, get activePuzzle() { return activePuzzle; }, showHome, showLevels, showRewards, showCollection, showSettings, showNeighborhood, showWeekly, showPuzzlePacks, showTutorial, checkActiveGoal, startPuzzle };
+syncHabitatScene(selectedHabitat);
 showHome();
 if (!progress.tutorialSeen) showTutorial(0);
 requestAnimationFrame((t) => { last = t; frame(t); });
