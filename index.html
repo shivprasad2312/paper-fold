@@ -33,6 +33,8 @@
           <svg viewBox="0 0 24 24" class="shard-icon" aria-hidden="true"><path d="M12 2 21 12 12 22 3 12Z"/></svg>
           <span id="hud-shard-count">0/0</span>
         </div>
+        <button class="icon-btn" id="btn-cam-l" aria-label="Rotate view left" title="Rotate view (Q)">&#10226;</button>
+        <button class="icon-btn" id="btn-cam-r" aria-label="Rotate view right" title="Rotate view (E)">&#10227;</button>
         <button class="icon-btn" id="btn-restart" aria-label="Restart level">&#8635;</button>
         <button class="icon-btn" id="btn-theme" aria-label="Switch theme"></button>
         <button class="icon-btn" id="btn-sound" aria-label="Toggle sound">&#9834;</button>
@@ -54,10 +56,11 @@
           <button class="btn" id="btn-theme-menu">Theme: Dark</button>
         </div>
         <div class="controls-help">
-          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to roll</span>
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to roll (hold to keep rolling)</span>
+          <span><kbd>Q</kbd><kbd>E</kbd> rotate view</span>
           <span><kbd>R</kbd> restart</span>
           <span><kbd>M</kbd> sound</span>
-          <span class="touch-only">swipe or use the pad</span>
+          <span class="touch-only">swipe &amp; hold, or use the pad</span>
         </div>
         <p class="credit">Built from scratch · an homage to Mobigame's EDGE</p>
       </div>

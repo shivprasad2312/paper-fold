@@ -32,6 +32,7 @@ export class Game {
     this.view = null;
 
     this.queue = [];
+    this.camQuadrant = 0; // which 90° seat the camera is on (see setCamQuadrant)
     this.shardsCollected = 0;
     this.totalShards = 0;
     this.moves = 0;
@@ -217,16 +218,27 @@ export class Game {
   }
 
   // --------------------------------------------------------------- input ---
+  /**
+   * The camera can orbit to four 90° seats. Controls stay screen-relative —
+   * "up" always means *up on screen* — so a screen direction is translated to
+   * the world direction the camera currently faces. (See Stage.stepCamera.)
+   */
+  setCamQuadrant(q) {
+    this.camQuadrant = ((q % 4) + 4) % 4;
+  }
+
   input(dirName) {
     if (!DIRS[dirName]) return;
     if (this.state !== 'playing' || this.paused) return;
+    const order = ['up', 'right', 'down', 'left'];
+    const world = order[(order.indexOf(dirName) - (this.camQuadrant || 0) + 8) % 4];
     if (this.cube.anim) {
-      if (this.queue.length < 2 && this.queue[this.queue.length - 1] !== dirName) {
-        this.queue.push(dirName);
+      if (this.queue.length < 2 && this.queue[this.queue.length - 1] !== world) {
+        this.queue.push(world);
       }
       return;
     }
-    this.doMove(dirName);
+    this.doMove(world);
   }
 
   tileAt(x, z) {
@@ -467,6 +479,7 @@ export class Game {
       if (a.t >= 1) {
         mesh.position.copy(a.startPos);
         this.cube.anim = null;
+        this.emit('pushDone'); // the shove landed — a held input may continue
         this.pumpQueue();
       }
     } else if (a.type === 'drift') {

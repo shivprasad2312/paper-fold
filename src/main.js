@@ -38,6 +38,8 @@ const el = {
   soundBtn: $('btn-sound'),
   btnTheme: $('btn-theme'),
   btnThemeMenu: $('btn-theme-menu'),
+  btnCamL: $('btn-cam-l'),
+  btnCamR: $('btn-cam-r'),
 };
 
 function todayStr() {
@@ -70,6 +72,17 @@ function applyTheme(t) {
 function toggleTheme() {
   audio.sfx('ui');
   applyTheme(save.theme === 'light' ? 'dark' : 'light');
+}
+
+// ------------------------------------------------------------- camera seat --
+// Four 90° seats around the level. Q / E or the HUD arrows orbit the camera;
+// controls stay screen-relative, so "up" always rolls up the screen.
+function rotateCam(n) {
+  const step = game.stage.stepCamera(n);
+  game.setCamQuadrant(step);
+  save.cam = step;
+  writeSave(save);
+  audio.sfx('ui');
 }
 
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
@@ -131,12 +144,24 @@ function drawMinimap() {
   const H = ctx.canvas.height;
   ctx.clearRect(0, 0, W, H);
 
+  // the minimap follows the camera seat: rotate every point by the quadrant
+  const k = game.stage ? game.stage.camStep : 0;
+  const rot = (x, z) => {
+    for (let i = 0; i < k; i++) {
+      const nx = z;
+      z = -x;
+      x = nx;
+    }
+    return [x, z];
+  };
+
   let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
   for (const t of lvl.tiles.values()) {
-    if (t.x < minX) minX = t.x;
-    if (t.x > maxX) maxX = t.x;
-    if (t.z < minZ) minZ = t.z;
-    if (t.z > maxZ) maxZ = t.z;
+    const [tx, tz] = rot(t.x, t.z);
+    if (tx < minX) minX = tx;
+    if (tx > maxX) maxX = tx;
+    if (tz < minZ) minZ = tz;
+    if (tz > maxZ) maxZ = tz;
   }
   const pad = 0.6;
   minX -= pad; maxX += pad; minZ -= pad; maxZ += pad;
@@ -173,23 +198,27 @@ function drawMinimap() {
       };
 
   for (const t of lvl.tiles.values()) {
+    const [tx, tz] = rot(t.x, t.z);
     ctx.fillStyle = t.crumble ? C.crumble : C.tile(t.h);
-    ctx.fillRect(px(t.x) - s / 2, pz(t.z) - s / 2, s, s);
+    ctx.fillRect(px(tx) - s / 2, pz(tz) - s / 2, s, s);
   }
+  const [gx, gz] = rot(lvl.goal.x, lvl.goal.z);
   ctx.fillStyle = C.goal;
   ctx.beginPath();
-  ctx.arc(px(lvl.goal.x), pz(lvl.goal.z), s * 0.3, 0, Math.PI * 2);
+  ctx.arc(px(gx), pz(gz), s * 0.3, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.fillStyle = C.shard;
   for (const sh of view.shards) {
     if (sh.collected) continue;
-    ctx.fillRect(px(sh.x) - 2.4, pz(sh.z) - 2.4, 4.8, 4.8);
+    const [sx, sz] = rot(sh.x, sh.z);
+    ctx.fillRect(px(sx) - 2.4, pz(sz) - 2.4, 4.8, 4.8);
   }
   ctx.fillStyle = C.orb;
   for (const o of view.orbs) {
+    const [ox, oz] = rot(o.holder.position.x, o.holder.position.z);
     ctx.beginPath();
-    ctx.arc(px(o.holder.position.x), pz(o.holder.position.z), 3, 0, Math.PI * 2);
+    ctx.arc(px(ox), pz(oz), 3, 0, Math.PI * 2);
     ctx.fill();
   }
   // sliding bridges (dashed outline)
@@ -197,26 +226,30 @@ function drawMinimap() {
   ctx.lineWidth = 1;
   for (const sl of view.sliders) {
     const { tile } = sl;
-    ctx.strokeRect(px(tile.x) - s / 2, pz(tile.z) - s / 2, s, s);
+    const [bx, bz] = rot(tile.x, tile.z);
+    ctx.strokeRect(px(bx) - s / 2, pz(bz) - s / 2, s, s);
   }
   // obstacle blocks
   ctx.fillStyle = C.block;
   for (const b of view.blocks.values()) {
-    ctx.fillRect(px(b.x) - s * 0.3, pz(b.z) - s * 0.3, s * 0.6, s * 0.6);
+    const [bx, bz] = rot(b.x, b.z);
+    ctx.fillRect(px(bx) - s * 0.3, pz(bz) - s * 0.3, s * 0.6, s * 0.6);
   }
   // the gate key
   const gk = lvl.gateKey;
   if (gk && !game.hasKey) {
+    const [kx, kz] = rot(gk.x, gk.z);
     ctx.fillStyle = C.key;
     ctx.beginPath();
-    ctx.arc(px(gk.x), pz(gk.z), 3.2, 0, Math.PI * 2);
+    ctx.arc(px(kx), pz(kz), 3.2, 0, Math.PI * 2);
     ctx.fill();
   }
 
   const cx = game.cubeMesh.position.x;
   const cz = game.cubeMesh.position.z;
+  const [pxc, pzc] = rot(cx, cz);
   ctx.fillStyle = C.player;
-  ctx.fillRect(px(cx) - s * 0.32, pz(cz) - s * 0.32, s * 0.64, s * 0.64);
+  ctx.fillRect(px(pxc) - s * 0.32, pz(pzc) - s * 0.32, s * 0.64, s * 0.64);
 }
 
 // Mechanic chips in the HUD: telekinesis, gate key, wind, bridges.
@@ -417,6 +450,7 @@ function currentRunId() {
 }
 
 function restartLevel() {
+  clearTimeout(winShowTimer); // a late win panel must not pop over the new run
   hide(el.pause);
   hide(el.win);
   game.restart();
@@ -459,7 +493,14 @@ window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (KEYMAP[k]) {
     e.preventDefault();
+    if (!e.repeat) setHold(KEYMAP[k], 'key'); // holding the key keeps rolling
     handleInput(KEYMAP[k]);
+    return;
+  }
+  if (k === 'q' || k === 'e') {
+    if (game.state === 'playing' || !el.menu.classList.contains('hidden')) {
+      rotateCam(k === 'q' ? +1 : -1);
+    }
     return;
   }
   if (k === 'r') {
@@ -479,32 +520,70 @@ window.addEventListener('keydown', (e) => {
     else if (!el.menu.classList.contains('hidden')) startLevel(Math.max(0, (save.lastLevel || 1) - 1));
   }
 });
+window.addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (KEYMAP[k]) clearHold('key');
+});
 
-// swipe
+// ------------------------------------------------------------ hold to roll --
+// Keep the finger / key / pad button down and the cube keeps rolling in that
+// direction — a 10-tile corridor takes one swipe, not ten taps. Steering
+// works while holding: drag towards a new edge to turn the next roll. The
+// hold ends when the input lifts, the roll is blocked, or the run ends.
+let hold = { dir: null, source: null };
+function setHold(dir, source) {
+  hold = { dir, source };
+}
+function clearHold(source) {
+  if (hold.source && source !== null && hold.source !== source) return;
+  hold = { dir: null, source: null };
+}
+const continueHold = () => {
+  if (hold.dir && game.state === 'playing' && !game.paused) game.input(hold.dir);
+};
+game.on('land', continueHold);
+game.on('drift', continueHold); // the breeze moved us — the held direction still applies
+game.on('pushDone', continueHold);
+game.on('bump', () => clearHold(null)); // hit a wall: stop, don't bump-spam
+game.on('gateLocked', () => clearHold(null));
+game.on('death', () => clearHold(null));
+game.on('win', () => clearHold(null));
+game.on('restart', () => clearHold(null));
+
+// swipe (hold the drag and the cube keeps rolling; steer by dragging)
 let pointerStart = null;
 canvas.addEventListener('pointerdown', (e) => {
-  pointerStart = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+  pointerStart = { x: e.clientX, y: e.clientY, id: e.pointerId };
 });
-canvas.addEventListener('pointerup', (e) => {
+canvas.addEventListener('pointermove', (e) => {
   if (!pointerStart || e.pointerId !== pointerStart.id) return;
   const dx = e.clientX - pointerStart.x;
   const dy = e.clientY - pointerStart.y;
-  const dist = Math.hypot(dx, dy);
-  pointerStart = null;
-  if (dist < 24) return;
-  if (Math.abs(dx) > Math.abs(dy)) handleInput(dx > 0 ? 'right' : 'left');
-  else handleInput(dy > 0 ? 'down' : 'up');
+  if (Math.hypot(dx, dy) < 24) return;
+  const dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+  if (hold.source === 'touch' && hold.dir === dir) return;
+  setHold(dir, 'touch');
+  handleInput(dir);
 });
-canvas.addEventListener('pointercancel', () => {
-  pointerStart = null;
-});
+const touchEnd = (e) => {
+  if (pointerStart && e.pointerId === pointerStart.id) pointerStart = null;
+  clearHold('touch');
+};
+canvas.addEventListener('pointerup', touchEnd);
+canvas.addEventListener('pointercancel', touchEnd);
+canvas.addEventListener('pointerleave', touchEnd);
 
-// on-screen pad
+// on-screen pad (press and hold to keep rolling)
 for (const btn of el.pad.querySelectorAll('.pad-btn')) {
   btn.addEventListener('pointerdown', (e) => {
     e.preventDefault();
+    setHold(btn.dataset.dir, 'pad');
     handleInput(btn.dataset.dir);
   });
+  const padEnd = () => clearHold('pad');
+  btn.addEventListener('pointerup', padEnd);
+  btn.addEventListener('pointercancel', padEnd);
+  btn.addEventListener('pointerleave', padEnd);
 }
 
 // ------------------------------------------------------------------ audio ---
@@ -548,6 +627,8 @@ $('btn-restart').addEventListener('click', () => {
 $('btn-sound').addEventListener('click', toggleSound);
 el.btnTheme.addEventListener('click', toggleTheme);
 el.btnThemeMenu.addEventListener('click', toggleTheme);
+el.btnCamL.addEventListener('click', () => rotateCam(+1));
+el.btnCamR.addEventListener('click', () => rotateCam(-1));
 $('btn-resume').addEventListener('click', () => {
   audio.sfx('ui');
   resumeGame();
@@ -702,6 +783,8 @@ window.addEventListener('resize', () => game.stage.resize());
 
 // ------------------------------------------------------------------ boot ----
 applyTheme(save.theme); // before the first frame: no theme flash
+game.stage.setCameraStep(save.cam || 0, true); // restore the saved camera seat
+game.setCamQuadrant(save.cam || 0);
 el.soundBtn.classList.toggle('muted', !save.sound);
 document.body.classList.toggle('touch', isTouch);
 

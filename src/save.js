@@ -6,6 +6,7 @@ const DEFAULTS = {
   ghosts: {}, // id -> { time, moves, log: [{t,x,z,h}] } — the fastest win, replayed
   daily: {}, // 'YYYY-MM-DD' -> { time, shards, total, moves, par, medal }
   theme: 'dark', // 'dark' void or 'light' high-key world
+  cam: 0, // camera seat: 0..3 quarter turns around the level
   sound: true,
   lastLevel: 1,
 };
@@ -24,6 +25,7 @@ export function loadSave() {
       ghosts: data.ghosts || {},
       daily: data.daily || {},
       theme: data.theme === 'light' ? 'light' : 'dark',
+      cam: Number.isInteger(data.cam) ? ((data.cam % 4) + 4) % 4 : 0,
     };
   } catch {
     return { ...DEFAULTS, best: {}, ghosts: {}, daily: {} };

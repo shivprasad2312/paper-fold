@@ -67,6 +67,9 @@ export class Stage {
     this.camera.up.set(0, 1, 0);
 
     // Point the camera at the origin from the classic 3/4 angle.
+    this.camStep = 0; // 0..3 — which 90° quadrant the camera has orbited to
+    this.yaw = YAW;
+    this.yawTarget = YAW;
     this.viewDir = new THREE.Vector3(
       Math.sin(YAW) * Math.cos(PITCH),
       Math.sin(PITCH),
@@ -268,6 +271,22 @@ export class Stage {
     }
   }
 
+  /**
+   * Orbit the camera by whole 90° steps around the level. Returns the new
+   * quadrant (0..3). The world, lights and shadows stay put — only the
+   * viewing angle changes, so the game reads the same from every seat.
+   */
+  stepCamera(n, instant = false) {
+    this.camStep = ((((this.camStep + n) % 4) + 4) % 4);
+    this.yawTarget = YAW + this.camStep * (Math.PI / 2);
+    if (instant) this.yaw = this.yawTarget;
+    return this.camStep;
+  }
+
+  setCameraStep(k, instant = false) {
+    return this.stepCamera(k - this.camStep, instant);
+  }
+
   shake(amount = 0.25) {
     this.shakeAmp = Math.max(this.shakeAmp, amount);
   }
@@ -288,6 +307,15 @@ export class Stage {
 
     // stars drift almost imperceptibly
     if (this.stars) this.stars.rotation.y += dt * 0.004;
+
+    // orbit easing: the camera glides between the four viewing angles
+    this.yaw += (this.yawTarget - this.yaw) * (1 - Math.pow(0.002, dt));
+    if (Math.abs(this.yawTarget - this.yaw) < 0.0005) this.yaw = this.yawTarget;
+    this.viewDir.set(
+      Math.sin(this.yaw) * Math.cos(PITCH),
+      Math.sin(PITCH),
+      Math.cos(this.yaw) * Math.cos(PITCH),
+    ).normalize();
 
     // gentle camera easing
     const desired = new THREE.Vector3(

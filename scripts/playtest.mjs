@@ -126,7 +126,9 @@ await load(0);
 await press('ArrowUp');
 await press('ArrowUp');
 await waitFor(() => window.__kubik.game.state === 'won');
-await wait(1200);
+// the panel pops 900ms of PAGE time after the clear — under a loaded headless
+// page that can exceed a fixed wall-time wait, so wait on the panel itself
+await waitFor(() => !document.getElementById('win').classList.contains('hidden'), 10000);
 const w = await state();
 check('reaching the gate wins', w.state === 'won', w.state);
 check('win panel shows', w.winVisible, `time=${w.time}`);
@@ -456,6 +458,48 @@ const themeDark = await page.evaluate(() => ({
 }));
 check('HUD button switches back to the dark void', !themeDark.body && themeDark.stage === 'dark' && themeDark.saved === 'dark' && themeDark.bg.toLowerCase() === '#020309', JSON.stringify(themeDark));
 await shot('28-level1-dark');
+
+// ---- hold-to-roll: one held input keeps the cube moving -------------------
+await load(0);
+await page.keyboard.down('ArrowUp'); // L1: (3,2) → (3,0) gate — one hold wins
+let heldWon = false;
+for (let i = 0; i < 150 && !heldWon; i++) {
+  heldWon = (await state()).state === 'won';
+  if (!heldWon) await wait(100);
+}
+await page.keyboard.up('ArrowUp');
+check('holding a key keeps the cube rolling until the gate', heldWon);
+
+// ---- camera seats: orbit + screen-relative input ---------------------------
+await load(0);
+await page.keyboard.press('e');
+await waitFor(() => Math.abs(window.__kubik.game.stage.yaw - window.__kubik.game.stage.yawTarget) < 0.01, 8000);
+let camS = await page.evaluate(() => ({
+  step: window.__kubik.game.stage.camStep,
+  quad: window.__kubik.game.camQuadrant,
+  saved: window.__kubik.save.cam,
+}));
+check('E orbits the camera one seat', camS.step === 3 && camS.quad === 3 && camS.saved === 3, JSON.stringify(camS));
+await page.keyboard.press('ArrowUp');
+await wait(150);
+await idle();
+const camRoll = await state();
+check('input stays screen-relative at the new seat', camRoll.cube.x === 4 && camRoll.cube.z === 2, JSON.stringify(camRoll.cube));
+await page.keyboard.press('q');
+await waitFor(() => Math.abs(window.__kubik.game.stage.yaw - window.__kubik.game.stage.yawTarget) < 0.01, 8000);
+camS = await page.evaluate(() => window.__kubik.game.stage.camStep);
+check('Q returns to the classic seat', camS === 0, `step=${camS}`);
+
+// ---- the generated campaign: 50 levels, finale has the sealed gate ---------
+await load(49);
+const s50 = await state();
+check('the campaign runs to 50 levels', s50.idx === 49 && s50.state === 'playing', JSON.stringify(s50.cube));
+check('level 50 starts with the sealed gate', s50.gateLocked === true, `locked=${s50.gateLocked}`);
+await shot('29-level50-finale');
+await load(20);
+const s21 = await state();
+check('mid-campaign level 21 loads and plays', s21.idx === 20 && s21.state === 'playing', JSON.stringify(s21.cube));
+await shot('30-level21');
 
 console.log('\nerrors:', errors.length ? errors : 'none');
 const failed = results.filter((r) => !r.ok);

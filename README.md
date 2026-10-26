@@ -3,7 +3,8 @@
 A minimalist **cube-rolling puzzle game** that runs in the browser. Roll a glowing cube
 across floating geometric platforms, collect shards, dodge sentinels and cracked slabs,
 push dark cubes out of your way, time the sliding bridges, ride the wind and find your
-way down to the gate.
+way down to the gate — **50 levels** long, from a three-tile warm-up to the sealed
+Summit.
 
 Built from scratch as an homage to Mobigame's classic **EDGE** — original code, art,
 level design and a fully procedural soundtrack. No assets are borrowed from the original
@@ -19,7 +20,7 @@ between sessions.
 
 ![KUBIK — light world](docs/level-01-light.png)
 
-<img src="docs/level-01-dark.png" width="49%" /> <img src="docs/menu-light.png" width="24%" /> <img src="docs/mobile.png" width="24%" />
+<img src="docs/level-50-seat3.png" width="49%" /> <img src="docs/campaign-light.png" width="24%" /> <img src="docs/menu-light.png" width="24%" />
 
 ---
 
@@ -36,9 +37,9 @@ Other commands:
 | --- | --- |
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
-| `npm run verify` | prove all 13 levels + 14 daily layouts are solvable (pure Node, no browser) |
-| `npm run playtest` | scripted browser playtest of the mechanics (57 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme switch…) |
-| `npm run autoplay` | plays all 13 levels end to end in a headless browser |
+| `npm run verify` | prove all 50 levels + 14 daily layouts are solvable (pure Node, no browser) |
+| `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
+| `npm run autoplay` | plays all 50 levels end to end in a headless browser |
 
 The two browser-based scripts drive Chromium through `puppeteer-core`; point them at a
 browser with `CHROME_PATH`, or install Playwright/Chrome beforehand.
@@ -47,9 +48,10 @@ browser with `CHROME_PATH`, or install Playwright/Chrome beforehand.
 
 | input | action |
 | --- | --- |
-| **W A S D** / **arrow keys** | roll the cube |
-| **swipe** anywhere on the play field | roll the cube |
-| on-screen D-pad (touch devices) | roll the cube |
+| **W A S D** / **arrow keys** | roll the cube — **hold the key to keep rolling** |
+| **swipe** anywhere on the play field | roll the cube — **hold the swipe to keep rolling**, drag to steer |
+| on-screen D-pad (touch devices) | roll the cube — press & hold to keep rolling |
+| **Q** / **E** or the **⟲ ⟳** HUD buttons | orbit the camera 90° (four seats; controls stay screen-relative) |
 | **R** | restart the level |
 | **M** | mute / unmute |
 | **Esc** | pause · **Enter** confirms on the win screen |
@@ -103,7 +105,7 @@ visit.
 
 ## Levels
 
-Thirteen hand-designed levels, each adding an idea:
+Fifty levels. The first thirteen are hand-designed, each teaching one idea:
 
 | # | level | teaches |
 | --- | --- | --- |
@@ -120,6 +122,21 @@ Thirteen hand-designed levels, each adding an idea:
 | 11 | Gauntlet | everything, at speed |
 | 12 | The Fold | a sealed gate and its key |
 | 13 | Boss: The Folded Keep | sentinels + crumble + sliding bridges, all at once |
+
+Levels **14–50** are a generated campaign — the same "random, then prove it" pipeline
+the daily uses, scaled up (see [How it is built](#how-it-is-built)). Difficulty ramps in
+five acts:
+
+| # | act | what changes |
+| --- | --- | --- |
+| 14–19 | The Descent | small maps, gentle heights, first crumble slabs |
+| 20–27 | Glass Meadow | bigger maps, full height range, sentinels join |
+| 28–35 | The Lattice | double hazards, more shards, longer routes |
+| 36–43 | The Crucible | two sentinels, dense crumble fields |
+| 44–50 | The Spire | the largest maps, **level 50 adds the sealed gate + key** |
+
+Every generated level is rejected until the full verifier proves it — same guarantees as
+the hand-made ones: solvable, zero soft-locks, no spawn-kills.
 
 Plus a **Daily Challenge**: a fresh layout generated from the date (seeded, then run
 through the same solvability verifier — always solvable, never a spawn-kill), the same
@@ -172,18 +189,20 @@ src/
   main.js       UI glue: HUD + minimap + mechanic chips, menus, input, save, flow
   game.js       game loop: rolling, pushes, wind drift, bridges, gate, ghost, states
   rules.js      pure level rules + solvability analysis (no DOM, no rendering)
-  levels.js     the thirteen levels as ASCII maps
+  levels.js     levels 1–13 as ASCII maps (+ the campaign, concatenated)
+  campaign.js   levels 14–50 as static, proven level data (generated, see scripts)
   daily.js      seeded daily-level generator (date → solvable layout)
   levelView.js  3D scene graph: slabs, blocks, bridges, key/lock, wind, sentinels
-  stage.js      renderer, orthographic 3/4 camera, shadows, lights, starfield, themes
+  stage.js      renderer, 4-seat orbiting camera, shadows, lights, starfield, themes
   audio.js      synthesised soundtrack + SFX (Web Audio, zero sample files)
-  save.js       localStorage: bests, medals, ghost runs, daily results, theme
+  save.js       localStorage: bests, medals, ghost runs, dailies, theme, camera seat
   textures.js   generated glow/beam textures
   style.css     UI skin — dark default + `body.light` high-key override
 scripts/
-  verify-levels.mjs   solvability + soft-lock + spawn-safety proof (levels + 14 dailies)
-  playtest.mjs        57 scripted browser checks of the mechanics + theme switch
-  autoplay.mjs        full 13-level completion run in a browser
+  verify-levels.mjs   solvability + soft-lock + spawn-safety proof (50 levels + 14 dailies)
+  gen-campaign.mjs    seeded generator that PROVES levels 14–50 (rejects until solvable)
+  playtest.mjs        64 scripted browser checks: mechanics + themes + camera seats
+  autoplay.mjs        full 50-level completion run in a browser
   shoot.mjs / mobile-shots.mjs   screenshot helpers
 ```
 
@@ -225,8 +244,21 @@ Notable details:
   nudges the idle cube along a diagonal only when the landing tile is same-height or
   a small drop — it carries, it never lifts or flings. The sealed gate simply refuses
   the final roll (the cube rolls itself back) until the key is collected.
-* **Camera.** An orthographic camera at a 3/4 angle, fitted to each level's bounds, with
-  a gentle focus drift toward the cube and a shake on impacts.
+* **Camera with four seats.** An orthographic camera at a 3/4 angle, fitted to each
+  level's bounds, with a gentle focus drift toward the cube and a shake on impacts.
+  Q/E (or the HUD arrows) orbit it to the other three 90° seats with an eased glide;
+  inputs stay screen-relative — "up" always rolls up the screen — and the minimap
+  rotates to match. The chosen seat is saved.
+* **Hold to keep rolling.** Keep a key, a swipe, or a pad button down and the cube
+  keeps rolling that direction — a 10-tile corridor takes one input, not ten. Steering
+  works mid-hold (drag towards a new edge to turn the next roll), and the hold stops
+  itself on a blocked roll, a death, or the gate.
+* **A campaign that proves itself.** Levels 14–50 come from `gen-campaign.mjs`: a
+  seeded random walk per level id, hazards placed on the route, and every candidate
+  pushed through the full verifier (reachability, soft-lock proof, crumble-aware
+  solver, spawn safety, par range) — reject and regenerate until it's proven. The
+  output is written as static data, so the shipped game is deterministic and every
+  level stays version-controlled like the hand-made ones.
 * **Post-processing.** Unreal bloom plus ACES tone mapping on top of the lit scene.
   If the device can't hold ~42 fps in the first few seconds, the renderer sheds
   quality in stages — shadows first, then bloom and resolution.
