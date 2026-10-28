@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import { createRoot } from 'react-dom/client';
 import {
   ArrowDown, ArrowLeft, ArrowRight, ArrowUp, ArrowUpRight, Dices, Home,
-  RotateCcw, Sparkles, Star, Trophy, Volume2, VolumeX, X,
+  RotateCcw, Sparkles, Star, Trophy, UsersRound, Volume2, VolumeX, X,
 } from 'lucide-react';
 import '@fontsource/fredoka/latin-400.css';
 import '@fontsource/fredoka/latin-500.css';
@@ -14,14 +14,16 @@ import '@fontsource/nunito-sans/latin-800.css';
 import '@fontsource/nunito-sans/latin-900.css';
 import './styles.css';
 import {
-  COLORS, FINISH, PLAYERS, STORAGE_KEY, TRACK,
-  createGame, isValidGame, movePiece, randomRoll, rollDice,
+  COLORS, PLAYERS, STORAGE_KEY, TRACK,
+  automaticMove, colorsFor, createGame, finishFor, isValidGame, movePiece,
+  playerCountFor, randomRoll, rollDice, trackLengthFor,
 } from './game.js';
-import { animationLabels, getMoveEffects, getVisualPieces } from './visuals.js';
+import { PLAYER_COUNTS, getRadialBoard } from './boards.js';
+import { animationLabels, getMoveEffects, getVisualPieces, returnPath } from './visuals.js';
 import ErrorBoundary from './ErrorBoundary.jsx';
+import { CHARACTERS, CHARACTER_BY_ID, CHARACTER_STORAGE_KEY, TEAM_SYMBOLS, characterImage, normalizeCharacterChoices } from './characters.js';
 
 const ClassicCharacters = lazy(() => import('./ClassicCharacters.jsx'));
-const ThreeBoard = lazy(() => import('./ThreeBoard.jsx'));
 
 function loadGame() {
   try {
@@ -30,6 +32,20 @@ function loadGame() {
   } catch {
     return createGame();
   }
+}
+
+function loadCharacterChoices() {
+  try { return normalizeCharacterChoices(JSON.parse(window.localStorage.getItem(CHARACTER_STORAGE_KEY))); }
+  catch { return normalizeCharacterChoices(null); }
+}
+
+function CharacterImage({ character, color, ...props }) {
+  return <img src={characterImage(character, color)} alt="" draggable="false"
+    onError={(event) => {
+      const image = event.currentTarget;
+      // If even the original fallback is unavailable, do not retry forever.
+      if (new URL(image.src, window.location.href).pathname !== PLAYERS[color].image) image.src = PLAYERS[color].image;
+    }} {...props} />;
 }
 
 function Logo() {
@@ -43,28 +59,27 @@ function Logo() {
   );
 }
 
-function Avatar({ color, size = 'normal' }) {
-  const player = PLAYERS[color];
+function Avatar({ color, character, size = 'normal' }) {
   return (
     <span className={`avatar avatar--${color} avatar--${size}`} aria-hidden="true">
-      <img src={player.image} alt="" draggable="false" />
+      <CharacterImage character={character} color={color} />
     </span>
   );
 }
 
-function PlayerCard({ color, game }) {
+function PlayerCard({ color, game, character }) {
   const player = PLAYERS[color];
   const active = game.current === color && game.phase !== 'won';
-  const finished = game.pieces[color].filter((piece) => piece === FINISH).length;
+  const finished = game.pieces[color].filter((piece) => piece === finishFor(playerCountFor(game))).length;
   return (
     <div className={`player-card player-card--${color} ${active ? 'is-active' : ''}`}>
-      <Avatar color={color} />
+      <Avatar color={color} character={character} />
       <div className="player-card-copy">
         <div className="player-card-heading">
           <strong>{player.name}</strong>
           {active && <span className="turn-pill"><span /> TURN</span>}
         </div>
-        <span className="player-number">{player.label}</span>
+        <span className="player-number">{player.label} · {CHARACTER_BY_ID[character].name}</span>
         <div className="player-progress" aria-label={`${finished} of 4 characters home`}>
           <span className="progress-dots" aria-hidden="true">
             {[0, 1, 2, 3].map((n) => <i key={n} className={n < finished ? 'is-filled' : ''} />)}
@@ -182,39 +197,113 @@ function BoardCenter() {
   );
 }
 
-function Board({ game, pieces, onMove, reducedMotion }) {
+// The five- and six-player boards have their own evenly spaced arms, yards,
+// and routes. They use the same 15×15 coordinates as the character overlay.
+function RadialBoard({ board }) {
+  const { colors, playerCount, arms, yards, lanes, track, starts, safeIndexes } = board;
+  const step = Math.PI * 2 / playerCount;
+  const point = (angle, radius) => [7.5 + Math.cos(angle) * radius, 7.5 + Math.sin(angle) * radius];
+  const wedge = (angle) => {
+    const a = angle + step * 0.09, b = angle + step * 0.91;
+    const [x1, y1] = point(a, 7.2), [x2, y2] = point(b, 7.2);
+    const [x3, y3] = point(b, 3.65), [x4, y4] = point(a, 3.65);
+    return `M ${x1} ${y1} A 7.2 7.2 0 0 1 ${x2} ${y2} L ${x3} ${y3} A 3.65 3.65 0 0 0 ${x4} ${y4} Z`;
+  };
+  const startsByIndex = Object.fromEntries(colors.map((color) => [starts[color], color]));
+  const starsByIndex = Object.fromEntries(colors.map((color) => [(starts[color] + 5) % track.length, color]));
+  return (
+    <svg className="radial-board" viewBox="0 0 15 15" aria-hidden="true">
+      <rect width="15" height="15" fill="#f8f5ed" />
+      <circle cx="7.5" cy="7.5" r="7.26" fill="#fffdf8" stroke="#ece7dc" strokeWidth=".06" />
+      {colors.map((color) => {
+        const player = PLAYERS[color], yard = yards[color], angle = arms[color];
+        let [labelX, labelY] = point(angle + step / 2, 6.85);
+        let labelAnchor = 'middle';
+        // Keep the top captions clear of the figures' heads; the left caption
+        // sits below its yard instead of being hidden behind the outer pieces.
+        if (labelY < 3.5) {
+          const left = labelX < 7.5;
+          labelX += left ? -0.45 : 0.45;
+          labelAnchor = left ? 'end' : 'start';
+        } else if (playerCount === 6 && (color === 'orange' || color === 'blue')) {
+          labelX = color === 'orange' ? 0.45 : 14.55;
+          labelY = yard.row + 1.67;
+          labelAnchor = color === 'orange' ? 'start' : 'end';
+        }
+        return <g key={color} data-yard={color}>
+          <path d={wedge(angle)} fill={player.light} stroke={player.hex} strokeOpacity=".28" strokeWidth=".055" />
+          <circle cx={yard.col} cy={yard.row} r="1.52" fill={player.hex} fillOpacity=".62" stroke="#fff" strokeOpacity=".72" strokeWidth=".055" />
+          <circle cx={yard.col} cy={yard.row} r="1.36" fill="none" stroke="#fff" strokeOpacity=".38" strokeWidth=".035" />
+          {yard.slots.map(([row, col], index) => <circle key={index} cx={col} cy={row} r=".45" fill="#fffdf5" stroke="#fff" strokeWidth=".08" />)}
+          <text x={labelX} y={labelY} textAnchor={labelAnchor} dominantBaseline="middle" fill={player.dark} fontFamily="Nunito Sans, sans-serif" fontWeight="900" fontSize=".30" letterSpacing=".025">{player.name.toUpperCase()}</text>
+        </g>;
+      })}
+      <path d={`${track.map(({ row, col }, index) => `${index ? 'L' : 'M'} ${col} ${row}`).join(' ')} Z`} fill="none" stroke="#e9e6dc" strokeWidth=".54" strokeLinecap="round" strokeLinejoin="round" />
+      {track.map(({ row, col, rotation }, index) => {
+        const startColor = startsByIndex[index], starColor = starsByIndex[index];
+        return <g key={index} data-track-cell={index} transform={`translate(${col} ${row}) rotate(${rotation})`}>
+          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={startColor ? PLAYERS[startColor].hex : '#fffefa'} stroke={startColor ? '#ffffff' : '#deddd3'} strokeWidth=".045" />
+          {startColor ? <path d="M .21 0 H -.21 M -.06 -.16 L -.22 0 L -.06 .16" fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth=".075" /> :
+            safeIndexes.has(index) && <path d="M 0 -.25 L .07 -.08 L .25 -.08 L .105 .035 L .16 .21 L 0 .11 L -.16 .21 L -.105 .035 L -.25 -.08 L -.07 -.08 Z" fill={PLAYERS[starColor].hex} />}
+        </g>;
+      })}
+      {colors.flatMap((color) => lanes[color].map(({ row, col, rotation }, index) =>
+        <g key={`${color}-${index}`} data-lane={color} transform={`translate(${col} ${row}) rotate(${rotation})`}>
+          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={PLAYERS[color].hex} stroke="#fff" strokeOpacity=".8" strokeWidth=".045" />
+          {index === 1 && <path d="M 0 -.20 L .055 -.055 L .20 0 L .055 .055 L 0 .20 L -.055 .055 L -.20 0 L -.055 -.055 Z" fill="#fff" fillOpacity=".8" />}
+        </g>
+      ))}
+      {colors.map((color) => {
+        const angle = arms[color];
+        const [x1, y1] = point(angle - step / 2, .88), [x2, y2] = point(angle + step / 2, .88);
+        return <path key={color} d={`M 7.5 7.5 L ${x1} ${y1} L ${x2} ${y2} Z`} fill={PLAYERS[color].hex} stroke="#fff" strokeWidth=".035" />;
+      })}
+      <circle cx="7.5" cy="7.5" r=".29" fill="#fffdf5" stroke="#fff" strokeWidth=".06" />
+      <path d="M 7.36 7.48 L 7.5 7.36 L 7.64 7.48 M 7.39 7.47 V 7.63 H 7.61 V 7.47" fill="none" stroke="#d6a843" strokeWidth=".04" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function Board({ game, pieces, characterChoices, onMove, reducedMotion }) {
   const [characterStatus, setCharacterStatus] = useState('loading');
+  const playerCount = playerCountFor(game);
+  const radial = getRadialBoard(playerCount);
+  const finish = finishFor(playerCount);
   return (
     <div className="board-frame">
-      <div className="board" aria-label="Ludo game board">
-        <BoardTiles />
-        {COLORS.map((color) => <BoardHome key={color} color={color} active={game.current === color} />)}
-        <BoardCenter />
+      <div className={`board ${radial ? 'board--radial' : 'board--classic'}`} data-player-count={playerCount} aria-label={`Ludo game board, ${playerCount} players`}>
+        {radial ? <RadialBoard board={radial} /> : <>
+          <BoardTiles />
+          {COLORS.map((color) => <BoardHome key={color} color={color} active={game.current === color} />)}
+          <BoardCenter />
+        </>}
         {characterStatus !== 'failed' && <ErrorBoundary onError={() => setCharacterStatus('failed')}>
           <Suspense fallback={null}>
-            <ClassicCharacters pieces={pieces} reducedMotion={reducedMotion} onStatus={setCharacterStatus} />
+            <ClassicCharacters pieces={pieces} characterChoices={characterChoices} playerCount={playerCount} reducedMotion={reducedMotion} onStatus={setCharacterStatus} />
           </Suspense>
         </ErrorBoundary>}
         <div className="pieces-layer">
           {pieces.map(({ color, index, progress, row, col, stacked, selectable, pose, duration, heading, showReactionBubble }) => {
             const reaction = pose === 'dance' ? 'Yay!' : showReactionBubble && (pose === 'sad' || pose === 'sad-walk') ? 'Oh no!' : null;
-            const position = progress < 0 ? 'in the yard' : progress === FINISH ? 'at home' : `on space ${progress + 1}`;
+            const position = progress < 0 ? 'in the yard' : progress === finish ? 'at home' : `on space ${progress + 1}`;
             return (
               <button
                 type="button"
                 key={`${color}-${index}`}
                 data-character={`${color}-${index}`}
+                data-character-type={characterChoices[color]}
+                data-progress={progress}
                 data-pose={pose}
                 data-heading={heading.toFixed(3)}
-                className={`game-piece game-piece--${color} ${progress < 0 ? 'game-piece--yard' : 'game-piece--track'} ${selectable ? 'is-selectable' : ''} ${stacked ? 'is-stacked' : ''}`}
+                className={`game-piece game-piece--${color} ${progress < 0 ? 'game-piece--yard' : 'game-piece--track'} ${selectable ? 'is-selectable' : ''} ${stacked ? 'is-stacked' : ''} ${characterStatus === 'ready' && ['animal', 'bird'].includes(CHARACTER_BY_ID[characterChoices[color]].kind) ? 'game-piece--compact' : ''}`}
                 style={{ left: `${col / 15 * 100}%`, top: `${row / 15 * 100}%`, zIndex: Math.round(row * 10) + (selectable || reaction ? 200 : 0), '--motion-duration': `${duration}ms` }}
                 onClick={() => onMove(index)}
                 disabled={!selectable}
-                aria-label={`${PLAYERS[color].name} character ${index + 1}, ${position}${animationLabels[pose] ? `, ${animationLabels[pose]}` : ''}${selectable ? ', select to move' : ''}`}
+                aria-label={`${PLAYERS[color].name} character ${index + 1}, ${position}, ${CHARACTER_BY_ID[characterChoices[color]].name}${animationLabels[pose] ? `, ${animationLabels[pose]}` : ''}${selectable ? ', select to move' : ''}`}
               >
                 <span className="piece-highlight" />
                 <span className="piece-shadow" />
-                {characterStatus !== 'ready' && <img src={PLAYERS[color].image} alt="" draggable="false" />}
+                {characterStatus !== 'ready' && <CharacterImage character={characterChoices[color]} color={color} />}
                 {(pose === 'dance' || pose === 'cheer') && <span className="piece-confetti" aria-hidden="true"><i>✦</i><i>✦</i><i>✦</i></span>}
                 {reaction && <span className={`piece-reaction ${row < 2 ? 'piece-reaction--below' : ''} ${pose === 'sad' || pose === 'sad-walk' ? 'piece-reaction--sad' : ''}`} aria-hidden="true">{reaction}</span>}
               </button>
@@ -244,7 +333,7 @@ function QuickGuide({ onOpenRules }) {
   );
 }
 
-function TurnCard({ game, rolling, moving, onRoll }) {
+function TurnCard({ game, character, rolling, moving, onRoll }) {
   const player = PLAYERS[game.current];
   const choosing = game.phase === 'choose';
   const ended = game.phase === 'won';
@@ -254,9 +343,9 @@ function TurnCard({ game, rolling, moving, onRoll }) {
         <div>
           <span className="section-eyebrow">IT’S GAME TIME</span>
           <h2>{ended ? 'Game over!' : <>{player.name}’s turn <span>✦</span></>}</h2>
-          <p>{ended ? 'What a game!' : choosing ? 'Choose a character to move.' : 'Ready, set, roll!'}</p>
+          <p>{ended ? 'What a game!' : moving ? 'On the move!' : choosing ? 'Choose a character to move.' : 'Ready, set, roll!'}</p>
         </div>
-        <Avatar color={game.current} size="small" />
+        <Avatar color={game.current} character={character} size="small" />
       </div>
       <div className="dice-area">
         <span className="dice-confetti dice-confetti--one">✦</span>
@@ -270,10 +359,10 @@ function TurnCard({ game, rolling, moving, onRoll }) {
         disabled={rolling || Boolean(moving) || choosing || ended}
       >
         <Dices size={20} strokeWidth={2.2} />
-        {rolling ? 'Rolling...' : choosing ? 'Choose a character' : ended ? 'Game finished' : game.sixes > 0 ? 'Roll again' : 'Roll the dice'}
-        {!choosing && !ended && !rolling && <ArrowRight className="roll-arrow" size={18} />}
+        {rolling ? 'Rolling...' : moving ? 'Moving character...' : choosing ? 'Choose a character' : ended ? 'Game finished' : game.sixes > 0 ? 'Roll again' : 'Roll the dice'}
+        {!choosing && !ended && !rolling && !moving && <ArrowRight className="roll-arrow" size={18} />}
       </button>
-      <p className="turn-helper">{choosing ? 'Tap one of the glowing characters on the board.' : ended ? 'Start a new game to play again.' : 'Roll a 6 to bring a character out.'}</p>
+      <p className="turn-helper">{moving ? 'Your character is on the move.' : choosing ? 'Tap one of the glowing characters on the board.' : ended ? 'Start a new game to play again.' : 'Roll a 6 to bring a character out.'}</p>
     </div>
   );
 }
@@ -281,15 +370,18 @@ function TurnCard({ game, rolling, moving, onRoll }) {
 function RulesContent() {
   return (
     <div className="rules-list">
-      <div><span className="rule-number rule-number--yellow">01</span><p><strong>Roll a six to start</strong><small>Choose a character in your yard to bring them onto the board. A six earns you another roll!</small></p></div>
+      <div><span className="rule-number rule-number--yellow">01</span><p><strong>Roll a six to start</strong><small>Your first character comes out automatically. A six earns you another roll!</small></p></div>
       <div><span className="rule-number rule-number--red">02</span><p><strong>Make your way around</strong><small>Move clockwise. Land on an opponent to send them back, but star and starting squares are safe.</small></p></div>
       <div><span className="rule-number rule-number--blue">03</span><p><strong>Bring everyone home</strong><small>Follow your colored path to the middle. You need an exact roll; the first player to get all four home wins.</small></p></div>
-      <div><span className="rule-number rule-number--green">04</span><p><strong>Keep an eye on those sixes</strong><small>Three sixes in a row ends your turn. Share the screen and pass the dice to the next player.</small></p></div>
+      <div><span className="rule-number rule-number--green">04</span><p><strong>Take turns together</strong><small>A 6 earns another roll. Share the screen and pass the dice to the next player.</small></p></div>
     </div>
   );
 }
 
-function Modal({ type, winner, onClose, onReset }) {
+function Modal({ type, winner, currentTeam, playerCount, characterChoices, onChooseCharacter, onClose, onReset }) {
+  const [selectedTeam, setSelectedTeam] = useState(currentTeam);
+  const [newPlayerCount, setNewPlayerCount] = useState(playerCount);
+  const [category, setCategory] = useState('all');
   const modalRef = useRef(null);
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -299,7 +391,7 @@ function Modal({ type, winner, onClose, onReset }) {
     const handler = (event) => {
       if (event.key === 'Escape' && type !== 'won') onClose();
       if (event.key !== 'Tab') return;
-      const focusable = Array.from(modalRef.current?.querySelectorAll('button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') || []);
+      const focusable = Array.from(modalRef.current?.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])') || []);
       if (!focusable.length) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
@@ -314,9 +406,44 @@ function Modal({ type, winner, onClose, onReset }) {
     };
   }, [onClose, type]);
   return (
-    <div className="modal-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget && type !== 'won') onClose(); }}>
+    <div className={`modal-overlay modal-overlay--${type}`} onMouseDown={(event) => { if (event.target === event.currentTarget && type !== 'won') onClose(); }}>
       <section ref={modalRef} className={`modal modal--${type}`} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         {type !== 'won' && <button className="modal-close icon-button" onClick={onClose} aria-label="Close dialog"><X size={19} /></button>}
+        {type === 'characters' && <>
+          <span className="section-eyebrow picker-eyebrow">MEET YOUR PLAYING PIECES <span>✦</span></span>
+          <h2 id="modal-title">Choose your characters.</h2>
+          <p className="modal-intro">Pick a team, then a character. Each team’s four pieces will match. You can change them anytime!</p>
+          <div className="picker-section-label"><span>01</span> CHOOSE A TEAM</div>
+          <div className="team-picker" role="group" aria-label="Choose a team">
+            {colorsFor(playerCount).map((color) => <button type="button" key={color} data-team={color}
+              className={`team-option team-option--${color} ${selectedTeam === color ? 'is-selected' : ''}`}
+              aria-pressed={selectedTeam === color} onClick={() => setSelectedTeam(color)}
+              data-initial-focus={color === currentTeam ? true : undefined}>
+              <span className="team-symbol" aria-hidden="true">{TEAM_SYMBOLS[color]}</span>
+              <span><strong>{PLAYERS[color].name}</strong><small>{CHARACTER_BY_ID[characterChoices[color]].name}</small></span>
+            </button>)}
+          </div>
+          <div className="picker-subheading"><div className="picker-section-label"><span>02</span> PICK FOR <b>{PLAYERS[selectedTeam].name.toUpperCase()}</b></div><small>Everyone can pick the same!</small></div>
+          <div className="character-filters" role="group" aria-label="Character categories">
+            {[['all', 'All', CHARACTERS.length], ['family', 'Family'], ['animals', 'Animals'], ['adventure', 'On the go']].map(([id, label, count]) =>
+              <button type="button" key={id} className={category === id ? 'is-selected' : ''} aria-pressed={category === id} onClick={() => setCategory(id)}>{label}{count ? <span>{count}</span> : null}</button>
+            )}
+          </div>
+          <div className="character-grid" aria-label={`${PLAYERS[selectedTeam].name} character choices`}>
+            {CHARACTERS.filter((character) => category === 'all' || character.category === category).map((character) => {
+              const selected = characterChoices[selectedTeam] === character.id;
+              return <button type="button" key={character.id} data-choice={character.id}
+                className={`character-option character-option--${selectedTeam} ${selected ? 'is-selected' : ''}`}
+                aria-label={`Choose ${character.name} for ${PLAYERS[selectedTeam].name}`} aria-pressed={selected}
+                onClick={() => onChooseCharacter(selectedTeam, character.id)}>
+                <span className="character-option-art"><CharacterImage character={character.id} color={selectedTeam} />{selected && <span className="character-check" aria-hidden="true">✓</span>}</span>
+                <strong>{character.name}</strong><small>{character.description}</small>
+              </button>;
+            })}
+          </div>
+          <div className="picker-footer"><span><span aria-hidden="true">✳</span> Your game stays just as it is.</span><button type="button" className="modal-primary" onClick={onClose}>Done, let’s play <ArrowRight size={17} /></button></div>
+          <span className="visually-hidden" aria-live="polite">{PLAYERS[selectedTeam].name} team: {CHARACTER_BY_ID[characterChoices[selectedTeam]].name} selected</span>
+        </>}
         {type === 'rules' && <>
           <div className="modal-symbol modal-symbol--yellow"><Dices size={25} /></div>
           <span className="section-eyebrow">A LITTLE HELPING HAND</span>
@@ -329,18 +456,29 @@ function Modal({ type, winner, onClose, onReset }) {
           <div className="modal-symbol modal-symbol--red"><RotateCcw size={24} /></div>
           <span className="section-eyebrow">A FRESH START</span>
           <h2 id="modal-title">Start a new game?</h2>
-          <p className="modal-intro">Your current game will be cleared and all four characters will head back to their yards.</p>
+          <p className="modal-intro">Your current game will be cleared. Each team starts with four characters.</p>
+          <fieldset className="player-count-selector">
+            <legend>How many players?</legend>
+            <div className="player-count-options">
+              {PLAYER_COUNTS.map((count) => <label key={count} className={`player-count-option ${newPlayerCount === count ? 'is-selected' : ''}`}>
+                <input type="radio" name="player-count" value={count} checked={newPlayerCount === count}
+                  onChange={() => setNewPlayerCount(count)} aria-label={`${count} players`} />
+                <span className="player-count-number">{count}</span>
+                <span><strong>Players</strong><small>{count === 4 ? 'Classic board' : count === 5 ? 'Five-arm board' : 'Six-arm board'}</small></span>
+              </label>)}
+            </div>
+          </fieldset>
           <div className="modal-actions">
             <button className="modal-secondary" onClick={onClose} data-initial-focus>Keep playing</button>
-            <button className="modal-primary" onClick={onReset}>Yes, new game <ArrowRight size={18} /></button>
+            <button className="modal-primary" onClick={() => onReset(newPlayerCount)}>Yes, new game <ArrowRight size={18} /></button>
           </div>
         </>}
         {type === 'won' && winner && <>
-          <div className={`winner-avatar winner-avatar--${winner}`}><Avatar color={winner} size="large" /><span>✦</span></div>
+          <div className={`winner-avatar winner-avatar--${winner}`}><Avatar color={winner} character={characterChoices[winner]} size="large" /><span>✦</span></div>
           <span className="section-eyebrow">WE HAVE A WINNER!</span>
           <h2 id="modal-title">{PLAYERS[winner].name} takes the crown!</h2>
           <p className="modal-intro">All four characters made it home. That was one for the books!</p>
-          <button className="modal-primary" onClick={onReset} data-initial-focus><RotateCcw size={18} /> Play again</button>
+          <button className="modal-primary" onClick={() => onReset(playerCount)} data-initial-focus><RotateCcw size={18} /> Play again</button>
         </>}
       </section>
     </div>
@@ -366,12 +504,12 @@ function useReducedMotion() {
 
 function App() {
   const [game, setGame] = useState(loadGame);
+  const [characterChoices, setCharacterChoices] = useState(loadCharacterChoices);
   const [rolling, setRolling] = useState(false);
   const [moving, setMoving] = useState(null);
   const [reactions, setReactions] = useState([]);
   const reducedMotion = useReducedMotion();
   const [modal, setModal] = useState(null);
-  const [view, setView] = useState('classic');
   const [soundOn, setSoundOn] = useState(false);
   const busyRef = useRef(false);
   const timers = useRef([]);
@@ -380,6 +518,10 @@ function App() {
   useEffect(() => {
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(game)); } catch { /* Storage is optional. */ }
   }, [game]);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(characterChoices)); } catch { /* Storage is optional. */ }
+  }, [characterChoices]);
 
   useEffect(() => () => {
     timers.current.forEach(window.clearTimeout);
@@ -419,31 +561,21 @@ function App() {
     } catch { /* Sound is progressive enhancement. */ }
   };
 
-  const handleRoll = () => {
-    if (busyRef.current || game.phase !== 'roll') return;
-    busyRef.current = true;
-    setRolling(true);
-    playSound('roll');
-    const die = randomRoll();
-    schedule(() => {
-      setGame((previous) => rollDice(previous, die));
-      setRolling(false);
+  const startMove = (position, index) => {
+    if (position.phase !== 'choose' || !position.legal.includes(index)) {
       busyRef.current = false;
-    }, reducedMotion ? 100 : 700);
-  };
-
-  const handleMove = (index) => {
-    if (busyRef.current || game.phase !== 'choose' || !game.legal.includes(index)) return;
+      return;
+    }
     busyRef.current = true;
     playSound('move');
-    const color = game.current;
-    const progress = game.pieces[color][index];
-    const steps = progress === -1 ? [0] : Array.from({ length: game.roll }, (_, n) => progress + n + 1);
-    const nextGame = movePiece(game, index);
-    const effects = getMoveEffects(game, nextGame, color, index);
+    const color = position.current;
+    const progress = position.pieces[color][index];
+    const steps = progress === -1 ? [0] : Array.from({ length: position.roll }, (_, n) => progress + n + 1);
+    const nextGame = movePiece(position, index);
+    const effects = getMoveEffects(position, nextGame, color, index);
     const timings = reducedMotion
-      ? { step: 75, leave: 100, celebrate: 650, sad: 500, return: 100, rest: 250 }
-      : { step: 420, leave: 720, celebrate: 1900, sad: 1250, return: 900, rest: 550 };
+      ? { step: 75, leave: 100, celebrate: 650, sad: 500, returnStep: 35, returnYard: 100, rest: 250 }
+      : { step: 420, leave: 720, celebrate: 1900, sad: 1250, returnStep: 140, returnYard: 500, rest: 550 };
     setMoving({ color, index, progress, fromProgress: progress, phase: 'walk', duration: timings.step });
     let elapsed = 0;
     steps.forEach((step, stepIndex) => {
@@ -454,8 +586,8 @@ function App() {
     });
     const finalMotion = { color, index, progress: steps[steps.length - 1], fromProgress: steps.length > 1 ? steps[steps.length - 2] : progress };
     const finishMove = () => {
-      // The actual rule change happens once, after the visible reactions. Until
-      // then the saved state is unchanged, so a refresh cannot corrupt a turn.
+      // Commit only once the visible sequence completes. A refresh during the
+      // animation restores the valid rolled state rather than a partial move.
       setGame(nextGame);
       setReactions([]);
       setMoving(null);
@@ -466,10 +598,10 @@ function App() {
         const winning = nextGame.phase === 'won';
         setMoving({ ...finalMotion, phase: 'celebrate', winning });
         if (winning) {
-          // The other teams react too, before the winner dialog covers the board.
-          const defeated = COLORS.filter((other) => other !== color).flatMap((other) => {
-            const firstVisible = game.pieces[other].findIndex((piece) => piece < FINISH);
-            return game.pieces[other].flatMap((piece, pieceIndex) => piece < FINISH
+          const finish = finishFor(playerCountFor(position));
+          const defeated = colorsFor(playerCountFor(position)).filter((other) => other !== color).flatMap((other) => {
+            const firstVisible = position.pieces[other].findIndex((piece) => piece < finish);
+            return position.pieces[other].flatMap((piece, pieceIndex) => piece < finish
               ? [{ color: other, index: pieceIndex, fromProgress: piece, phase: 'sad', showBubble: pieceIndex === firstVisible }]
               : []);
           });
@@ -481,33 +613,88 @@ function App() {
         setMoving({ ...finalMotion, phase: 'cheer' });
         setReactions(effects.captured.map((piece) => ({ ...piece, phase: 'sad' })));
         playSound('sad');
-        schedule(() => setReactions(effects.captured.map((piece) => ({ ...piece, phase: 'return', duration: timings.return }))), timings.sad);
-        schedule(finishMove, timings.sad + timings.return + timings.rest);
+        schedule(() => setMoving({ ...finalMotion, phase: 'wait' }), timings.sad);
+        // Each victim retraces its own route, even when several are captured
+        // on the same square but have different distances to their yards.
+        let returning = effects.captured.length;
+        effects.captured.forEach((piece) => {
+          const path = returnPath(piece.fromProgress, trackLengthFor(playerCountFor(position)));
+          const updateVictim = (update) => setReactions((current) => current.map((reaction) =>
+            reaction.color === piece.color && reaction.index === piece.index ? { ...reaction, ...update } : reaction));
+          // Schedule each step after the previous one, instead of queuing the
+          // whole path at once. A busy or backgrounded browser won't compress
+          // all of a long return into one burst when its timers resume.
+          const walkBack = (stepIndex) => {
+            if (stepIndex >= path.length) {
+              updateVictim({ progress: -1, phase: 'returned', showBubble: false });
+              returning -= 1;
+              if (returning === 0) schedule(finishMove, timings.rest);
+              return;
+            }
+            const step = path[stepIndex];
+            const duration = step.progress === -1 ? timings.returnYard : timings.returnStep;
+            updateVictim({ ...step, phase: 'return', duration });
+            schedule(() => walkBack(stepIndex + 1), duration);
+          };
+          schedule(() => walkBack(0), timings.sad);
+        });
       } else {
         finishMove();
       }
     }, elapsed + 35);
   };
 
-  const resetGame = () => {
+  const handleRoll = () => {
+    if (busyRef.current || game.phase !== 'roll') return;
+    busyRef.current = true;
+    setRolling(true);
+    playSound('roll');
+    const die = randomRoll(game);
+    schedule(() => {
+      const rolled = rollDice(game, die);
+      setGame(rolled);
+      setRolling(false);
+      const index = automaticMove(rolled);
+      if (index !== null) startMove(rolled, index);
+      else busyRef.current = false;
+    }, reducedMotion ? 100 : 700);
+  };
+
+  const handleMove = (index) => {
+    if (!busyRef.current) startMove(game, index);
+  };
+
+  // Reloading while an automatic move was animating resumes that move from
+  // the last valid saved state. Manual choices remain available as before.
+  const resumedAuto = useRef(false);
+  useEffect(() => {
+    if (resumedAuto.current) return;
+    resumedAuto.current = true;
+    const index = automaticMove(game);
+    if (index !== null && !busyRef.current) startMove(game, index);
+  }, []);
+
+  const resetGame = (playerCount = playerCountFor(game)) => {
     timers.current.forEach(window.clearTimeout);
     timers.current = [];
     busyRef.current = false;
     setRolling(false);
     setMoving(null);
     setReactions([]);
-    setGame(createGame());
+    setGame(createGame(playerCount));
     setModal(null);
   };
   const closeModal = useCallback(() => setModal(null), []);
   const winnerModal = game.phase === 'won' ? 'won' : modal;
   const disabled = rolling || Boolean(moving);
+  const playerCount = playerCountFor(game);
+  const colors = colorsFor(playerCount);
   const pieces = useMemo(() => getVisualPieces(game, moving, reactions, disabled), [game, moving, reactions, disabled]);
   const reactingTeams = [...new Set(reactions.map((reaction) => PLAYERS[reaction.color].name))];
   const reactionNames = reactingTeams.join(' and ');
   const boardMessage = rolling ? 'Rolling the dice... good luck!' :
     moving?.phase === 'celebrate' ? `${PLAYERS[moving.color].name} made it home${moving.winning ? ' and wins' : ''}! Time to celebrate!${moving.winning ? ' The other teams look sad.' : ''}` :
-      reactions.length ? (reactions[0].phase === 'return' ? `${reactionNames} ${reactingTeams.length === 1 ? 'is' : 'are'} heading sadly back to the yard.` : `Oh no! ${reactionNames} got sent back.`) :
+      reactions.length ? (reactions.some((reaction) => reaction.phase === 'return' || reaction.phase === 'returned') ? `${reactionNames} ${reactingTeams.length === 1 ? 'is' : 'are'} heading sadly back to the yard.` : `Oh no! ${reactionNames} got sent back.`) :
         moving ? `${PLAYERS[moving.color].name} is on the move!` : game.message;
 
   return (
@@ -535,7 +722,7 @@ function App() {
           <div>
             <div className="heading-kicker"><span className="kicker-star">✳</span> A LITTLE ROLL, A LOT OF FUN <span className="kicker-line" /></div>
             <h1>Let’s play <span>Ludo!</span><i>✦</i></h1>
-            <p>Four colors. Four characters. One happy little race home.</p>
+            <p>{playerCount === 4 ? 'Four' : playerCount === 5 ? 'Five' : 'Six'} colors. So many characters. One happy little race home.</p>
           </div>
           <div className="heading-note"><span>✦</span> MADE FOR GAME NIGHTS <span>✦</span></div>
         </div>
@@ -543,11 +730,11 @@ function App() {
         <div className="game-layout">
           <aside className="players-column">
             <div className="column-heading">
-              <div><span className="section-eyebrow">THE GANG’S ALL HERE</span><h2>Players <span className="player-count">4</span></h2></div>
+              <div><span className="section-eyebrow">THE GANG’S ALL HERE</span><h2>Players <span className="player-count">{playerCount}</span></h2></div>
               <span className="players-sparkle">✳</span>
             </div>
-            <div className="player-list">
-              {COLORS.map((color) => <PlayerCard key={color} color={color} game={game} />)}
+            <div className={`player-list ${playerCount > 4 ? 'player-list--extended' : ''}`}>
+              {colors.map((color) => <PlayerCard key={color} color={color} game={game} character={characterChoices[color]} />)}
             </div>
             <div className="winning-note">
               <div className="trophy-icon"><Trophy size={18} strokeWidth={2} /></div>
@@ -558,31 +745,24 @@ function App() {
 
           <section className="board-column" aria-label="Game board">
             <div className="board-heading">
-              <div className="board-heading-title"><span className="board-heading-icon"><Dices size={16} /></span><div><strong>The game board</strong><small>CLASSIC LUDO</small></div></div>
-              <div className="view-switch" role="group" aria-label="Board view">
-                <button className={view === 'classic' ? 'selected' : ''} onClick={() => setView('classic')} aria-pressed={view === 'classic'}>Classic</button>
-                <button className={view === '3d' ? 'selected' : ''} onClick={() => setView('3d')} aria-pressed={view === '3d'}>3D view <span>✦</span></button>
-              </div>
+              <div className="board-heading-title"><span className="board-heading-icon"><Dices size={16} /></span><div><strong>The game board</strong><small>{playerCount === 4 ? 'CLASSIC LUDO' : `${playerCount}-PLAYER LUDO`}</small></div></div>
+              <button className="character-picker-trigger" onClick={() => setModal('characters')}><UsersRound size={15} /> Choose characters <span>✦</span></button>
             </div>
-            {view === 'classic' ? (
-              <Board game={game} pieces={pieces} onMove={handleMove} reducedMotion={reducedMotion} />
-            ) : (
-              <ErrorBoundary fallback={<ThreeViewError onFallback={() => setView('classic')} />}>
-                <Suspense fallback={<div className="board-loading">Getting the 3D board ready...</div>}>
-                  <ThreeBoard game={game} pieces={pieces} onMove={handleMove} disabled={disabled} reducedMotion={reducedMotion} onFallback={() => setView('classic')} />
-                </Suspense>
-              </ErrorBoundary>
-            )}
+            <Board game={game} pieces={pieces} characterChoices={characterChoices} onMove={handleMove} reducedMotion={reducedMotion} />
             <div className="board-message" role="status" aria-live="polite">
               <span className={`message-icon message-icon--${game.current}`}><Sparkles size={15} /></span>
               <span>{boardMessage}</span>
               <span className="board-message-end">✦</span>
             </div>
+            {pieces.some((piece) => piece.selectable && piece.stacked) && <div className="stacked-choices" role="group" aria-label="Choose a stacked character to move">
+              <span>Pieces on the same space?</span>
+              {game.legal.map((index) => <button type="button" key={index} onClick={() => handleMove(index)} aria-label={`Move ${PLAYERS[game.current].name} character ${index + 1}`}>{index + 1}</button>)}
+            </div>}
             <div className="board-bottomline"><span>✦ &nbsp; MADE FOR PLAYING TOGETHER</span><span>PASS, PLAY, REPEAT &nbsp; ✦</span></div>
           </section>
 
           <aside className="controls-column">
-            <TurnCard game={game} rolling={rolling} moving={moving} onRoll={handleRoll} />
+            <TurnCard game={game} character={characterChoices[game.current]} rolling={rolling} moving={moving} onRoll={handleRoll} />
             <div className="tip-card">
               <span className="tip-icon"><Star size={16} fill="currentColor" /></span>
               <p><strong>A little tip</strong><span>Stars are safe spots. You can’t get sent back from here!</span></p>
@@ -592,16 +772,11 @@ function App() {
         </div>
         <footer className="footer"><span>Made for a little friendly competition <span>♡</span></span><span>ROLL. PLAY. REPEAT.</span></footer>
       </main>
-      {winnerModal && <Modal type={winnerModal} winner={game.winner} onClose={closeModal} onReset={resetGame} />}
+      {winnerModal && <Modal key={winnerModal} type={winnerModal} winner={game.winner} currentTeam={game.current} playerCount={playerCount} characterChoices={characterChoices}
+        onChooseCharacter={(color, character) => setCharacterChoices((previous) => ({ ...previous, [color]: character }))}
+        onClose={closeModal} onReset={resetGame} />}
     </div>
   );
-}
-
-function ThreeViewError({ onFallback }) {
-  return <div className="three-board-frame"><div className="three-error">
-    The 3D view couldn’t load, but you can keep playing in Classic.
-    <button onClick={onFallback}>Return to classic board</button>
-  </div></div>;
 }
 
 function GameError() {

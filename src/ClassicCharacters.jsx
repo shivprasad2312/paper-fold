@@ -1,15 +1,15 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
-import { COLORS } from './game.js';
+import { colorsFor } from './game.js';
 import { animateCharacter, createCharacterBatches, createCharacterFactory, setCharacterTarget } from './characterRig.js';
 import { observeSize, observeVisibility, tryDispose } from './sceneSafety.js';
 
 /** An overlay keeps the reference board and its accessible HTML buttons intact. */
-export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
+export default function ClassicCharacters({ pieces, characterChoices, playerCount, reducedMotion, onStatus }) {
   const containerRef = useRef(null);
   const worldRef = useRef(null);
-  const latest = useRef({ pieces, reducedMotion, onStatus });
-  latest.current = { pieces, reducedMotion, onStatus };
+  const latest = useRef({ pieces, characterChoices, playerCount, reducedMotion, onStatus });
+  latest.current = { pieces, characterChoices, playerCount, reducedMotion, onStatus };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -46,7 +46,7 @@ export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
       latest.current.onStatus('failed');
     };
 
-    // Let the HTML board (or 3D loading shell) paint before expensive GPU setup.
+    // Let the HTML board paint before expensive GPU setup.
     // The sprites remain usable while the character renderer starts.
     const initialize = () => {
       if (disposed) return;
@@ -69,13 +69,10 @@ export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
         scene.add(light);
 
         factory = createCharacterFactory();
-        const characters = Object.fromEntries(COLORS.map((color) => [color, Array.from({ length: 4 }, (_, index) => {
-          const rig = factory.create(color, index);
-          rig.root.visible = false;
-          return rig;
-        })]));
-        const allCharacters = Object.values(characters).flat();
-        batches = createCharacterBatches(scene, allCharacters);
+        let characters = {};
+        let allCharacters = [];
+        let currentChoices;
+        let currentPlayerCount;
 
         const sync = (visuals, immediate = false) => {
           if (disposed) return;
@@ -86,7 +83,8 @@ export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
               const rig = characters[visual.color][visual.index];
               const yard = visual.progress < 0;
               const scale = visual.stacked ? 0.72 : yard ? 1.05 : 0.82;
-              rig.root.scale.setScalar(scale);
+              const radialScale = latest.current.playerCount > 4 ? (yard ? 0.84 : 0.93) : 1;
+              rig.root.scale.setScalar(scale * radialScale);
               // The vertical offset matches the footprint of the HTML hit target.
               const ground = yard ? 0.42 : 0.32;
               const destination = new THREE.Vector3(visual.col - 7.5, 7.5 - visual.row - ground, visual.row * 0.012);
@@ -94,8 +92,25 @@ export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
             });
           } catch (error) { fail(error); }
         };
-        worldRef.current = { sync };
-        sync(latest.current.pieces, true);
+        const setChoices = (choices, count) => {
+          const colors = colorsFor(count);
+          if (disposed || (currentPlayerCount === count && colors.every((color) => currentChoices?.[color] === choices[color]))) return;
+          try {
+            batches?.dispose();
+            characters = Object.fromEntries(colors.map((color) => [color, Array.from({ length: 4 }, (_, index) => {
+              const rig = factory.create(color, index, choices[color]);
+              rig.root.visible = false;
+              return rig;
+            })]));
+            allCharacters = Object.values(characters).flat();
+            batches = createCharacterBatches(scene, allCharacters);
+            currentChoices = { ...choices };
+            currentPlayerCount = count;
+            sync(latest.current.pieces, true);
+          } catch (error) { fail(error); }
+        };
+        worldRef.current = { sync, setChoices };
+        setChoices(latest.current.characterChoices, latest.current.playerCount);
         if (disposed) return;
 
         const resize = () => {
@@ -136,6 +151,7 @@ export default function ClassicCharacters({ pieces, reducedMotion, onStatus }) {
     return cleanup;
   }, []);
 
+  useEffect(() => { worldRef.current?.setChoices(characterChoices, playerCount); }, [characterChoices, playerCount]);
   useEffect(() => { worldRef.current?.sync(pieces); }, [pieces, reducedMotion]);
   return <div className="character-canvas" ref={containerRef} aria-hidden="true" />;
 }

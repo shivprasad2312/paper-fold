@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test src/*.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "portraits": "node scripts/render-character-portraits.mjs"
   },
   "dependencies": {
     "@fontsource/fredoka": "^5.2.6",

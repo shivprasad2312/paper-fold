@@ -1,5 +1,8 @@
-/** Pure rules and board coordinates for the local four-player game. */
-export const COLORS = ['yellow', 'red', 'blue', 'green'];
+/** Pure rules and board coordinates for local four-, five- and six-player Ludo. */
+import { MODE_COLORS, PLAYER_COUNTS, getRadialBoard } from './boards.js';
+export { ALL_COLORS } from './boards.js';
+// Kept as the classic order for compatibility with existing four-player saves.
+export const COLORS = MODE_COLORS[4];
 
 export const PLAYERS = {
   yellow: {
@@ -26,6 +29,16 @@ export const PLAYERS = {
     hex: '#62c987', light: '#e1f6e5', dark: '#41a965',
     image: '/assets/green-player-cutout.webp',
   },
+  purple: {
+    id: 'purple', name: 'Purple', label: 'Player 5',
+    hex: '#ad8cd9', light: '#f1e8fb', dark: '#8160b5',
+    image: '/assets/purple-player-cutout.webp',
+  },
+  orange: {
+    id: 'orange', name: 'Orange', label: 'Player 6',
+    hex: '#efa65f', light: '#fff0dd', dark: '#c87c36',
+    image: '/assets/orange-player-cutout.webp',
+  },
 };
 
 // Clockwise around the cross. Each coordinate is [row, column].
@@ -49,18 +62,28 @@ export const SAFE_INDEXES = new Set(COLORS.flatMap((color) => {
   return [start, (start + 8) % TRACK.length];
 }));
 
-export const FINISH = 56;
+export const FINISH = 56; // Legacy/classic finish index.
 export const STORAGE_KEY = 'ludo-club-game-v1';
 
-export function createGame() {
+export function playerCountFor(game) { return game?.playerCount === undefined ? 4 : game.playerCount; }
+export function colorsFor(playerCount = 4) { return MODE_COLORS[playerCount] || COLORS; }
+export function trackLengthFor(playerCount = 4) { return getRadialBoard(playerCount)?.track.length ?? TRACK.length; }
+export function finishFor(playerCount = 4) { return trackLengthFor(playerCount) + 4; }
+export function startFor(color, playerCount = 4) { return getRadialBoard(playerCount)?.starts[color] ?? PLAYERS[color].start; }
+export function safeIndexesFor(playerCount = 4) { return getRadialBoard(playerCount)?.safeIndexes ?? SAFE_INDEXES; }
+
+export function createGame(requestedCount = 4) {
+  const playerCount = PLAYER_COUNTS.includes(requestedCount) ? requestedCount : 4;
   return {
     version: 1,
+    playerCount,
     current: 'yellow',
-    pieces: Object.fromEntries(COLORS.map((color) => [color, [-1, -1, -1, -1]])),
+    pieces: Object.fromEntries(colorsFor(playerCount).map((color) => [color, [-1, -1, -1, -1]])),
     phase: 'roll',
     roll: null,
     lastRollBy: null,
     sixes: 0,
+    rollsWithoutSix: Object.fromEntries(colorsFor(playerCount).map((color) => [color, 0])),
     legal: [],
     winner: null,
     turns: 0,
@@ -70,44 +93,69 @@ export function createGame() {
 }
 
 export function isValidGame(game) {
+  const playerCount = playerCountFor(game);
+  if (!PLAYER_COUNTS.includes(playerCount)) return false;
+  const colors = colorsFor(playerCount);
+  const finish = finishFor(playerCount);
   const shapeIsValid = Boolean(
-    game && game.version === 1 && COLORS.includes(game.current) &&
+    game && game.version === 1 && colors.includes(game.current) &&
     ['roll', 'choose', 'won'].includes(game.phase) &&
     (game.roll === null || (Number.isInteger(game.roll) && game.roll >= 1 && game.roll <= 6)) &&
-    (game.lastRollBy === null || COLORS.includes(game.lastRollBy)) &&
-    COLORS.every((color) => Array.isArray(game.pieces?.[color]) && game.pieces[color].length === 4 &&
-      game.pieces[color].every((p) => Number.isInteger(p) && p >= -1 && p <= FINISH)) &&
+    (game.lastRollBy === null || colors.includes(game.lastRollBy)) &&
+    colors.every((color) => Array.isArray(game.pieces?.[color]) && game.pieces[color].length === 4 &&
+      game.pieces[color].every((p) => Number.isInteger(p) && p >= -1 && p <= finish)) &&
     Array.isArray(game.legal) && game.legal.every((i) => Number.isInteger(i) && i >= 0 && i < 4) &&
     Array.isArray(game.history) && game.history.every((entry) => typeof entry === 'string') &&
     typeof game.message === 'string' &&
-    Number.isInteger(game.sixes) && game.sixes >= 0 && game.sixes <= 2 &&
+    Number.isSafeInteger(game.sixes) && game.sixes >= 0 &&
+    // The counter was added after the original saves; absent means all zero.
+    (game.rollsWithoutSix === undefined || (game.rollsWithoutSix !== null &&
+      typeof game.rollsWithoutSix === 'object' && !Array.isArray(game.rollsWithoutSix) &&
+      colors.every((color) => Number.isSafeInteger(game.rollsWithoutSix[color]) && game.rollsWithoutSix[color] >= 0))) &&
     Number.isInteger(game.turns) && game.turns >= 0 &&
-    (game.winner === null || COLORS.includes(game.winner))
+    (game.winner === null || colors.includes(game.winner))
   );
   if (!shapeIsValid || (game.roll === null) !== (game.lastRollBy === null)) return false;
   if (game.phase === 'won') {
     return game.winner === game.current && game.legal.length === 0 &&
-      game.pieces[game.winner].every((piece) => piece === FINISH);
+      game.pieces[game.winner].every((piece) => piece === finish);
   }
   if (game.winner !== null) return false;
   if (game.phase === 'roll') return game.legal.length === 0;
   if (game.roll === null || game.lastRollBy !== game.current) return false;
-  const expected = legalMoves(game.pieces[game.current], game.roll);
+  const expected = legalMoves(game.pieces[game.current], game.roll, finish);
   return expected.length > 0 && game.legal.length === expected.length &&
     expected.every((index, position) => game.legal[position] === index);
 }
 
-export function nextColor(color) {
-  return COLORS[(COLORS.indexOf(color) + 1) % COLORS.length];
+export function nextColor(color, playerCount = 4) {
+  const colors = colorsFor(playerCount);
+  return colors[(colors.indexOf(color) + 1) % colors.length];
 }
 
-export function legalMoves(pieces, die) {
+export function legalMoves(pieces, die, finish = FINISH) {
   return pieces.flatMap((progress, index) => {
-    if ((progress === -1 && die === 6) || (progress >= 0 && progress < FINISH && progress + die <= FINISH)) {
+    if ((progress === -1 && die === 6) || (progress >= 0 && progress < finish && progress + die <= finish)) {
       return [index];
     }
     return [];
   });
+}
+
+/** Choose only the automatic moves requested for a pass-and-play turn.
+ * Finished pieces are no longer on the board; an unplayable active piece is
+ * never moved. A six requires a choice if any piece is already on the board.
+ */
+export function automaticMove(game) {
+  if (game.phase !== 'choose') return null;
+  const pieces = game.pieces[game.current];
+  const finish = finishFor(playerCountFor(game));
+  const active = pieces.flatMap((progress, index) => progress >= 0 && progress < finish ? [index] : []);
+  if (active.length === 0 && game.roll === 6) {
+    return game.legal.find((index) => pieces[index] === -1) ?? null;
+  }
+  if (game.roll !== 6 && active.length === 1 && game.legal.includes(active[0])) return active[0];
+  return null;
 }
 
 function addHistory(history, text) {
@@ -117,22 +165,25 @@ function addHistory(history, text) {
 export function rollDice(game, die) {
   if (game.phase !== 'roll' || !Number.isInteger(die) || die < 1 || die > 6) return game;
   const color = game.current;
+  const playerCount = playerCountFor(game);
   const name = PLAYERS[color].name;
-  const common = { ...game, roll: die, lastRollBy: color, turns: game.turns + 1 };
+  // Count each player's rolls independently, even while their pieces are out.
+  // Older games are initialized lazily without disturbing their saved pieces.
+  const rollsWithoutSix = Object.fromEntries(colorsFor(playerCount).map((team) => [team, game.rollsWithoutSix?.[team] ?? 0]));
+  rollsWithoutSix[color] = die === 6 ? 0 : rollsWithoutSix[color] + 1;
+  const common = { ...game, roll: die, lastRollBy: color, turns: game.turns + 1, rollsWithoutSix };
 
-  // A third six in a row forfeits the turn before a piece is moved.
-  if (die === 6 && game.sixes === 2) {
-    const next = nextColor(color);
-    return {
-      ...common, current: next, sixes: 0, legal: [], phase: 'roll',
-      message: `Three 6s in a row! ${PLAYERS[next].name} is up next.`,
-      history: addHistory(game.history, `${name} rolled three 6s. Turn passed.`),
-    };
-  }
-
-  const legal = legalMoves(game.pieces[color], die);
+  const legal = legalMoves(game.pieces[color], die, finishFor(playerCount));
   if (legal.length === 0) {
-    const next = nextColor(color);
+    // Every six grants another roll, even when the exact-roll rule prevents a move.
+    if (die === 6) {
+      return {
+        ...common, current: color, sixes: game.sixes + 1, legal: [], phase: 'roll',
+        message: 'No character can use that 6, but you get another roll!',
+        history: addHistory(game.history, `${name} rolled 6. No moves available; roll again.`),
+      };
+    }
+    const next = nextColor(color, playerCount);
     return {
       ...common, current: next, sixes: 0, legal: [], phase: 'roll',
       message: `${name} rolled a ${die}. No move this time — ${PLAYERS[next].name} is up!`,
@@ -153,19 +204,23 @@ export function rollDice(game, die) {
 export function movePiece(game, index) {
   if (game.phase !== 'choose' || !game.legal.includes(index)) return game;
   const color = game.current;
+  const playerCount = playerCountFor(game);
+  const colors = colorsFor(playerCount);
+  const finish = finishFor(playerCount);
+  const trackLength = trackLengthFor(playerCount);
   const name = PLAYERS[color].name;
   const previous = game.pieces[color][index];
   const progress = previous === -1 ? 0 : previous + game.roll;
-  const pieces = Object.fromEntries(COLORS.map((c) => [c, [...game.pieces[c]]]));
+  const pieces = Object.fromEntries(colors.map((c) => [c, [...game.pieces[c]]]));
   pieces[color][index] = progress;
 
   let captured = 0;
-  if (progress <= 50) {
-    const trackIndex = (PLAYERS[color].start + progress) % TRACK.length;
-    if (!SAFE_INDEXES.has(trackIndex)) {
-      for (const opponent of COLORS.filter((c) => c !== color)) {
+  if (progress <= trackLength - 2) {
+    const trackIndex = (startFor(color, playerCount) + progress) % trackLength;
+    if (!safeIndexesFor(playerCount).has(trackIndex)) {
+      for (const opponent of colors.filter((c) => c !== color)) {
         pieces[opponent] = pieces[opponent].map((p) => {
-          if (p >= 0 && p <= 50 && (PLAYERS[opponent].start + p) % TRACK.length === trackIndex) {
+          if (p >= 0 && p <= trackLength - 2 && (startFor(opponent, playerCount) + p) % trackLength === trackIndex) {
             captured += 1;
             return -1;
           }
@@ -175,9 +230,9 @@ export function movePiece(game, index) {
     }
   }
 
-  const won = pieces[color].every((p) => p === FINISH);
+  const won = pieces[color].every((p) => p === finish);
   let event = previous === -1 ? `${name} brought a character out.`
-    : progress === FINISH ? `${name} brought a character home!`
+    : progress === finish ? `${name} brought a character home!`
       : `${name} moved ${game.roll} ${game.roll === 1 ? 'space' : 'spaces'}.`;
   if (captured) event = `${name} sent ${captured === 1 ? 'a character' : `${captured} characters`} back to the yard!`;
 
@@ -190,20 +245,33 @@ export function movePiece(game, index) {
   }
 
   const extraTurn = game.roll === 6;
-  const next = extraTurn ? color : nextColor(color);
+  const next = extraTurn ? color : nextColor(color, playerCount);
   return {
     ...game, pieces, current: next, phase: 'roll', legal: [],
     sixes: extraTurn ? game.sixes : 0,
     message: extraTurn ? 'You rolled a 6, so you get another turn!' :
       captured ? `${name} made a capture! ${PLAYERS[next].name} is up next.` :
-        progress === FINISH ? `${name} made it home! ${PLAYERS[next].name} is up next.` :
+        progress === finish ? `${name} made it home! ${PLAYERS[next].name} is up next.` :
           `${PLAYERS[next].name}, it's your turn to roll!`,
     history: addHistory(game.history, event),
   };
 }
 
 // Returns the centre of a piece on the 15x15 grid, in grid units.
-export function piecePosition(color, index, progress) {
+export function piecePosition(color, index, progress, playerCount = 4) {
+  const radial = getRadialBoard(playerCount);
+  if (radial) {
+    if (progress === -1) return radial.yards[color].slots[index];
+    if (progress <= radial.track.length - 2) {
+      const cell = radial.track[(radial.starts[color] + progress) % radial.track.length];
+      return [cell.row, cell.col];
+    }
+    if (progress < finishFor(playerCount)) {
+      const cell = radial.lanes[color][progress - (radial.track.length - 1)];
+      return [cell.row, cell.col];
+    }
+    return radial.center;
+  }
   const player = PLAYERS[color];
   if (progress === -1) {
     const [row, col] = player.home;
@@ -221,11 +289,32 @@ export function piecePosition(color, index, progress) {
   return [7.5, 7.5];
 }
 
-export function randomRoll() {
+// Rejection sampling keeps every integer in [0, max) equally likely.
+function randomBelow(max) {
   if (globalThis.crypto?.getRandomValues) {
     const value = new Uint8Array(1);
-    do { globalThis.crypto.getRandomValues(value); } while (value[0] >= 252);
-    return (value[0] % 6) + 1;
+    const limit = Math.floor(256 / max) * max;
+    do { globalThis.crypto.getRandomValues(value); } while (value[0] >= limit);
+    return value[0] % max;
   }
-  return Math.floor(Math.random() * 6) + 1;
+  return Math.floor(Math.random() * max);
+}
+
+/** Generate a die result; `randomIndex` is injectable for deterministic tests. */
+export function randomRoll(game, randomIndex = randomBelow) {
+  const color = game?.current;
+  const pieces = game?.pieces?.[color];
+  const finish = finishFor(playerCountFor(game));
+  const needsEntry = Array.isArray(pieces) && pieces.some((progress) => progress === -1) &&
+    !pieces.some((progress) => progress >= 0 && progress < finish);
+  const misses = game?.rollsWithoutSix?.[color] ?? 0;
+  if (needsEntry && misses >= 6) {
+    if (misses >= 9) return 6;
+    // Attempts 7/8/9 have a 1/4, 1/3, 1/2 chance of a six. In the
+    // remaining outcomes each of 1–5 has exactly the same probability.
+    const buckets = (10 - misses) * 5;
+    const value = randomIndex(buckets);
+    return value < 5 ? 6 : ((value - 5) % 5) + 1;
+  }
+  return randomIndex(6) + 1;
 }

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   COLORS, FINISH, PLAYERS, SAFE_INDEXES, TRACK, createGame, isValidGame,
-  legalMoves, movePiece, nextColor, piecePosition, rollDice,
+  automaticMove, legalMoves, movePiece, nextColor, piecePosition, rollDice,
 } from './game.js';
 
 function choosing(color, die, pieces, legal = [0]) {
@@ -59,18 +59,48 @@ test('six opens the yard and grants another turn after the move', () => {
   assert.ok(isValidGame(moved));
 });
 
-test('third consecutive six forfeits the turn without undoing earlier moves', () => {
-  let game = rollDice(createGame(), 6);
-  game = movePiece(game, 0);
-  game = rollDice(game, 6);
-  game = movePiece(game, 1);
-  assert.equal(game.sixes, 2);
-  game = rollDice(game, 6);
-  assert.equal(game.current, 'red');
-  assert.equal(game.sixes, 0);
-  assert.equal(game.phase, 'roll');
-  assert.deepEqual(game.pieces.yellow, [0, 0, -1, -1]);
-  assert.ok(isValidGame(game));
+test('any number of consecutive sixes keeps the same player rolling', () => {
+  for (const count of [4, 5, 6]) {
+    let game = createGame(count);
+    for (let n = 1; n <= 8; n += 1) {
+      const rolled = rollDice(game, 6);
+      assert.equal(rolled.current, 'yellow');
+      assert.equal(rolled.phase, 'choose');
+      assert.equal(rolled.sixes, n);
+      assert.equal(automaticMove(rolled), n === 1 ? 0 : null);
+      game = movePiece(rolled, 0);
+      assert.equal(game.current, 'yellow');
+      assert.equal(game.phase, 'roll');
+      assert.equal(game.sixes, n);
+      assert.ok(isValidGame(game));
+    }
+    assert.equal(game.pieces.yellow[0], 42);
+    const serialized = JSON.parse(JSON.stringify(game));
+    assert.ok(isValidGame(serialized), 'a saved streak longer than two survives reload');
+    game = rollDice(serialized, 1);
+    game = movePiece(game, 0);
+    assert.equal(game.current, 'red');
+    assert.equal(game.sixes, 0);
+  }
+});
+
+test('an unplayable six still grants another roll without a consecutive-six cap', async () => {
+  const { finishFor } = await import('./game.js');
+  for (const count of [4, 5, 6]) {
+    const game = createGame(count), finish = finishFor(count);
+    game.pieces.yellow = [finish - 1, finish, finish, finish];
+    let blocked = game;
+    for (let n = 1; n <= 5; n += 1) {
+      blocked = rollDice(blocked, 6);
+      assert.equal(blocked.current, 'yellow');
+      assert.equal(blocked.phase, 'roll');
+      assert.equal(blocked.sixes, n);
+      assert.deepEqual(blocked.legal, []);
+      assert.match(blocked.message, /another roll/i);
+      assert.ok(isValidGame(blocked));
+    }
+    assert.equal(movePiece(rollDice(blocked, 1), 0).winner, 'yellow');
+  }
 });
 
 test('landing on an opponent on an unsafe square sends them to the yard', () => {
@@ -140,5 +170,116 @@ test('complete simulated games remain valid and eventually produce a winner', ()
       actions += 1;
     }
     assert.equal(game.phase, 'won', `game ${initialSeed} did not finish`);
+  }
+});
+
+
+test('automatic moves release only when none of the current player’s characters are active', () => {
+  const empty = createGame();
+  assert.equal(automaticMove(empty), null);
+  assert.equal(automaticMove(rollDice(empty, 6)), 0);
+  const anotherTeamIsOut = { ...empty, pieces: { ...empty.pieces, red: [12, -1, -1, -1] } };
+  assert.equal(automaticMove(rollDice(anotherTeamIsOut, 6)), 0);
+  const someFinished = { ...empty, pieces: { ...empty.pieces, yellow: [56, 56, -1, -1] } };
+  assert.equal(automaticMove(rollDice(someFinished, 6)), 2);
+  const oneOut = { ...empty, pieces: { ...empty.pieces, yellow: [3, -1, -1, -1] } };
+  assert.equal(automaticMove(rollDice(oneOut, 4)), 0);
+  assert.equal(automaticMove(rollDice(oneOut, 6)), null); // On a six, let the player choose.
+  const oneOutNoYard = { ...empty, pieces: { ...empty.pieces, yellow: [3, 56, 56, 56] } };
+  assert.deepEqual(rollDice(oneOutNoYard, 6).legal, [0]);
+  assert.equal(automaticMove(rollDice(oneOutNoYard, 6)), null); // Even a sole legal piece waits for a tap on six.
+  const cannotMove = { ...empty, pieces: { ...empty.pieces, yellow: [55, -1, -1, -1] } };
+  assert.equal(automaticMove(rollDice(cannotMove, 6)), null); // Yard pieces remain a manual choice.
+  const twoOut = { ...empty, pieces: { ...empty.pieces, yellow: [3, 9, -1, -1] } };
+  assert.equal(automaticMove(rollDice(twoOut, 6)), null);
+  const onlyOneLegal = { ...empty, pieces: { ...empty.pieces, yellow: [50, 55, -1, -1] } };
+  assert.deepEqual(rollDice(onlyOneLegal, 2).legal, [0]);
+  assert.equal(automaticMove(rollDice(onlyOneLegal, 2)), null); // Two are still on the board.
+  const thirdSix = rollDice({ ...oneOut, sixes: 2 }, 6);
+  assert.equal(thirdSix.current, 'yellow');
+  assert.equal(thirdSix.sixes, 3);
+  assert.equal(automaticMove(thirdSix), null);
+});
+
+test('legacy games without a player count remain classic and invalid mode data is rejected', async () => {
+  const { playerCountFor } = await import('./game.js');
+  const legacy = createGame();
+  delete legacy.playerCount;
+  delete legacy.rollsWithoutSix;
+  legacy.pieces.red[0] = 51;
+  assert.equal(playerCountFor(legacy), 4);
+  assert.ok(isValidGame(legacy));
+  const continued = rollDice(legacy, 2);
+  assert.equal(continued.current, 'red');
+  assert.equal(continued.rollsWithoutSix.yellow, 1);
+  assert.equal(continued.pieces.red[0], 51);
+  assert.ok(isValidGame(continued));
+  assert.equal(isValidGame({ ...legacy, playerCount: 7 }), false);
+  assert.equal(isValidGame({ ...legacy, playerCount: null }), false);
+  assert.equal(isValidGame({ ...legacy, playerCount: 5 }), false); // Missing fifth team.
+  assert.equal(isValidGame({ ...createGame(5), current: 'orange' }), false);
+  assert.equal(isValidGame({ ...createGame(5), pieces: { ...createGame(5).pieces, purple: [55, -1, -1, -1] } }), false);
+});
+
+test('five and six players take turns, capture, use safe cells and finish with the same rules', async () => {
+  const { colorsFor, finishFor, startFor, trackLengthFor, safeIndexesFor } = await import('./game.js');
+  for (const count of [5, 6]) {
+    const colors = colorsFor(count), length = trackLengthFor(count), finish = finishFor(count);
+    let game = createGame(count);
+    assert.ok(isValidGame(game));
+    assert.deepEqual(Object.keys(game.pieces), colors);
+    for (const color of colors) {
+      assert.equal(game.current, color);
+      game = rollDice(game, 1);
+    }
+    assert.equal(game.current, 'yellow');
+    assert.equal(nextColor(colors.at(-1), count), 'yellow');
+    const opponent = colors.at(-1);
+    // Yellow's progress 2 is an unprotected cell; the last team is there too.
+    const target = (startFor('yellow', count) + 2) % length;
+    const enemyProgress = (target - startFor(opponent, count) + length) % length;
+    assert.ok(!safeIndexesFor(count).has(target));
+    const capture = { ...createGame(count), phase: 'choose', roll: 1, lastRollBy: 'yellow', legal: [0],
+      pieces: { ...createGame(count).pieces, yellow: [1, -1, -1, -1], [opponent]: [enemyProgress, -1, -1, -1] } };
+    assert.ok(isValidGame(capture));
+    assert.equal(movePiece(capture, 0).pieces[opponent][0], -1);
+    const safeTarget = (startFor('yellow', count) + 5) % length;
+    const safeEnemy = (safeTarget - startFor(opponent, count) + length) % length;
+    const safe = { ...capture, pieces: { ...capture.pieces, yellow: [4, -1, -1, -1], [opponent]: [safeEnemy, -1, -1, -1] } };
+    assert.ok(safeIndexesFor(count).has(safeTarget));
+    assert.equal(movePiece(safe, 0).pieces[opponent][0], safeEnemy);
+    const lane = { ...capture, pieces: { ...capture.pieces, yellow: [length - 2, -1, -1, -1] } };
+    assert.equal(movePiece(lane, 0).pieces.yellow[0], length - 1);
+    const win = { ...capture, current: opponent, lastRollBy: opponent,
+      pieces: { ...createGame(count).pieces, [opponent]: [finish - 1, finish, finish, finish] } };
+    const won = movePiece(win, 0);
+    assert.equal(won.winner, opponent);
+    assert.equal(won.pieces[opponent][0], finish);
+    assert.ok(isValidGame(won));
+    assert.deepEqual(legalMoves([-1, finish - 1, finish, finish], 2, finish), []);
+    assert.deepEqual(legalMoves([-1, finish - 1, finish, finish], 1, finish), [1]);
+    const empty = createGame(count);
+    assert.equal(automaticMove(rollDice(empty, 6)), 0);
+    const oneOut = { ...empty, pieces: { ...empty.pieces, yellow: [finish - 1, -1, -1, -1] } };
+    assert.equal(automaticMove(rollDice(oneOut, 6)), null);
+    assert.equal(automaticMove(rollDice(oneOut, 1)), 0);
+    const thirdSix = rollDice({ ...oneOut, sixes: 2 }, 6);
+    assert.equal(thirdSix.current, 'yellow');
+    assert.equal(thirdSix.sixes, 3);
+    assert.equal(thirdSix.phase, 'choose');
+  }
+});
+
+test('simulated five- and six-player games stay valid through a win', () => {
+  for (const count of [5, 6]) for (let initialSeed = 11; initialSeed <= 15; initialSeed += 1) {
+    let seed = initialSeed;
+    const random = (max) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % max; };
+    let game = createGame(count), actions = 0;
+    while (game.phase !== 'won' && actions < 10000) {
+      game = game.phase === 'roll' ? rollDice(game, random(6) + 1) : movePiece(game, game.legal[random(game.legal.length)]);
+      assert.ok(isValidGame(game), `invalid ${count}-player state at action ${actions}`);
+      actions += 1;
+    }
+    assert.equal(game.phase, 'won', `${count}-player game ${initialSeed} did not finish`);
   }
 });

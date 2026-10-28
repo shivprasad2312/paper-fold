@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Render character artwork</title></head><body>
+<script type="module">
+import * as THREE from '/node_modules/three/build/three.module.js';
+import { createCharacterFactory, setCharacterTarget, animateCharacter } from '/src/characterRig.js';
+
+// Development-only renderer for the static picker and graphics-fallback artwork.
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setSize(256, 288);
+renderer.setClearColor(0x000000, 0);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera(-1.08, 1.08, 1.215, -1.215, 0.1, 100);
+camera.position.set(3, 2.5, 7);
+camera.lookAt(0, 0.86, 0);
+scene.add(new THREE.HemisphereLight(0xffffff, 0xe7dac9, 1.8));
+const light = new THREE.DirectionalLight(0xffffff, 1.7);
+light.position.set(-3, 6, 8);
+scene.add(light);
+const factory = createCharacterFactory();
+
+window.renderPortrait = (id, color) => {
+  const rig = factory.create(color, 0, id);
+  scene.add(rig.root);
+  rig.root.scale.setScalar(rig.kind === 'animal' || rig.kind === 'bird' ? 1.08 : 1);
+  setCharacterTarget(rig, { heading: id === 'cyclist' ? -0.8 : 0, pose: 'idle', selectable: false }, new THREE.Vector3(), 0, { immediate: true });
+  animateCharacter(rig, 1000, 0.016, true);
+  renderer.render(scene, camera);
+  scene.remove(rig.root);
+
+  // Trim transparent margins, then put each character into a consistent box.
+  const source = document.createElement('canvas');
+  source.width = 256; source.height = 288;
+  const context = source.getContext('2d');
+  context.drawImage(renderer.domElement, 0, 0);
+  const { data } = context.getImageData(0, 0, source.width, source.height);
+  let left = source.width, top = source.height, right = -1, bottom = -1;
+  for (let y = 0; y < source.height; y++) for (let x = 0; x < source.width; x++) {
+    if (data[(y * source.width + x) * 4 + 3] !== 0) {
+      left = Math.min(left, x); right = Math.max(right, x);
+      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    }
+  }
+  if (right < left || bottom < top) throw new Error(`No pixels rendered for ${id}/${color}`);
+  const width = right - left + 1, height = bottom - top + 1;
+  const scale = Math.min(168 / width, 204 / height);
+  const output = document.createElement('canvas');
+  output.width = 192; output.height = 224;
+  output.getContext('2d').drawImage(source, left, top, width, height,
+    (192 - width * scale) / 2, (224 - height * scale) / 2, width * scale, height * scale);
+  return output.toDataURL('image/webp', 0.96);
+};
+window.portraitReady = true;
+</script></body></html>
