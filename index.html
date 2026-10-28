@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="theme-color" content="#faf8f1" />
+    <meta name="description" content="A joyful four-player Ludo game. Roll the dice, race your friends, and bring your characters home." />
+    <title>Ludo Club — A little roll, a lot of fun</title>
+    <style>
+      body { margin: 0; background: #f8f7f1; }
+      #game-startup { min-height: 100vh; display: grid; place-items: center; padding: 24px; box-sizing: border-box; color: #39443b; font: 700 15px/1.5 system-ui, sans-serif; text-align: center; }
+      #game-startup .startup-card { max-width: 400px; padding: 28px; border: 1px solid #efeee2; border-radius: 20px; background: #fffefa; box-shadow: 0 10px 30px #4b543b12; }
+      #game-startup strong { display: block; margin-bottom: 8px; font-size: 24px; letter-spacing: -1px; }
+      #game-startup strong span { color: #e9ac2f; }
+      #game-startup p { margin: 0; color: #859186; }
+      #startup-reload { margin-top: 18px; padding: 10px 16px; border: 0; border-radius: 10px; background: #f6c44b; color: #514729; font: inherit; cursor: pointer; }
+    </style>
+    <script>
+      // The entry module may fail before the body is parsed. Remember that
+      // failure and leave a useful recovery screen instead of an empty page.
+      (function () {
+        var loadFailed = false;
+        function showLoadError() {
+          var message = document.getElementById('startup-message');
+          var button = document.getElementById('startup-reload');
+          if (!message || !button) return;
+          message.textContent = 'The game could not load. Check your connection and try again.';
+          button.hidden = false;
+        }
+        window.addEventListener('error', function (event) {
+          if (event.target === window || (event.target && event.target.tagName === 'SCRIPT')) {
+            loadFailed = true;
+            showLoadError();
+          }
+        }, true);
+        document.addEventListener('DOMContentLoaded', function () {
+          var button = document.getElementById('startup-reload');
+          if (button) button.addEventListener('click', function () { window.location.reload(); });
+          if (loadFailed) showLoadError();
+          window.setTimeout(showLoadError, 12000);
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <main id="game-startup" role="status">
+        <div class="startup-card">
+          <strong>ludo<span>club.</span></strong>
+          <p id="startup-message">Getting your game ready…</p>
+          <button id="startup-reload" type="button" hidden>Reload game</button>
+          <noscript><p>JavaScript is required to play. Please enable it and reload.</p></noscript>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
