@@ -1,5 +1,5 @@
-/** Pure rules and board coordinates for local four-, five- and six-player Ludo. */
-import { MODE_COLORS, PLAYER_COUNTS, getRadialBoard } from './boards.js';
+/** Pure rules and board coordinates for local two- to six-player Ludo. */
+import { ALL_COLORS, MODE_COLORS, PLAYER_COUNTS, getRadialBoard } from './boards.js';
 export { ALL_COLORS } from './boards.js';
 // Kept as the classic order for compatibility with existing four-player saves.
 export const COLORS = MODE_COLORS[4];
@@ -72,12 +72,39 @@ export function finishFor(playerCount = 4) { return trackLengthFor(playerCount) 
 export function startFor(color, playerCount = 4) { return getRadialBoard(playerCount)?.starts[color] ?? PLAYERS[color].start; }
 export function safeIndexesFor(playerCount = 4) { return getRadialBoard(playerCount)?.safeIndexes ?? SAFE_INDEXES; }
 
-export function createGame(requestedCount = 4) {
+// Logical seats own routes and game state. A player's chosen display color is
+// independent of that seat so changing colors cannot change the board rules.
+export function teamColorFor(game, seat) { return game?.teamColors?.[seat] ?? seat; }
+
+// Older games without a mode remain local pass-and-play. In solo mode the
+// first logical seat belongs to the person; all remaining seats are computers.
+export function gameModeFor(game) { return game?.mode === 'computer' ? 'computer' : 'local'; }
+export function isComputerPlayer(game, seat) {
+  return gameModeFor(game) === 'computer' && colorsFor(playerCountFor(game)).slice(1).includes(seat);
+}
+
+export function validTeamColors(playerCount, teamColors) {
+  if (!teamColors || typeof teamColors !== 'object' || Array.isArray(teamColors)) return false;
+  const seats = colorsFor(playerCount);
+  const values = seats.map((seat) => teamColors[seat]);
+  return Object.keys(teamColors).length === seats.length &&
+    values.every((color) => ALL_COLORS.includes(color)) && new Set(values).size === seats.length;
+}
+
+export function createGame(requestedCount = 4, teamColors, mode = 'local') {
   const playerCount = PLAYER_COUNTS.includes(requestedCount) ? requestedCount : 4;
+  if (teamColors !== undefined && !validTeamColors(playerCount, teamColors)) {
+    throw new Error('Each player must have a different valid color.');
+  }
+  if (!['local', 'computer'].includes(mode) || (mode === 'computer' && ![2, 3, 4].includes(requestedCount))) {
+    throw new Error('Computer games use the classic board with two to four players.');
+  }
   return {
     version: 1,
     playerCount,
-    current: 'yellow',
+    ...(mode === 'computer' ? { mode } : {}),
+    ...(teamColors === undefined ? {} : { teamColors: { ...teamColors } }),
+    current: colorsFor(playerCount)[0],
     pieces: Object.fromEntries(colorsFor(playerCount).map((color) => [color, [-1, -1, -1, -1]])),
     phase: 'roll',
     roll: null,
@@ -99,6 +126,8 @@ export function isValidGame(game) {
   const finish = finishFor(playerCount);
   const shapeIsValid = Boolean(
     game && game.version === 1 && colors.includes(game.current) &&
+    (game.mode === undefined || game.mode === 'local' || (game.mode === 'computer' && [2, 3, 4].includes(game.playerCount))) &&
+    (game.teamColors === undefined || validTeamColors(playerCount, game.teamColors)) &&
     ['roll', 'choose', 'won'].includes(game.phase) &&
     (game.roll === null || (Number.isInteger(game.roll) && game.roll >= 1 && game.roll <= 6)) &&
     (game.lastRollBy === null || colors.includes(game.lastRollBy)) &&
@@ -166,7 +195,7 @@ export function rollDice(game, die) {
   if (game.phase !== 'roll' || !Number.isInteger(die) || die < 1 || die > 6) return game;
   const color = game.current;
   const playerCount = playerCountFor(game);
-  const name = PLAYERS[color].name;
+  const name = PLAYERS[teamColorFor(game, color)].name;
   // Count each player's rolls independently, even while their pieces are out.
   // Older games are initialized lazily without disturbing their saved pieces.
   const rollsWithoutSix = Object.fromEntries(colorsFor(playerCount).map((team) => [team, game.rollsWithoutSix?.[team] ?? 0]));
@@ -186,7 +215,7 @@ export function rollDice(game, die) {
     const next = nextColor(color, playerCount);
     return {
       ...common, current: next, sixes: 0, legal: [], phase: 'roll',
-      message: `${name} rolled a ${die}. No move this time — ${PLAYERS[next].name} is up!`,
+      message: `${name} rolled a ${die}. No move this time — ${PLAYERS[teamColorFor(game, next)].name} is up!`,
       history: addHistory(game.history, `${name} rolled ${die}. No moves available.`),
     };
   }
@@ -208,7 +237,7 @@ export function movePiece(game, index) {
   const colors = colorsFor(playerCount);
   const finish = finishFor(playerCount);
   const trackLength = trackLengthFor(playerCount);
-  const name = PLAYERS[color].name;
+  const name = PLAYERS[teamColorFor(game, color)].name;
   const previous = game.pieces[color][index];
   const progress = previous === -1 ? 0 : previous + game.roll;
   const pieces = Object.fromEntries(colors.map((c) => [c, [...game.pieces[c]]]));
@@ -250,9 +279,9 @@ export function movePiece(game, index) {
     ...game, pieces, current: next, phase: 'roll', legal: [],
     sixes: extraTurn ? game.sixes : 0,
     message: extraTurn ? 'You rolled a 6, so you get another turn!' :
-      captured ? `${name} made a capture! ${PLAYERS[next].name} is up next.` :
-        progress === finish ? `${name} made it home! ${PLAYERS[next].name} is up next.` :
-          `${PLAYERS[next].name}, it's your turn to roll!`,
+      captured ? `${name} made a capture! ${PLAYERS[teamColorFor(game, next)].name} is up next.` :
+        progress === finish ? `${name} made it home! ${PLAYERS[teamColorFor(game, next)].name} is up next.` :
+          `${PLAYERS[teamColorFor(game, next)].name}, it's your turn to roll!`,
     history: addHistory(game.history, event),
   };
 }

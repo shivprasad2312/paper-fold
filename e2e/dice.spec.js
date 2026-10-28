@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openGame } from './helpers.js';
 import { createGame, finishFor } from '../src/game.js';
 
 const storageKey = 'ludo-club-game-v1';
@@ -18,7 +19,7 @@ async function prepare(page, game, bytes = [0]) {
       value: (array) => { array[0] = values[Math.min(index++, values.length - 1)]; return array; },
     });
   }, [storageKey, game, bytes]);
-  await page.goto('/');
+  await openGame(page);
   await expect(page.locator('.character-fallback-note')).toBeVisible();
 }
 
@@ -146,5 +147,6 @@ test('each player’s missed turns are counted separately and survive a reload b
   expect((await saved(page)).rollsWithoutSix).toEqual({ yellow: 0, red: 9, blue: 9, green: 9 });
   await page.getByRole('button', { name: 'New game' }).click();
   await page.getByRole('button', { name: 'Yes, new game' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
   await expect.poll(async () => (await saved(page)).rollsWithoutSix).toEqual({ yellow: 0, red: 0, blue: 0, green: 0 });
 });

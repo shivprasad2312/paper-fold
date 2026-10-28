@@ -1,0 +1,139 @@
+/* Small-device controls and the selectable colors used on classic boards. */
+.app-shell { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+.topbar { height: calc(72px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
+.footer, .setup-footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+/* Screen titles receive programmatic focus for announcements, not as controls. */
+[data-screen-title]:focus { outline: none; }
+.home-game-button { min-width: 48px; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 3px; border: 0; background: transparent; color: #758478; font-size: 11px; font-weight: 900; }
+.home-game-button:hover { color: #3f5c46; }
+.sound-button { width: 48px; height: 48px; }
+.new-game-button { min-width: 48px; min-height: 48px; }
+.character-picker-trigger, .roll-button { min-height: 48px; }
+.board-heading { min-height: 56px; }
+.board-tile--purple { background: #ad8cd9; }
+.board-tile--orange { background: #efa65f; }
+.board-tile--empty { background: #eef1e9; }
+.board-home--purple { background: linear-gradient(142deg, #d3b9ef, #a98ad6 78%); }
+.board-home--orange { background: linear-gradient(142deg, #ffd19b, #efa45b 78%); }
+.board-home--empty { background: linear-gradient(142deg, #edf0e8, #e2e7dd 78%); }
+.board-home--purple .home-label { color: #765b9d; }
+.board-home--orange .home-label { color: #a56b33; }
+.board-home--empty .home-label { color: #98a69a; }
+.board-home--empty .home-slot { opacity: .55; }
+.stacked-choices button { width: 48px; height: 48px; font-size: 13px; }
+.winner-home { width: 100%; margin-top: 10px; }
+@media (max-width: 960px) {
+  .topbar { height: calc(64px + env(safe-area-inset-top, 0px)); }
+  .app-shell .setup-bottom { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+}
+@media (max-width: 520px) {
+  .home-game-button span { display: none; }
+}
+@media (max-width: 380px) {
+  .top-actions { gap: 5px; }
+  .new-game-button span { display: none; }
+  .new-game-button { width: 37px; padding: 0; }
+}
+
+/* A number above each legal piece matches the larger, independently tappable
+   choices. It is an action cue, not a team badge or another playing piece. */
+.piece-choice-number {
+  position: absolute; z-index: 4; left: 50%; top: calc(-18% + var(--marker-row-offset, 0%));
+  transform: translate(-50%, -100%); display: grid; place-items: center;
+  width: clamp(16px, 2.9vw, 20px); height: clamp(16px, 2.9vw, 20px);
+  border: 1.5px solid #c49b42; border-radius: 50%; background: #fffdf5;
+  color: #655021; box-shadow: 0 2px 4px #4b422f36; font-size: 10px; font-weight: 900; line-height: 1;
+  pointer-events: none;
+}
+.piece-choice-number--edge { top: calc(-3% + var(--marker-row-offset, 0%)); transform: translate(-50%, 0); }
+
+.compact-die, .landscape-characters, .choose-label-short { display: none; }
+.move-choices {
+  display: block; margin-top: 12px; padding: 11px; border: 1px solid #e9e6d9;
+  border-radius: 12px; background: #fffefa; color: #4b574b; box-shadow: 0 4px 14px #4b55430a;
+}
+.move-choices-heading { display: flex; align-items: flex-start; gap: 8px; color: #b38b2f; }
+.move-choices-heading svg { flex: 0 0 auto; margin-top: 1px; }
+.move-choices-heading strong, .move-choices-heading small { display: block; }
+.move-choices-heading strong { color: #4b554b; font-size: 12px; line-height: 1.2; }
+.move-choices-heading small { margin-top: 3px; color: #889387; font-size: 10px; line-height: 1.2; }
+.move-choices-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.move-choices-list button {
+  display: flex; flex: 1 1 48px; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; width: auto; min-width: 48px; height: 48px; padding: 3px 5px; border-color: #e8dfc7;
+  background: #fffbf0; color: #594b29; line-height: 1;
+}
+.move-choice-number { font-size: 14px; font-weight: 900; }
+.move-choices-list button small { color: #7c806f; font-size: 9px; font-weight: 800; white-space: nowrap; }
+
+@media (max-width: 960px) {
+  /* Put the board higher in portrait without removing its semantic title. */
+  .page-heading { min-height: 0; padding: 11px 0 10px; }
+  .heading-kicker { display: none; }
+  .page-heading h1 { margin-top: 0; font-size: 27px; }
+  .page-heading p { margin-top: 2px; }
+  .turn-card { min-height: 70px; padding: 8px 12px; margin-bottom: 9px; }
+  .board-heading { min-height: 48px; height: 48px; align-items: center; }
+  .move-choices { order: 2; width: 100%; margin-top: 12px; }
+}
+@media (max-width: 360px) {
+  .page-heading p, .turn-card-top p, .choose-label-full { display: none; }
+  .choose-label-short { display: inline; }
+  .turn-card { grid-template-columns: minmax(0, 1fr) 34px auto; gap: 7px; }
+  .roll-button { min-width: 92px; }
+  .compact-die { display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid #e7e2d5; border-radius: 9px; background: #fff; color: #51594f; font: 600 17px Fredoka, sans-serif; box-shadow: 0 2px 0 #ede8dc; }
+}
+
+/* Short landscape screens get a height-constrained board next to the turn
+   controls. Secondary content remains reachable by scrolling below. */
+@media (orientation: landscape) and (max-height: 600px) and (min-width: 480px) {
+  .topbar { height: calc(48px + env(safe-area-inset-top, 0px)); }
+  .topbar-inner { padding: 0 12px; }
+  .logo-mark { width: 26px; height: 26px; }
+  .logo-word { font-size: 21px; }
+  .top-actions { gap: 4px; }
+  .local-badge, .top-divider, .main-nav { display: none; }
+  .home-game-button span, .new-game-button span { display: none; }
+  .home-game-button, .new-game-button, .sound-button, .landscape-characters { width: 48px; min-width: 48px; height: 48px; padding: 0; }
+  .landscape-characters { display: inline-flex; }
+  .main-content { width: calc(100% - 24px); max-width: none; }
+  .page-heading { position: absolute; width: 1px; height: 1px; min-height: 0; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .game-layout {
+    --board-size: min(calc(100dvh - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)), calc(100vw - 220px));
+    display: grid; grid-template-columns: minmax(0, var(--board-size)) minmax(0, 1fr);
+    grid-template-areas: 'board controls' 'players players'; align-items: start;
+    gap: 10px 12px; width: min(100%, calc(var(--board-size) + 332px)); margin: 0 auto; padding-top: 8px;
+  }
+  .board-column { grid-area: board; width: 100%; order: initial; }
+  .board-heading { display: none; }
+  .board-frame { width: 100%; }
+  .board-message { margin-top: 13px; }
+  .board-bottomline { display: none; }
+  .controls-column { grid-area: controls; order: initial; display: flex; flex-direction: column; width: 100%; min-width: 0; padding: 0; }
+  .turn-card { order: initial; display: grid; grid-template-columns: minmax(0, 1fr) 42px; gap: 7px; width: 100%; min-height: 0; margin: 0; padding: 10px; }
+  .turn-card-top { grid-column: 1 / -1; }
+  .turn-card-top .avatar, .turn-card .dice-area, .turn-helper { display: none; }
+  .turn-card h2 { margin-top: 4px; font-size: 17px; }
+  .turn-card-top p { margin-top: 3px; font-size: 10px; }
+  .compact-die { display: grid; grid-column: 2; grid-row: 2; place-items: center; width: 42px; height: 42px; border: 1px solid #e7e2d5; border-radius: 10px; background: #fff; color: #51594f; font: 600 19px Fredoka, sans-serif; box-shadow: 0 2px 0 #ede8dc; }
+  .roll-button { grid-column: 1; grid-row: 2; min-width: 0; width: 100%; padding: 0 8px; }
+  .roll-arrow { display: none; }
+  .move-choices { order: initial; margin-top: 8px; padding: 9px; }
+  .move-choices-heading small { margin-top: 2px; }
+  .move-choices-list { margin-top: 7px; }
+  .tip-card, .guide-card { order: initial; width: 100%; margin-top: 8px; }
+  .players-column { grid-area: players; width: 100%; order: initial; margin-top: 0; }
+  .player-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 8px; }
+  .winning-note, .players-footer { display: none; }
+  .footer { margin-top: 20px; }
+}
+@media (orientation: landscape) and (min-width: 961px) and (min-height: 601px) and (max-height: 850px) {
+  .page-heading { min-height: 72px; padding: 10px 0; }
+  .heading-kicker { display: none; }
+  .page-heading h1 { margin-top: 0; font-size: 30px; }
+  .board-heading { min-height: 48px; }
+  .controls-column { padding-top: 48px; }
+}
+
+.storage-warning { padding: 10px max(16px, env(safe-area-inset-right, 0px)) 10px max(16px, env(safe-area-inset-left, 0px)); background: #fff1dc; border-bottom: 1px solid #efcf9e; color: #805629; text-align: center; font-size: 12px; font-weight: 700; line-height: 1.4; }
+.storage-warning strong { font-weight: 900; }

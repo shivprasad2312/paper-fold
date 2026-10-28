@@ -3,13 +3,14 @@ import * as THREE from 'three';
 import { colorsFor } from './game.js';
 import { animateCharacter, createCharacterBatches, createCharacterFactory, setCharacterTarget } from './characterRig.js';
 import { observeSize, observeVisibility, tryDispose } from './sceneSafety.js';
+import { createFrameLoop } from './frameLoop.js';
 
 /** An overlay keeps the reference board and its accessible HTML buttons intact. */
-export default function ClassicCharacters({ pieces, characterChoices, playerCount, reducedMotion, onStatus }) {
+export default function ClassicCharacters({ pieces, characterChoices, playerCount, teamColors, reducedMotion, onStatus }) {
   const containerRef = useRef(null);
   const worldRef = useRef(null);
-  const latest = useRef({ pieces, characterChoices, playerCount, reducedMotion, onStatus });
-  latest.current = { pieces, characterChoices, playerCount, reducedMotion, onStatus };
+  const latest = useRef({ pieces, characterChoices, playerCount, teamColors, reducedMotion, onStatus });
+  latest.current = { pieces, characterChoices, playerCount, teamColors, reducedMotion, onStatus };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -19,7 +20,8 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
     let batches;
     let stopSize;
     let stopVisibility;
-    let frame;
+    let stopPageVisibility;
+    let frameLoop;
     let initTimer;
     let disposed = false;
     let onContextLost;
@@ -29,9 +31,10 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
       disposed = true;
       worldRef.current = null;
       if (initTimer !== undefined) window.clearTimeout(initTimer);
-      if (frame !== undefined) cancelAnimationFrame(frame);
+      tryDispose(() => frameLoop?.dispose());
       tryDispose(stopSize);
       tryDispose(stopVisibility);
+      tryDispose(stopPageVisibility);
       if (renderer?.domElement && onContextLost) renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       tryDispose(() => batches?.dispose());
       tryDispose(() => factory?.dispose());
@@ -72,6 +75,7 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
         let characters = {};
         let allCharacters = [];
         let currentChoices;
+        let currentTeamColors;
         let currentPlayerCount;
 
         const sync = (visuals, immediate = false) => {
@@ -90,27 +94,31 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
               const destination = new THREE.Vector3(visual.col - 7.5, 7.5 - visual.row - ground, visual.row * 0.012);
               setCharacterTarget(rig, visual, destination, now, { immediate: immediate || latest.current.reducedMotion });
             });
+            frameLoop?.setContinuous(!latest.current.reducedMotion);
+            frameLoop?.invalidate();
           } catch (error) { fail(error); }
         };
-        const setChoices = (choices, count) => {
+        const setChoices = (choices, count, teamColors) => {
           const colors = colorsFor(count);
-          if (disposed || (currentPlayerCount === count && colors.every((color) => currentChoices?.[color] === choices[color]))) return;
+          if (disposed || (currentPlayerCount === count && colors.every((seat) =>
+            currentChoices?.[seat] === choices[seat] && currentTeamColors?.[seat] === (teamColors?.[seat] ?? seat)))) return;
           try {
             batches?.dispose();
-            characters = Object.fromEntries(colors.map((color) => [color, Array.from({ length: 4 }, (_, index) => {
-              const rig = factory.create(color, index, choices[color]);
+            characters = Object.fromEntries(colors.map((seat) => [seat, Array.from({ length: 4 }, (_, index) => {
+              const rig = factory.create(teamColors?.[seat] ?? seat, index, choices[seat]);
               rig.root.visible = false;
               return rig;
             })]));
             allCharacters = Object.values(characters).flat();
             batches = createCharacterBatches(scene, allCharacters);
             currentChoices = { ...choices };
+            currentTeamColors = Object.fromEntries(colors.map((seat) => [seat, teamColors?.[seat] ?? seat]));
             currentPlayerCount = count;
             sync(latest.current.pieces, true);
           } catch (error) { fail(error); }
         };
         worldRef.current = { sync, setChoices };
-        setChoices(latest.current.characterChoices, latest.current.playerCount);
+        setChoices(latest.current.characterChoices, latest.current.playerCount, latest.current.teamColors);
         if (disposed) return;
 
         const resize = () => {
@@ -119,6 +127,7 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
             const width = container.clientWidth;
             const height = container.clientHeight;
             if (width && height) renderer.setSize(width, height, false);
+            frameLoop?.invalidate();
           } catch (error) { fail(error); }
         };
         resize();
@@ -126,32 +135,46 @@ export default function ClassicCharacters({ pieces, characterChoices, playerCoun
         stopSize = observeSize(container, resize);
 
         let inView = true;
-        stopVisibility = observeVisibility(container, (visible) => { inView = visible; });
-        let previous = performance.now();
-        const render = (now) => {
-          if (disposed) return;
-          try {
-            const delta = Math.min((now - previous) / 1000, 0.1);
-            previous = now;
-            if (inView && !document.hidden) {
+        let pageHidden = false;
+        let firstFrame = true;
+        frameLoop = createFrameLoop({
+          requestFrame: (callback) => requestAnimationFrame(callback),
+          cancelFrame: (frame) => cancelAnimationFrame(frame),
+          continuous: !latest.current.reducedMotion,
+          active: !document.hidden,
+          render: (now, delta) => {
+            if (disposed) return;
+            try {
               allCharacters.forEach((rig) => {
                 if (rig.root.visible) animateCharacter(rig, now, delta, latest.current.reducedMotion);
               });
               batches.update();
               renderer.render(scene, camera);
-            }
-            frame = requestAnimationFrame(render);
-          } catch (error) { fail(error); }
+              // Keep the static sprites until an actual frame has painted.
+              if (firstFrame) { firstFrame = false; latest.current.onStatus('ready'); }
+            } catch (error) { fail(error); }
+          },
+        });
+        const updateVisibility = () => frameLoop?.setActive(inView && !document.hidden && !pageHidden);
+        const hidePage = () => { pageHidden = true; updateVisibility(); };
+        const showPage = () => { pageHidden = false; updateVisibility(); };
+        document.addEventListener('visibilitychange', updateVisibility);
+        window.addEventListener('pagehide', hidePage);
+        window.addEventListener('pageshow', showPage);
+        stopPageVisibility = () => {
+          document.removeEventListener('visibilitychange', updateVisibility);
+          window.removeEventListener('pagehide', hidePage);
+          window.removeEventListener('pageshow', showPage);
         };
-        render(previous);
-        if (!disposed) latest.current.onStatus('ready');
+        stopVisibility = observeVisibility(container, (visible) => { inView = visible; updateVisibility(); });
+        frameLoop.invalidate();
       } catch (error) { fail(error); }
     };
     initTimer = window.setTimeout(initialize, 120);
     return cleanup;
   }, []);
 
-  useEffect(() => { worldRef.current?.setChoices(characterChoices, playerCount); }, [characterChoices, playerCount]);
+  useEffect(() => { worldRef.current?.setChoices(characterChoices, playerCount, teamColors); }, [characterChoices, playerCount, teamColors]);
   useEffect(() => { worldRef.current?.sync(pieces); }, [pieces, reducedMotion]);
   return <div className="character-canvas" ref={containerRef} aria-hidden="true" />;
 }

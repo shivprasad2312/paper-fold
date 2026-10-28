@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test src/*.test.js",
     "test:e2e": "playwright test",
+    "test:e2e:offline": "playwright test --config playwright.offline.config.js",
     "portraits": "node scripts/render-character-portraits.mjs"
   },
   "dependencies": {

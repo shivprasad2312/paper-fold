@@ -270,8 +270,8 @@ test('five and six players take turns, capture, use safe cells and finish with t
   }
 });
 
-test('simulated five- and six-player games stay valid through a win', () => {
-  for (const count of [5, 6]) for (let initialSeed = 11; initialSeed <= 15; initialSeed += 1) {
+test('simulated two- through six-player games stay valid through a win', () => {
+  for (const count of [2, 3, 4, 5, 6]) for (let initialSeed = 11; initialSeed <= 15; initialSeed += 1) {
     let seed = initialSeed;
     const random = (max) => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed % max; };
     let game = createGame(count), actions = 0;

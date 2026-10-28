@@ -13,25 +13,37 @@ import '@fontsource/nunito-sans/latin-700.css';
 import '@fontsource/nunito-sans/latin-800.css';
 import '@fontsource/nunito-sans/latin-900.css';
 import './styles.css';
+import './compatibility.css';
 import {
-  COLORS, PLAYERS, STORAGE_KEY, TRACK,
-  automaticMove, colorsFor, createGame, finishFor, isValidGame, movePiece,
-  playerCountFor, randomRoll, rollDice, trackLengthFor,
+  COLORS, PLAYERS, TRACK,
+  automaticMove, colorsFor, createGame, finishFor, gameModeFor, isComputerPlayer, movePiece,
+  playerCountFor, randomRoll, rollDice, teamColorFor, trackLengthFor,
 } from './game.js';
 import { PLAYER_COUNTS, getRadialBoard } from './boards.js';
 import { animationLabels, getMoveEffects, getVisualPieces, returnPath } from './visuals.js';
 import ErrorBoundary from './ErrorBoundary.jsx';
-import { CHARACTERS, CHARACTER_BY_ID, CHARACTER_STORAGE_KEY, TEAM_SYMBOLS, characterImage, normalizeCharacterChoices } from './characters.js';
+import { CHARACTERS, CHARACTER_BY_ID, CHARACTER_STORAGE_KEY, TEAM_SYMBOLS, normalizeCharacterChoices } from './characters.js';
+import { Avatar, CharacterImage, Logo, StorageWarning } from './ui.jsx';
+import { HomeScreen, SetupScreen } from './Lobby.jsx';
+import { charactersFromSetup, colorsFromSetup, createPlayerSetup, isValidPlayerSetup } from './playerSetup.js';
+import { canStoreGame, clearPendingMove, loadSavedGame, pendingMoveMatches, saveGame, savePendingMove } from './gamePersistence.js';
+import { createPausableScheduler } from './pausableScheduler.js';
+import { chooseComputerMove } from './computerPlayer.js';
+import { useOffline } from './useOffline.js';
 
 const ClassicCharacters = lazy(() => import('./ClassicCharacters.jsx'));
 
-function loadGame() {
-  try {
-    const saved = JSON.parse(window.localStorage.getItem(STORAGE_KEY));
-    return isValidGame(saved) ? saved : createGame();
-  } catch {
-    return createGame();
-  }
+const SCREEN_SESSION_KEY = 'ludo-club-screen-v1';
+
+function gameStorage() {
+  try { return window.localStorage; } catch { return null; }
+}
+
+function loadGame() { return loadSavedGame(gameStorage()); }
+
+function initialScreen(savedGame) {
+  try { return savedGame && window.sessionStorage.getItem(SCREEN_SESSION_KEY) === 'game' ? 'game' : 'home'; }
+  catch { return 'home'; }
 }
 
 function loadCharacterChoices() {
@@ -39,47 +51,21 @@ function loadCharacterChoices() {
   catch { return normalizeCharacterChoices(null); }
 }
 
-function CharacterImage({ character, color, ...props }) {
-  return <img src={characterImage(character, color)} alt="" draggable="false"
-    onError={(event) => {
-      const image = event.currentTarget;
-      // If even the original fallback is unavailable, do not retry forever.
-      if (new URL(image.src, window.location.href).pathname !== PLAYERS[color].image) image.src = PLAYERS[color].image;
-    }} {...props} />;
-}
-
-function Logo() {
-  return (
-    <div className="logo" aria-label="Ludo Club">
-      <span className="logo-mark" aria-hidden="true">
-        <i /><i /><i /><i />
-      </span>
-      <span className="logo-word">ludo<span>club</span><b>.</b></span>
-    </div>
-  );
-}
-
-function Avatar({ color, character, size = 'normal' }) {
-  return (
-    <span className={`avatar avatar--${color} avatar--${size}`} aria-hidden="true">
-      <CharacterImage character={character} color={color} />
-    </span>
-  );
-}
-
 function PlayerCard({ color, game, character }) {
-  const player = PLAYERS[color];
+  const actualColor = teamColorFor(game, color);
+  const player = PLAYERS[actualColor];
+  const playerNumber = colorsFor(playerCountFor(game)).indexOf(color) + 1;
   const active = game.current === color && game.phase !== 'won';
   const finished = game.pieces[color].filter((piece) => piece === finishFor(playerCountFor(game))).length;
   return (
-    <div className={`player-card player-card--${color} ${active ? 'is-active' : ''}`}>
-      <Avatar color={color} character={character} />
+    <div className={`player-card player-card--${actualColor} ${active ? 'is-active' : ''}`}>
+      <Avatar color={actualColor} character={character} />
       <div className="player-card-copy">
         <div className="player-card-heading">
           <strong>{player.name}</strong>
           {active && <span className="turn-pill"><span /> TURN</span>}
         </div>
-        <span className="player-number">{player.label} · {CHARACTER_BY_ID[character].name}</span>
+        <span className="player-number">{gameModeFor(game) === 'computer' ? (isComputerPlayer(game, color) ? `Computer ${playerNumber - 1}` : 'You') : `Player ${playerNumber}`} · {CHARACTER_BY_ID[character].name}</span>
         <div className="player-progress" aria-label={`${finished} of 4 characters home`}>
           <span className="progress-dots" aria-hidden="true">
             {[0, 1, 2, 3].map((n) => <i key={n} className={n < finished ? 'is-filled' : ''} />)}
@@ -138,7 +124,9 @@ const starts = {
 
 const stars = Object.fromEntries(COLORS.map((color) => [(PLAYERS[color].start + 8) % TRACK.length, color]));
 
-function BoardTiles() {
+function BoardTiles({ game }) {
+  const seats = colorsFor(playerCountFor(game));
+  const paint = (seat) => seat && seats.includes(seat) ? teamColorFor(game, seat) : null;
   return (
     <div className="board-tiles" aria-hidden="true">
       {TRACK.map(([row, col], index) => {
@@ -146,22 +134,22 @@ function BoardTiles() {
         const entrance = entrances[`${row},${col}`];
         const star = stars[index];
         const Icon = start?.Icon || entrance?.Icon;
-        const color = start?.color || entrance?.color || star;
+        const color = paint(start?.color || entrance?.color || star);
         return (
           <div
             key={`track-${index}`}
-            className={`board-tile ${start ? `board-tile--start board-tile--${color}` : ''}`}
-            style={{ gridRow: row + 1, gridColumn: col + 1, '--tile-color': color ? PLAYERS[color].hex : undefined }}
+            className={`board-tile ${start ? `board-tile--start board-tile--${color || 'empty'}` : ''}`}
+            style={{ gridRow: row + 1, gridColumn: col + 1, '--tile-color': color ? PLAYERS[color].hex : '#c5ccc0' }}
           >
-            {Icon && <Icon className={`tile-arrow ${start ? 'tile-arrow--start' : ''}`} strokeWidth={3} />}
+            {Icon && <Icon className={`tile-arrow ${start && color ? 'tile-arrow--start' : ''}`} strokeWidth={3} />}
             {star && <Star className="tile-star" fill="currentColor" strokeWidth={1} />}
           </div>
         );
       })}
-      {COLORS.flatMap((color) => PLAYERS[color].lane.map(([row, col], i) => (
+      {COLORS.flatMap((seat) => PLAYERS[seat].lane.map(([row, col], i) => (
         <div
-          key={`${color}-lane-${i}`}
-          className={`board-tile board-tile--lane board-tile--${color}`}
+          key={`${seat}-lane-${i}`}
+          className={`board-tile board-tile--lane board-tile--${paint(seat) || 'empty'}`}
           style={{ gridRow: row + 1, gridColumn: col + 1 }}
         >{i === 4 && <span className="lane-sparkle">✦</span>}</div>
       )))}
@@ -169,15 +157,16 @@ function BoardTiles() {
   );
 }
 
-function BoardHome({ color, active }) {
-  const [row, col] = PLAYERS[color].home;
+function BoardHome({ seat, color, active }) {
+  const [row, col] = PLAYERS[seat].home;
   return (
     <div
-      className={`board-home board-home--${color} ${active ? 'board-home--active' : ''}`}
+      className={`board-home board-home--${color || 'empty'} ${active ? 'board-home--active' : ''}`}
+      data-home-seat={seat} data-home-color={color || 'empty'}
       style={{ top: `${row / 15 * 100}%`, left: `${col / 15 * 100}%` }}
       aria-hidden="true"
     >
-      <span className="home-label"><span /> {PLAYERS[color].name}</span>
+      <span className="home-label"><span /> {color ? PLAYERS[color].name : 'Open'}</span>
       <span className="home-doodle home-doodle--one">✦</span>
       <span className="home-doodle home-doodle--two">✳</span>
       {[0, 1, 2, 3].map((i) => <span key={i} className={`home-slot home-slot--${i}`} />)}
@@ -185,13 +174,12 @@ function BoardHome({ color, active }) {
   );
 }
 
-function BoardCenter() {
+function BoardCenter({ game }) {
+  const seats = colorsFor(playerCountFor(game));
   return (
     <div className="board-center" aria-hidden="true">
-      <div className="center-triangle center-triangle--red" />
-      <div className="center-triangle center-triangle--blue" />
-      <div className="center-triangle center-triangle--green" />
-      <div className="center-triangle center-triangle--yellow" />
+      {COLORS.map((seat) => <div key={seat} className={`center-triangle center-triangle--${seat}`}
+        style={{ background: seats.includes(seat) ? PLAYERS[teamColorFor(game, seat)].hex : '#e5e9df' }} />)}
       <span className="center-badge"><Home strokeWidth={2.5} /></span>
     </div>
   );
@@ -199,8 +187,9 @@ function BoardCenter() {
 
 // The five- and six-player boards have their own evenly spaced arms, yards,
 // and routes. They use the same 15×15 coordinates as the character overlay.
-function RadialBoard({ board }) {
+function RadialBoard({ board, game }) {
   const { colors, playerCount, arms, yards, lanes, track, starts, safeIndexes } = board;
+  const playerFor = (seat) => PLAYERS[teamColorFor(game, seat)];
   const step = Math.PI * 2 / playerCount;
   const point = (angle, radius) => [7.5 + Math.cos(angle) * radius, 7.5 + Math.sin(angle) * radius];
   const wedge = (angle) => {
@@ -216,7 +205,7 @@ function RadialBoard({ board }) {
       <rect width="15" height="15" fill="#f8f5ed" />
       <circle cx="7.5" cy="7.5" r="7.26" fill="#fffdf8" stroke="#ece7dc" strokeWidth=".06" />
       {colors.map((color) => {
-        const player = PLAYERS[color], yard = yards[color], angle = arms[color];
+        const player = playerFor(color), yard = yards[color], angle = arms[color];
         let [labelX, labelY] = point(angle + step / 2, 6.85);
         let labelAnchor = 'middle';
         // Keep the top captions clear of the figures' heads; the left caption
@@ -242,21 +231,21 @@ function RadialBoard({ board }) {
       {track.map(({ row, col, rotation }, index) => {
         const startColor = startsByIndex[index], starColor = starsByIndex[index];
         return <g key={index} data-track-cell={index} transform={`translate(${col} ${row}) rotate(${rotation})`}>
-          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={startColor ? PLAYERS[startColor].hex : '#fffefa'} stroke={startColor ? '#ffffff' : '#deddd3'} strokeWidth=".045" />
+          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={startColor ? playerFor(startColor).hex : '#fffefa'} stroke={startColor ? '#ffffff' : '#deddd3'} strokeWidth=".045" />
           {startColor ? <path d="M .21 0 H -.21 M -.06 -.16 L -.22 0 L -.06 .16" fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth=".075" /> :
-            safeIndexes.has(index) && <path d="M 0 -.25 L .07 -.08 L .25 -.08 L .105 .035 L .16 .21 L 0 .11 L -.16 .21 L -.105 .035 L -.25 -.08 L -.07 -.08 Z" fill={PLAYERS[starColor].hex} />}
+            safeIndexes.has(index) && <path d="M 0 -.25 L .07 -.08 L .25 -.08 L .105 .035 L .16 .21 L 0 .11 L -.16 .21 L -.105 .035 L -.25 -.08 L -.07 -.08 Z" fill={playerFor(starColor).hex} />}
         </g>;
       })}
       {colors.flatMap((color) => lanes[color].map(({ row, col, rotation }, index) =>
         <g key={`${color}-${index}`} data-lane={color} transform={`translate(${col} ${row}) rotate(${rotation})`}>
-          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={PLAYERS[color].hex} stroke="#fff" strokeOpacity=".8" strokeWidth=".045" />
+          <rect x="-.40" y="-.40" width=".80" height=".80" rx=".105" fill={playerFor(color).hex} stroke="#fff" strokeOpacity=".8" strokeWidth=".045" />
           {index === 1 && <path d="M 0 -.20 L .055 -.055 L .20 0 L .055 .055 L 0 .20 L -.055 .055 L -.20 0 L -.055 -.055 Z" fill="#fff" fillOpacity=".8" />}
         </g>
       ))}
       {colors.map((color) => {
         const angle = arms[color];
         const [x1, y1] = point(angle - step / 2, .88), [x2, y2] = point(angle + step / 2, .88);
-        return <path key={color} d={`M 7.5 7.5 L ${x1} ${y1} L ${x2} ${y2} Z`} fill={PLAYERS[color].hex} stroke="#fff" strokeWidth=".035" />;
+        return <path key={color} d={`M 7.5 7.5 L ${x1} ${y1} L ${x2} ${y2} Z`} fill={playerFor(color).hex} stroke="#fff" strokeWidth=".035" />;
       })}
       <circle cx="7.5" cy="7.5" r=".29" fill="#fffdf5" stroke="#fff" strokeWidth=".06" />
       <path d="M 7.36 7.48 L 7.5 7.36 L 7.64 7.48 M 7.39 7.47 V 7.63 H 7.61 V 7.47" fill="none" stroke="#d6a843" strokeWidth=".04" strokeLinecap="round" strokeLinejoin="round" />
@@ -272,38 +261,54 @@ function Board({ game, pieces, characterChoices, onMove, reducedMotion }) {
   return (
     <div className="board-frame">
       <div className={`board ${radial ? 'board--radial' : 'board--classic'}`} data-player-count={playerCount} aria-label={`Ludo game board, ${playerCount} players`}>
-        {radial ? <RadialBoard board={radial} /> : <>
-          <BoardTiles />
-          {COLORS.map((color) => <BoardHome key={color} color={color} active={game.current === color} />)}
-          <BoardCenter />
+        {radial ? <RadialBoard board={radial} game={game} /> : <>
+          <BoardTiles game={game} />
+          {COLORS.map((seat) => <BoardHome key={seat} seat={seat} color={colorsFor(playerCount).includes(seat) ? teamColorFor(game, seat) : null} active={game.current === seat} />)}
+          <BoardCenter game={game} />
         </>}
         {characterStatus !== 'failed' && <ErrorBoundary onError={() => setCharacterStatus('failed')}>
           <Suspense fallback={null}>
-            <ClassicCharacters pieces={pieces} characterChoices={characterChoices} playerCount={playerCount} reducedMotion={reducedMotion} onStatus={setCharacterStatus} />
+            <ClassicCharacters pieces={pieces} characterChoices={characterChoices} playerCount={playerCount} teamColors={game.teamColors} reducedMotion={reducedMotion} onStatus={setCharacterStatus} />
           </Suspense>
         </ErrorBoundary>}
         <div className="pieces-layer">
           {pieces.map(({ color, index, progress, row, col, stacked, selectable, pose, duration, heading, showReactionBubble }) => {
+            const actualColor = teamColorFor(game, color);
             const reaction = pose === 'dance' ? 'Yay!' : showReactionBubble && (pose === 'sad' || pose === 'sad-walk') ? 'Oh no!' : null;
             const position = progress < 0 ? 'in the yard' : progress === finish ? 'at home' : `on space ${progress + 1}`;
+            // Fan number markers independently of closely stacked figures so
+            // each matching choice remains identifiable on a small board.
+            const peers = stacked && selectable ? pieces.filter((other) => other.selectable && other.stacked && other.color === color && other.progress === progress) : [];
+            let markerStyle;
+            if (peers.length > 1) {
+              const rank = peers.findIndex((other) => other.index === index);
+              const meanCol = peers.reduce((sum, peer) => sum + peer.col, 0) / peers.length;
+              const meanRow = peers.reduce((sum, peer) => sum + peer.row, 0) / peers.length;
+              const spread = (peers.length - 1) * 0.525;
+              const center = Math.min(14.5 - spread, Math.max(0.5 + spread, meanCol));
+              const markerCol = center + (rank - (peers.length - 1) / 2) * 1.05;
+              markerStyle = { left: `${50 + (markerCol - col) * 100 / (15 * 0.053)}%`, '--marker-row-offset': `${(meanRow - row) * 100 / (15 * 0.093)}%` };
+            }
             return (
               <button
                 type="button"
                 key={`${color}-${index}`}
                 data-character={`${color}-${index}`}
+                data-color={actualColor}
                 data-character-type={characterChoices[color]}
                 data-progress={progress}
                 data-pose={pose}
                 data-heading={heading.toFixed(3)}
-                className={`game-piece game-piece--${color} ${progress < 0 ? 'game-piece--yard' : 'game-piece--track'} ${selectable ? 'is-selectable' : ''} ${stacked ? 'is-stacked' : ''} ${characterStatus === 'ready' && ['animal', 'bird'].includes(CHARACTER_BY_ID[characterChoices[color]].kind) ? 'game-piece--compact' : ''}`}
+                className={`game-piece game-piece--${actualColor} ${progress < 0 ? 'game-piece--yard' : 'game-piece--track'} ${selectable ? 'is-selectable' : ''} ${stacked ? 'is-stacked' : ''} ${characterStatus === 'ready' && ['animal', 'bird'].includes(CHARACTER_BY_ID[characterChoices[color]].kind) ? 'game-piece--compact' : ''}`}
                 style={{ left: `${col / 15 * 100}%`, top: `${row / 15 * 100}%`, zIndex: Math.round(row * 10) + (selectable || reaction ? 200 : 0), '--motion-duration': `${duration}ms` }}
                 onClick={() => onMove(index)}
                 disabled={!selectable}
-                aria-label={`${PLAYERS[color].name} character ${index + 1}, ${position}, ${CHARACTER_BY_ID[characterChoices[color]].name}${animationLabels[pose] ? `, ${animationLabels[pose]}` : ''}${selectable ? ', select to move' : ''}`}
+                aria-label={`${PLAYERS[actualColor].name} character ${index + 1}, ${position}, ${CHARACTER_BY_ID[characterChoices[color]].name}${animationLabels[pose] ? `, ${animationLabels[pose]}` : ''}${selectable ? ', select to move' : ''}`}
               >
                 <span className="piece-highlight" />
+                {selectable && <span className={`piece-choice-number ${row < 1.5 ? 'piece-choice-number--edge' : ''}`} style={markerStyle} aria-hidden="true">{index + 1}</span>}
                 <span className="piece-shadow" />
-                {characterStatus !== 'ready' && <CharacterImage character={characterChoices[color]} color={color} />}
+                {characterStatus !== 'ready' && <CharacterImage character={characterChoices[color]} color={actualColor} />}
                 {(pose === 'dance' || pose === 'cheer') && <span className="piece-confetti" aria-hidden="true"><i>✦</i><i>✦</i><i>✦</i></span>}
                 {reaction && <span className={`piece-reaction ${row < 2 ? 'piece-reaction--below' : ''} ${pose === 'sad' || pose === 'sad-walk' ? 'piece-reaction--sad' : ''}`} aria-hidden="true">{reaction}</span>}
               </button>
@@ -316,6 +321,28 @@ function Board({ game, pieces, characterChoices, onMove, reducedMotion }) {
       </div>
     </div>
   );
+}
+
+function MoveChoices({ game, pieces, onMove, elementRef }) {
+  const actualColor = teamColorFor(game, game.current);
+  const player = PLAYERS[actualColor];
+  const stacked = pieces.some((piece) => piece.selectable && piece.stacked);
+  const trackLength = trackLengthFor(playerCountFor(game));
+  return <div id="move-choices" ref={elementRef} className="stacked-choices move-choices" role="group"
+    aria-label={stacked ? 'Choose a stacked character to move' : 'Choose a character to move'}
+    style={{ '--move-color': player.hex, '--move-pale': player.light }}>
+    <div className="move-choices-heading"><Sparkles size={16} /><span><strong>Choose a character</strong><small>Match a number on the board</small></span></div>
+    <div className="move-choices-list">
+      {game.legal.map((index) => {
+        const progress = game.pieces[game.current][index];
+        const location = progress < 0 ? 'In yard' : progress >= trackLength - 1 ? 'Home lane' : 'On track';
+        return <button type="button" key={index} onClick={() => onMove(index)}
+          aria-label={`Move ${player.name} character ${index + 1}`} aria-describedby={`move-location-${index}`}>
+          <span className="move-choice-number">{index + 1}</span><small id={`move-location-${index}`}>{location}</small>
+        </button>;
+      })}
+    </div>
+  </div>;
 }
 
 function QuickGuide({ onOpenRules }) {
@@ -333,55 +360,62 @@ function QuickGuide({ onOpenRules }) {
   );
 }
 
-function TurnCard({ game, character, rolling, moving, onRoll }) {
-  const player = PLAYERS[game.current];
+function TurnCard({ game, character, rolling, moving, onRoll, onChoose }) {
+  const actualColor = teamColorFor(game, game.current);
+  const player = PLAYERS[actualColor];
   const choosing = game.phase === 'choose';
   const ended = game.phase === 'won';
+  const computer = !ended && isComputerPlayer(game, game.current);
+  const dieLabel = rolling ? 'Dice rolling' : game.roll ? `Last roll: ${game.roll}` : 'No roll yet';
   return (
-    <div className={`turn-card turn-card--${game.current}`}>
+    <div className={`turn-card turn-card--${actualColor}`}>
       <div className="turn-card-top">
         <div>
           <span className="section-eyebrow">IT’S GAME TIME</span>
           <h2>{ended ? 'Game over!' : <>{player.name}’s turn <span>✦</span></>}</h2>
-          <p>{ended ? 'What a game!' : moving ? 'On the move!' : choosing ? 'Choose a character to move.' : 'Ready, set, roll!'}</p>
+          <p>{ended ? 'What a game!' : moving ? 'On the move!' : computer ? (choosing ? 'Computer is choosing a move.' : 'Computer is getting ready to roll.') : choosing ? 'Choose a character to move.' : 'Ready, set, roll!'}</p>
         </div>
-        <Avatar color={game.current} character={character} size="small" />
+        <Avatar color={actualColor} character={character} size="small" />
       </div>
-      <div className="dice-area">
+      <div className="dice-area" role="img" aria-label={dieLabel}>
         <span className="dice-confetti dice-confetti--one">✦</span>
         <span className="dice-confetti dice-confetti--two">✳</span>
         <Dice value={game.roll} rolling={rolling} />
         <span className="dice-caption">{rolling ? 'ROLLING...' : game.roll ? `LAST ROLL · ${game.roll}` : 'GOOD LUCK!'}</span>
       </div>
+      <span className="compact-die" role="img" aria-label={dieLabel}>{rolling ? '·' : game.roll ?? '–'}</span>
       <button
         className="roll-button"
-        onClick={onRoll}
-        disabled={rolling || Boolean(moving) || choosing || ended}
+        onClick={choosing ? onChoose : onRoll}
+        aria-controls={choosing && !moving && !computer ? 'move-choices' : undefined}
+        aria-label={choosing && !moving && !rolling && !computer ? 'Choose a character' : undefined}
+        disabled={rolling || Boolean(moving) || ended || computer}
       >
         <Dices size={20} strokeWidth={2.2} />
-        {rolling ? 'Rolling...' : moving ? 'Moving character...' : choosing ? 'Choose a character' : ended ? 'Game finished' : game.sixes > 0 ? 'Roll again' : 'Roll the dice'}
-        {!choosing && !ended && !rolling && !moving && <ArrowRight className="roll-arrow" size={18} />}
+        {rolling ? 'Rolling...' : moving ? 'Moving...' : ended ? 'Game finished' : computer ? (choosing ? 'Thinking...' : 'Computer’s turn') : choosing ? <><span className="choose-label-full">Choose a character</span><span className="choose-label-short" aria-hidden="true">Choose</span></> : game.sixes > 0 ? 'Roll again' : 'Roll the dice'}
+        {!choosing && !ended && !rolling && !moving && !computer && <ArrowRight className="roll-arrow" size={18} />}
       </button>
-      <p className="turn-helper">{moving ? 'Your character is on the move.' : choosing ? 'Tap one of the glowing characters on the board.' : ended ? 'Start a new game to play again.' : 'Roll a 6 to bring a character out.'}</p>
+      <p className="turn-helper">{computer ? 'The computer plays its turn automatically.' : moving ? 'Your character is on the move.' : choosing ? 'Tap one of the glowing characters on the board.' : ended ? 'Start a new game to play again.' : 'Roll a 6 to bring a character out.'}</p>
     </div>
   );
 }
 
-function RulesContent() {
+function RulesContent({ mode }) {
   return (
     <div className="rules-list">
       <div><span className="rule-number rule-number--yellow">01</span><p><strong>Roll a six to start</strong><small>Your first character comes out automatically. A six earns you another roll!</small></p></div>
       <div><span className="rule-number rule-number--red">02</span><p><strong>Make your way around</strong><small>Move clockwise. Land on an opponent to send them back, but star and starting squares are safe.</small></p></div>
       <div><span className="rule-number rule-number--blue">03</span><p><strong>Bring everyone home</strong><small>Follow your colored path to the middle. You need an exact roll; the first player to get all four home wins.</small></p></div>
-      <div><span className="rule-number rule-number--green">04</span><p><strong>Take turns together</strong><small>A 6 earns another roll. Share the screen and pass the dice to the next player.</small></p></div>
+      <div><span className="rule-number rule-number--green">04</span><p><strong>Take turns together</strong><small>A 6 earns another roll. {mode === 'computer' ? 'You go first and the computer takes its turns automatically.' : 'Share the screen and pass the dice to the next player.'}</small></p></div>
     </div>
   );
 }
 
-function Modal({ type, winner, currentTeam, playerCount, characterChoices, onChooseCharacter, onClose, onReset }) {
+function Modal({ type, winner, currentTeam, playerCount, mode, teamColors, characterChoices, onChooseCharacter, onClose, onReset, onHome }) {
   const [selectedTeam, setSelectedTeam] = useState(currentTeam);
   const [newPlayerCount, setNewPlayerCount] = useState(playerCount);
   const [category, setCategory] = useState('all');
+  const paint = (seat) => teamColors?.[seat] ?? seat;
   const modalRef = useRef(null);
   useEffect(() => {
     const previousFocus = document.activeElement;
@@ -415,56 +449,56 @@ function Modal({ type, winner, currentTeam, playerCount, characterChoices, onCho
           <p className="modal-intro">Pick a team, then a character. Each team’s four pieces will match. You can change them anytime!</p>
           <div className="picker-section-label"><span>01</span> CHOOSE A TEAM</div>
           <div className="team-picker" role="group" aria-label="Choose a team">
-            {colorsFor(playerCount).map((color) => <button type="button" key={color} data-team={color}
-              className={`team-option team-option--${color} ${selectedTeam === color ? 'is-selected' : ''}`}
-              aria-pressed={selectedTeam === color} onClick={() => setSelectedTeam(color)}
-              data-initial-focus={color === currentTeam ? true : undefined}>
-              <span className="team-symbol" aria-hidden="true">{TEAM_SYMBOLS[color]}</span>
-              <span><strong>{PLAYERS[color].name}</strong><small>{CHARACTER_BY_ID[characterChoices[color]].name}</small></span>
+            {colorsFor(playerCount).map((seat) => <button type="button" key={seat} data-team={seat}
+              className={`team-option team-option--${paint(seat)} ${selectedTeam === seat ? 'is-selected' : ''}`}
+              aria-pressed={selectedTeam === seat} onClick={() => setSelectedTeam(seat)}
+              data-initial-focus={seat === currentTeam ? true : undefined}>
+              <span className="team-symbol" aria-hidden="true">{TEAM_SYMBOLS[paint(seat)]}</span>
+              <span><strong>{PLAYERS[paint(seat)].name}</strong><small>{CHARACTER_BY_ID[characterChoices[seat]].name}</small></span>
             </button>)}
           </div>
-          <div className="picker-subheading"><div className="picker-section-label"><span>02</span> PICK FOR <b>{PLAYERS[selectedTeam].name.toUpperCase()}</b></div><small>Everyone can pick the same!</small></div>
+          <div className="picker-subheading"><div className="picker-section-label"><span>02</span> PICK FOR <b>{PLAYERS[paint(selectedTeam)].name.toUpperCase()}</b></div><small>Everyone can pick the same!</small></div>
           <div className="character-filters" role="group" aria-label="Character categories">
             {[['all', 'All', CHARACTERS.length], ['family', 'Family'], ['animals', 'Animals'], ['adventure', 'On the go']].map(([id, label, count]) =>
               <button type="button" key={id} className={category === id ? 'is-selected' : ''} aria-pressed={category === id} onClick={() => setCategory(id)}>{label}{count ? <span>{count}</span> : null}</button>
             )}
           </div>
-          <div className="character-grid" aria-label={`${PLAYERS[selectedTeam].name} character choices`}>
+          <div className="character-grid" aria-label={`${PLAYERS[paint(selectedTeam)].name} character choices`}>
             {CHARACTERS.filter((character) => category === 'all' || character.category === category).map((character) => {
               const selected = characterChoices[selectedTeam] === character.id;
               return <button type="button" key={character.id} data-choice={character.id}
-                className={`character-option character-option--${selectedTeam} ${selected ? 'is-selected' : ''}`}
-                aria-label={`Choose ${character.name} for ${PLAYERS[selectedTeam].name}`} aria-pressed={selected}
+                className={`character-option character-option--${paint(selectedTeam)} ${selected ? 'is-selected' : ''}`}
+                aria-label={`Choose ${character.name} for ${PLAYERS[paint(selectedTeam)].name}`} aria-pressed={selected}
                 onClick={() => onChooseCharacter(selectedTeam, character.id)}>
-                <span className="character-option-art"><CharacterImage character={character.id} color={selectedTeam} />{selected && <span className="character-check" aria-hidden="true">✓</span>}</span>
+                <span className="character-option-art"><CharacterImage character={character.id} color={paint(selectedTeam)} />{selected && <span className="character-check" aria-hidden="true">✓</span>}</span>
                 <strong>{character.name}</strong><small>{character.description}</small>
               </button>;
             })}
           </div>
           <div className="picker-footer"><span><span aria-hidden="true">✳</span> Your game stays just as it is.</span><button type="button" className="modal-primary" onClick={onClose}>Done, let’s play <ArrowRight size={17} /></button></div>
-          <span className="visually-hidden" aria-live="polite">{PLAYERS[selectedTeam].name} team: {CHARACTER_BY_ID[characterChoices[selectedTeam]].name} selected</span>
+          <span className="visually-hidden" aria-live="polite">{PLAYERS[paint(selectedTeam)].name} team: {CHARACTER_BY_ID[characterChoices[selectedTeam]].name} selected</span>
         </>}
         {type === 'rules' && <>
           <div className="modal-symbol modal-symbol--yellow"><Dices size={25} /></div>
           <span className="section-eyebrow">A LITTLE HELPING HAND</span>
           <h2 id="modal-title">Here’s how to play.</h2>
           <p className="modal-intro">A classic game, made for good times. Here are the basics.</p>
-          <RulesContent />
+          <RulesContent mode={mode} />
           <button className="modal-primary" onClick={onClose} data-initial-focus>Got it, let’s play! <ArrowRight size={18} /></button>
         </>}
         {type === 'reset' && <>
           <div className="modal-symbol modal-symbol--red"><RotateCcw size={24} /></div>
           <span className="section-eyebrow">A FRESH START</span>
           <h2 id="modal-title">Start a new game?</h2>
-          <p className="modal-intro">Your current game will be cleared. Each team starts with four characters.</p>
+          <p className="modal-intro">Choose your players and set up their characters. Your saved game stays until the new one starts.</p>
           <fieldset className="player-count-selector">
             <legend>How many players?</legend>
             <div className="player-count-options">
-              {PLAYER_COUNTS.map((count) => <label key={count} className={`player-count-option ${newPlayerCount === count ? 'is-selected' : ''}`}>
+              {PLAYER_COUNTS.filter((count) => mode !== 'computer' || count <= 4).map((count) => <label key={count} className={`player-count-option ${newPlayerCount === count ? 'is-selected' : ''}`}>
                 <input type="radio" name="player-count" value={count} checked={newPlayerCount === count}
                   onChange={() => setNewPlayerCount(count)} aria-label={`${count} players`} />
                 <span className="player-count-number">{count}</span>
-                <span><strong>Players</strong><small>{count === 4 ? 'Classic board' : count === 5 ? 'Five-arm board' : 'Six-arm board'}</small></span>
+                <span><strong>Players</strong><small>{count <= 4 ? 'Classic board' : count === 5 ? 'Five-arm board' : 'Six-arm board'}</small></span>
               </label>)}
             </div>
           </fieldset>
@@ -474,11 +508,12 @@ function Modal({ type, winner, currentTeam, playerCount, characterChoices, onCho
           </div>
         </>}
         {type === 'won' && winner && <>
-          <div className={`winner-avatar winner-avatar--${winner}`}><Avatar color={winner} character={characterChoices[winner]} size="large" /><span>✦</span></div>
+          <div className={`winner-avatar winner-avatar--${paint(winner)}`}><Avatar color={paint(winner)} character={characterChoices[winner]} size="large" /><span>✦</span></div>
           <span className="section-eyebrow">WE HAVE A WINNER!</span>
-          <h2 id="modal-title">{PLAYERS[winner].name} takes the crown!</h2>
+          <h2 id="modal-title">{mode === 'computer' && winner === colorsFor(playerCount)[0] ? 'You take' : `${PLAYERS[paint(winner)].name}${mode === 'computer' ? ' computer' : ''} takes`} the crown!</h2>
           <p className="modal-intro">All four characters made it home. That was one for the books!</p>
           <button className="modal-primary" onClick={() => onReset(playerCount)} data-initial-focus><RotateCcw size={18} /> Play again</button>
+          <button className="modal-secondary winner-home" onClick={onHome}>Back to home</button>
         </>}
       </section>
     </div>
@@ -503,37 +538,89 @@ function useReducedMotion() {
 }
 
 function App() {
-  const [game, setGame] = useState(loadGame);
+  const [initialSavedGame] = useState(loadGame);
+  const [game, setGame] = useState(() => initialSavedGame || createGame());
+  const [hasSavedGame, setHasSavedGame] = useState(Boolean(initialSavedGame));
+  const [canSave, setCanSave] = useState(() => canStoreGame(gameStorage()));
+  const offline = useOffline();
+  const [screen, setScreen] = useState(() => initialScreen(initialSavedGame));
+  const [selectedCount, setSelectedCount] = useState(() => initialSavedGame ? playerCountFor(initialSavedGame) : 4);
+  const [selectedMode, setSelectedMode] = useState(() => gameModeFor(initialSavedGame));
+  const [draftPlayers, setDraftPlayers] = useState(null);
   const [characterChoices, setCharacterChoices] = useState(loadCharacterChoices);
   const [rolling, setRolling] = useState(false);
+  const [rollFrom, setRollFrom] = useState(null);
   const [moving, setMoving] = useState(null);
   const [reactions, setReactions] = useState([]);
   const reducedMotion = useReducedMotion();
   const [modal, setModal] = useState(null);
   const [soundOn, setSoundOn] = useState(false);
   const busyRef = useRef(false);
-  const timers = useRef([]);
+  const gameRef = useRef(game);
+  const pendingMoveRef = useRef(null);
+  const moveChoicesRef = useRef(null);
   const audioContext = useRef(null);
+  const activityRef = useRef({ screen, modal });
+  activityRef.current = { screen, modal };
+  const [scheduler] = useState(() => {
+    const queue = createPausableScheduler();
+    if (document.hidden) queue.pause();
+    return queue;
+  });
 
   useEffect(() => {
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(game)); } catch { /* Storage is optional. */ }
-  }, [game]);
+    try { window.sessionStorage.setItem(SCREEN_SESSION_KEY, screen === 'game' ? 'game' : 'home'); } catch { /* Storage is optional. */ }
+    try { window.scrollTo({ top: 0, behavior: 'instant' }); }
+    catch { try { window.scrollTo(0, 0); } catch { /* Scrolling is optional. */ } }
+    if (!document.querySelector('[role="dialog"]')) {
+      const title = document.querySelector(`[data-screen="${screen}"] [data-screen-title]`);
+      try { title?.focus({ preventScroll: true }); } catch { title?.focus(); }
+    }
+  }, [screen]);
 
   useEffect(() => {
-    try { window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(characterChoices)); } catch { /* Storage is optional. */ }
+    try { window.localStorage.setItem(CHARACTER_STORAGE_KEY, JSON.stringify(characterChoices)); }
+    catch { setCanSave(false); }
   }, [characterChoices]);
 
-  useEffect(() => () => {
-    timers.current.forEach(window.clearTimeout);
-    if (audioContext.current) audioContext.current.close().catch(() => {});
-  }, []);
+  useEffect(() => {
+    const pause = () => {
+      scheduler.pause();
+      const pending = pendingMoveRef.current;
+      if (pending && !savePendingMove(gameStorage(), pending.before, pending.index)) setCanSave(false);
+      if (audioContext.current?.state === 'running') audioContext.current.suspend().catch(() => {});
+    };
+    const resume = () => {
+      if (!document.hidden && activityRef.current.screen === 'game' && !activityRef.current.modal) scheduler.resume();
+    };
+    const visibilityChanged = () => { if (document.hidden) pause(); else resume(); };
+    document.addEventListener('visibilitychange', visibilityChanged);
+    window.addEventListener('pagehide', pause);
+    window.addEventListener('pageshow', resume);
+    return () => {
+      document.removeEventListener('visibilitychange', visibilityChanged);
+      window.removeEventListener('pagehide', pause);
+      window.removeEventListener('pageshow', resume);
+      scheduler.clear();
+      if (audioContext.current) audioContext.current.close().catch(() => {});
+    };
+  }, [scheduler]);
 
-  const schedule = (callback, delay) => {
-    const timer = window.setTimeout(() => {
-      timers.current = timers.current.filter((item) => item !== timer);
-      callback();
-    }, delay);
-    timers.current.push(timer);
+  // A dialog or leaving the board pauses both animation and computer timers.
+  // Visibility/page lifecycle events use the same queue and resume only when
+  // the board is active again.
+  useEffect(() => {
+    if (screen === 'game' && !modal && !document.hidden) scheduler.resume();
+    else scheduler.pause();
+  }, [screen, modal, scheduler]);
+
+  const schedule = (callback, delay) => scheduler.schedule(callback, delay);
+  const commitGame = (next) => {
+    gameRef.current = next;
+    const saved = saveGame(gameStorage(), next);
+    if (!saved) setCanSave(false);
+    setGame(next);
+    return saved;
   };
 
   const playSound = (kind) => {
@@ -567,6 +654,12 @@ function App() {
       return;
     }
     busyRef.current = true;
+    // A selected move is journaled before its animation starts. The normal
+    // save stays at the rolled position until the visible sequence completes.
+    pendingMoveRef.current = { version: 1, before: position, index };
+    const savedPosition = saveGame(gameStorage(), position);
+    const savedSelection = savePendingMove(gameStorage(), position, index);
+    if (!savedPosition || !savedSelection) setCanSave(false);
     playSound('move');
     const color = position.current;
     const progress = position.pieces[color][index];
@@ -586,9 +679,10 @@ function App() {
     });
     const finalMotion = { color, index, progress: steps[steps.length - 1], fromProgress: steps.length > 1 ? steps[steps.length - 2] : progress };
     const finishMove = () => {
-      // Commit only once the visible sequence completes. A refresh during the
-      // animation restores the valid rolled state rather than a partial move.
-      setGame(nextGame);
+      // Save the complete outcome before removing its journal. Reloading
+      // between the two writes can therefore never apply the move twice.
+      if (commitGame(nextGame)) clearPendingMove(gameStorage());
+      pendingMoveRef.current = null;
       setReactions([]);
       setMoving(null);
       busyRef.current = false;
@@ -644,85 +738,177 @@ function App() {
     }, elapsed + 35);
   };
 
-  const handleRoll = () => {
-    if (busyRef.current || game.phase !== 'roll') return;
+  const performRoll = (computer = false) => {
+    const before = gameRef.current;
+    if (busyRef.current || scheduler.paused || activityRef.current.screen !== 'game' || activityRef.current.modal ||
+        before.phase !== 'roll' || isComputerPlayer(before, before.current) !== computer) return;
     busyRef.current = true;
+    setRollFrom(before);
     setRolling(true);
     playSound('roll');
-    const die = randomRoll(game);
+    // Commit the die result immediately, even if the device is interrupted
+    // while the dice are still spinning. The old view remains until it stops.
+    const rolled = rollDice(before, randomRoll(before));
+    commitGame(rolled);
     schedule(() => {
-      const rolled = rollDice(game, die);
-      setGame(rolled);
       setRolling(false);
+      setRollFrom(null);
       const index = automaticMove(rolled);
       if (index !== null) startMove(rolled, index);
       else busyRef.current = false;
     }, reducedMotion ? 100 : 700);
   };
 
+  const handleRoll = () => performRoll(false);
   const handleMove = (index) => {
-    if (!busyRef.current) startMove(game, index);
+    const position = gameRef.current;
+    if (!busyRef.current && !scheduler.paused && activityRef.current.screen === 'game' && !activityRef.current.modal &&
+        !isComputerPlayer(position, position.current)) startMove(position, index);
   };
 
-  // Reloading while an automatic move was animating resumes that move from
-  // the last valid saved state. Manual choices remain available as before.
+  // Returning from home replays an interrupted selection; after a reload the
+  // journal is recovered on startup. Rolled automatic moves still replay.
   const resumedAuto = useRef(false);
   useEffect(() => {
+    if (screen !== 'game') { resumedAuto.current = false; return; }
     if (resumedAuto.current) return;
     resumedAuto.current = true;
-    const index = automaticMove(game);
-    if (index !== null && !busyRef.current) startMove(game, index);
-  }, []);
+    const position = gameRef.current;
+    const pending = pendingMoveRef.current;
+    const index = pendingMoveMatches(pending, position) ? pending.index : automaticMove(position);
+    if (index === null || busyRef.current) return undefined;
+    // Recovery also waits when the tab is hidden or a dialog is open, rather
+    // than choosing and journaling a new automatic move in the background.
+    return scheduler.schedule(() => {
+      if (gameRef.current === position && !busyRef.current && activityRef.current.screen === 'game' && !activityRef.current.modal) {
+        startMove(position, index);
+      }
+    }, 0);
+  }, [screen]);
 
-  const resetGame = (playerCount = playerCountFor(game)) => {
-    timers.current.forEach(window.clearTimeout);
-    timers.current = [];
+  // Only one cancellable computer action is queued for a settled position.
+  // It uses exactly the same roll/move pipeline, journal and animation as a
+  // person; changing screens, opening a dialog or rerendering cancels it.
+  useEffect(() => {
+    const position = gameRef.current;
+    if (screen !== 'game' || modal || rolling || moving || busyRef.current || position !== game ||
+        position.phase === 'won' || !isComputerPlayer(position, position.current)) return undefined;
+    return scheduler.schedule(() => {
+      if (activityRef.current.screen !== 'game' || activityRef.current.modal || document.hidden || scheduler.paused ||
+          busyRef.current || gameRef.current !== position || !isComputerPlayer(position, position.current)) return;
+      if (position.phase === 'roll') performRoll(true);
+      else if (position.phase === 'choose') {
+        const choice = chooseComputerMove(position);
+        if (choice !== null) startMove(position, choice);
+      }
+    }, reducedMotion ? 250 : 650);
+  }, [screen, modal, game, rolling, moving, reducedMotion, soundOn, scheduler]);
+
+  const cancelAnimation = () => {
+    scheduler.clear();
     busyRef.current = false;
     setRolling(false);
+    setRollFrom(null);
     setMoving(null);
     setReactions([]);
-    setGame(createGame(playerCount));
+  };
+  const goHome = () => {
+    cancelAnimation();
+    setSelectedCount(playerCountFor(game));
+    setSelectedMode(gameModeFor(game));
+    setDraftPlayers(null);
+    setModal(null);
+    setScreen('home');
+  };
+  const openSetup = (count, mode = selectedMode) => {
+    cancelAnimation();
+    setSelectedCount(count);
+    setSelectedMode(mode);
+    setDraftPlayers((previous) => previous?.length === count ? previous : createPlayerSetup(count, characterChoices, hasSavedGame ? game : null));
+    setModal(null);
+    setScreen('setup');
+  };
+  const startNewGame = () => {
+    if (!isValidPlayerSetup(draftPlayers)) return;
+    cancelAnimation();
+    setCharacterChoices((previous) => charactersFromSetup(draftPlayers, previous));
+    if (commitGame(createGame(draftPlayers.length, colorsFromSetup(draftPlayers), selectedMode))) clearPendingMove(gameStorage());
+    pendingMoveRef.current = null;
+    setHasSavedGame(true);
+    setDraftPlayers(null);
+    setModal(null);
+    setScreen('game');
+  };
+  const resetGame = () => {
+    cancelAnimation();
+    if (commitGame(createGame(playerCountFor(game), game.teamColors, gameModeFor(game)))) clearPendingMove(gameStorage());
+    pendingMoveRef.current = null;
+    setHasSavedGame(true);
     setModal(null);
   };
+  const openModal = (type) => { scheduler.pause(); setModal(type); };
   const closeModal = useCallback(() => setModal(null), []);
-  const winnerModal = game.phase === 'won' ? 'won' : modal;
-  const disabled = rolling || Boolean(moving);
+  const winnerModal = screen === 'game' && game.phase === 'won' ? 'won' : modal;
+  const computerTurn = isComputerPlayer(game, game.current) && game.phase !== 'won';
+  const disabled = rolling || Boolean(moving) || computerTurn;
+  const shownGame = rolling && rollFrom ? rollFrom : game;
   const playerCount = playerCountFor(game);
   const colors = colorsFor(playerCount);
-  const pieces = useMemo(() => getVisualPieces(game, moving, reactions, disabled), [game, moving, reactions, disabled]);
-  const reactingTeams = [...new Set(reactions.map((reaction) => PLAYERS[reaction.color].name))];
+  const pieces = useMemo(() => getVisualPieces(shownGame, moving, reactions, disabled), [shownGame, moving, reactions, disabled]);
+  const playerName = (seat) => PLAYERS[teamColorFor(game, seat)].name;
+  const reactingTeams = [...new Set(reactions.map((reaction) => playerName(reaction.color)))];
   const reactionNames = reactingTeams.join(' and ');
   const boardMessage = rolling ? 'Rolling the dice... good luck!' :
-    moving?.phase === 'celebrate' ? `${PLAYERS[moving.color].name} made it home${moving.winning ? ' and wins' : ''}! Time to celebrate!${moving.winning ? ' The other teams look sad.' : ''}` :
+    moving?.phase === 'celebrate' ? `${playerName(moving.color)} made it home${moving.winning ? ' and wins' : ''}! Time to celebrate!${moving.winning ? ' The other teams look sad.' : ''}` :
       reactions.length ? (reactions.some((reaction) => reaction.phase === 'return' || reaction.phase === 'returned') ? `${reactionNames} ${reactingTeams.length === 1 ? 'is' : 'are'} heading sadly back to the yard.` : `Oh no! ${reactionNames} got sent back.`) :
-        moving ? `${PLAYERS[moving.color].name} is on the move!` : game.message;
+        moving ? `${playerName(moving.color)} is on the move!` :
+          computerTurn ? `${playerName(game.current)} computer is ${game.phase === 'choose' ? 'choosing a character' : 'getting ready to roll'}...` : game.message;
+  const modalView = winnerModal && <Modal key={winnerModal} type={winnerModal} winner={game.winner} currentTeam={game.current} playerCount={playerCount} mode={screen === 'game' ? gameModeFor(game) : selectedMode} teamColors={game.teamColors} characterChoices={characterChoices}
+    onChooseCharacter={(color, character) => setCharacterChoices((previous) => ({ ...previous, [color]: character }))}
+    onClose={closeModal} onReset={winnerModal === 'won' ? resetGame : (count) => openSetup(count, gameModeFor(game))} onHome={goHome} />;
+
+  if (screen === 'home') return <>
+    <HomeScreen selectedCount={selectedCount} selectedMode={selectedMode} onCountChange={(count) => { setSelectedCount(count); setDraftPlayers(null); }}
+      onModeChange={(mode) => { setSelectedMode(mode); setSelectedCount((count) => mode === 'computer' ? Math.min(count, 4) : count); setDraftPlayers(null); }}
+      onPlay={() => openSetup(selectedCount)} onResume={() => { if (hasSavedGame) { setDraftPlayers(null); setSelectedCount(playerCountFor(game)); setSelectedMode(gameModeFor(game)); setModal(null); setScreen('game'); } }}
+      hasSavedGame={hasSavedGame} game={game} characterChoices={characterChoices} onRules={() => openModal('rules')} offline={offline} canSave={canSave} />
+    {modalView}
+  </>;
+  if (screen === 'setup' && draftPlayers) return <>
+    <SetupScreen players={draftPlayers} mode={selectedMode} onPlayersChange={setDraftPlayers} onBack={() => { setModal(null); setScreen('home'); }}
+      onStart={startNewGame} hasSavedGame={hasSavedGame} onRules={() => openModal('rules')} canSave={canSave} />
+    {modalView}
+  </>;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-screen="game">
       <header className="topbar">
         <div className="topbar-inner">
           <Logo />
           <nav className="main-nav" aria-label="Main navigation">
             <a className="nav-active" href="#game">Play <span /></a>
-            <button onClick={() => setModal('rules')}>How to play</button>
+            <button onClick={() => openModal('rules')}>How to play</button>
           </nav>
           <div className="top-actions">
-            <span className="local-badge"><span /> LOCAL GAME</span>
+            <span className="local-badge"><span /> {gameModeFor(game) === 'computer' ? 'VS COMPUTER' : 'LOCAL GAME'}</span>
             <span className="top-divider" />
+            <button className="home-game-button" onClick={goHome} aria-label="Home"><Home size={17} /><span>Home</span></button>
+            <button className="landscape-characters icon-button" onClick={() => openModal('characters')} aria-label="Choose characters" title="Choose characters"><UsersRound size={19} /></button>
             <button className="sound-button icon-button" onClick={() => setSoundOn(!soundOn)} aria-label={soundOn ? 'Mute sound' : 'Turn sound on'} title={soundOn ? 'Mute sound' : 'Turn sound on'}>
               {soundOn ? <Volume2 size={19} /> : <VolumeX size={19} />}
             </button>
-            <button className="new-game-button" onClick={() => setModal('reset')}><RotateCcw size={16} /> <span>New game</span></button>
+            <button className="new-game-button" onClick={() => openModal('reset')} aria-label="New game" title="New game"><RotateCcw size={16} /> <span>New game</span></button>
           </div>
         </div>
       </header>
+      {!canSave && <StorageWarning />}
 
       <main className="main-content" id="game">
         <div className="page-heading">
           <div>
             <div className="heading-kicker"><span className="kicker-star">✳</span> A LITTLE ROLL, A LOT OF FUN <span className="kicker-line" /></div>
-            <h1>Let’s play <span>Ludo!</span><i>✦</i></h1>
-            <p>{playerCount === 4 ? 'Four' : playerCount === 5 ? 'Five' : 'Six'} colors. So many characters. One happy little race home.</p>
+            <h1 data-screen-title tabIndex={-1}>Let’s play <span>Ludo!</span><i>✦</i></h1>
+            <p>{({ 2: 'Two', 3: 'Three', 4: 'Four', 5: 'Five', 6: 'Six' })[playerCount]} colors. So many characters. One happy little race home.</p>
           </div>
           <div className="heading-note"><span>✦</span> MADE FOR GAME NIGHTS <span>✦</span></div>
         </div>
@@ -734,7 +920,7 @@ function App() {
               <span className="players-sparkle">✳</span>
             </div>
             <div className={`player-list ${playerCount > 4 ? 'player-list--extended' : ''}`}>
-              {colors.map((color) => <PlayerCard key={color} color={color} game={game} character={characterChoices[color]} />)}
+              {colors.map((color) => <PlayerCard key={color} color={color} game={shownGame} character={characterChoices[color]} />)}
             </div>
             <div className="winning-note">
               <div className="trophy-icon"><Trophy size={18} strokeWidth={2} /></div>
@@ -745,36 +931,37 @@ function App() {
 
           <section className="board-column" aria-label="Game board">
             <div className="board-heading">
-              <div className="board-heading-title"><span className="board-heading-icon"><Dices size={16} /></span><div><strong>The game board</strong><small>{playerCount === 4 ? 'CLASSIC LUDO' : `${playerCount}-PLAYER LUDO`}</small></div></div>
-              <button className="character-picker-trigger" onClick={() => setModal('characters')}><UsersRound size={15} /> Choose characters <span>✦</span></button>
+              <div className="board-heading-title"><span className="board-heading-icon"><Dices size={16} /></span><div><strong>The game board</strong><small>{playerCount <= 4 ? 'CLASSIC LUDO' : `${playerCount}-PLAYER LUDO`}</small></div></div>
+              <button className="character-picker-trigger" onClick={() => openModal('characters')}><UsersRound size={15} /> Choose characters <span aria-hidden="true">✦</span></button>
             </div>
-            <Board game={game} pieces={pieces} characterChoices={characterChoices} onMove={handleMove} reducedMotion={reducedMotion} />
+            <Board game={shownGame} pieces={pieces} characterChoices={characterChoices} onMove={handleMove} reducedMotion={reducedMotion} />
             <div className="board-message" role="status" aria-live="polite">
-              <span className={`message-icon message-icon--${game.current}`}><Sparkles size={15} /></span>
+              <span className={`message-icon message-icon--${teamColorFor(game, game.current)}`}><Sparkles size={15} /></span>
               <span>{boardMessage}</span>
               <span className="board-message-end">✦</span>
             </div>
-            {pieces.some((piece) => piece.selectable && piece.stacked) && <div className="stacked-choices" role="group" aria-label="Choose a stacked character to move">
-              <span>Pieces on the same space?</span>
-              {game.legal.map((index) => <button type="button" key={index} onClick={() => handleMove(index)} aria-label={`Move ${PLAYERS[game.current].name} character ${index + 1}`}>{index + 1}</button>)}
-            </div>}
             <div className="board-bottomline"><span>✦ &nbsp; MADE FOR PLAYING TOGETHER</span><span>PASS, PLAY, REPEAT &nbsp; ✦</span></div>
           </section>
 
           <aside className="controls-column">
-            <TurnCard game={game} character={characterChoices[game.current]} rolling={rolling} moving={moving} onRoll={handleRoll} />
+            <TurnCard game={shownGame} character={characterChoices[shownGame.current]} rolling={rolling} moving={moving} onRoll={handleRoll}
+              onChoose={() => {
+                const choice = moveChoicesRef.current?.querySelector('button');
+                if (!choice) return;
+                choice.scrollIntoView({ block: 'nearest', behavior: reducedMotion ? 'auto' : 'smooth' });
+                choice.focus({ preventScroll: true });
+              }} />
+            {game.phase === 'choose' && !disabled && <MoveChoices game={game} pieces={pieces} onMove={handleMove} elementRef={moveChoicesRef} />}
             <div className="tip-card">
               <span className="tip-icon"><Star size={16} fill="currentColor" /></span>
               <p><strong>A little tip</strong><span>Stars are safe spots. You can’t get sent back from here!</span></p>
             </div>
-            <QuickGuide onOpenRules={() => setModal('rules')} />
+            <QuickGuide onOpenRules={() => openModal('rules')} />
           </aside>
         </div>
         <footer className="footer"><span>Made for a little friendly competition <span>♡</span></span><span>ROLL. PLAY. REPEAT.</span></footer>
       </main>
-      {winnerModal && <Modal key={winnerModal} type={winnerModal} winner={game.winner} currentTeam={game.current} playerCount={playerCount} characterChoices={characterChoices}
-        onChooseCharacter={(color, character) => setCharacterChoices((previous) => ({ ...previous, [color]: character }))}
-        onClose={closeModal} onReset={resetGame} />}
+      {modalView}
     </div>
   );
 }

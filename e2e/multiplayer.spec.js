@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openGame } from './helpers.js';
 import { createGame, finishFor, rollDice, startFor, trackLengthFor } from '../src/game.js';
 
 const gameKey = 'ludo-club-game-v1';
@@ -28,6 +29,7 @@ async function startMode(page, count) {
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('radio', { name: `${count} players` }).check({ force: true });
   await dialog.getByRole('button', { name: 'Yes, new game' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.locator('.board')).toHaveAttribute('data-player-count', String(count));
 }
 async function expectBoard(page, count, visiblePieces = count * 4) {
@@ -50,7 +52,7 @@ test('five- and six-player boards switch and retain independent team choices', a
   test.setTimeout(180_000);
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await openGame(page);
   await expect(page.locator('.character-canvas canvas')).toBeVisible({ timeout: 45_000 });
   await expect(page.locator('.game-piece img')).toHaveCount(0, { timeout: 45_000 });
   await expectBoard(page, 4);
@@ -107,7 +109,7 @@ test('a legacy save with no player count resumes on the unchanged classic board'
   legacy.current = 'blue';
   legacy.pieces.blue = [15, -1, 51, 56];
   await seed(page, legacy);
-  await page.goto('/');
+  await openGame(page);
   await expectBoard(page, 4, 15);
   await expect(page.locator('.turn-card h2')).toContainText('Blue');
   await expect(page.locator('[data-character="blue-0"]')).toHaveAttribute('data-progress', '15');
@@ -126,7 +128,7 @@ test('a fifth-team capture walks backward along every square of its own path', a
   const game = { ...initial, phase: 'choose', roll: 1, lastRollBy: 'yellow', legal: [0, 1],
     pieces: { ...initial.pieces, yellow: [1, 12, -1, -1], purple: [purpleProgress, -1, -1, -1] } };
   await seed(page, game);
-  await page.goto('/');
+  await openGame(page);
   const victim = page.locator('[data-character="purple-0"]');
   await expect(page.locator('.character-fallback-note')).toBeVisible();
   await victim.evaluate((element) => {
@@ -155,7 +157,7 @@ for (const [count, color] of [[5, 'purple'], [6, 'orange']]) {
     game.pieces[color] = [finish - 1, finish, finish, finish];
     await seed(page, game);
     await rolls(page, [1]);
-    await page.goto('/');
+    await openGame(page);
     await expectBoard(page, count, count * 4 - 3);
     await expect(page.locator(`.player-card--${color}`)).toContainText('3/4 home');
     await page.getByRole('button', { name: 'Roll the dice' }).click();
@@ -177,7 +179,7 @@ test('six-player mobile fallback supports six choices and accessible stacked mov
   game.pieces.orange = [0, -1, -1, -1];
   await seed(page, game);
   await rolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await expectBoard(page, 6);
   await expect(page.locator('.character-fallback-note')).toBeVisible();
   await page.getByRole('button', { name: 'Roll the dice' }).click();
@@ -207,7 +209,7 @@ test('stacked pieces have a keyboard-accessible alternative for choosing a move'
   game.current = 'orange';
   game.pieces.orange = [0, 0, 8, -1];
   await seed(page, rollDice(game, 6));
-  await page.goto('/');
+  await openGame(page);
   const choices = page.getByRole('group', { name: 'Choose a stacked character to move' });
   await expect(choices).toBeVisible();
   await choices.getByRole('button', { name: 'Move Orange character 2' }).click();
@@ -220,7 +222,7 @@ test('extra-team portraits recover to team-colored cutouts when an image fails',
   await seed(page, createGame(6));
   await page.route('**/assets/characters/grandpa-purple.webp', (route) => route.abort());
   await page.route('**/assets/characters/grandma-orange.webp', (route) => route.abort());
-  await page.goto('/');
+  await openGame(page);
   await expect(page.locator('.character-fallback-note')).toBeVisible();
   for (const color of ['purple', 'orange']) {
     const image = page.locator(`.game-piece--${color} img`).first();
@@ -238,7 +240,7 @@ test('a six-player capture can retrace a path longer than the classic track', as
   const game = { ...initial, phase: 'choose', roll: 1, lastRollBy: 'yellow', legal: [0, 1],
     pieces: { ...initial.pieces, yellow: [46, 2, -1, -1], orange: [57, -1, -1, -1] } };
   await seed(page, game);
-  await page.goto('/');
+  await openGame(page);
   const victim = page.locator('[data-character="orange-0"]');
   await victim.evaluate((element) => {
     window.longReturn = [];
@@ -261,7 +263,7 @@ test('an automatic six resumes after reloading a six-player rolled state', async
   game.current = 'orange';
   game.pieces.orange = [finishFor(6), -1, -1, -1];
   await seed(page, rollDice(game, 6));
-  await page.goto('/');
+  await openGame(page);
   await expect.poll(async () => (await saved(page)).pieces.orange).toEqual([finishFor(6), 0, -1, -1]);
   await expect(page.locator('.turn-card h2')).toContainText('Orange');
   await expect(page.locator('[data-character="orange-1"]')).toHaveAttribute('data-progress', '0');
@@ -269,7 +271,7 @@ test('an automatic six resumes after reloading a six-player rolled state', async
 
 test('the player-count selector is usable with the keyboard', async ({ page }) => {
   await withoutWebGL(page);
-  await page.goto('/');
+  await openGame(page);
   await page.getByRole('button', { name: 'New game' }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByRole('button', { name: 'Keep playing' })).toBeFocused();
@@ -281,5 +283,6 @@ test('the player-count selector is usable with the keyboard', async ({ page }) =
   await page.keyboard.press('Tab');
   await expect(dialog.getByRole('button', { name: 'Yes, new game' })).toBeFocused();
   await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'Start game' }).click();
   await expectBoard(page, 5);
 });

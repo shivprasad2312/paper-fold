@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { openGame } from './helpers.js';
 import { createGame } from '../src/game.js';
 
 const storageKey = 'ludo-club-game-v1';
@@ -49,7 +50,7 @@ function winningGame() {
 
 test('rolls, moves a character, passes turns, and restores a saved game', async ({ page }) => {
   await setRolls(page, [6, 6, 3]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await expect(page.locator('.game-piece')).toHaveCount(16);
   await expect(page.locator('.piece-team-marker')).toHaveCount(0);
@@ -76,7 +77,7 @@ test('a six with one active character allows bringing out another instead', asyn
   const initial = createGame();
   await seedGame(page, { ...initial, pieces: { ...initial.pieces, yellow: [0, -1, -1, -1] } });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.locator('.game-piece.is-selectable')).toHaveCount(4);
@@ -90,7 +91,7 @@ test('even a sole legal character waits for selection on a six', async ({ page }
   const initial = createGame();
   await seedGame(page, { ...initial, pieces: { ...initial.pieces, yellow: [3, 56, 56, 56] } });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   const piece = page.locator('[data-character="yellow-0"]');
@@ -106,7 +107,7 @@ test('multiple active characters require a choice and show a smaller halo around
   const initial = createGame();
   await seedGame(page, { ...initial, pieces: { ...initial.pieces, yellow: [0, 5, -1, -1] } });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.locator('.game-piece.is-selectable')).toHaveCount(4);
@@ -128,7 +129,7 @@ test('a six never auto-releases a yard piece while an unmovable character is on 
   const initial = createGame();
   await seedGame(page, { ...initial, pieces: { ...initial.pieces, yellow: [55, -1, -1, -1] } });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.locator('.game-piece.is-selectable')).toHaveCount(3);
@@ -141,7 +142,7 @@ test('a six never auto-releases a yard piece while an unmovable character is on 
 test('an automatic move resumes from a saved rolled state', async ({ page }) => {
   const initial = createGame();
   await seedGame(page, { ...initial, phase: 'choose', roll: 6, lastRollBy: 'yellow', sixes: 1, legal: [0, 1, 2, 3] });
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByRole('button', { name: 'Roll again' })).toBeEnabled();
   expect((await savedGame(page)).pieces.yellow).toEqual([0, -1, -1, -1]);
 });
@@ -149,7 +150,7 @@ test('an automatic move resumes from a saved rolled state', async ({ page }) => 
 test('each team chooses independently, including the same character, without resetting the game', async ({ page }) => {
   const original = captureGame();
   await seedGame(page, original);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await expect(page.getByRole('button', { name: '3D view' })).toHaveCount(0);
   const open = page.getByRole('button', { name: /Choose characters/ });
@@ -186,6 +187,7 @@ test('each team chooses independently, including the same character, without res
   await expect(open).toBeFocused();
   await page.getByRole('button', { name: 'New game' }).click();
   await page.getByRole('button', { name: 'Yes, new game' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.locator('.game-piece--yellow[data-character-type="dog"]')).toHaveCount(4);
   expect((await savedGame(page)).pieces.yellow).toEqual([-1, -1, -1, -1]);
 });
@@ -197,7 +199,7 @@ test('every roster choice has an available team-colored static image', async ({ 
       return type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl' ? null : original.call(this, type, ...args);
     };
   });
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   await page.getByRole('button', { name: /Choose characters/ }).click();
   const dialog = page.getByRole('dialog');
@@ -220,7 +222,7 @@ test('every roster choice can rebuild the animated board', async ({ page }) => {
   test.setTimeout(120_000);
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: /Choose characters/ }).click();
   const dialog = page.getByRole('dialog');
@@ -239,7 +241,7 @@ test('every roster choice can rebuild the animated board', async ({ page }) => {
 test('skater and animal pieces use the normal capture and reaction timeline', async ({ page }) => {
   await seedGame(page, captureGame());
   await seedChoices(page, { yellow: 'skater', red: 'elephant', blue: 'cyclist', green: 'grandpa' });
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   const skater = page.locator('[data-character="yellow-0"]');
   const elephant = page.locator('[data-character="red-0"]');
@@ -257,7 +259,7 @@ test('a cyclist celebrates at the finish using the normal rules', async ({ page 
   await seedGame(page, winningGame());
   await setRolls(page, [1]);
   await seedChoices(page, { yellow: 'dog', red: 'lion', blue: 'cyclist', green: 'grandma' });
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   const cyclist = page.locator('[data-character="blue-0"]');
   await expect(cyclist).toHaveAttribute('data-character-type', 'cyclist');
@@ -268,7 +270,7 @@ test('a cyclist celebrates at the finish using the normal rules', async ({ page 
 });
 
 test('rules and reset dialogs support keyboard focus and cancellation', async ({ page }) => {
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   const rules = page.getByRole('button', { name: 'How to play' }).first();
   await rules.click();
@@ -284,13 +286,14 @@ test('rules and reset dialogs support keyboard focus and cancellation', async ({
   await expect(newGame).toBeFocused();
   await newGame.click();
   await page.getByRole('button', { name: 'Yes, new game' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
   await expect(page.locator('.turn-card h2')).toContainText('Yellow');
 });
 
 test('finishing the fourth character shows a winner and allows a rematch', async ({ page }) => {
   await seedGame(page, winningGame());
   await setRolls(page, [1]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.locator('[data-character="blue-0"]')).toHaveAttribute('data-pose', 'dance');
@@ -309,7 +312,7 @@ test('every character celebrates reaching home, not just the fourth', async ({ p
   game.pieces.blue = [55, 1, -1, -1];
   await setRolls(page, [1]);
   await seedGame(page, game);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await page.getByRole('button', { name: /Blue character 1, on space/ }).click();
@@ -327,7 +330,7 @@ test('walking follows the route through a corner', async ({ page }) => {
     pieces: { ...initial.pieces, yellow: [4, 15, -1, -1] },
   };
   await seedGame(page, game);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   const piece = page.locator('[data-character="yellow-0"]');
   await expect(piece).toHaveAttribute('data-heading', '2.356'); // diagonal around the corner
@@ -340,7 +343,7 @@ test('walking follows the route through a corner', async ({ page }) => {
 
 test('a captured character looks sad and walks back before the move is committed', async ({ page }) => {
   await seedGame(page, captureGame());
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: /Yellow character 1, on space/ }).click();
   const defeated = page.locator('[data-character="red-0"]');
@@ -367,7 +370,7 @@ test('captured pieces follow their own route backwards, including multiple captu
       return type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl' ? null : original.call(this, type, ...args);
     };
   });
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   await page.evaluate(() => {
     window.returnSteps = { red: [], blue: [] };
@@ -396,12 +399,13 @@ test('captured pieces follow their own route backwards, including multiple captu
 test('reset cancels a celebration and its pending win', async ({ page }) => {
   await seedGame(page, winningGame());
   await setRolls(page, [1]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.locator('[data-character="blue-0"]')).toHaveAttribute('data-pose', 'dance');
   await page.getByRole('button', { name: 'New game' }).click();
   await page.getByRole('button', { name: 'Yes, new game' }).click();
+  await page.getByRole('button', { name: 'Start game' }).click();
   await page.waitForTimeout(2200); // The cancelled win would have fired by now.
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect((await savedGame(page)).pieces.blue).toEqual([-1, -1, -1, -1]);
@@ -412,7 +416,7 @@ test('reduced-motion players still get a readable celebration', async ({ page })
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await seedGame(page, winningGame());
   await setRolls(page, [1]);
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.getByRole('button', { name: 'Roll the dice' }).click();
   await expect(page.getByRole('status')).toContainText('Time to celebrate');
@@ -427,7 +431,7 @@ test('classic remains playable with static sprites when WebGL is unavailable', a
     };
   });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   await expect(page.locator('.game-piece img')).toHaveCount(16);
   await page.getByRole('button', { name: /Choose characters/ }).click();
@@ -448,7 +452,7 @@ test('missing character images fall back without retrying forever', async ({ pag
       return type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl' ? null : original.call(this, type, ...args);
     };
   });
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   const image = page.locator('.game-piece--yellow img').first();
   await expect(image).toHaveAttribute('src', '/assets/yellow-player-cutout.webp');
@@ -465,7 +469,7 @@ test('the classic board is visible and usable while graphics are still starting'
     const set = window.setTimeout.bind(window);
     window.setTimeout = (callback, delay, ...args) => set(callback, delay === 120 ? 2000 : delay, ...args);
   });
-  await page.goto('/');
+  await openGame(page);
   await expect(page.locator('.board')).toBeVisible();
   await expect(page.locator('.game-piece img')).toHaveCount(16);
   await expect(page.getByRole('button', { name: 'Roll the dice' })).toBeEnabled();
@@ -475,7 +479,7 @@ test('the classic board is visible and usable while graphics are still starting'
 test('a failed character module does not blank the classic game', async ({ page }) => {
   await page.route('**/src/ClassicCharacters.jsx*', (route) => route.abort('failed'));
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   await expect(page.locator('.board')).toBeVisible();
   await expect(page.locator('.game-piece img')).toHaveCount(16);
@@ -504,7 +508,7 @@ test('a graphics failure after initialization falls back without losing the game
     };
   });
   await setRolls(page, [6]);
-  await page.goto('/');
+  await openGame(page);
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
   await expect(page.locator('.character-canvas canvas')).toHaveCount(0);
   await expect(page.locator('.game-piece img')).toHaveCount(16);
@@ -520,14 +524,14 @@ test('unavailable browser observers do not break the animated board', async ({ p
     window.ResizeObserver = class { constructor() { throw new Error('Observer unavailable'); } };
     window.matchMedia = () => { throw new Error('Media queries unavailable'); };
   });
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await expect(page.locator('.board')).toBeVisible();
   await expect(page.locator('.character-fallback-note')).toHaveCount(0);
 });
 
 test('a lost WebGL context restores the playable sprite board', async ({ page }) => {
-  await page.goto('/');
+  await openGame(page);
   await waitForCharacters(page);
   await page.locator('.character-canvas canvas').evaluate((canvas) => canvas.dispatchEvent(new Event('webglcontextlost', { cancelable: true })));
   await expect(page.getByText('Character animation unavailable.', { exact: false })).toBeVisible();
@@ -546,7 +550,7 @@ test.describe('on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   test('the board fits and a character can be moved by touch', async ({ page }) => {
     await setRolls(page, [6]);
-    await page.goto('/');
+    await openGame(page);
     await waitForCharacters(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(390);
     await page.getByRole('button', { name: /Choose characters/ }).tap();

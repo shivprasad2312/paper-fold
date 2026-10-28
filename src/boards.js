@@ -8,8 +8,16 @@ const OFFSET = 0.85;
 const LANE_RADII = [4.85, 3.95, 3.05, 2.15, 1.25];
 export const EXTRA_COLORS = ['purple', 'orange'];
 export const ALL_COLORS = ['yellow', 'red', 'blue', 'green', ...EXTRA_COLORS];
-export const PLAYER_COUNTS = [4, 5, 6];
-export const MODE_COLORS = Object.fromEntries(PLAYER_COUNTS.map((count) => [count, ALL_COLORS.slice(0, count)]));
+export const PLAYER_COUNTS = [2, 3, 4, 5, 6];
+// These are stable seat IDs, not the colors players choose in the setup flow.
+// Two players use opposite corners of the original four-player board.
+export const MODE_COLORS = {
+  2: ['yellow', 'blue'],
+  3: ALL_COLORS.slice(0, 3),
+  4: ALL_COLORS.slice(0, 4),
+  5: ALL_COLORS.slice(0, 5),
+  6: ALL_COLORS.slice(0, 6),
+};
 
 const rounded = (value) => Math.round(value * 100000) / 100000;
 function radialPoint(angle, radius, offset = 0) {

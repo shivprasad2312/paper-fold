@@ -7,7 +7,7 @@ function withMisses(game, color, misses) {
 }
 
 test('opening assistance uses the seventh through tenth personal attempts', () => {
-  for (const count of [4, 5, 6]) {
+  for (const count of [2, 3, 4, 5, 6]) {
     const game = createGame(count);
     for (const color of colorsFor(count)) {
       for (let misses = 0; misses < 6; misses += 1) {
@@ -36,11 +36,11 @@ test('opening assistance uses the seventh through tenth personal attempts', () =
 });
 
 test('assistance is limited to the current player with no active piece and a piece in the yard', () => {
-  for (const count of [4, 5, 6]) {
+  for (const count of [2, 3, 4, 5, 6]) {
     const game = withMisses(createGame(count), 'yellow', 20);
     const finish = finishFor(count);
     // Another team's active piece does not affect yellow's opening.
-    game.pieces.red[0] = 4;
+    game.pieces[colorsFor(count)[1]][0] = 4;
     assert.equal(randomRoll(game, () => { throw new Error('yellow is guaranteed a six'); }), 6);
     // Finished pieces are not active, but there must still be a yard piece to release.
     game.pieces.yellow = [finish, -1, -1, -1];
@@ -57,7 +57,7 @@ test('assistance is limited to the current player with no active piece and a pie
 });
 
 test('misses belong to each player, persist across turns and reset on a six', () => {
-  for (const count of [4, 5, 6]) {
+  for (const count of [2, 3, 4, 5, 6]) {
     const colors = colorsFor(count);
     let game = createGame(count);
     for (let turn = 0; turn < 6; turn += 1) {

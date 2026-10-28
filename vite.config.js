@@ -1,9 +1,12 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { offlineBuildPlugin } from './scripts/offline-build.mjs';
 
 export default defineConfig({
-  plugins: [react()],
-  server: { host: '0.0.0.0', allowedHosts: true },
+  plugins: [react(), offlineBuildPlugin()],
+  // Keep the HMR origin separate from the production/offline preview so an
+  // installed production worker cannot serve cached assets to development.
+  server: { host: '0.0.0.0', port: 5174, allowedHosts: true },
   preview: { host: '0.0.0.0', allowedHosts: true },
   // Prebundle the lazy character renderer up front instead of replacing dependency chunks
   // while a proxied browser is still loading the app.
