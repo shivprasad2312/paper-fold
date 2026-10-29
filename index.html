@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#dfe3d8" />
+<title>Happy Glass — Draw. Pour. Smile.</title>
+<meta name="description" content="A drawing + water physics puzzle. Sketch a path, guide the water and fill the glass with as little ink as possible." />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="stage"></canvas>
+
+  <!-- ============ DOM UI LAYER ============ -->
+  <div id="ui">
+
+    <!-- Home -->
+    <section class="screen" id="screen-menu" data-screen="menu">
+      <div class="home-wrap">
+        <div class="logo-block">
+          <svg class="mascot" viewBox="0 0 120 130" aria-hidden="true">
+            <g stroke="#2d3b47" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round">
+              <path d="M34 14 h52 l-6 92 a8 8 0 0 1 -8 7 h-24 a8 8 0 0 1 -8 -7 z" fill="#eaf7ff"/>
+              <path d="M36 66 h48 l-1.6 40 a8 8 0 0 1 -8 7 h-28.8 a8 8 0 0 1 -8 -7 z" fill="#8fd3f4" stroke="none"/>
+              <circle cx="50" cy="52" r="4.6" fill="#2d3b47" stroke="none"/>
+              <circle cx="70" cy="52" r="4.6" fill="#2d3b47" stroke="none"/>
+              <path d="M50 64 q10 9 20 0" fill="none" stroke-width="3.6"/>
+              <path d="M30 14 h60" fill="none" stroke-width="4"/>
+            </g>
+          </svg>
+          <h1>Happy<span>Glass</span></h1>
+          <p class="tagline">Draw a line. Fill the glass. Make it smile.</p>
+        </div>
+        <div class="menu-actions">
+          <button class="btn btn-primary" data-act="play">Play</button>
+          <button class="btn" data-act="levels">Levels</button>
+          <div class="menu-row">
+            <button class="btn btn-icon" data-act="how" title="How to play">
+              <svg viewBox="0 0 24 24"><path d="M12 17.3v.01M12 14.4c0-2.4 2.6-2.6 2.6-5A2.8 2.8 0 0 0 9 9"/><circle cx="12" cy="12" r="9.2" fill="none" stroke-width="1.9"/></svg>
+              <span>How to play</span>
+            </button>
+            <button class="btn btn-icon" data-act="sound" title="Sound">
+              <svg viewBox="0 0 24 24"><path d="M4 9.5h3.2L12 5.5v13L7.2 14.5H4z" fill="currentColor" stroke="none"/><path class="wave1" d="M15.2 9a4.4 4.4 0 0 1 0 6" fill="none" stroke-width="1.9"/><path class="wave2" d="M17.8 6.6a8 8 0 0 1 0 10.8" fill="none" stroke-width="1.9"/></svg>
+              <span class="lbl-sound">Sound on</span>
+            </button>
+          </div>
+        </div>
+        <p class="home-foot">Levels solved: <b id="home-solved">0</b> / <span id="home-total">24</span> · Stars: <b id="home-stars">0</b></p>
+      </div>
+    </section>
+
+    <!-- Level select -->
+    <section class="screen" id="screen-levels" data-screen="levels">
+      <div class="sheet">
+        <header class="sheet-head">
+          <button class="btn btn-round" data-act="back-home" aria-label="Back">
+            <svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke-width="2.2"/></svg>
+          </button>
+          <h2>Choose a level</h2>
+          <span class="head-spacer"></span>
+        </header>
+        <div class="level-grid" id="level-grid"></div>
+      </div>
+    </section>
+
+    <!-- How to play -->
+    <section class="screen" id="screen-how" data-screen="how">
+      <div class="sheet sheet-narrow">
+        <header class="sheet-head">
+          <button class="btn btn-round" data-act="how-back" aria-label="Close">
+            <svg viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5" fill="none" stroke-width="2.2"/></svg>
+          </button>
+          <h2>How to play</h2>
+          <span class="head-spacer"></span>
+        </header>
+        <ol class="how-list">
+          <li>
+            <span class="how-num">1</span>
+            <div><b>Draw a path.</b> Press and drag anywhere in the level to sketch a solid line. Water slides along whatever you draw.</div>
+          </li>
+          <li>
+            <span class="how-num">2</span>
+            <div><b>Fill the glass.</b> Guide the falling water into the glass until it reaches the dotted line. Every glass must be filled.</div>
+          </li>
+          <li>
+            <span class="how-num">3</span>
+            <div><b>Save your ink.</b> The green meter is your ink. Stay in the first block for 3 stars, the second for 2, the last for 1. Tap the round arrow to try again.</div>
+          </li>
+          <li>
+            <span class="how-num">4</span>
+            <div><b>Hold that glass.</b> Some glasses hang in mid-air and fall as soon as things move. Sketch a shelf under one and it will sit still while you pour.</div>
+          </li>
+          <li>
+            <span class="how-num">5</span>
+            <div><b>Use the scenery.</b> You can't draw on planks, crates, spinners or inside a glass — but all of them make great anchors and walls. Blowers, diamonds and heated pads are all fair game.</div>
+          </li>
+        </ol>
+        <div class="how-tips">
+          <p><b>Tips</b></p>
+          <ul>
+            <li>Aim a line at the centre of the stream instead of trying to catch every drop.</li>
+            <li>Short hooks and wedges beat long bridges — and cost less ink.</li>
+            <li>Moving hazards waste water, so draw a shield before the stream reaches them.</li>
+          </ul>
+        </div>
+        <button class="btn btn-primary" data-act="how-back">Got it</button>
+      </div>
+    </section>
+
+    <!-- Win dialog -->
+    <div class="dialog-layer" id="dialog-win" hidden>
+      <div class="dialog">
+        <div class="dialog-stars" id="win-stars"></div>
+        <h2 id="win-title">Happy glass!</h2>
+        <p id="win-sub">You filled the glass.</p>
+        <div class="dialog-actions">
+          <button class="btn btn-primary" data-act="next">Next level</button>
+          <div class="dialog-row">
+            <button class="btn" data-act="replay">Replay</button>
+            <button class="btn" data-act="home">Levels</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fail dialog -->
+    <div class="dialog-layer" id="dialog-fail" hidden>
+      <div class="dialog">
+        <div class="dialog-face">
+          <svg viewBox="0 0 60 60" aria-hidden="true"><g fill="none" stroke="#2d3b47" stroke-width="3" stroke-linecap="round"><circle cx="22" cy="24" r="3.2" fill="#2d3b47" stroke="none"/><circle cx="38" cy="24" r="3.2" fill="#2d3b47" stroke="none"/><path d="M21 40q9-8 18 0"/></g></svg>
+        </div>
+        <h2 id="fail-title">Not enough water</h2>
+        <p id="fail-sub">The glass is still thirsty. Try a shorter path.</p>
+        <div class="dialog-actions">
+          <button class="btn btn-primary" data-act="replay">Try again</button>
+          <button class="btn" data-act="home">Levels</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="rotate-hint" id="rotate-hint">
+      <div class="rotate-inner">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect x="20" y="8" width="24" height="48" rx="5" fill="none" stroke="currentColor" stroke-width="3"/><path d="M46 20a20 20 0 0 1 6 14" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M52 34l-4.5-6.5 7-1.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p>Turn your device sideways for the best view</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="vendor/matter.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/scene.js"></script>
+<script src="js/water.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
