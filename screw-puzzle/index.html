@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Screw Puzzle</title>
+  <style>
+    :root {
+      --wood: #e8c48f;
+      --wood-dark: #b98b52;
+      --ink: #4a2f16;
+      --btn: #f6e2bd;
+      --accent: #2f7d5b;
+      --s: 56px; /* cell size, set from JS */
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--wood);
+      background-image: repeating-linear-gradient(0deg, rgba(120,70,20,.05) 0 2px, transparent 2px 9px);
+      color: var(--ink);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px;
+      user-select: none;
+    }
+    header {
+      width: min(640px, 100%);
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      gap: 10px;
+    }
+    .pill {
+      background: var(--btn);
+      border: 2px solid var(--wood-dark);
+      border-radius: 12px;
+      padding: 6px 14px;
+      font-weight: 700;
+      box-shadow: 0 3px 0 var(--wood-dark);
+    }
+    .timer { justify-self: center; font-variant-numeric: tabular-nums; }
+    .right { justify-self: end; display: flex; gap: 8px; }
+    button.icon {
+      background: var(--btn);
+      border: 2px solid var(--wood-dark);
+      border-radius: 12px;
+      width: 46px; height: 46px;
+      font-size: 20px;
+      cursor: pointer;
+      box-shadow: 0 3px 0 var(--wood-dark);
+      color: var(--ink);
+    }
+    button.icon:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
+    button.icon:disabled { opacity: .4; cursor: default; }
+
+    #stage {
+      margin-top: 22px;
+      position: relative;
+      width: calc(var(--cols) * var(--s));
+      height: calc(var(--rows) * var(--s));
+      border: 4px dashed var(--wood-dark);
+      border-radius: 14px;
+      background: rgba(255,255,255,.12);
+    }
+    .piece {
+      position: absolute;
+      transition: transform .2s ease;
+      cursor: pointer;
+    }
+    .piece.blocked { animation: shake .3s; }
+    .cell {
+      position: absolute;
+      width: var(--s);
+      height: var(--s);
+      background: var(--c);
+      border: 3px solid rgba(0,0,0,.25);
+      border-radius: 10px;
+      box-shadow: inset 0 4px 0 rgba(255,255,255,.25), inset 0 -4px 0 rgba(0,0,0,.18);
+      background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 3px, transparent 3px 11px);
+    }
+    .screw {
+      position: absolute;
+      width: calc(var(--s) * .36);
+      height: calc(var(--s) * .36);
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fff7e0, #b7b0a0 60%, #6f675a);
+      border: 2px solid #3d3a33;
+      box-shadow: 0 2px 3px rgba(0,0,0,.35);
+      cursor: pointer;
+      z-index: 2;
+    }
+    .screw::after {
+      content: "";
+      position: absolute;
+      left: 50%; top: 50%;
+      width: 60%; height: 2px;
+      background: #3d3a33;
+      transform: translate(-50%, -50%) rotate(35deg);
+    }
+    .screw:hover { filter: brightness(1.1); }
+    .screw.pop { animation: pop .25s ease-in forwards; }
+    @keyframes pop { to { transform: translate(-50%, -50%) scale(0); opacity: 0; } }
+    @keyframes shake {
+      0%,100% { translate: 0 0; }
+      25% { translate: -6px 0; }
+      75% { translate: 6px 0; }
+    }
+
+    #message {
+      margin-top: 18px;
+      min-height: 1.5em;
+      font-weight: 600;
+      text-align: center;
+    }
+    #win {
+      position: fixed; inset: 0;
+      display: none;
+      align-items: center; justify-content: center;
+      background: rgba(60,35,10,.5);
+      z-index: 10;
+    }
+    #win.show { display: flex; }
+    #win .card {
+      background: var(--btn);
+      border: 3px solid var(--wood-dark);
+      border-radius: 18px;
+      padding: 26px 30px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,.3);
+    }
+    #win h2 { margin: 0 0 6px; color: var(--accent); }
+    #win p { margin: 0 0 16px; }
+    #win button {
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 12px; padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer;
+    }
+    footer { margin-top: auto; padding-top: 20px; font-size: .8rem; opacity: .7; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="pill" id="level-pill">Level 1</div>
+    <div class="pill timer" id="timer">0:00</div>
+    <div class="right">
+      <button class="icon" id="undo" title="Undo" aria-label="Undo">↶</button>
+      <button class="icon" id="restart" title="Restart level" aria-label="Restart level">⟲</button>
+      <button class="icon" id="skip" title="Next level" aria-label="Next level">›</button>
+    </div>
+  </header>
+
+  <main id="stage" aria-label="Puzzle board"></main>
+  <div id="message">Unscrew every screw, then slide the pieces off the board.</div>
+
+  <div id="win" role="dialog" aria-modal="true" aria-labelledby="win-title">
+    <div class="card">
+      <h2 id="win-title">Level complete!</h2>
+      <p id="win-text"></p>
+      <button id="win-next">Next level</button>
+    </div>
+  </div>
+
+  <footer>Original screw-puzzle implementation. Progress is saved in this browser.</footer>
+
+  <script src="logic.js"></script>
+  <script>
+    (function () {
+      const S = window.ScrewLogic;
+      const STORAGE_KEY = "screw-puzzle-level";
+      const stage = document.getElementById("stage");
+      const msg = document.getElementById("message");
+      const winEl = document.getElementById("win");
+      const els = {
+        level: document.getElementById("level-pill"),
+        timer: document.getElementById("timer"),
+        undo: document.getElementById("undo"),
+        restart: document.getElementById("restart"),
+        skip: document.getElementById("skip"),
+        winText: document.getElementById("win-text"),
+        winNext: document.getElementById("win-next"),
+      };
+
+      let level = 1;
+      let board = null;
+      let initial = null;
+      let history = [];
+      let busy = false;
+      let startedAt = 0;
+      let elapsedBeforePause = 0;
+      let timerId = null;
+      let finished = false;
+
+      function fit(board) {
+        const maxW = Math.min(window.innerWidth - 40, 620);
+        const maxH = window.innerHeight * 0.6;
+        const s = Math.floor(Math.min(maxW / board.cols, maxH / board.rows, 74));
+        document.documentElement.style.setProperty("--s", s + "px");
+        document.documentElement.style.setProperty("--cols", board.cols);
+        document.documentElement.style.setProperty("--rows", board.rows);
+      }
+
+      function loadLevel() {
+        try {
+          const v = parseInt(localStorage.getItem(STORAGE_KEY), 10);
+          return Number.isFinite(v) && v > 0 ? v : 1;
+        } catch (e) { return 1; }
+      }
+      function saveLevel() {
+        try { localStorage.setItem(STORAGE_KEY, String(level)); } catch (e) { /* ignore */ }
+      }
+
+      function startLevel(n) {
+        level = n;
+        board = S.generateLevel(level);
+        initial = S.cloneBoard(board);
+        history = [];
+        busy = false;
+        finished = false;
+        winEl.classList.remove("show");
+        elapsedBeforePause = 0;
+        startedAt = Date.now();
+        saveLevel();
+        msg.textContent = "Unscrew every screw, then slide the pieces off the board.";
+        render();
+        startTimer();
+      }
+
+      function startTimer() {
+        clearInterval(timerId);
+        timerId = setInterval(updateTimer, 500);
+        updateTimer();
+      }
+      function updateTimer() {
+        if (finished) return;
+        const sec = Math.floor((elapsedBeforePause + Date.now() - startedAt) / 1000);
+        els.timer.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+      }
+
+      function render() {
+        fit(board);
+        els.level.textContent = "Level " + level;
+        els.undo.disabled = history.length === 0 || busy;
+        stage.innerHTML = "";
+        for (const piece of board.pieces) {
+          const el = document.createElement("div");
+          el.className = "piece";
+          el.dataset.id = piece.id;
+          const minR = Math.min(...piece.cells.map((x) => x[0]));
+          const minC = Math.min(...piece.cells.map((x) => x[1]));
+          el.style.left = "calc(" + minC + " * var(--s))";
+          el.style.top = "calc(" + minR + " * var(--s))";
+          el.style.width = "calc(var(--s) * " + (Math.max(...piece.cells.map((x) => x[1])) - minC + 1) + ")";
+          el.style.height = "calc(var(--s) * " + (Math.max(...piece.cells.map((x) => x[0])) - minR + 1) + ")";
+          el.style.setProperty("--c", piece.color);
+          for (const [r, c] of piece.cells) {
+            const cell = document.createElement("div");
+            cell.className = "cell";
+            cell.style.left = "calc(" + (c - minC) + " * var(--s))";
+            cell.style.top = "calc(" + (r - minR) + " * var(--s))";
+            el.appendChild(cell);
+          }
+          piece.screws.forEach((cell, idx) => {
+            const sc = document.createElement("div");
+            sc.className = "screw";
+            sc.title = "Unscrew";
+            sc.setAttribute("role", "button");
+            sc.setAttribute("aria-label", "Unscrew");
+            sc.style.left = "calc(" + (cell[1] - minC) + " * var(--s) + var(--s) / 2)";
+            sc.style.top = "calc(" + (cell[0] - minR) + " * var(--s) + var(--s) / 2)";
+            sc.addEventListener("click", (e) => {
+              e.stopPropagation();
+              onUnscrew(piece.id, idx, sc);
+            });
+            el.appendChild(sc);
+          });
+          el.addEventListener("click", () => onPieceClick(piece.id, el));
+          stage.appendChild(el);
+        }
+      }
+
+      function snapshot() {
+        history.push(S.cloneBoard(board));
+      }
+
+      function onUnscrew(id, idx, screwEl) {
+        if (busy || finished) return;
+        const next = S.unscrew(board, id, idx);
+        if (!next) return;
+        snapshot();
+        board = next;
+        screwEl.classList.add("pop");
+        setTimeout(() => {
+          render();
+          msg.textContent = board.pieces.some((p) => p.screws.length === 0)
+            ? "Free pieces can slide off the board. Tap one."
+            : "";
+        }, 220);
+        busy = true;
+        setTimeout(() => { busy = false; }, 220);
+      }
+
+      function onPieceClick(id, el) {
+        if (busy || finished) return;
+        const piece = board.pieces.find((p) => p.id === id);
+        if (!piece) return;
+        if (piece.screws.length > 0) {
+          msg.textContent = "Unscrew it first.";
+          el.classList.remove("blocked"); void el.offsetWidth; el.classList.add("blocked");
+          return;
+        }
+        const dir = S.defaultSlideDir(board, id);
+        if (!dir) {
+          msg.textContent = "Blocked. Remove the piece in the way first.";
+          el.classList.remove("blocked"); void el.offsetWidth; el.classList.add("blocked");
+          return;
+        }
+        const next = S.slide(board, id, dir);
+        snapshot();
+        busy = true;
+        const [dr, dc] = S.DIRS[dir];
+        const distance = Math.max(board.cols, board.rows) + 2;
+        const anim = el.animate(
+          [
+            { transform: "translate(0, 0)" },
+            { transform: "translate(calc(" + dc * distance + " * var(--s)), calc(" + dr * distance + " * var(--s)))" },
+          ],
+          { duration: 380, easing: "ease-in", fill: "forwards" }
+        );
+        anim.onfinish = () => {
+          board = next;
+          busy = false;
+          render();
+          if (S.isSolved(board)) onWin();
+        };
+        msg.textContent = "";
+      }
+
+      function onWin() {
+        finished = true;
+        clearInterval(timerId);
+        const sec = Math.floor((Date.now() - startedAt + elapsedBeforePause) / 1000);
+        els.winText.textContent = "Cleared in " + sec + "s and " + (history.length) + " actions. On to level " + (level + 1) + "!";
+        setTimeout(() => {
+          winEl.classList.add("show");
+          els.winNext.focus();
+        }, 400);
+      }
+
+      els.undo.addEventListener("click", () => {
+        if (!history.length || busy || finished) return;
+        board = history.pop();
+        render();
+      });
+      els.restart.addEventListener("click", () => {
+        if (busy) return;
+        board = S.cloneBoard(initial);
+        history = [];
+        finished = false;
+        render();
+      });
+      els.skip.addEventListener("click", () => startLevel(level + 1));
+      els.winNext.addEventListener("click", () => startLevel(level + 1));
+      window.addEventListener("resize", () => board && fit(board));
+
+      startLevel(loadLevel());
+    })();
+  </script>
+</body>
+</html>
