@@ -1,0 +1,19 @@
+{
+  "name": "happy-glass",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Happy Glass style draw-and-pour water physics puzzle \u2014 vanilla JS + Matter.js, no runtime dependencies",
+  "scripts": {
+    "dev": "node tools/serve.js",
+    "start": "node tools/serve.js",
+    "build": "node tools/build.js",
+    "verify": "node tools/verify.js",
+    "smoke": "node tools/build.js && node tools/smoke.js",
+    "shots": "node tools/shot.js 1 1.4 shots/level1.png && node tools/shot.js 7 5 shots/level7.png"
+  },
+  "devDependencies": {
+    "@napi-rs/canvas": "^1.0.13",
+    "jsdom": "^30.1.3"
+  },
+  "license": "MIT"
+}
