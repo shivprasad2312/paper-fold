@@ -113,6 +113,7 @@
       scene.fans.forEach((f) => this.drawFan(ctx, f, dt));
       scene.hots.forEach((h) => this.drawHot(ctx, h, dt));
 
+      (scene.pins || []).forEach((p) => this.drawPin(ctx, p));
       scene.platforms.forEach((p) => this.drawPlatform(ctx, p));
       scene.crates.forEach((c) => this.drawCrate(ctx, c));
       scene.seesaws.forEach((s) => this.drawSeesaw(ctx, s));
@@ -246,6 +247,30 @@
       verts.forEach((v, i) => (i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y)));
       ctx.closePath();
       this.outline(ctx, 3.4);
+      ctx.restore();
+    }
+
+    // a small tack pressed into the paper
+    drawPin(ctx, p) {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.beginPath();
+      ctx.ellipse(2, 4, p.r * 0.9, p.r * 0.45, 0, 0, HG.TAU);
+      ctx.fillStyle = 'rgba(45,59,71,.14)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 0, p.r, 0, HG.TAU);
+      const g = ctx.createRadialGradient(-p.r * 0.35, -p.r * 0.4, 1, 0, 0, p.r);
+      g.addColorStop(0, '#fdf3d9');
+      g.addColorStop(0.55, '#e8c98a');
+      g.addColorStop(1, '#c39b4f');
+      ctx.fillStyle = g;
+      ctx.fill();
+      this.outline(ctx, 2.6);
+      ctx.beginPath();
+      ctx.arc(0, 0, p.r * 0.28, 0, HG.TAU);
+      ctx.fillStyle = 'rgba(45,59,71,.5)';
+      ctx.fill();
       ctx.restore();
     }
 
@@ -748,7 +773,7 @@
 
     // -------------------------------------------------------------------- ink
     drawInk(ctx, scene) {
-      const segs = scene.ink.segments;
+      const segs = scene.inkWorldSegments();
       if (!segs.length) return;
       ctx.save();
       ctx.lineCap = 'round';
@@ -783,6 +808,20 @@
         ctx.lineTo(s.x2 + nx, s.y2 + ny);
       });
       ctx.stroke();
+
+      // little "nails" where a stroke bit into something solid
+      scene.ink.strokes.forEach((st) => {
+        if (!st.anchored || !st.pins || !st.pins.length) return;
+        st.pins.forEach((p) => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 4.2, 0, HG.TAU);
+          ctx.fillStyle = '#f4e1b8';
+          ctx.fill();
+          ctx.strokeStyle = C.ink;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+      });
       ctx.restore();
     }
 

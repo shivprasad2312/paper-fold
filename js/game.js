@@ -218,7 +218,6 @@
       this.pointer.active = true;
       this.pointer.id = e.pointerId;
       this.pointer.world = w;
-      if (this.scene) this.scene.setDrawing(true);
       if (this.scene.beginInk(w.x, w.y)) {
         HG.Sfx.ensure();
         if (this.scene.state === 'idle') this.scene.start();
@@ -246,10 +245,7 @@
       if (this.pointer.id != null && e.pointerId !== this.pointer.id) return;
       this.pointer.active = false;
       this.pointer.id = null;
-      if (this.scene) {
-        this.scene.endInk();
-        this.scene.setDrawing(false);
-      }
+      if (this.scene) this.scene.endInk();
     },
 
     // ------------------------------------------------------------------- loop

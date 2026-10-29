@@ -12,6 +12,8 @@
   const WALL = 7;               // glass wall thickness
   const INK_W = 15;             // ink line thickness
   const INK_MIN_STEP = 9;       // simplified point spacing
+  const ANCHOR_R = 16;          // how close ink must be to nail itself down
+  const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
@@ -20,7 +22,9 @@
   class Glass {
     constructor(def) {
       this.def = def;
-      this.dynamic = !!def.dynamic;
+      this.hanging = !!def.hanging;
+      // every glass is a real object now; only an explicit `fixed` glass is scenery
+      this.dynamic = def.fixed ? false : true;
       this.x = def.x;
       this.y = def.y;
       this.w = def.w;
@@ -139,7 +143,6 @@
       this.evapPuffs = [];
       this.shake = 0;
       this.frozen = true;          // the world only runs once the player draws
-      this.drawDown = false;       // physics pauses while a stroke is in progress
       this.freezeTimer = 0;
       this.fell = false;
       this.onWin = null;
@@ -181,6 +184,29 @@
         Composite.add(this.world, b);
         return b;
       };
+
+      // A glass is a loose object, so it needs a ledge to start on. Levels that
+      // deliberately leave one dangling set `hanging: true` instead.
+      this.coasters = [];
+      lv.glasses.forEach((g) => {
+        if (g.hanging || g.fixed) return;
+        const bottom = g.y + g.h / 2;
+        const halfW = g.w / 2;
+        const already = lv.platforms.concat(lv.crates.map((c) => ({
+          x: c.x, y: c.y, w: c.size, h: c.size, angle: c.angle || 0,
+        }))).some((p) => {
+          const top = p.y - p.h / 2;
+          const overlap = Math.min(p.x + p.w / 2, g.x + halfW) - Math.max(p.x - p.w / 2, g.x - halfW);
+          return top > bottom - 14 && top < bottom + 34 && overlap > halfW;
+        });
+        if (already) return;
+        const shelf = {
+          x: g.x, y: bottom + 7, w: g.w * 1.3, h: 14,
+          angle: 0, kind: 'wood', coaster: true,
+        };
+        lv.platforms.push(shelf);
+        this.coasters.push(shelf);
+      });
 
       lv.platforms.forEach((p) => {
         if (p.poly) {
@@ -357,6 +383,27 @@
     }
 
     buildFaucets() {
+      // the tap housing is solid: your ink can be pegged to it
+      this.level.faucets.forEach((f) => {
+        const housing = Bodies.rectangle(f.x, f.y - 47, 62, 62, {
+          isStatic: true, label: 'faucet', chamfer: { radius: 8 },
+        });
+        const plate = Bodies.rectangle(f.x, f.y - 4, 88, 16, {
+          isStatic: true, label: 'faucet', chamfer: { radius: 6 },
+        });
+        Composite.add(this.world, housing);
+        Composite.add(this.world, plate);
+      });
+      this.faucetBodies = Composite.allBodies(this.world).filter((b) => b.label === 'faucet');
+      // push-pins: solid furniture you can hook a line onto anywhere in the level
+      this.pins = [];
+      (this.level.pins || []).forEach((p) => {
+        const b = Bodies.circle(p.x, p.y, p.r || 11, {
+          isStatic: true, label: 'pin', friction: 0.5,
+        });
+        Composite.add(this.world, b);
+        this.pins.push({ x: p.x, y: p.y, r: p.r || 11, body: b });
+      });
       this.faucets = this.level.faucets.map((f) => ({
         def: f,
         x: f.x,
@@ -383,9 +430,42 @@
       return Math.max(0, this.ink.budget - this.ink.used);
     }
 
+    // solid things your ink can be nailed to: scenery, crates and the tap itself
+    anchorBodies() {
+      if (this._anchors) return this._anchors;
+      this._anchors = Composite.allBodies(this.world).filter(
+        (b) => b.isStatic && (b.label === 'platform' || b.label === 'crate' ||
+          b.label === 'faucet' || b.label === 'pin' || b.label === 'ink')
+      );
+      return this._anchors;
+    }
+
+    // nearest point of the nearest anchor body, used when a stroke is left in the air
+    nearestAnchor(x, y) {
+      let best = null;
+      for (const b of this.anchorBodies()) {
+        if (b.label === 'ink' && b.isFallback) continue;
+        const bx = M.clamp(x, b.bounds.min.x, b.bounds.max.x);
+        const by = M.clamp(y, b.bounds.min.y, b.bounds.max.y);
+        const d = M.dist(x, y, bx, by);
+        if (!best || d < best.d) best = { d, x: bx, y: by, body: b };
+      }
+      return best;
+    }
+
+    // does this world point touch something solid?
+    isAnchorPoint(x, y) {
+      for (const b of this.anchorBodies()) {
+        const bb = b.bounds;
+        if (x >= bb.min.x - ANCHOR_R && x <= bb.max.x + ANCHOR_R &&
+            y >= bb.min.y - ANCHOR_R && y <= bb.max.y + ANCHOR_R) return true;
+      }
+      return false;
+    }
+
     beginInk(x, y) {
       if (this.inkRemaining() <= 0) return false;
-      this.ink.active = { points: [{ x, y }], body: null };
+      this.ink.active = { points: [{ x, y }], segs: [], pins: [] };
       return true;
     }
 
@@ -404,7 +484,7 @@
       const nx = last.x + ((x - last.x) / d) * step;
       const ny = last.y + ((y - last.y) / d) * step;
 
-      // solid static segment
+      // drawn as static while the finger is down (no jitter), then re-evaluated
       const angle = Math.atan2(ny - last.y, nx - last.x);
       const len = M.dist(last.x, last.y, nx, ny);
       const body = Bodies.rectangle(
@@ -413,11 +493,21 @@
         { isStatic: true, angle, label: 'ink', friction: 0.6, restitution: 0.03,
           chamfer: { radius: INK_W / 2 } }
       );
+      body.isProvisional = true;
       Composite.add(this.world, body);
-      const seg = { x1: last.x, y1: last.y, x2: nx, y2: ny, body };
+      const seg = {
+        x1: last.x, y1: last.y, x2: nx, y2: ny,
+        mx: (last.x + nx) / 2, my: (last.y + ny) / 2,
+        angle, len: len + INK_W * 0.9,
+        body: body, stroke: st, dyn: false,
+      };
+      st.segs.push(seg);
       this.ink.segments.push(seg);
       st.points.push({ x: nx, y: ny });
       this.ink.used += len;
+      if (this.isAnchorPoint(nx, ny) && st.pins.length < 3) {
+        st.pins.push({ x: nx, y: ny });
+      }
       if (step < d) {
         this.endInk();
         return false;
@@ -428,16 +518,90 @@
     endInk() {
       const st = this.ink.active;
       if (!st) return;
-      if (st.points.length > 1) this.ink.strokes.push(st);
       this.ink.active = null;
+      if (st.points.length < 2) {
+        st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
+        this.ink.segments = this.ink.segments.filter((sg) => sg.stroke !== st);
+        return;
+      }
+      this.ink.strokes.push(st);
+
+      // ---- is this stroke nailed to anything solid?
+      let anchored = st.pins.length > 0;
+      if (!anchored) {
+        for (const p of st.points) {
+          if (this.isAnchorPoint(p.x, p.y)) { anchored = true; st.pins.push({ x: p.x, y: p.y }); break; }
+        }
+      }
+      st.anchored = anchored;
+      if (anchored) {
+        st.segs.forEach((seg) => { seg.body.isProvisional = false; });
+        this._anchors = null;      // a new anchor exists for later strokes
+        return;
+      }
+
+      // ---- nothing holds it: hand it to gravity as one rigid body
+      st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
+      const parts = st.segs.slice(0, MAX_STROKE_PARTS).map((seg) =>
+        Bodies.rectangle(seg.mx, seg.my, seg.len, INK_W, {
+          angle: seg.angle,
+          density: 0.0009,
+          chamfer: { radius: INK_W / 2 },
+        })
+      );
+      const body = Body.create({
+        parts,
+        friction: 0.45,
+        frictionAir: 0.008,
+        restitution: 0.04,
+        label: 'ink',
+      });
+      Composite.add(this.world, body);
+      st.body = body;
+      st.segs.forEach((seg) => {
+        seg.dyn = true;
+        seg.lx = seg.mx - body.position.x;
+        seg.ly = seg.my - body.position.y;
+        seg.body = body;
+      });
+    }
+
+    // current world-space endpoints of every ink segment (static or falling)
+    inkWorldSegments() {
+      const out = this._segCache || (this._segCache = []);
+      let n = 0;
+      for (const seg of this.ink.segments) {
+        let x1, y1, x2, y2;
+        if (seg.dyn && seg.stroke && seg.stroke.body) {
+          const b = seg.stroke.body;
+          const c = Math.cos(b.angle), s = Math.sin(b.angle);
+          const mx = b.position.x + seg.lx * c - seg.ly * s;
+          const my = b.position.y + seg.lx * s + seg.ly * c;
+          const a = seg.angle + b.angle;
+          const hx = Math.cos(a) * seg.len / 2, hy = Math.sin(a) * seg.len / 2;
+          x1 = mx - hx; y1 = my - hy; x2 = mx + hx; y2 = my + hy;
+        } else {
+          x1 = seg.x1; y1 = seg.y1; x2 = seg.x2; y2 = seg.y2;
+        }
+        const slot = out[n] || (out[n] = {});
+        slot.x1 = x1; slot.y1 = y1; slot.x2 = x2; slot.y2 = y2;
+        n++;
+      }
+      out.length = n;
+      return out;
     }
 
     clearInk() {
-      this.ink.segments.forEach((s) => Composite.remove(this.world, s.body));
+      this.ink.segments.forEach((s) => {
+        if (s.dyn && s.stroke && s.stroke.body) return;   // handled once below
+        Composite.remove(this.world, s.body);
+      });
+      this.ink.strokes.forEach((st) => { if (st.body) Composite.remove(this.world, st.body); });
       this.ink.segments.length = 0;
       this.ink.used = 0;
       this.ink.strokes.length = 0;
       this.ink.active = null;
+      this._anchors = null;
     }
 
     inkPointBlocked(x, y) {
@@ -477,11 +641,10 @@
       this.time += dt;
       const sec = dt / 1000;
 
-      // The world is paused until the player starts drawing, and again while a
-      // stroke is in progress — that is what lets you prop a falling glass up
-      // without racing the clock (and it feels like the original).
-      if (this.freezeTimer > 0) this.freezeTimer = Math.max(0, this.freezeTimer - sec);
-      this.frozen = this.state === 'idle' || this.drawDown || this.freezeTimer > 0;
+      // The world waits only for the very first stroke, like the original. After
+      // that it keeps running: the tap pours and gravity pulls while you sketch a
+      // second line, so a stroke that is not anchored will fall out of the level.
+      this.frozen = this.state === 'idle';
       this.glasses.forEach((g) => g.syncXf());
 
       // ---- taps (only once the player has started drawing)
@@ -549,7 +712,7 @@
         g.surfaceY = surface;
         g.fillSmooth = M.approach(g.fillSmooth, raw, 8, sec);
         const wasSatisfied = g.satisfied;
-        g.satisfied = g.fillSmooth >= g.need - 0.03;
+        g.satisfied = g.fill >= g.need;
         if (g.satisfied && !wasSatisfied) g.glow = 1;
         g.glow = M.approach(g.glow, g.satisfied ? 1 : 0, 4, sec);
         if (g.satisfied) g.doneTimer = (g.doneTimer || 0) + sec;
@@ -650,12 +813,7 @@
       Engine.update(this.engine, dt);
     }
 
-    // called by the game while the player is sketching a line
-    setDrawing(on) {
-      if (this.drawDown === on) return;
-      this.drawDown = on;
-      if (!on) this.freezeTimer = 0.35;
-    }
+    // kept for API compatibility — drawing no longer stops time
 
     destroy() {
       if (this._onCollide) Events.off(this.engine, 'collisionStart', this._onCollide);

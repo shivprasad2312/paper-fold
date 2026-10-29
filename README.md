@@ -6,7 +6,9 @@ ink → more stars.
 
 Glasses are **physical objects**. Many levels hang the glass in mid-air with nothing under it — the
 moment the world starts moving it drops — so half of the puzzle is *building a shelf or ledge for it*
-before you even think about the water.
+before you even think about the water. Your ink obeys gravity too: a stroke that is not hooked onto
+scenery (ledges, crates, the tap housing, or the push-pins dotted around later levels) falls out of
+the level the instant you release it.
 
 Vanilla JS + [Matter.js](https://brm.io/matter-js/) physics. No frameworks, no build step required,
 no runtime dependencies. 35 hand-tuned levels, three-star ink scoring, sound synthesised with the
@@ -38,9 +40,9 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 | **Core loop** | A tap/faucet pours water; you draw one or more solid ink lines that act as ramps, funnels and walls; the glass must fill above its dotted line. | Identical. The tap stays closed until you start drawing, so you can plan first. |
 | **Win condition** | Fill the glass to the dotted line; the glass smiles. | Fill ratio is measured from the real water surface **and** droplet count inside the glass. Every glass in a level must be filled. |
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
-| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right above the rim, which is what makes tight levels solvable). |
+| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right above the rim, which is what makes tight levels solvable). On release the whole stroke is tested: if either end touches an anchor it becomes a static, nailed-down line (the nails are drawn as small dots); if it touches nothing, it becomes one rigid body and drops. |
 | **Hazards** | Hot pads evaporate water, gears/spinners scatter it, moving blocks obstruct it, some levels need multiple glasses filled at once, fans/escalators push water. | All of the above are implemented: heated pads, spinning bars (free pin joints), tilting planks, patrolling blocks, blowers (the grey arrow box), crates and diamonds, tilted and polygon shelves, 1–3 glasses and 1–2 taps. |
-| **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. A glass is either *static scenery* or a single **compound rigid body** with a weighted base (so a splash will not knock it over, but an unsupported glass really does fall). Drawing is paused while your finger is down, so you can sketch a shelf under a falling glass calmly. Knock it over and the level fails with "the glass fell over". |
+| **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". |
 | **Retry** | Retry is free and instant; you keep trying until the water runs out. | Restart button (or `R`), plus automatic fail detection once the tap is empty and the water has settled. |
 | **Feel** | Hand-drawn look, thick dark outlines, pastel palette, paper grid, wooden HUD, bouncy UI, happy glass face. | Same art direction, drawn procedurally on a canvas (no image assets at all). |
 
@@ -50,6 +52,8 @@ Design takeaways that shaped the level list:
 * **Short hooks/wedges anchored on scenery beat long bridges** — both cheaper and more stable.
 * Water has momentum: it slides, piles up and pushes; a shallow ramp can stall water, a steep one overshoots.
 * Every element in a level should be *needed* — so no decorative-only obstacles here.
+* **Ink is heavy**: a line that is not pegged to scenery drops out of the world, so a good level gives
+  you a pin, a ledge or a wall near where the line has to start.
 
 ---
 
@@ -74,7 +78,9 @@ tools/              dev server, single-file builder, headless simulator, verifie
 ### Levels
 
 35 levels, hand-placed, each introducing or combining one idea. Levels 26–35 are the
-"floating glass" set, where support comes first and the pour comes second:
+"floating glass" set, where support comes first and the pour comes second. From level 12 onward
+most layouts also carry **push-pins** (small tacks on the scenery): a stroke that touches one is
+nailed in place, which is now the intended way to build a shelf — a free-floating bridge will fall:
 
 | # | Name | Idea |
 | --- | --- | --- |
@@ -121,14 +127,19 @@ tools/              dev server, single-file builder, headless simulator, verifie
 * **World**: fixed 1280×720 stage, letterboxed to any screen size (the camera never crops the level).
 * **Physics**: Matter.js at a fixed 60 Hz step, decoupled from rendering (`requestAnimationFrame`,
   max 4 catch-up steps).
-* **Ink**: every ~9 px of pointer travel becomes a static chamfered rectangle. Ink is measured in
-  world pixels and never refunded, exactly like the original meter.
+* **Ink**: every ~9 px of pointer travel becomes a chamfered rectangle. Ink is measured in world
+  pixels and never refunded, exactly like the original meter. A finished stroke is *gravity aware*:
+  `endInk()` checks both ends (and every point in between) against static anchors — platforms,
+  crates, the tap housing, the push-pins added to most later levels, and already-anchored ink. An
+  anchored stroke becomes static scenery with small nail dots at its anchor points (max 3 per
+  stroke). An unanchored stroke is rebuilt as one rigid compound body and simply falls.
 * **Water**: small circles on one collision layer, low friction so they shuffle over each other like a
   liquid, mild air friction so they don't slingshot. Water level in a glass is computed from the
   sorted droplet heights (top 18 % ignored so an incoming droplet can't fake a full glass) and
   cross-checked against droplet count.
-* **Pausing**: the world is frozen until the first stroke and again while a stroke is in progress
-  (`scene.drawDown`), which is what makes propping up a falling glass feel fair.
+* **Pausing**: the world is frozen until the first stroke only. Drawing a second stroke does **not**
+  stop the pour — the tap runs through every stroke, so a falling glass and running water are part
+  of the same live world. Restart is always free.
 * **Win**: every glass above its line for ~0.5 s → stars from ink left → dialog. A dynamic glass that
   has dropped out of the level or tipped past ~70° counts as lost.
 * **Fail**: tap empty *and* the water has settled (or 22 s grace) → "not enough water" dialog.
@@ -141,10 +152,12 @@ This repo ships a headless harness so level design isn't guesswork:
   `localStorage`), so the *exact* simulation that runs in the browser can be played from the CLI.
 * `tools/solutions.js` holds one human-style reference solution per level.
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
-  **35/35 levels solvable**, stable across repeated runs.
+  **35/35 levels solvable**, and every glass's fill target sits ~20 % below the maximum the
+  reference solution can actually reach, so wins are not knife-edge.
 * `tools/grid.js` brute-forces one-stroke solutions (used to confirm each new layout is beatable),
   `tools/probe.js` / `tools/trace.js` print per-frame glass pose, fill and droplet paths.
-* `tools/autotune.js` hill-climbs a stroke until a level is won.
+* `tools/autotune.js` hill-climbs a stroke until a level is won; `tools/anchorize.js` reports which
+  ink strokes of a solution landed on an anchor and which ones fell (a diagnostic, not a solver).
 * `tools/shot.js` renders the actual game canvas through `@napi-rs/canvas` to a PNG, and
   `tools/sheet.js` builds the contact sheet in `docs/levels.png`.
 * `tools/smoke.js` boots the built single-file game in jsdom, clicks Play, draws with pointer events,
