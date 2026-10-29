@@ -21,14 +21,14 @@ module.exports = {
   11: [[[230, 300], [420, 380]], [[1050, 300], [860, 380]]],// both taps
   12: [[[500, 296], [556, 308]]],                           // off the ledge, through the neck
   13: [[[360, 300], [860, 400]]],                           // ride the wind right
-  14: [[[365, 180], [860, 264]]],                           // over the crate wall
+  14: [[[382, 190], [900, 320]]],                           // arc over the crate stack
   15: [[[460, 320], [626, 286]], [[654, 286], [820, 320]]], // splitter with a centre gap
   16: [[[605, 166], [692, 220]]],                           // jam the first gear
   17: [[[430, 180], [756, 292]]],                           // under the patrolling block
   18: [[[215, 168], [792, 312]]],                           // the long drop
   19: [[[265, 170], [876, 290]]],                           // fly over both pipes
   20: [[[358, 258], [878, 478]]],                           // over the spinner, into the glass
-  21: [[[675, 352], [540, 416]]],                           // catch the spray, slide left
+  21: [[[710, 352], [452, 500]]],                           // catch the spray, slide left
   22: [[[935, 180], [584, 250]]],                           // ride the wind left
   23: [[[265, 220], [856, 354]]],                           // the long gauntlet slide
   24: [[[340, 290], [240, 450]], [[940, 350], [690, 410]]], // both storeys

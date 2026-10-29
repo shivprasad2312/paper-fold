@@ -16,6 +16,8 @@ npm run smoke        # boots the built file in jsdom and plays a level end to en
 npm run shots        # renders canvas screenshots to shots/
 ```
 
+![All 25 levels](docs/levels.png)
+
 ---
 
 ## 1. How the real game works (research summary)
@@ -119,7 +121,8 @@ This repo ships a headless harness so level design isn't guesswork:
   **25/25 levels solvable**.
 * `tools/grid.js` brute-forces one-stroke solutions (used to confirm each new layout is beatable).
 * `tools/autotune.js` hill-climbs a stroke until a level is won.
-* `tools/shot.js` renders the actual game canvas through `@napi-rs/canvas` to a PNG.
+* `tools/shot.js` renders the actual game canvas through `@napi-rs/canvas` to a PNG, and
+  `tools/sheet.js` builds the contact sheet in `docs/levels.png`.
 * `tools/smoke.js` boots the built single-file game in jsdom, clicks Play, draws with pointer events,
   waits for a win, checks the dialog opens and the star was saved.
 

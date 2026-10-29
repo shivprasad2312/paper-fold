@@ -143,8 +143,9 @@
       faucet: { x: 400, y: 130, rate: 46, total: 112 },
       glasses: [{ x: 960, y: 430, w: 104, h: 118, need: 0.8 }],
       crates: [
-        { x: 600, y: 530, size: 90 }, { x: 600, y: 440, size: 90 },
-        { x: 690, y: 530, size: 90 }, { x: 960, y: 610, size: 76, kind: 'teal' },
+        { x: 620, y: 560, size: 90 }, { x: 620, y: 470, size: 90 },
+        { x: 620, y: 380, size: 90 }, { x: 710, y: 560, size: 90 },
+        { x: 1000, y: 610, size: 76, kind: 'teal' },
       ],
     },
     {
@@ -210,8 +211,8 @@
       faucet: { x: 640, y: 112, rate: 48, total: 120 },
       glasses: [{ x: 420, y: 540, w: 104, h: 118, need: 0.78 }],
       platforms: [P({ x: 420, y: 640, w: 300, h: 26, kind: 'metal' })],
-      spinners: [{ x: 560, y: 250, w: 230, h: 16 }, { x: 780, y: 350, w: 200, h: 16 }],
-      crates: [{ x: 900, y: 560, size: 80, kind: 'teal' }],
+      spinners: [{ x: 600, y: 245, w: 230, h: 16 }, { x: 500, y: 350, w: 200, h: 16 }],
+      crates: [{ x: 900, y: 560, size: 80, kind: 'teal' }, { x: 260, y: 640, size: 76 }],
     },
     {
       name: 'Upstream',
