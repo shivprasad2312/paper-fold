@@ -3,371 +3,332 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Screw Puzzle</title>
+  <title>Screw Puzzle (physics)</title>
   <style>
-    :root {
-      --wood: #e8c48f;
-      --wood-dark: #b98b52;
-      --ink: #4a2f16;
-      --btn: #f6e2bd;
-      --accent: #2f7d5b;
-      --s: 56px; /* cell size, set from JS */
-    }
+    :root { --ink: #4a2f16; --btn: #f6e2bd; --edge: #b98b52; --accent: #2f7d5b; }
     * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
     body {
-      margin: 0;
-      min-height: 100vh;
-      background: var(--wood);
+      background: #e9c48c;
       background-image: repeating-linear-gradient(0deg, rgba(120,70,20,.05) 0 2px, transparent 2px 9px);
       color: var(--ink);
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 14px;
+      display: flex; flex-direction: column;
       user-select: none;
     }
     header {
-      width: min(640px, 100%);
-      display: grid;
-      grid-template-columns: 1fr auto 1fr;
-      align-items: center;
-      gap: 10px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      padding: 10px 14px;
     }
     .pill {
-      background: var(--btn);
-      border: 2px solid var(--wood-dark);
-      border-radius: 12px;
-      padding: 6px 14px;
-      font-weight: 700;
-      box-shadow: 0 3px 0 var(--wood-dark);
+      background: var(--btn); border: 2px solid var(--edge); border-radius: 12px;
+      padding: 6px 14px; font-weight: 700; box-shadow: 0 3px 0 var(--edge);
     }
-    .timer { justify-self: center; font-variant-numeric: tabular-nums; }
-    .right { justify-self: end; display: flex; gap: 8px; }
-    button.icon {
-      background: var(--btn);
-      border: 2px solid var(--wood-dark);
-      border-radius: 12px;
-      width: 46px; height: 46px;
-      font-size: 20px;
-      cursor: pointer;
-      box-shadow: 0 3px 0 var(--wood-dark);
-      color: var(--ink);
+    .btns { display: flex; gap: 8px; }
+    button {
+      background: var(--btn); border: 2px solid var(--edge); border-radius: 12px;
+      padding: 6px 12px; font: inherit; font-weight: 700; color: var(--ink);
+      box-shadow: 0 3px 0 var(--edge); cursor: pointer;
     }
-    button.icon:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
-    button.icon:disabled { opacity: .4; cursor: default; }
-
-    #stage {
-      margin-top: 22px;
-      position: relative;
-      width: calc(var(--cols) * var(--s));
-      height: calc(var(--rows) * var(--s));
-      border: 4px dashed var(--wood-dark);
-      border-radius: 14px;
-      background: rgba(255,255,255,.12);
-    }
-    .piece {
-      position: absolute;
-      transition: transform .2s ease;
-      cursor: pointer;
-    }
-    .piece.blocked { animation: shake .3s; }
-    .cell {
-      position: absolute;
-      width: var(--s);
-      height: var(--s);
-      background: var(--c);
-      border: 3px solid rgba(0,0,0,.25);
-      border-radius: 10px;
-      box-shadow: inset 0 4px 0 rgba(255,255,255,.25), inset 0 -4px 0 rgba(0,0,0,.18);
-      background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 3px, transparent 3px 11px);
-    }
-    .screw {
-      position: absolute;
-      width: calc(var(--s) * .36);
-      height: calc(var(--s) * .36);
-      left: 50%; top: 50%;
-      transform: translate(-50%, -50%);
-      border-radius: 50%;
-      background: radial-gradient(circle at 35% 35%, #fff7e0, #b7b0a0 60%, #6f675a);
-      border: 2px solid #3d3a33;
-      box-shadow: 0 2px 3px rgba(0,0,0,.35);
-      cursor: pointer;
-      z-index: 2;
-    }
-    .screw::after {
-      content: "";
-      position: absolute;
-      left: 50%; top: 50%;
-      width: 60%; height: 2px;
-      background: #3d3a33;
-      transform: translate(-50%, -50%) rotate(35deg);
-    }
-    .screw:hover { filter: brightness(1.1); }
-    .screw.pop { animation: pop .25s ease-in forwards; }
-    @keyframes pop { to { transform: translate(-50%, -50%) scale(0); opacity: 0; } }
-    @keyframes shake {
-      0%,100% { translate: 0 0; }
-      25% { translate: -6px 0; }
-      75% { translate: 6px 0; }
-    }
-
-    #message {
-      margin-top: 18px;
-      min-height: 1.5em;
-      font-weight: 600;
-      text-align: center;
+    button:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
+    #stageWrap { flex: 1; position: relative; min-height: 0; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+    #msg {
+      text-align: center; font-weight: 600; min-height: 1.5em; padding: 6px 12px 12px;
     }
     #win {
-      position: fixed; inset: 0;
-      display: none;
-      align-items: center; justify-content: center;
-      background: rgba(60,35,10,.5);
-      z-index: 10;
+      position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: rgba(60,35,10,.45);
     }
     #win.show { display: flex; }
     #win .card {
-      background: var(--btn);
-      border: 3px solid var(--wood-dark);
-      border-radius: 18px;
-      padding: 26px 30px;
-      text-align: center;
-      box-shadow: 0 10px 30px rgba(0,0,0,.3);
+      background: var(--btn); border: 3px solid var(--edge); border-radius: 18px;
+      padding: 24px 28px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,.3);
     }
-    #win h2 { margin: 0 0 6px; color: var(--accent); }
-    #win p { margin: 0 0 16px; }
-    #win button {
-      background: var(--accent); color: #fff; border: none;
-      border-radius: 12px; padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer;
-    }
-    footer { margin-top: auto; padding-top: 20px; font-size: .8rem; opacity: .7; }
+    #win h2 { margin: 0 0 8px; color: var(--accent); }
+    #win button { background: var(--accent); color: #fff; border-color: #245c44; }
   </style>
 </head>
 <body>
   <header>
-    <div class="pill" id="level-pill">Level 1</div>
-    <div class="pill timer" id="timer">0:00</div>
-    <div class="right">
-      <button class="icon" id="undo" title="Undo" aria-label="Undo">↶</button>
-      <button class="icon" id="restart" title="Restart level" aria-label="Restart level">⟲</button>
-      <button class="icon" id="skip" title="Next level" aria-label="Next level">›</button>
+    <div class="pill" id="levelName">Level 1</div>
+    <div class="pill" id="timer">0:00</div>
+    <div class="btns">
+      <button id="restart" title="Restart level">Restart</button>
+      <button id="next" title="Skip to next level">Next ›</button>
     </div>
   </header>
+  <div id="stageWrap"><canvas id="c"></canvas></div>
+  <div id="msg">Tap a screw to unscrew it. Tap a loose screw, then an open hole, to park it.</div>
 
-  <main id="stage" aria-label="Puzzle board"></main>
-  <div id="message">Unscrew every screw, then slide the pieces off the board.</div>
-
-  <div id="win" role="dialog" aria-modal="true" aria-labelledby="win-title">
+  <div id="win" role="dialog" aria-modal="true">
     <div class="card">
-      <h2 id="win-title">Level complete!</h2>
-      <p id="win-text"></p>
-      <button id="win-next">Next level</button>
+      <h2>Level cleared!</h2>
+      <p id="winText"></p>
+      <button id="winNext">Next level</button>
     </div>
   </div>
 
-  <footer>Original screw-puzzle implementation. Progress is saved in this browser.</footer>
-
-  <script src="logic.js"></script>
+  <script src="vendor/matter.min.js"></script>
+  <script src="game.js"></script>
+  <script src="levels.js"></script>
   <script>
     (function () {
-      const S = window.ScrewLogic;
-      const STORAGE_KEY = "screw-puzzle-level";
-      const stage = document.getElementById("stage");
-      const msg = document.getElementById("message");
+      const LEVELS = window.ScrewLevels.LEVELS;
+      const canvas = document.getElementById("c");
+      const ctx = canvas.getContext("2d");
+      const msg = document.getElementById("msg");
       const winEl = document.getElementById("win");
-      const els = {
-        level: document.getElementById("level-pill"),
-        timer: document.getElementById("timer"),
-        undo: document.getElementById("undo"),
-        restart: document.getElementById("restart"),
-        skip: document.getElementById("skip"),
-        winText: document.getElementById("win-text"),
-        winNext: document.getElementById("win-next"),
-      };
+      const TICK = 1000 / 60;
+      const KEY = "screw-puzzle-level-physics";
 
-      let level = 1;
-      let board = null;
-      let initial = null;
-      let history = [];
-      let busy = false;
-      let startedAt = 0;
-      let elapsedBeforePause = 0;
-      let timerId = null;
-      let finished = false;
+      let levelIndex = 0;
+      try {
+        const v = parseInt(localStorage.getItem(KEY), 10);
+        if (v >= 0 && v < LEVELS.length) levelIndex = v;
+      } catch (e) { /* ignore */ }
 
-      function fit(board) {
-        const maxW = Math.min(window.innerWidth - 40, 620);
-        const maxH = window.innerHeight * 0.6;
-        const s = Math.floor(Math.min(maxW / board.cols, maxH / board.rows, 74));
-        document.documentElement.style.setProperty("--s", s + "px");
-        document.documentElement.style.setProperty("--cols", board.cols);
-        document.documentElement.style.setProperty("--rows", board.rows);
-      }
+      let game = null;
+      let view = { scale: 1, ox: 0, oy: 0 };
+      let acc = 0;
+      let last = performance.now();
+      let startedAt = Date.now();
+      let elapsed = 0;
 
-      function loadLevel() {
-        try {
-          const v = parseInt(localStorage.getItem(STORAGE_KEY), 10);
-          return Number.isFinite(v) && v > 0 ? v : 1;
-        } catch (e) { return 1; }
-      }
-      function saveLevel() {
-        try { localStorage.setItem(STORAGE_KEY, String(level)); } catch (e) { /* ignore */ }
-      }
-
-      function startLevel(n) {
-        level = n;
-        board = S.generateLevel(level);
-        initial = S.cloneBoard(board);
-        history = [];
-        busy = false;
-        finished = false;
+      function startLevel(i) {
+        levelIndex = i % LEVELS.length;
+        try { localStorage.setItem(KEY, String(levelIndex)); } catch (e) { /* ignore */ }
+        game = window.ScrewGame.createGame(Matter, LEVELS[levelIndex]);
+        document.getElementById("levelName").textContent = LEVELS[levelIndex].name;
         winEl.classList.remove("show");
-        elapsedBeforePause = 0;
+        msg.textContent = "Tap a screw to unscrew it. Tap a loose screw, then an open hole, to park it.";
         startedAt = Date.now();
-        saveLevel();
-        msg.textContent = "Unscrew every screw, then slide the pieces off the board.";
-        render();
-        startTimer();
+        elapsed = 0;
+        acc = 0;
       }
 
-      function startTimer() {
-        clearInterval(timerId);
-        timerId = setInterval(updateTimer, 500);
-        updateTimer();
-      }
-      function updateTimer() {
-        if (finished) return;
-        const sec = Math.floor((elapsedBeforePause + Date.now() - startedAt) / 1000);
-        els.timer.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+      function resize() {
+        const r = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = Math.round(r.width * dpr);
+        canvas.height = Math.round(r.height * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const W = game ? game.W : 420;
+        const H = game ? game.H : 640;
+        const s = Math.min(r.width / W, r.height / H);
+        view = { scale: s, ox: (r.width - W * s) / 2, oy: (r.height - H * s) / 2 };
       }
 
-      function render() {
-        fit(board);
-        els.level.textContent = "Level " + level;
-        els.undo.disabled = history.length === 0 || busy;
-        stage.innerHTML = "";
-        for (const piece of board.pieces) {
-          const el = document.createElement("div");
-          el.className = "piece";
-          el.dataset.id = piece.id;
-          const minR = Math.min(...piece.cells.map((x) => x[0]));
-          const minC = Math.min(...piece.cells.map((x) => x[1]));
-          el.style.left = "calc(" + minC + " * var(--s))";
-          el.style.top = "calc(" + minR + " * var(--s))";
-          el.style.width = "calc(var(--s) * " + (Math.max(...piece.cells.map((x) => x[1])) - minC + 1) + ")";
-          el.style.height = "calc(var(--s) * " + (Math.max(...piece.cells.map((x) => x[0])) - minR + 1) + ")";
-          el.style.setProperty("--c", piece.color);
-          for (const [r, c] of piece.cells) {
-            const cell = document.createElement("div");
-            cell.className = "cell";
-            cell.style.left = "calc(" + (c - minC) + " * var(--s))";
-            cell.style.top = "calc(" + (r - minR) + " * var(--s))";
-            el.appendChild(cell);
+      function toLogical(e) {
+        const r = canvas.getBoundingClientRect();
+        return { x: (e.clientX - r.left - view.ox) / view.scale, y: (e.clientY - r.top - view.oy) / view.scale };
+      }
+
+      function trySlotPos(i) {
+        const H = game.H;
+        const spacing = 56;
+        const total = (game.tray - 1) * spacing;
+        return { x: game.W / 2 - total / 2 + i * spacing, y: H - 40 };
+      }
+
+      function hit(p, x, y, r) {
+        return Math.hypot(p.x - x, p.y - y) <= r;
+      }
+
+      function onPointer(e) {
+        if (!game) return;
+        const p = toLogical(e);
+        const snap = game.snapshot();
+        let res = null;
+
+        // 1. a screw sitting in a hole (pinned or loose)
+        for (const h of snap.holes) {
+          if (h.screw && hit(h, p.x, p.y, 20)) { res = game.tapScrew(h.screw); break; }
+        }
+        // 2. a screw in a tray slot
+        if (!res) {
+          for (let i = 0; i < snap.tray.length; i++) {
+            const sp = trySlotPos(i);
+            if (snap.tray[i] && hit(sp, p.x, p.y, 20)) { res = game.tapScrew(snap.tray[i]); break; }
           }
-          piece.screws.forEach((cell, idx) => {
-            const sc = document.createElement("div");
-            sc.className = "screw";
-            sc.title = "Unscrew";
-            sc.setAttribute("role", "button");
-            sc.setAttribute("aria-label", "Unscrew");
-            sc.style.left = "calc(" + (cell[1] - minC) + " * var(--s) + var(--s) / 2)";
-            sc.style.top = "calc(" + (cell[0] - minR) + " * var(--s) + var(--s) / 2)";
-            sc.addEventListener("click", (e) => {
-              e.stopPropagation();
-              onUnscrew(piece.id, idx, sc);
-            });
-            el.appendChild(sc);
-          });
-          el.addEventListener("click", () => onPieceClick(piece.id, el));
-          stage.appendChild(el);
         }
-      }
-
-      function snapshot() {
-        history.push(S.cloneBoard(board));
-      }
-
-      function onUnscrew(id, idx, screwEl) {
-        if (busy || finished) return;
-        const next = S.unscrew(board, id, idx);
-        if (!next) return;
-        snapshot();
-        board = next;
-        screwEl.classList.add("pop");
-        setTimeout(() => {
-          render();
-          msg.textContent = board.pieces.some((p) => p.screws.length === 0)
-            ? "Free pieces can slide off the board. Tap one."
-            : "";
-        }, 220);
-        busy = true;
-        setTimeout(() => { busy = false; }, 220);
-      }
-
-      function onPieceClick(id, el) {
-        if (busy || finished) return;
-        const piece = board.pieces.find((p) => p.id === id);
-        if (!piece) return;
-        if (piece.screws.length > 0) {
-          msg.textContent = "Unscrew it first.";
-          el.classList.remove("blocked"); void el.offsetWidth; el.classList.add("blocked");
-          return;
+        // 3. an empty hole (drop the selected screw)
+        if (!res) {
+          for (const h of snap.holes) {
+            if (!h.screw && hit(h, p.x, p.y, 20)) { res = game.tapHole(h.id); break; }
+          }
         }
-        const dir = S.defaultSlideDir(board, id);
-        if (!dir) {
-          msg.textContent = "Blocked. Remove the piece in the way first.";
-          el.classList.remove("blocked"); void el.offsetWidth; el.classList.add("blocked");
-          return;
+        if (res && !res.ok) {
+          msg.textContent = res.reason;
+        } else if (res && res.action === "unscrew") {
+          msg.textContent = "Unscrewed. Let it fall, or park the screw somewhere.";
+        } else if (res && res.action === "select") {
+          msg.textContent = "Screw picked up. Tap an open hole to place it.";
+        } else if (res && res.action === "place") {
+          msg.textContent = res.pinned ? "Screwed back in." : "Parked in an open hole.";
         }
-        const next = S.slide(board, id, dir);
-        snapshot();
-        busy = true;
-        const [dr, dc] = S.DIRS[dir];
-        const distance = Math.max(board.cols, board.rows) + 2;
-        const anim = el.animate(
-          [
-            { transform: "translate(0, 0)" },
-            { transform: "translate(calc(" + dc * distance + " * var(--s)), calc(" + dr * distance + " * var(--s)))" },
-          ],
-          { duration: 380, easing: "ease-in", fill: "forwards" }
-        );
-        anim.onfinish = () => {
-          board = next;
-          busy = false;
-          render();
-          if (S.isSolved(board)) onWin();
-        };
-        msg.textContent = "";
+        if (game.status === "won") showWin();
       }
 
-      function onWin() {
-        finished = true;
-        clearInterval(timerId);
-        const sec = Math.floor((Date.now() - startedAt + elapsedBeforePause) / 1000);
-        els.winText.textContent = "Cleared in " + sec + "s and " + (history.length) + " actions. On to level " + (level + 1) + "!";
-        setTimeout(() => {
-          winEl.classList.add("show");
-          els.winNext.focus();
-        }, 400);
+      function showWin() {
+        document.getElementById("winText").textContent =
+          "Cleared in " + timerText() + ". " + (levelIndex + 1 < LEVELS.length ? "Next level?" : "All levels done!");
+        setTimeout(() => winEl.classList.add("show"), 600);
       }
 
-      els.undo.addEventListener("click", () => {
-        if (!history.length || busy || finished) return;
-        board = history.pop();
-        render();
-      });
-      els.restart.addEventListener("click", () => {
-        if (busy) return;
-        board = S.cloneBoard(initial);
-        history = [];
-        finished = false;
-        render();
-      });
-      els.skip.addEventListener("click", () => startLevel(level + 1));
-      els.winNext.addEventListener("click", () => startLevel(level + 1));
-      window.addEventListener("resize", () => board && fit(board));
+      function timerText() {
+        const sec = Math.floor((Date.now() - startedAt) / 1000);
+        return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+      }
 
-      startLevel(loadLevel());
+      // ---------- drawing ----------
+      function drawScrew(x, y, r, selected) {
+        ctx.save();
+        if (selected) {
+          ctx.beginPath();
+          ctx.arc(x, y, r + 6, 0, Math.PI * 2);
+          ctx.strokeStyle = "#ffd23f";
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        const g = ctx.createRadialGradient(x - r * 0.4, y - r * 0.4, 1, x, y, r);
+        g.addColorStop(0, "#fff3d6");
+        g.addColorStop(0.6, "#d68c45");
+        g.addColorStop(1, "#7a4a1e");
+        ctx.fillStyle = g;
+        ctx.fill();
+        ctx.strokeStyle = "#3d2a14";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.strokeStyle = "#3d2a14";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.45, y - r * 0.45);
+        ctx.lineTo(x + r * 0.45, y + r * 0.45);
+        ctx.moveTo(x + r * 0.45, y - r * 0.45);
+        ctx.lineTo(x - r * 0.45, y + r * 0.45);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      function drawHole(x, y, r) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(70,40,15,.55)";
+        ctx.fill();
+        ctx.strokeStyle = "rgba(255,255,255,.35)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+      }
+
+      function drawPiece(p) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.angle);
+        const x = -p.w / 2, y = -p.h / 2;
+        const r = 6;
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + p.w, y, x + p.w, y + p.h, r);
+        ctx.arcTo(x + p.w, y + p.h, x, y + p.h, r);
+        ctx.arcTo(x, y + p.h, x, y, r);
+        ctx.arcTo(x, y, x + p.w, y, r);
+        ctx.closePath();
+        if (p.kind === "metal") {
+          const g = ctx.createLinearGradient(0, y, 0, y + p.h);
+          g.addColorStop(0, "#9fdcf5");
+          g.addColorStop(0.5, "#4fa8dc");
+          g.addColorStop(1, "#2d7fb3");
+          ctx.fillStyle = g;
+        } else {
+          const g = ctx.createLinearGradient(0, y, 0, y + p.h);
+          g.addColorStop(0, "#c98a4f");
+          g.addColorStop(0.5, "#a86a35");
+          g.addColorStop(1, "#7d4a22");
+          ctx.fillStyle = g;
+        }
+        ctx.fill();
+        ctx.strokeStyle = "rgba(40,20,5,.55)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // grain / sheen lines
+        ctx.strokeStyle = "rgba(255,255,255,.15)";
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 3; i++) {
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + (p.h * i) / 3);
+          ctx.lineTo(x + p.w - 6, y + (p.h * i) / 3);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      function draw() {
+        const r = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, r.width, r.height);
+        if (!game) return;
+        const snap = game.snapshot();
+        ctx.save();
+        ctx.translate(view.ox, view.oy);
+        ctx.scale(view.scale, view.scale);
+
+        // board backdrop
+        ctx.fillStyle = "rgba(255,255,255,.12)";
+        ctx.fillRect(0, 0, game.W, game.H - 70);
+
+        for (const h of snap.holes) drawHole(h.x, h.y, 13);
+        for (const p of snap.pieces) if (!p.fallen) drawPiece(p);
+
+        // loose screws in holes
+        for (const h of snap.holes) {
+          if (!h.screw) continue;
+          const s = snap.screws.find((x) => x.id === h.screw);
+          drawScrew(h.x, h.y, 11, snap.selected === h.screw && !s.pinned);
+        }
+        // pinned screws (drawn last so they sit on top of the planks)
+        for (const h of snap.holes) {
+          if (!h.screw) continue;
+          const s = snap.screws.find((x) => x.id === h.screw);
+          if (s.pinned) drawScrew(h.x, h.y, 11, false);
+        }
+
+        // tray
+        for (let i = 0; i < snap.tray.length; i++) {
+          const sp = trySlotPos(i);
+          drawHole(sp.x, sp.y, 16);
+          if (snap.tray[i]) drawScrew(sp.x, sp.y, 12, snap.selected === snap.tray[i]);
+        }
+        ctx.restore();
+      }
+
+      function frame(now) {
+        const dt = Math.min(now - last, 100);
+        last = now;
+        if (game && game.status === "playing") {
+          acc += dt;
+          let n = 0;
+          while (acc >= TICK && n < 6) { game.step(TICK); acc -= TICK; n++; }
+          if (acc >= TICK) acc = 0;
+          if (game.status === "won") showWin();
+        }
+        draw();
+        const sec = Math.floor((Date.now() - startedAt) / 1000);
+        document.getElementById("timer").textContent =
+          Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+        requestAnimationFrame(frame);
+      }
+
+      canvas.addEventListener("pointerdown", onPointer);
+      window.addEventListener("resize", resize);
+      document.getElementById("restart").addEventListener("click", () => { startLevel(levelIndex); resize(); });
+      document.getElementById("next").addEventListener("click", () => { startLevel(levelIndex + 1); resize(); });
+      document.getElementById("winNext").addEventListener("click", () => { startLevel(levelIndex + 1); resize(); });
+
+      startLevel(levelIndex);
+      resize();
+      requestAnimationFrame(frame);
     })();
   </script>
 </body>

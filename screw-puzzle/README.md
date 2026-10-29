@@ -1,11 +1,21 @@
-# Screw Puzzle (original clone of the screw-and-slide puzzle mechanic)
+# Screw Puzzle (physics, original implementation)
 
-Wooden pieces are fixed to the board with screws. Unscrew them, then slide each
-free piece off the board. A piece can only leave when its path to the edge is
-clear. Clear the whole board to finish the level.
+A physics-based screw puzzle. Planks are held on the board by screws. Remove
+screws and the planks swing, slide, or fall off the board. Clear every plank
+to win.
 
-This is an original implementation. It uses its own colours, shapes, and CSS
-art, and does not reuse any code, images, or level data from the original game.
+This is an original implementation. It uses its own layouts, colours, and
+drawn art, and does not reuse any code, images, or level data from the
+original game.
+
+## Controls
+
+- Tap a screw in a plank: it is unscrewed and goes into a tray slot. The tray
+  has a fixed number of slots, so you may have to park screws first.
+- Tap a loose screw (in the tray or an open hole) to pick it up, then tap an
+  empty hole to park it there. If a plank covers that hole, the screw pins the
+  plank again.
+- Clear every plank off the board to win.
 
 ## Run
 
@@ -15,15 +25,14 @@ art, and does not reuse any code, images, or level data from the original game.
 
     node screw-puzzle/test.js
 
+The test runs the real Matter.js physics for each level and checks that the
+scripted solution clears the board.
+
 ## Files
 
-- `logic.js`: rules (unscrew, slide, solvability check) and seeded level generator. No DOM.
-- `index.html`: UI with timer, undo, restart, skip, and win screen. Progress saved in localStorage.
-- `test.js`: Node test suite.
-
-## How levels are guaranteed solvable
-
-Screws can always be removed, so a level is solvable exactly when its pieces can
-be slid off one at a time. The generator places random pieces, checks that greedy
-removal clears the board, and only then adds screws. Removing a piece never blocks
-another piece, so greedy removal is complete.
+- `game.js`: physics core (pins, holes, tray, win check). No DOM. Works in the
+  browser and in Node.
+- `levels.js`: hand-designed levels.
+- `index.html`: canvas UI.
+- `vendor/matter.min.js`: Matter.js 0.19.0 (MIT, see `vendor/matter-js.LICENSE`).
+- `test.js`: headless solution tests.
