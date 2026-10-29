@@ -65,7 +65,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const toScreen = (wx, wy) => Game.renderer.toScreen(wx, wy);
   // drag along a polyline: the first point sits on the tap housing, so the ink
   // has something to anchor to (an unanchored line would fall)
-  const drag = (pts) => {
+  const drag = (pts, beforeRelease) => {
     const s0 = toScreen(pts[0][0], pts[0][1]);
     canvas.dispatchEvent(ev('pointerdown', s0.x, s0.y));
     for (let k = 1; k < pts.length; k++) {
@@ -77,11 +77,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
         w.dispatchEvent(m);
       }
     }
+    if (beforeRelease) beforeRelease();
     const up = new w.MouseEvent('pointerup', { bubbles: true });
     Object.defineProperty(up, 'pointerId', { value: 1 });
     w.dispatchEvent(up);
   };
-  drag([[300, 208], [300, 250], [810, 350]]);
+  let idleWhileDrawing = false;
+  drag([[300, 208], [300, 250], [810, 350]], () => {
+    idleWhileDrawing = Game.scene.state === 'idle' && Game.scene.faucets[0].remaining ===
+      Game.scene.faucets[0].def.total;
+  });
+  check('nothing moves while the first line is being drawn', idleWhileDrawing);
+  check('lifting the pencil opens the tap', Game.scene.state === 'pouring');
   await wait(60);
   check('ink recorded from pointer input', Game.scene.ink.used > 300);
   check('tap opened', Game.scene.state !== 'idle');
@@ -139,6 +146,18 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const yStart = stA.body.position.y;
   for (let i = 0; i < 40; i++) await wait(16);
   check('mid-air stroke really falls', stA.body === null || stA.body.position.y > yStart + 30);
+
+  // a stray tap (no drag) must not waste the level
+  Game.startLevel(4);
+  await wait(60);
+  const pt = toScreen(500, 300);
+  canvas.dispatchEvent(ev('pointerdown', pt.x, pt.y));
+  const upTap = new w.MouseEvent('pointerup', { bubbles: true });
+  Object.defineProperty(upTap, 'pointerId', { value: 1 });
+  w.dispatchEvent(upTap);
+  await wait(120);
+  check('a tap without a line leaves the tap closed',
+    Game.scene.state === 'idle' && Game.scene.faucets[0].remaining === Game.scene.faucets[0].def.total);
 
   // the tap must keep running while a second stroke is being drawn
   Game.startLevel(3);

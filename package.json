@@ -9,7 +9,9 @@
     "build": "node tools/build.js",
     "verify": "node tools/verify.js",
     "smoke": "node tools/build.js && node tools/smoke.js",
-    "shots": "node tools/shot.js 1 1.4 shots/level1.png && node tools/shot.js 7 5 shots/level7.png"
+    "shots": "node tools/shot.js 1 1.4 shots/level1.png && node tools/shot.js 7 5 shots/level7.png",
+    "audit": "node tools/physics-audit.js",
+    "flaky": "node tools/flaky.js"
   },
   "devDependencies": {
     "@napi-rs/canvas": "^1.0.13",

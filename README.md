@@ -18,6 +18,8 @@ WebAudio API (no audio files), and a fully offline single-file build.
 npm start            # http://localhost:4173
 npm run build        # dist/happy-glass.html  (one self-contained file, open it anywhere)
 npm run verify       # headless playthrough of all 35 levels
+npm run audit        # physics audit: masses, colliders, tunnelling, resting contact
+npm run flaky        # plays every level 4x and fails if any run loses
 npm run smoke        # boots the built file in jsdom and plays a level end to end
 npm run shots        # renders canvas screenshots to shots/
 ```
@@ -41,7 +43,7 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 
 | Topic | Original behaviour | What this clone does |
 | --- | --- | --- |
-| **Core loop** | A tap/faucet pours water; you draw one or more solid ink lines that act as ramps, funnels and walls; the glass must fill above its dotted line. | Identical. The tap stays closed until you start drawing, so you can plan first. |
+| **Core loop** | A tap/faucet pours water; you draw one or more solid ink lines that act as ramps, funnels and walls; the glass must fill above its dotted line. | Identical. The tap stays shut and the world is frozen while you plan; **lifting the pencil after your first line opens the tap**, and any line you draw later is added to the same running world. |
 | **Win condition** | Fill the glass to the dotted line; the glass smiles. | Fill ratio is measured from the real water surface **and** droplet count inside the glass. Every glass in a level must be filled. |
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
 | **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right above the rim, which is what makes tight levels solvable). On release the whole stroke is tested: if either end touches an anchor it becomes a static, nailed-down line (the nails are drawn as small dots); if it touches nothing, it becomes one rigid body and drops. |
@@ -141,12 +143,38 @@ nailed in place, which is now the intended way to build a shelf — a free-float
   liquid, mild air friction so they don't slingshot. Water level in a glass is computed from the
   sorted droplet heights (top 18 % ignored so an incoming droplet can't fake a full glass) and
   cross-checked against droplet count.
-* **Pausing**: the world is frozen until the first stroke only. Drawing a second stroke does **not**
-  stop the pour — the tap runs through every stroke, so a falling glass and running water are part
-  of the same live world. Restart is always free.
+* **Pausing**: the world does not run at all until you lift your pencil after the first line — that
+  gesture is the "start" button, and it is also the moment gravity is switched on for every dynamic
+  body. After that nothing pauses: the tap keeps pouring while you sketch a second, third, tenth
+  line, and a stroke you cannot support falls out of the level while you watch. Restart is free.
 * **Win**: every glass above its line for ~0.5 s → stars from ink left → dialog. A dynamic glass that
   has dropped out of the level or tipped past ~70° counts as lost.
 * **Fail**: tap empty *and* the water has settled (or 22 s grace) → "not enough water" dialog.
+
+### Physics audit
+
+`npm run audit` measures the live simulation rather than trusting the code comments. What it
+checks, and what it found the last time it was run:
+
+| Check | Result |
+| --- | --- |
+| gravity is one global acceleration | 0.384 px/step² (≈ 1381 px/s²) |
+| a droplet cannot shove a glass | 500 : 1 mass ratio, full glass of water = 12 % of the cup |
+| a supported glass rests without jitter | 0.58 px drift over 6 s |
+| droplets are born outside the tap collider | 3–4 px clear of the plate |
+| no droplet can tunnel through a 15 px line | fastest 21.1 px/step vs 22 px of travel — clamp at 22 |
+| ink that touches nothing falls | y 300 → 912 in 1 s, culled when it leaves the level |
+| ink that touches scenery is static | 31 segments, up to 3 nails |
+| a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
+| unsupported glass / crate fall | glass leaves the level, crate drops 660 px |
+| water stays pooled once it lands | fill 0.86 → 0.86 after 10 s |
+| same strokes, same result | 31/31/31/31/31 droplets over 5 runs |
+
+Fixes that came out of that audit: ink was anchoring to *its own* half-drawn segments (so every
+line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
+pointer-*down* instead of on lift, the speed clamp allowed tunnelling, and the glass carried an
+unnecessary ×3.5 rotational cheat. Full report, including the intentional shortcuts (static
+anchored ink, no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
 ## 4. Testing without a browser
 
@@ -154,6 +182,10 @@ This repo ships a headless harness so level design isn't guesswork:
 
 * `tools/simheadless.js` boots the real `scene.js`/`water.js` in Node (the only shim is
   `localStorage`), so the *exact* simulation that runs in the browser can be played from the CLI.
+* `tools/physics-audit.js` (`npm run audit`) measures the running world: masses, collider overlap at
+  spawn, tunnelling margins, resting-contact drift, and whether unsupported bodies actually fall.
+* `tools/flaky.js` (`npm run flaky`) replays every reference solution four times and fails the build
+  if a level wins only sometimes.
 * `tools/solutions.js` holds one human-style reference solution per level.
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
   **35/35 levels solvable**, and every glass's fill target sits ~20 % below the maximum the
@@ -173,6 +205,7 @@ This repo ships a headless harness so level design isn't guesswork:
 | Input | Action |
 | --- | --- |
 | Drag (mouse / touch / pen) | draw ink |
+| Lift the pencil | open the tap and switch gravity on (first time only) |
 | `R` / ↻ button | restart level |
 | `Esc` | back to level select |
 | `?` button | how to play (pauses the level) |

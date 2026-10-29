@@ -100,7 +100,9 @@
       }
 
       // bullets / hot pads / out of bounds
-      const MAXV = 30;
+      // Matter has no continuous collision detection: a droplet faster than
+      // (ink thickness + its radius) can skip straight through a drawn line.
+      const MAXV = 22;
       for (const p of this.particles) {
         if (p.dead) continue;
         const b = p.body;

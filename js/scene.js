@@ -14,6 +14,8 @@
   const INK_MIN_STEP = 9;       // simplified point spacing
   const ANCHOR_R = 16;          // how close ink must be to nail itself down
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
+  const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
+  const MAX_DROP_SPEED = 22;    // px/step where droplets start tunnelling 15px ink
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
@@ -354,7 +356,7 @@
             sleepThreshold: 40,
           });
           // extra rotational inertia: glasses tip slowly instead of being flicked
-          Body.setInertia(body, body.inertia * 3.5);
+          Body.setInertia(body, body.inertia * GLASS_INERTIA);
           body.glass = g;
           body.parts.forEach((pt) => {
             if (pt !== body) { pt.glass = g; pt.label = 'glasswall'; }
@@ -526,12 +528,12 @@
 
     endInk() {
       const st = this.ink.active;
-      if (!st) return;
+      if (!st) return false;
       this.ink.active = null;
       if (st.points.length < 2) {
         st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
         this.ink.segments = this.ink.segments.filter((sg) => sg.stroke !== st);
-        return;
+        return false;
       }
       this.ink.strokes.push(st);
 
@@ -546,7 +548,7 @@
       if (anchored) {
         st.segs.forEach((seg) => { seg.body.isProvisional = false; });
         this._anchors = null;      // a new anchor exists for later strokes
-        return;
+        return true;
       }
 
       // ---- nothing holds it: hand it to gravity as one rigid body
@@ -573,6 +575,7 @@
         seg.ly = seg.my - body.position.y;
         seg.body = body;
       });
+      return true;
     }
 
     // current world-space endpoints of every ink segment (static or falling)
@@ -669,7 +672,9 @@
         while (spawns-- > 0 && f.remaining > 0) {
           if (this.water.particles.length >= HG.Water.MAX_PARTICLES) break;
           const sx = f.x + M.rand(-1, 1) * (f.def.spread * 10 + 2);
-          const p = this.water.spawn(sx, f.y + 4, M.rand(-0.55, 0.55), 2.2);
+          // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
+          // droplet born inside a static body gets squeezed out sideways
+          const p = this.water.spawn(sx, f.y + 4 + HG.Water.R + 1.5, M.rand(-0.55, 0.55), 2.2);
           if (p) f.remaining--;
         }
         f.flow = f.remaining > 0 ? 1 : 0;

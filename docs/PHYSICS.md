@@ -1,0 +1,93 @@
+# Physics audit
+
+Run it yourself:
+
+```
+npm run audit      # node tools/physics-audit.js — exits 1 if any check fails
+```
+
+Everything below is measured from the *running* simulation (`tools/physics-audit.js`
+boots the same `scene.js` / `water.js` the browser uses, only `localStorage` is shimmed).
+
+## 1. The world
+
+| Setting | Value | Why |
+| --- | --- | --- |
+| Engine | Matter.js 0.20 | rigid bodies + soft particle fluid |
+| Timestep | fixed 16.667 ms, max 4 catch-up steps | frame-rate independent; 30 fps and 144 fps play the same |
+| Gravity | one global vector, `g.y = 1`, `scale = 0.0014` | measured **0.384 px/step² ≈ 1381 px/s²** |
+| Solver | 8 position / 6 velocity iterations | enough for 300 stacked droplets without sinking |
+| Sleeping | off for the glass (it must react to a single hit) | |
+
+## 2. Masses (Matter units, measured)
+
+| Body | Mass | Ratio to a droplet |
+| --- | --- | --- |
+| water droplet (r = 7) | 0.24 – 0.28 | 1 |
+| 90 px ink stroke (10 sub-bodies) | 2.5 – 3.5 | ~12 |
+| loose wooden crate (80²) | 16.6 | ~65 |
+| glass (5 colliders, weighted base) | 122.8 | ~500 |
+| water in a *full* glass (≈ 47 droplets) | 13.6 | — |
+
+Consequences that are intentional:
+
+* A droplet can never shove the glass around (**500:1**), so the glass does not jitter while it fills.
+* The base of the cup is 5× denser than its walls, so the centre of mass sits low and a glass tips
+  slowly instead of flicking over the instant water lands.
+* A full glass of water is only **12 %** of the cup's mass — the cup is holding water, not being
+  held up by it.
+
+## 3. What each element obeys
+
+| Element | Body type | Gravity? | Collides with |
+| --- | --- | --- | --- |
+| glass | one **compound dynamic** body (5 chamfered colliders) | yes | ink, crates, platforms, spinners, water |
+| drawn line, anchored | static bodies, one per 9 px of stroke | no (it is nailed to scenery) | water, glass, crates, loose ink |
+| drawn line, unanchored | **one rigid compound** body, parts kept as sub-bodies | yes | everything, including other ink |
+| crate | dynamic or static depending on the level | yes (if dynamic) | all |
+| spinner / seesaw | dynamic body on a pin constraint | yes, rotates freely | water, ink, glass |
+| mover | static body, **position** driven | no | all (speed is not faked through velocity) |
+| water | 340 max circles, `friction 0.0015`, `restitution 0.03` | yes | each other, ink, glass, scenery |
+| hot pad | a sensor region that deletes droplets + puffs | — | — |
+| blower | force field, `F = k · falloff · mass` | — | — |
+
+## 4. Findings from this audit (all fixed)
+
+1. **Ink anchored itself to itself.** `anchorBodies()` collected every static `ink` body, which
+   included the provisional segments of the stroke still under your finger. Every line was therefore
+   "anchored" and hung in mid-air — the exact bug reported as *"why are both wires not drawing /
+   not falling"*. Anchor candidates are now filtered by `strokeRef.anchored`, so only a **finished**
+   line can hold another line.
+2. **Droplets were born inside the tap.** The emitter sat at `f.y + 4`, which is exactly the bottom
+   edge of the 88×16 plate collider, so every droplet started life 7.5 px embedded in a static body
+   and got squeezed out sideways (measured: 9 of 15 droplets drifting > 3 px). They now spawn
+   `plate.bottom + r + 1.5`, i.e. **3–4 px clear**.
+3. **The tap opened on pointer-down.** Gravity and the pour started the instant you touched the
+   screen, while the first line was still half-drawn. Now the level stays frozen while you plan;
+   `endInk()` on **lift** calls `scene.start()`. Later strokes never pause anything.
+4. **Tunnelling window.** Droplets were clamped at 30 px/step, but Matter has no continuous
+   collision detection and a line is only 15 px thick (+7 px droplet radius = 22 px of travel).
+   The clamp is now **22 px/step**; measured fastest droplet in the wild is 21.1 px/step.
+5. **Glass inertia was multiplied ×3.5** to stop flicking. With the weighted base already in place,
+   ×2 is stable in 4 consecutive full playthroughs and tips more believably, so it is now ×2.
+
+## 5. Deliberate deviations (documented cheats)
+
+| Cheat | Why it is there | Effect |
+| --- | --- | --- |
+| anchored ink is static (infinite mass) | a drawn line is "ink that dried"; the level must not sag under water | a nailed line cannot be pushed by anything |
+| no world floor | a glass or line that falls off the level is removed | failing is unambiguous, and it matches the reference game |
+| the glass starts on a small wooden ledge ("coaster") | a loose cup on nothing at all is a design bug, not a puzzle | every non-hanging glass has a real supporting body |
+| terminal-velocity clamp (22 px/step) | no CCD in Matter | water never tunnels through ink |
+| hot pads delete droplets instead of boiling them | 300-particle budget | ~2 % water loss per touch, plus steam puffs |
+| movers are kinematic (`Body.setPosition`) | giving a static body velocity launched water into orbit | obstacles push water by sweeping through it |
+
+## 6. Objective function the levels are verified against
+
+`tools/verify.js` + `tools/flaky.js` replay one reference solution per level and check, in order:
+
+1. **water level** — every glass above its dotted line (`fill >= need`, measured from real droplet
+   positions and cross-checked against droplet count);
+2. **glass stability** — the glass is still in the level and upright (`|angle| < 1.25 rad`);
+3. **ink efficiency** — stars from the 3-block meter, so the reference solutions stay well inside
+   the budget (2–3 stars).

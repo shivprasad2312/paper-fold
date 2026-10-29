@@ -1038,7 +1038,7 @@
       ctx.fillStyle = C.inkSoft;
       ctx.font = '600 17px Fredoka, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('draw a line to start the tap', f.x, f.y + 46);
+      ctx.fillText('draw, then lift your pencil to start the tap', f.x, f.y + 46);
       ctx.restore();
     }
 

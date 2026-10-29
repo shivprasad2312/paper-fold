@@ -205,6 +205,8 @@
 
       if (this.scene.state === 'won' || this.scene.state === 'lost') return;
       if (this.scene.inkRemaining() <= 0) return;
+      // one stroke at a time: a second finger must not hijack the line in flight
+      if (this.pointer.active) return;
 
       const w = this.renderer.toWorld(px, py);
       if (w.x < 4 || w.x > HG.W - 4 || w.y < 4 || w.y > HG.H - 4) return;
@@ -220,7 +222,6 @@
       this.pointer.world = w;
       if (this.scene.beginInk(w.x, w.y)) {
         HG.Sfx.ensure();
-        if (this.scene.state === 'idle') this.scene.start();
         HG.Sfx.draw();
       }
     },
@@ -245,7 +246,14 @@
       if (this.pointer.id != null && e.pointerId !== this.pointer.id) return;
       this.pointer.active = false;
       this.pointer.id = null;
-      if (this.scene) this.scene.endInk();
+      if (this.scene) {
+        const committed = this.scene.endInk();
+        // Lifting the pencil is what opens the tap: the level is frozen while
+        // you plan your first line, and the moment you let go of a real line
+        // gravity takes over and the water starts. A stray tap changes nothing,
+        // and later strokes never stop the pour.
+        if (committed && this.scene.state === 'idle') this.scene.start();
+      }
     },
 
     // ------------------------------------------------------------------- loop
