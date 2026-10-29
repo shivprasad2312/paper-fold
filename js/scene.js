@@ -433,10 +433,16 @@
     // solid things your ink can be nailed to: scenery, crates and the tap itself
     anchorBodies() {
       if (this._anchors) return this._anchors;
-      this._anchors = Composite.allBodies(this.world).filter(
-        (b) => b.isStatic && (b.label === 'platform' || b.label === 'crate' ||
-          b.label === 'faucet' || b.label === 'pin' || b.label === 'ink')
-      );
+      this._anchors = Composite.allBodies(this.world).filter((b) => {
+        if (!b.isStatic) return false;
+        if (b.label === 'ink') {
+          // only a finished, anchored stroke can hold another stroke — the
+          // segments of the line you are drawing must never anchor themselves
+          return !!(b.strokeRef && b.strokeRef.anchored);
+        }
+        return b.label === 'platform' || b.label === 'crate' ||
+          b.label === 'faucet' || b.label === 'pin';
+      });
       return this._anchors;
     }
 
@@ -464,6 +470,7 @@
     }
 
     beginInk(x, y) {
+      this._anchors = null;
       if (this.inkRemaining() <= 0) return false;
       this.ink.active = { points: [{ x, y }], segs: [], pins: [] };
       return true;
@@ -495,12 +502,14 @@
       );
       body.isProvisional = true;
       Composite.add(this.world, body);
+      body.strokeRef = null;   // set below, once the seg exists
       const seg = {
         x1: last.x, y1: last.y, x2: nx, y2: ny,
         mx: (last.x + nx) / 2, my: (last.y + ny) / 2,
         angle, len: len + INK_W * 0.9,
         body: body, stroke: st, dyn: false,
       };
+      body.strokeRef = st;
       st.segs.push(seg);
       this.ink.segments.push(seg);
       st.points.push({ x: nx, y: ny });
@@ -572,7 +581,7 @@
       let n = 0;
       for (const seg of this.ink.segments) {
         let x1, y1, x2, y2;
-        if (seg.dyn && seg.stroke && seg.stroke.body) {
+        if (seg.dyn && seg.stroke && seg.stroke.body && !seg.stroke.gone) {
           const b = seg.stroke.body;
           const c = Math.cos(b.angle), s = Math.sin(b.angle);
           const mx = b.position.x + seg.lx * c - seg.ly * s;
@@ -730,6 +739,18 @@
         }
       }
       this.shake = M.approach(this.shake, 0, 6, sec);
+
+      // a stroke that lost its anchor has fallen out of the level — forget it
+      for (const st of this.ink.strokes) {
+        if (st.gone || !st.body) continue;
+        if (st.body.position.y > HG.H + 420) {
+          Composite.remove(this.world, st.body);
+          st.gone = true;
+          st.body = null;
+          this.ink.segments = this.ink.segments.filter((sg) => sg.stroke !== st);
+          this._segCache = null;
+        }
+      }
 
       // ---- win / lose timing
       if (this.state !== 'won' && this.state !== 'lost') {

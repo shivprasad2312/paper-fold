@@ -63,17 +63,25 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   Game.startLevel(7);
   await wait(60);
   const toScreen = (wx, wy) => Game.renderer.toScreen(wx, wy);
-  const a = toScreen(300, 250), b = toScreen(810, 350);
-  canvas.dispatchEvent(ev('pointerdown', a.x, a.y));
-  for (let i = 1; i <= 12; i++) {
-    const p = toScreen(300 + (810 - 300) * (i / 12), 250 + (350 - 250) * (i / 12));
-    const m = new w.MouseEvent('pointermove', { bubbles: true, clientX: p.x, clientY: p.y });
-    Object.defineProperty(m, 'pointerId', { value: 1 });
-    w.dispatchEvent(m);
-  }
-  const up = new w.MouseEvent('pointerup', { bubbles: true });
-  Object.defineProperty(up, 'pointerId', { value: 1 });
-  w.dispatchEvent(up);
+  // drag along a polyline: the first point sits on the tap housing, so the ink
+  // has something to anchor to (an unanchored line would fall)
+  const drag = (pts) => {
+    const s0 = toScreen(pts[0][0], pts[0][1]);
+    canvas.dispatchEvent(ev('pointerdown', s0.x, s0.y));
+    for (let k = 1; k < pts.length; k++) {
+      const [ax, ay] = pts[k - 1], [bx, by] = pts[k];
+      for (let i = 1; i <= 12; i++) {
+        const p = toScreen(ax + (bx - ax) * (i / 12), ay + (by - ay) * (i / 12));
+        const m = new w.MouseEvent('pointermove', { bubbles: true, clientX: p.x, clientY: p.y });
+        Object.defineProperty(m, 'pointerId', { value: 1 });
+        w.dispatchEvent(m);
+      }
+    }
+    const up = new w.MouseEvent('pointerup', { bubbles: true });
+    Object.defineProperty(up, 'pointerId', { value: 1 });
+    w.dispatchEvent(up);
+  };
+  drag([[300, 208], [300, 250], [810, 350]]);
   await wait(60);
   check('ink recorded from pointer input', Game.scene.ink.used > 300);
   check('tap opened', Game.scene.state !== 'idle');
@@ -109,8 +117,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     Object.defineProperty(up2, 'pointerId', { value: 1 });
     w.dispatchEvent(up2);
   };
-  drawStroke([[400, 250], [640, 310]]);
-  drawStroke([[630, 470], [790, 470]]);
+  drawStroke([[400, 208], [400, 250], [640, 310]]);
+  drawStroke([[616, 472], [790, 472]]);
   await wait(60);
   const g26 = Game.scene.glasses[0];
   check('floating glass is dynamic', g26.dynamic && !!g26.body);
@@ -119,6 +127,34 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('dynamic glass level resolves (won=' + Game.scene.state + ')', Game.scene.state === 'won');
   check('dynamic glass stayed supported', Math.abs(Game.scene.glasses[0].cy - y0) < 40);
   check('dynamic glass got filled', Game.scene.glasses[0].fill > 0.5);
+
+  // ---- anchoring: an unanchored stroke must fall, an anchored one must hold
+  Game.startLevel(1);
+  await wait(60);
+  drawStroke([[400, 250], [560, 250]]);          // touches nothing at all
+  await wait(80);
+  const stA = Game.scene.ink.strokes[Game.scene.ink.strokes.length - 1];
+  check('mid-air stroke is not anchored', stA.anchored === false);
+  check('mid-air stroke became a falling body', !!stA.body);
+  const yStart = stA.body.position.y;
+  for (let i = 0; i < 40; i++) await wait(16);
+  check('mid-air stroke really falls', stA.body === null || stA.body.position.y > yStart + 30);
+
+  // the tap must keep running while a second stroke is being drawn
+  Game.startLevel(3);
+  await wait(60);
+  drawStroke([[498, 230], [600, 300]]);          // starts on the tap plate
+  for (let i = 0; i < 30; i++) await wait(16);
+  const tap = Game.scene.faucets[0];
+  const before = tap.remaining;
+  const s0 = toScreen(300, 400);
+  canvas.dispatchEvent(ev('pointerdown', s0.x, s0.y));   // finger down, no stroke yet
+  for (let i = 0; i < 25; i++) await wait(16);
+  const after = Game.scene.faucets[0].remaining;
+  const up3 = new w.MouseEvent('pointerup', { bubbles: true });
+  Object.defineProperty(up3, 'pointerId', { value: 1 });
+  w.dispatchEvent(up3);
+  check('tap keeps pouring while drawing again', after < before - 1);
 
   console.log(report.join('\n'));
   if (errors.length) {

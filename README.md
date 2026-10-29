@@ -28,6 +28,10 @@ npm run shots        # renders canvas screenshots to shots/
 | --- | --- |
 | ![support](docs/screenshot-support.png) | ![wedge](docs/screenshot-wedge.png) |
 
+| Ink hung from the tap splits one stream in two | Falling ink is real ink: unsupported lines drop out |
+| --- | --- |
+| ![split](docs/screenshot-split.png) | ![levels](docs/levels.png) |
+
 ---
 
 ## 1. How the real game works (research summary)
