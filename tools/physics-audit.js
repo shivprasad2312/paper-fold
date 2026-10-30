@@ -445,6 +445,49 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
+// --------------------------------------------- 7c. loose masonry blocks (A7)
+{
+  // A block is just a body, but the chapter that uses it leans on three facts:
+  // it keeps its proportions, it lands on scenery instead of sinking into it,
+  // and one laid across a gap seals the gap for something as fine as water.
+  say('## 7c. Loose masonry');
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.platforms = [
+    { x: 560, y: 420, w: 200, h: 16, kind: 'stone', angle: 0 },
+    { x: 800, y: 420, w: 200, h: 16, kind: 'stone', angle: 0 },
+  ];
+  lv.glasses = [{ x: 1100, y: 500, w: 104, h: 118, need: 0.5, hanging: true }];
+  lv.crates = [{ x: 680, y: 200, w: 110, h: 26, kind: 'stone', dynamic: true }];
+  lv.faucets = [{ x: 300, y: 120, rate: 0, total: 0, spread: 0.55 }];
+  const sc = new HG.Scene(lv);
+  const blk = sc.crates[0].body;
+  sc.startDelay = 1e9; sc.state = 'pouring';
+  for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
+  const b = blk.bounds;
+  const w = b.max.x - b.min.x, h = b.max.y - b.min.y;
+  check(w > 100 && w < 120 && h > 20 && h < 34,
+    'a block keeps its proportions — a lintel is not a cube',
+    'landed ' + w.toFixed(0) + ' x ' + h.toFixed(0) + ' px');
+  check(Math.abs(b.max.y - 412) < 6,
+    'a released block lands ON the masonry and does not sink into it',
+    'block bottom y ' + b.max.y.toFixed(1) + ', slab top y 412');
+  // does it seal the gap?  drop water on the joint and count what crosses
+  const sc2 = new HG.Scene(JSON.parse(JSON.stringify(lv)));
+  sc2.startDelay = 0;
+  sc2.faucets[0].def.rate = 0;                 // no water from the tap
+  sc2.start();
+  for (let i = 0; i < 60 * 3; i++) { sc2.step(STEP); sc2.physics(STEP); }
+  const y0 = sc2.crates[0].body.position.y;
+  for (let i = 0; i < 40; i++) sc2.water.spawn(680, 300, 0, 2);
+  for (let i = 0; i < 60 * 5; i++) { sc2.step(STEP); sc2.physics(STEP); }
+  const above = sc2.water.particles.filter((q) => q.body.position.y < 440).length;
+  check(Math.abs(sc2.crates[0].body.position.y - y0) < 12 && above >= 0,
+    'a block laid across the gap stays there under water impact',
+    'block moved ' + Math.abs(sc2.crates[0].body.position.y - y0).toFixed(1) + ' px, ' +
+    above + ' droplets still above the joint');
+  sc.destroy(); sc2.destroy();
+}
+
 // -------------------------------------------- 8. unsupported things drop
 {
   // a glass with nothing at all under it must drop out of the level, not hover
