@@ -161,13 +161,15 @@ checks, and what it found the last time it was run:
 | Check | Result |
 | --- | --- |
 | gravity is one global acceleration | 0.384 px/step² (≈ 1381 px/s²) |
-| a droplet cannot shove a glass | 467 : 1 mass ratio, full glass of water = 12 % of the cup |
+| a droplet cannot shove a glass | 501 : 1 mass ratio, full glass of water = 11 % of the cup |
 | a supported glass rests without jitter | 0.91 px drift over 6 s |
-| droplets are born outside the tap collider | 3.5 px clear of the plate |
-| a droplet moves less than a rod-thickness per solver step | 6.2 px/step (18.6 px/frame ÷ 3 substeps) vs an 8 px rod |
-| no droplet can tunnel through a drawn line | 18.6 px/frame vs 22 px of rod + droplet |
-| a welded wire never moves, even under a 5 s stream | identical geometry, 4 nails, `isStatic` |
-| water resting on the wire is asleep, not buzzing | worst 0.014 px/step, 0 of 12 600 samples moving |
+| droplets are born outside the tap collider | 3.3 px clear of the plate |
+| a droplet moves less than a rod-thickness per solver step | 4.2 px/step (16.6 px/frame ÷ 4 substeps) vs a 6 px rod |
+| no droplet can tunnel through a drawn line | 16.6 px/frame vs 20 px of rod + droplet |
+| a braced wire never moves, even under a 5 s stream | identical geometry, 4 nails, `isStatic` |
+| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 120 samples moving |
+| a wire with a single nail is **not** welded | 1 nail, dynamic, on a revolute joint |
+| a cantilevered wire swings down about its nail | rotated 65° in 4 s, centre fell 139 px, then rest |
 | ink that touches nothing falls | y 300 → 894 in 1 s, culled when it leaves the level |
 | ink that touches scenery is static | 63 segments, up to 4 nails |
 | a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
@@ -178,10 +180,13 @@ checks, and what it found the last time it was run:
 Fixes that came out of that audit: ink was anchoring to *its own* half-drawn segments (so every
 line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
 pointer-*down* instead of on lift, a once-per-frame solver let fast droplets straddle the wire (the
-"vibrating line" report), and the glass carried an unnecessary ×3.5 rotational cheat. The latest
-pass halved the wire to 8 px, added three physics substeps per frame with a 18 px/frame droplet
-speed ceiling, and put a rest floor under settled bodies — see [`docs/PHYSICS.md`](docs/PHYSICS.md). Full report, including the intentional shortcuts (static
-anchored ink, no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
+"vibrating line" report), the glass carried an unnecessary ×3.5 rotational cheat, and — the last
+one — **a single nail was welded like a steel bracket**, so a ramp hooked on the tap hung out
+sideways holding water. One nail is now a revolute joint: the wire swings down about it and settles;
+two or more nails is a weld, because that is wire bent around two hooks. The wire is 6 px (down from
+15), physics runs four substeps per frame under a 16 px/frame droplet ceiling, and every ramp stands
+on a stone bracket. Full report, including the intentional shortcuts (braced ink is static,
+no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
 ## 4. Testing without a browser
 
@@ -196,6 +201,11 @@ This repo ships a headless harness so level design isn't guesswork:
 * `tools/solutions.js` holds one human-style reference solution per level.
 * `tools/margins.js` reports, per level, how far the reference solution clears its target — the
   number that decides whether a level is comfortable or knife-edge.
+* `tools/cushion.js` lowers any target the reference solution only clears by one droplet, so a win
+  never hangs on a single particle.
+* `tools/props.js` stands a stone bracket under every ramp that would otherwise hang on one nail;
+  `tools/postfit.js` slides it until the water clears it cleanly, `tools/reanchor.js` reports which
+  strokes have a real second support and which do not.
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
   **35/35 levels solvable**, confirmed by `tools/flaky.js` over four full passes. Targets are
   re-cushioned whenever the reference solution wins by less than two droplets, so a win never hangs

@@ -784,11 +784,11 @@
       // shadow — the wire is half as thick now, so the drop shadow has to be
       // tight as well or the line reads as a fat marker again
       ctx.strokeStyle = 'rgba(45,59,71,.15)';
-      ctx.lineWidth = HG.Scene.INK_W + 3;
+      ctx.lineWidth = HG.Scene.INK_W + 2;
       ctx.beginPath();
       segs.forEach((s) => {
-        ctx.moveTo(s.x1 + 1.5, s.y1 + 3);
-        ctx.lineTo(s.x2 + 1.5, s.y2 + 3);
+        ctx.moveTo(s.x1 + 1, s.y1 + 2);
+        ctx.lineTo(s.x2 + 1, s.y2 + 2);
       });
       ctx.stroke();
       // body
@@ -802,12 +802,12 @@
       ctx.stroke();
       // marker highlight — a thin wire gets a thin specular streak
       ctx.strokeStyle = 'rgba(140,170,190,.5)';
-      ctx.lineWidth = 2.2;
+      ctx.lineWidth = 1.6;
       ctx.beginPath();
       segs.forEach((s) => {
         const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
         const len = Math.hypot(dx, dy) || 1;
-        const nx = (-dy / len) * 1.4, ny = (dx / len) * 1.4;
+        const nx = (-dy / len) * 1.0, ny = (dx / len) * 1.0;
         ctx.moveTo(s.x1 + nx, s.y1 + ny);
         ctx.lineTo(s.x2 + nx, s.y2 + ny);
       });
@@ -818,7 +818,7 @@
         if (!st.anchored || !st.pins || !st.pins.length) return;
         st.pins.forEach((p) => {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 3.1, 0, HG.TAU);
+          ctx.arc(p.x, p.y, 2.6, 0, HG.TAU);
           ctx.fillStyle = '#f4e1b8';
           ctx.fill();
           ctx.strokeStyle = C.ink;
@@ -1191,7 +1191,7 @@
         ctx.fillStyle = filled ? C.star : '#fffdf6';
         ctx.fill();
         ctx.strokeStyle = filled ? C.starDark : 'rgba(45,59,71,.4)';
-        ctx.lineWidth = 2.2;
+        ctx.lineWidth = 1.6;
         ctx.stroke();
         ctx.restore();
       });

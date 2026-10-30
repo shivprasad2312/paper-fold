@@ -43,7 +43,9 @@ const STEP = 1000 / 60;
  */
 function play(HG, id, strokes, opts) {
   opts = opts || {};
-  const level = HG.levelById(id);
+  // opts.level lets a design tool play a *modified* layout (a candidate prop,
+  // a moved crate) without touching the shipped levels.
+  const level = opts.level ? JSON.parse(JSON.stringify(opts.level)) : HG.levelById(id);
   const scene = new HG.Scene(level);
   let ok = true;
   const err = [];

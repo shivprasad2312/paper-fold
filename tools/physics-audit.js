@@ -83,22 +83,22 @@ const drawAll = (scene, strokes) => {
 }
 
 // ------------------------------------------------- 3b. settled contact is still
-// A nailed wire and a pool of settled water must be *perfectly* motionless.
+// A braced wire and a pool of settled water must be *perfectly* motionless.
 // Anything left moving is what a player reports as "the line is vibrating".
 {
   // NB: deep-copy the level — levels are shared objects, and scribbling on one
   // here would corrupt every later check.
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
-  lv.glasses = [{ x: 150, y: 620, w: 60, h: 60, need: 0.99 }];
-  lv.faucet = { x: 640, y: 120, rate: 50, total: 400 };
-  lv.platforms = [{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }];
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));   // glass on its pedestal
+  lv.platforms = lv.platforms.concat([{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }]);
   const sc = new HG.Scene(lv);
-  drawAll(sc, [[[420, 408], [420, 300]], [[860, 408], [860, 300]], [[420, 408], [860, 408]]]);
+  // a wire lying along the ledge: it is pressed onto it at both ends
+  drawAll(sc, [[[420, 408], [860, 408]]]);
   const wire = sc.ink.strokes[0];
   const shape0 = JSON.stringify(sc.inkWorldSegments());
   sc.start();
-  // 4 s of pour, then 1 s of quiet, then measure for 2 s
   for (let i = 0; i < 60 * 5; i++) { sc.step(STEP); sc.physics(STEP); }
+  // let the last of the stream land and settle before judging "at rest"
+  for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
   const shapeAfterPour = JSON.stringify(sc.inkWorldSegments());
   let worstSpeed = 0, moving = 0, samples = 0;
   for (let i = 0; i < 60 * 2; i++) {
@@ -111,12 +111,42 @@ const drawAll = (scene, strokes) => {
     }
   }
   say('## 3b. Settled contact is motionless');
-  check(wire.anchored && wire.body.isStatic, 'a wire drawn on a ledge is welded, not simulated',
+  check(wire.pins.length >= 2 && wire.body.isStatic, 'a wire resting on a ledge is welded, not simulated',
     (wire.pins.length || 0) + ' nail(s), static ' + wire.body.isStatic);
-  check(shapeAfterPour === shape0, 'the welded wire never moves, even under a 5 s stream',
+  check(shapeAfterPour === shape0, 'the braced wire never moves, even under a 5 s stream',
     shapeAfterPour === shape0 ? 'identical geometry over 5 s of water' : 'geometry drifted');
-  check((moving / samples) < 0.01, 'water resting on the wire is asleep, not buzzing',
+  check((moving / samples) < 0.005, 'water resting on the wire is asleep, not buzzing',
     'worst ' + worstSpeed.toFixed(3) + ' px/step, ' + moving + '/' + samples + ' samples moving');
+  sc.destroy();
+}
+
+// --------------------------------------------------- 3c. one nail is a hinge
+// The reported bug: a line hooked onto the tap stayed out sideways like a steel
+// bracket. A single point contact cannot carry a lever, so the wire must swing
+// about the nail until its weight hangs under it.
+{
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
+  lv.faucet = { x: 330, y: 190, rate: 40, total: 400 };
+  lv.faucets = [lv.faucet];
+  lv.platforms = [];
+  lv.crates = []; lv.pins = [];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[330, 200], [330, 250], [810, 350]]]);   // hooked on the tap only
+  const st = sc.ink.strokes[0];
+  const nails = st.pins.filter((p) => p && st.pinSupports.some((b) => b && b.label === 'faucet')).length;
+  const a0 = st.body.angle;
+  const endY0 = st.body.position.y;
+  sc.start(); sc.state = 'pouring'; sc.startDelay = 1e9;
+  for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
+  const swing = Math.abs(((st.body.angle - a0) * 180) / Math.PI);
+  say('## 3c. One nail is a hinge, not a bracket');
+  check(st.pins.length === 1 && !st.body.isStatic, 'a wire with a single nail is not welded',
+    st.pins.length + ' nail(s), static ' + st.body.isStatic);
+  check(swing > 30, 'a cantilevered wire swings down about its nail',
+    'rotated ' + swing.toFixed(1) + '° in 4 s, centre fell ' + (st.body.position.y - endY0).toFixed(1) + ' px');
+  check(Math.abs(st.body.angularVelocity) < 0.08, 'and it comes to rest instead of swinging forever',
+    'angular velocity ' + st.body.angularVelocity.toFixed(3) + ' rad/step');
   sc.destroy();
 }
 

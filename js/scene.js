@@ -10,14 +10,14 @@
   const M = HG.M;
 
   const WALL = 7;               // glass wall thickness
-  const INK_W = 8;              // ink line thickness (half the old 15 px rod)
-  const INK_MIN_STEP = 5;       // simplified point spacing (finer: thin rods need it)
-  const PHYS_SUBSTEPS = 3;      // solver passes per rendered frame (see physics())
+  const INK_W = 6;              // ink line thickness (40% of the original 15 px)
+  const INK_MIN_STEP = 4;       // simplified point spacing (finer: thin rods need it)
+  const PHYS_SUBSTEPS = 4;      // solver passes per rendered frame (see physics())
   const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
   const INK_DENSITY = 0.0018;   // ink is iron wire, not paint: it has real mass
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
-  const MAX_DROP_SPEED = 18;    // px/frame: 6 px per solver step, under the 8 px rod
+  const MAX_DROP_SPEED = 16;    // px/frame: 4 px per solver step, under the 6 px rod
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
@@ -678,9 +678,24 @@
         st.pins.push({ x: c.x, y: c.y });
         st.pinSupports.push(c.body);
       }
-      // a nailed wire is welded where it touches: dried ink is rigid, so it
-      // holds the water instead of sagging. Wire with no nail stays dynamic.
-      if (st.pins.length) Body.setStatic(body, true);
+      // One nail is a nail, not a bracket: the wire hangs from it and rotates
+      // about it under its own weight (see solveHinge). Two or more nails means
+      // the wire was bent around them, and that really is rigid — so it is
+      // welded. No nails, no support: it drops.
+      if (st.pins.length >= 2) {
+        Body.setStatic(body, true);
+      } else if (st.pins.length === 1) {
+        const p = st.pins[0];
+        const dx = p.x - body.position.x;
+        const dy = p.y - body.position.y;
+        const c = Math.cos(-body.angle), sn = Math.sin(-body.angle);
+        st.hinge = {
+          x: p.x, y: p.y,                    // world anchor
+          lx: dx * c - dy * sn,              // same point, in the body's frame
+          ly: dx * sn + dy * c,
+          support: st.pinSupports[0] || null,
+        };
+      }
 
       st.anchored = st.pins.length > 0;
       this._anchors = null;      // a new (possibly anchored) stroke exists
@@ -981,7 +996,10 @@
       }
       const n = PHYS_SUBSTEPS;
       const h = dt / n;
-      for (let i = 0; i < n; i++) Engine.update(this.engine, h);
+      for (let i = 0; i < n; i++) {
+        Engine.update(this.engine, h);
+        this.solveHinge();
+      }
       this.holdAnchoredInk();
       this.calmBodies();
     }
@@ -1016,6 +1034,37 @@
     // there. If that support moves away (a crate slides off, a block is knocked
     // over) the nails have nothing to grip and the wire drops — physics, not a
     // permanent freeze.
+    // A wire hanging from a single nail is a physical pendulum about that nail:
+    // the nail point stays put, the rest of the wire is pulled round by gravity.
+    // We hold the point with a projection (translate the body so the point
+    // returns to its nail, then kill the velocity *at that point*), which is
+    // exactly a revolute joint and cannot be cheated by the solver.
+    solveHinge() {
+      for (const st of this.ink.strokes) {
+        const b = st.body, h = st.hinge;
+        if (!b || st.gone || !h || b.isStatic) continue;
+        const cos = Math.cos(b.angle), sin = Math.sin(b.angle);
+        const px = b.position.x + h.lx * cos - h.ly * sin;
+        const py = b.position.y + h.lx * sin + h.ly * cos;
+        // positional projection: put the nail point back on its nail
+        Body.translate(b, { x: h.x - px, y: h.y - py });
+        // velocity at the nail point (v + w x r) must be zero
+        const rx = h.lx * cos - h.ly * sin;
+        const ry = h.lx * sin + h.ly * cos;
+        const vx = b.velocity.x - b.angularVelocity * ry;
+        const vy = b.velocity.y + b.angularVelocity * rx;
+        const r2 = rx * rx + ry * ry;
+        const m = b.mass, I = b.inertia || 1;
+        const meff = 1 / (1 / m + r2 / I);
+        const jx = -meff * vx, jy = -meff * vy;
+        Body.setVelocity(b, { x: b.velocity.x + jx / m, y: b.velocity.y + jy / m });
+        Body.setAngularVelocity(b, b.angularVelocity + (rx * jy - ry * jx) / I);
+        // a little hinge friction so a hanging wire settles instead of
+        // swinging forever (air drag alone takes ~20 s)
+        Body.setAngularVelocity(b, b.angularVelocity * 0.994);
+      }
+    }
+
     holdAnchoredInk() {
       for (const st of this.ink.strokes) {
         const b = st.body;
