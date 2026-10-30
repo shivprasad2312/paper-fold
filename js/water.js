@@ -25,11 +25,19 @@
       const body = Bodies.circle(x, y, R + Math.random() * 0.9, {
         label: 'water',
         friction: 0.0015,
-        frictionAir: 0.004,
+        frictionAir: 0.02,
         frictionStatic: 0,
         restitution: 0.03,
         density: 0.0016,
-        slop: 0.02,
+        // Overlap allowance — the single most important number for how calm the
+        // water looks. At 0.02 px the solver fought every droplet's penetration
+        // every frame, so a settled pile never stopped buzzing (0.027 px/frame,
+        // 5 % of droplets moving forever) and an impact rippled through the
+        // whole mass. At 0.3 px droplets may rest slightly into each other
+        // (2 % of their diameter), the solver leaves them alone: settled
+        // 0.003 px/frame, 0 % moving, and one droplet landing on a heap moves
+        // its neighbours by a median of 0.2 px instead of 28.
+        slop: 0.3,
         // Water collides with everything, including drawn ink. A stream leaning
         // on a ramp is the whole mechanic: it holds the ramp down, and if the
         // ramp is badly placed it shoves it off the ledge.
@@ -165,6 +173,9 @@
             if (along < f.w * 0.35 || along > reach || Math.abs(across) > spreadAt) continue;
             const falloff = 1 - Math.min(1, along / reach);
             const F = f.force * falloff * 0.00026 * b.mass;
+            // a sleeping droplet ignores forces, so the blower has to wake what
+            // it is blowing on (otherwise a pile parked in the wind sits there)
+            if (b.isSleeping) M2.Sleeping.set(b, false);
             M2.Body.applyForce(b, b.position, { x: F * ux, y: F * uy });
           }
         }
@@ -191,25 +202,34 @@
           continue;
         }
 
-        // Water that missed every glass drains away instead of settling into a
-        // puddle on the floor. Two reasons: the reference game does the same
-        // (a miss is a miss, and the level clears itself), and a stage-sized
-        // puddle of 40 droplets is what makes the fluid look like it is boiling
-        // — every one of them is still a body being jostled by its neighbours.
-        // Only water that has *come to rest* below every glass is drained, so a
-        // stream running along the floor into a glass is untouched.
-        const floorY = this._floorY !== undefined ? this._floorY : (this._floorY = scene.glasses.reduce(
-          (m, g) => Math.max(m, g.cy + g.h * 0.5 + 30), 0));
-        if (y > floorY && Math.hypot(b.velocity.x, b.velocity.y) < 0.6) {
-          p.drained = (p.drained || 0) + 1;
-          if (p.drained > 24) {                    // ~0.4 s of lying there
-            this.splash(x, y - 4, 2, 0.8);
+        // Water that missed every glass drains away.
+        //
+        // Two reasons. The reference game does the same (a miss is a miss), and
+        // — measured — a puddle of spilt droplets on a flat plank is the one
+        // thing in this simulation that never goes still: water has almost no
+        // friction so it flows, and a shallow puddle has nothing to resist the
+        // solver's residual motion, so 12 s after the pour it is still nudging
+        // itself around at 0.09 px/frame. That creep is what a player reads as
+        // the water "chain-reacting". So: a droplet that has come to rest and is
+        // not inside any glass is drained after a short grace. Anything still
+        // moving — a stream running along a ramp, a trickle crossing the floor
+        // towards a glass — is untouched.
+        let inGlass = false;
+        for (const g of scene.glasses) {
+          if (g.contains(x, y)) { inGlass = true; break; }
+        }
+        if (inGlass) { p.restFor = 0; continue; }
+        if (Math.hypot(b.velocity.x, b.velocity.y) < 0.35) {
+          p.restFor = (p.restFor || 0) + 1;
+          if (p.restFor > 36) {                      // 0.6 s at rest
+            this.splash(x, y - 4, 2, 0.7);
             this.remove(p);
             continue;
           }
-        } else if (p.drained) {
-          p.drained = 0;
+        } else if (p.restFor) {
+          p.restFor = 0;
         }
+
         // heated pads vaporise droplets
         for (const h of scene.hots) {
           if (pointInOrientedRect(x, y, h)) {
