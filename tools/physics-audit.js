@@ -266,6 +266,48 @@ const drawAll = (scene, strokes) => {
   }
 }
 
+// ------------------------------------- 3e. the stream is water, not a spray
+// The reported symptom: droplets flying about, "like fission". Three numbers
+// separate a stream from a shower — how many droplets exist at once (a heap
+// has nowhere to go and jostles), how fast the whole population is moving, and
+// whether the tap is delivering more water than the glass can take.
+{
+  const run = (id, strokes) => {
+    const lv = JSON.parse(JSON.stringify(HG.levelById(id)));
+    const sc = new HG.Scene(lv);
+    drawAll(sc, strokes.map((pl) => poly(pl)));
+    const need = sc.glasses.reduce((a, g) => a + g.needCount, 0);
+    const total = lv.faucets.reduce((a, f) => a + f.total, 0);
+    sc.start();
+    let peak = 0, fast = 0, samples = 0, up = 0;
+    for (let i = 0; i < 60 * 14; i++) {
+      sc.step(STEP); sc.physics(STEP);
+      let n = 0;
+      for (const p of sc.water.particles) {
+        if (p.dead) continue;
+        n++;
+        const v = p.body.velocity;
+        if (Math.abs(v.x) > 4) fast++;      // sideways = spray; falling is allowed
+        if (v.y < -1.5) up++;
+        samples++;
+      }
+      if (n > peak) peak = n;
+    }
+    sc.destroy();
+    return { need, total, peak, fast: fast / samples, up: up / samples, samples };
+  };
+  say('## 3e. The stream behaves like water');
+  const a = run(4, SOLUTIONS[4] || []);
+  check(a.total <= a.need * 3.2, 'a level does not deliver a flood: the tap is sized to the glass',
+    'tap ' + a.total + ' droplets for a glass that needs ' + a.need + ' (' + (a.total / a.need).toFixed(1) + 'x)');
+  check(a.peak <= 90, 'the water column stays a stream, not a standing heap',
+    'peak ' + a.peak + ' droplets alive at once');
+  check(a.fast < 0.10, 'the stream falls, it does not spray sideways',
+    (a.fast * 100).toFixed(1) + '% of droplet-frames moving more than 4 px/frame sideways');
+  check(a.up < 0.02, 'droplets are not being flung back up out of the liquid',
+    (a.up * 100).toFixed(1) + '% of droplet-frames moving upward');
+}
+
 // ------------------------------------------------------------ 4. tap spawn
 {
   const sc = fresh(1);

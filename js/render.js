@@ -816,8 +816,8 @@
       ctx.beginPath();
       for (let i = 0; i < ps.length; i++) {
         const b = ps[i].body;
-        ctx.moveTo(b.position.x + R + 2.6, b.position.y);
-        ctx.arc(b.position.x, b.position.y, R + 2.6, 0, HG.TAU);
+        ctx.moveTo(b.position.x + R + 1.5, b.position.y);
+        ctx.arc(b.position.x, b.position.y, R + 1.5, 0, HG.TAU);
       }
       ctx.fillStyle = C.waterDeep;
       ctx.fill();
@@ -825,8 +825,8 @@
       ctx.beginPath();
       for (let i = 0; i < ps.length; i++) {
         const b = ps[i].body;
-        ctx.moveTo(b.position.x + R + 0.6, b.position.y);
-        ctx.arc(b.position.x, b.position.y, R + 0.6, 0, HG.TAU);
+        ctx.moveTo(b.position.x + R + 0.4, b.position.y);
+        ctx.arc(b.position.x, b.position.y, R + 0.4, 0, HG.TAU);
       }
       ctx.fillStyle = C.water;
       ctx.fill();

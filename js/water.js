@@ -7,7 +7,8 @@
   const HG = global.HG;
   const { Bodies } = global.Matter;
 
-  const R = 7;                      // particle radius (world px)
+  const R0 = 7;                     // particle radius (world px)
+  const R = R0;
   const MAX_PARTICLES = 340;
 
   class Water {
@@ -70,6 +71,73 @@
     }
 
     // ------------------------------------------------------------- simulation
+    // ------------------------------------------------------------ cohesion
+    // Droplets are separate circles, so without help a falling stream is a
+    // shower of beads and a heap on the line is a bag of marbles: every bead
+    // keeps its own rim, nothing packs, and the whole thing shimmers. Real
+    // water coheres. This is the cheap version — a spatial hash, then each
+    // droplet is nudged a fraction of a pixel toward the average of its
+    // neighbours and its velocity is pulled a few percent toward theirs. It
+    // costs one pass over the particles, it never moves anything far enough to
+    // tunnel, and Matter's solver still resolves every overlap.
+    cohere() {
+      const ps = this.particles;
+      const n = ps.length;
+      if (n < 2) return;
+      const R = R0;
+      const cell = R * 2.4;
+      const hash = new Map();
+      const key = (x, y) => ((x / cell) | 0) * 73856093 ^ ((y / cell) | 0) * 19349663;
+      for (let i = 0; i < n; i++) {
+        const b = ps[i].body;
+        if (ps[i].dead) continue;
+        const k = key(b.position.x, b.position.y);
+        let bucket = hash.get(k);
+        if (!bucket) { bucket = []; hash.set(k, bucket); }
+        bucket.push(i);
+      }
+      const pull = 0.14;          // px per frame toward the local centre
+      const visc = 0.05;          // fraction of a neighbour's velocity taken on
+      for (let i = 0; i < n; i++) {
+        const p = ps[i];
+        if (p.dead) continue;
+        const b = p.body;
+        const gx = (b.position.x / cell) | 0, gy = (b.position.y / cell) | 0;
+        let sx = 0, sy = 0, svx = 0, svy = 0, c = 0;
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const bucket = hash.get((gx + dx) * 73856093 ^ (gy + dy) * 19349663);
+            if (!bucket) continue;
+            for (const j of bucket) {
+              if (j === i) continue;
+              const q = ps[j].body;
+              const ddx = q.position.x - b.position.x, ddy = q.position.y - b.position.y;
+              if (ddx * ddx + ddy * ddy > 6.4 * R * R) continue;   // ~2.5 R
+              sx += ddx; sy += ddy;
+              svx += q.velocity.x; svy += q.velocity.y;
+              c++;
+            }
+          }
+        }
+        if (!c) continue;
+        // pull toward the neighbours, but never far enough to jump a gap
+        const mx = sx / c, my = sy / c;
+        const m = Math.hypot(mx, my);
+        const k2 = m > 0.001 ? Math.min(pull, m) / m : 0;
+        global.Matter.Body.setPosition(b, {
+          x: b.position.x + mx * k2,
+          y: b.position.y + my * k2,
+        });
+        if (c >= 2) {
+          const f = Math.min(0.35, visc * c / 4);
+          global.Matter.Body.setVelocity(b, {
+            x: b.velocity.x * (1 - f) + (svx / c) * f,
+            y: b.velocity.y * (1 - f) + (svy / c) * f,
+          });
+        }
+      }
+    }
+
     step(dt, t) {
       const scene = this.scene;
       const M2 = global.Matter;
@@ -122,6 +190,26 @@
           this.remove(p);
           continue;
         }
+
+        // Water that missed every glass drains away instead of settling into a
+        // puddle on the floor. Two reasons: the reference game does the same
+        // (a miss is a miss, and the level clears itself), and a stage-sized
+        // puddle of 40 droplets is what makes the fluid look like it is boiling
+        // — every one of them is still a body being jostled by its neighbours.
+        // Only water that has *come to rest* below every glass is drained, so a
+        // stream running along the floor into a glass is untouched.
+        const floorY = this._floorY !== undefined ? this._floorY : (this._floorY = scene.glasses.reduce(
+          (m, g) => Math.max(m, g.cy + g.h * 0.5 + 30), 0));
+        if (y > floorY && Math.hypot(b.velocity.x, b.velocity.y) < 0.6) {
+          p.drained = (p.drained || 0) + 1;
+          if (p.drained > 24) {                    // ~0.4 s of lying there
+            this.splash(x, y - 4, 2, 0.8);
+            this.remove(p);
+            continue;
+          }
+        } else if (p.drained) {
+          p.drained = 0;
+        }
         // heated pads vaporise droplets
         for (const h of scene.hots) {
           if (pointInOrientedRect(x, y, h)) {
@@ -137,6 +225,9 @@
       if (this.particles.some((p) => p.dead)) {
         this.particles = this.particles.filter((p) => !p.dead);
       }
+
+      // water, not marbles
+      this.cohere();
 
       // cosmetic splash droplets
       for (let i = this.splashes.length - 1; i >= 0; i--) {

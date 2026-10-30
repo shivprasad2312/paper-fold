@@ -772,7 +772,7 @@
         f.acc -= spawns;
         while (spawns-- > 0 && f.remaining > 0) {
           if (this.water.particles.length >= HG.Water.MAX_PARTICLES) break;
-          const sx = f.x + M.rand(-1, 1) * (f.def.spread * 10 + 2);
+          const sx = f.x + M.rand(-1, 1) * (f.def.spread * 4 + 1);
           // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
           // droplet born inside a static body gets squeezed out sideways
           const sy = f.y + 4 + HG.Water.R + 1.5;

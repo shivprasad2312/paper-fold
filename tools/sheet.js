@@ -24,7 +24,7 @@ HG.LEVELS.forEach((lv, i) => {
   const r = new HG.Renderer(fake);
   r.dpr = 1;
   const scene = new HG.Scene(lv);
-  const strokes = (SOL[lv.id] || []).map(poly);
+  const strokes = (SOL[lv.id] || []).map(poly).filter((st) => st.length > 1);
   for (const st of strokes) {
     scene.beginInk(st[0].x, st[0].y);
     for (let k = 1; k < st.length; k++) scene.addInkPoint(st[k].x, st[k].y);
