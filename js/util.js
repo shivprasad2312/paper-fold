@@ -29,6 +29,24 @@
     easeInOutQuad: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
   });
 
+  // Per-level themes: every level gets its own paper colour, grid ink, accent
+  // and default scenery material, so no two levels look alike. `theme` in a
+  // level definition is optional — by default the theme cycles per chapter.
+  HG.THEMES = [
+    { name: 'sketch',  paper: '#f6f5ef', gridSmall: '#e7e6dd', gridBig: '#dedcd1', accent: '#4aa3d8', coast: 'wood' },
+    { name: 'blueprint', paper: '#eef4f8', gridSmall: '#dbe7ef', gridBig: '#c8dbe8', accent: '#2f7fb5', coast: 'metal' },
+    { name: 'mint',    paper: '#f1f7f2', gridSmall: '#dfece2', gridBig: '#cfe3d5', accent: '#3f9d7a', coast: 'stone' },
+    { name: 'sunset',  paper: '#fdf4ec', gridSmall: '#f3e4d4', gridBig: '#eed7c1', accent: '#e08a4a', coast: 'sand' },
+    { name: 'dusk',    paper: '#f3f2f8', gridSmall: '#e4e2ee', gridBig: '#d5d2e2', accent: '#6f6fc4', coast: 'wood' },
+    { name: 'parchment', paper: '#faf6e9', gridSmall: '#efe7d0', gridBig: '#e6dab9', accent: '#b98b3a', coast: 'stone' },
+  ];
+  HG.themeFor = function (level) {
+    const list = HG.THEMES;
+    if (level && typeof level.theme === 'number') return list[level.theme % list.length];
+    const id = (level && level.id) || 1;
+    return list[(id - 1) % list.length];
+  };
+
   HG.C = {
     ink: '#2d3b47',
     inkSoft: '#5d6b77',

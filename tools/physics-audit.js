@@ -168,6 +168,41 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
+// ------------------------------------------- 7b. iron-wire semantics
+{
+  // (a) wire that touches the tap is nailed; check it is solved as a body that
+  //     still exists after 3 s (it must not evaporate, and it must not drift)
+  const sc = fresh(2);
+  const pts = poly([[400, 200], [400, 300], [700, 372]]);
+  sc.beginInk(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) sc.addInkPoint(pts[i].x, pts[i].y);
+  sc.endInk();
+  const held = sc.ink.strokes[0];
+  const p0 = { x: held.body.position.x, y: held.body.position.y };
+  sc.start();
+  for (let i = 0; i < 180; i++) { sc.step(STEP); sc.physics(STEP); }
+  const moved = Math.hypot(held.body.position.x - p0.x, held.body.position.y - p0.y);
+  check(held.anchored && moved < 12,
+    'wire hooked onto the tap stays where it was drawn',
+    held.pins.length + ' nail(s), moved ' + moved.toFixed(1) + ' px in 3 s');
+
+  sc.destroy();
+
+  // (b) the same wire with no scenery in reach must fall, not hover
+  const sc2 = fresh(2);
+  const pts2 = poly([[200, 300], [330, 300]]);
+  sc2.beginInk(pts2[0].x, pts2[0].y);
+  for (let i = 1; i < pts2.length; i++) sc2.addInkPoint(pts2[i].x, pts2[i].y);
+  sc2.endInk();
+  const loose = sc2.ink.strokes[0];
+  sc2.start();
+  for (let i = 0; i < 60; i++) { sc2.step(STEP); sc2.physics(STEP); }
+  check(!loose.anchored && (!loose.body || loose.body.position.y > 340),
+    'the same drawing in mid-air falls instead of hanging',
+    'y 300 -> ' + (loose.body ? loose.body.position.y.toFixed(0) : 'gone'));
+  sc2.destroy();
+}
+
 // -------------------------------------------- 8. unsupported things drop
 {
   // a glass with nothing at all under it must drop out of the level, not hover

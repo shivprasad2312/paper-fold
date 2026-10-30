@@ -46,7 +46,7 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 | **Core loop** | A tap/faucet pours water; you draw one or more solid ink lines that act as ramps, funnels and walls; the glass must fill above its dotted line. | Identical. The tap stays shut and the world is frozen while you plan; **lifting the pencil after your first line opens the tap**, and any line you draw later is added to the same running world. |
 | **Win condition** | Fill the glass to the dotted line; the glass smiles. | Fill ratio is measured from the real water surface **and** droplet count inside the glass. Every glass in a level must be filled. |
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
-| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right above the rim, which is what makes tight levels solvable). On release the whole stroke is tested: if either end touches an anchor it becomes a static, nailed-down line (the nails are drawn as small dots); if it touches nothing, it becomes one rigid body and drops. |
+| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right under the nozzle and just above the rim). On release every segment is tested against the scenery with a real collision query: each place it actually touches becomes a **nail** (drawn as a small dot) and the wire is welded there. No contact at all → the whole line stays one rigid body and falls. If a nailed support later moves away, the nails pull out and the line drops. |
 | **Hazards** | Hot pads evaporate water, gears/spinners scatter it, moving blocks obstruct it, some levels need multiple glasses filled at once, fans/escalators push water. | All of the above are implemented: heated pads, spinning bars (free pin joints), tilting planks, patrolling blocks, blowers (the grey arrow box), crates and diamonds, tilted and polygon shelves, 1–3 glasses and 1–2 taps. |
 | **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". |
 | **Retry** | Retry is free and instant; you keep trying until the water runs out. | Restart button (or `R`), plus automatic fail detection once the tap is empty and the water has settled. |
@@ -90,17 +90,17 @@ nailed in place, which is now the intended way to build a shelf — a free-float
 
 | # | Name | Idea |
 | --- | --- | --- |
-| 1 | First Pour | falls straight in — teaches "draw to open the tap" |
-| 2 | A Gentle Slope | first ramp |
-| 3 | Small Step | short drop, offset glass |
+| 1 | First Pour | no scenery at all — just tap, glass and a stone pedestal |
+| 2 | A Gentle Slope | first ramp, drawn around a wooden crate |
+| 3 | Small Step | step the water down onto a hanging metal shelf |
 | 4 | Over The Wall | arc over a wall |
-| 5 | Double Trouble | split one stream into two glasses |
+| 5 | Double Trouble | split one stream into two glasses around a teal wedge |
 | 6 | Crate & Glass | the stream clips the rim (nod to the reference screenshot) |
 | 7 | Wall Run | tall wall, arc over it |
 | 8 | Hot Floor | heated pad vaporises water |
 | 9 | Spinner | rotating bar scatters water — jam it with a line |
 | 10 | Tilting Plank | free-turning plank you have to run over |
-| 11 | Two Taps | two taps, two glasses |
+| 11 | Two Taps | a stone column splits the room: two taps, two glasses |
 | 12 | The Neck | narrow gap between two ledges |
 | 13 | Crosswind | blower pushes the stream |
 | 14 | Crate Stack | climb over crates |
@@ -133,12 +133,14 @@ nailed in place, which is now the intended way to build a shelf — a free-float
 * **World**: fixed 1280×720 stage, letterboxed to any screen size (the camera never crops the level).
 * **Physics**: Matter.js at a fixed 60 Hz step, decoupled from rendering (`requestAnimationFrame`,
   max 4 catch-up steps).
-* **Ink**: every ~9 px of pointer travel becomes a chamfered rectangle. Ink is measured in world
-  pixels and never refunded, exactly like the original meter. A finished stroke is *gravity aware*:
-  `endInk()` checks both ends (and every point in between) against static anchors — platforms,
-  crates, the tap housing, the push-pins added to most later levels, and already-anchored ink. An
-  anchored stroke becomes static scenery with small nail dots at its anchor points (max 3 per
-  stroke). An unanchored stroke is rebuilt as one rigid compound body and simply falls.
+* **Ink is iron wire, not paint.** Every ~9 px of pointer travel becomes a chamfered rectangle.
+  Ink is measured in world pixels and never refunded, exactly like the original meter. On release
+  the stroke is rebuilt as **one rigid compound body with real mass** (`density 0.0018`, so a 90 px
+  line weighs about 3.5 mass units against a droplet's 0.25). Its segments are then tested against
+  the scenery with Matter's collision query: every genuine overlap becomes a nail (max 4), the wire
+  is welded *at that pose*, and the nails are drawn as little dots. A wire that touches nothing is
+  left dynamic and falls out of the level. A wire whose support later moves is released too — the
+  nail is a joint, not a permanent freeze.
 * **Water**: small circles on one collision layer, low friction so they shuffle over each other like a
   liquid, mild air friction so they don't slingshot. Water level in a glass is computed from the
   sorted droplet heights (top 18 % ignored so an incoming droplet can't fake a full glass) and

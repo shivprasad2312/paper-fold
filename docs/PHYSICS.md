@@ -42,8 +42,8 @@ Consequences that are intentional:
 | Element | Body type | Gravity? | Collides with |
 | --- | --- | --- | --- |
 | glass | one **compound dynamic** body (5 chamfered colliders) | yes | ink, crates, platforms, spinners, water |
-| drawn line, anchored | static bodies, one per 9 px of stroke | no (it is nailed to scenery) | water, glass, crates, loose ink |
-| drawn line, unanchored | **one rigid compound** body, parts kept as sub-bodies | yes | everything, including other ink |
+| drawn line (wire), nailed | one rigid body, welded by real contact query | no, while its support exists | water, glass, crates, loose ink |
+| drawn line (wire), loose | **one rigid compound** body, parts kept as sub-bodies | yes, and it leaves the level | everything, including other ink |
 | crate | dynamic or static depending on the level | yes (if dynamic) | all |
 | spinner / seesaw | dynamic body on a pin constraint | yes, rotates freely | water, ink, glass |
 | mover | static body, **position** driven | no | all (speed is not faked through velocity) |
@@ -53,6 +53,11 @@ Consequences that are intentional:
 
 ## 4. Findings from this audit (all fixed)
 
+0. **The wire was glued to thin air.** The old anchor test was a bounding-box test with a 16 px
+   tolerance, so a line drawn *near* the tap — or ending 3 px short of a ledge — counted as attached
+   and hung in the sky. That is the reported "why is this drawn line not falling?". Anchoring is now
+   a real `Collision.collides()` query between each 9 px segment and the scenery, with a 1.5 px
+   tolerance: no overlap, no nail, no hanging.
 1. **Ink anchored itself to itself.** `anchorBodies()` collected every static `ink` body, which
    included the provisional segments of the stroke still under your finger. Every line was therefore
    "anchored" and hung in mid-air — the exact bug reported as *"why are both wires not drawing /

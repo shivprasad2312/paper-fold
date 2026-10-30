@@ -25,24 +25,31 @@
   const LEVELS = [
     {
       name: 'First Pour',
-      tip: 'The water falls straight in — just watch it fill up.',
+      tip: 'Tap, glass, gravity. Watch it fill, then try drawing anything at all.',
       ink: 650,
       faucet: { x: 640, y: 190, rate: 46, total: 105 },
       glasses: [{ x: 640, y: 470, w: 104, h: 118, need: 0.65 }],
+      // a stone pedestal holds the glass: the tutorial room is not an empty page
+      platforms: [
+        P({ x: 640, y: 560, w: 60, h: 64, kind: 'stone' }),
+        P({ x: 640, y: 606, w: 230, h: 24, kind: 'stone' }),
+      ],
     },
     {
       name: 'A Gentle Slope',
-      tip: 'Draw a downhill ramp under the stream and let gravity carry the water right.',
+      tip: 'A crate stands in the stream. Hook your ramp onto it and let the water run right.',
       ink: 1190,
       faucet: { x: 400, y: 190, rate: 46, total: 105 },
-      glasses: [{ x: 760, y: 470, w: 104, h: 118, need: 0.71 }],
+      glasses: [{ x: 780, y: 470, w: 104, h: 118, need: 0.71 }],
+      crates: [{ x: 560, y: 470, size: 96, kind: 'wood' }],
     },
     {
       name: 'Small Step',
-      tip: 'The glass sits a little lower than the stream. A short ramp is enough.',
+      tip: 'A metal shelf hangs mid-way. Step the water down onto it first.',
       ink: 690,
-      faucet: { x: 520, y: 190, rate: 46, total: 105 },
-      glasses: [{ x: 700, y: 430, w: 104, h: 118, need: 0.68 }],
+      faucet: { x: 470, y: 190, rate: 46, total: 105 },
+      glasses: [{ x: 760, y: 470, w: 104, h: 118, need: 0.63 }],
+      platforms: [P({ x: 620, y: 340, w: 150, h: 20, kind: 'metal' })],
     },
     {
       name: 'Over The Wall',
@@ -54,13 +61,14 @@
     },
     {
       name: 'Double Trouble',
-      tip: 'Split the stream: a shallow inverted-V sends water to both sides.',
+      tip: 'Two glasses under one tap. Build a V between them — the wedge in the middle is a good post.',
       ink: 1420,
       faucet: { x: 640, y: 190, rate: 52, total: 130 },
       glasses: [
         { x: 430, y: 480, w: 100, h: 112, need: 0.64 },
         { x: 850, y: 480, w: 100, h: 112, need: 0.62 },
       ],
+      platforms: [P({ poly: [[600, 700], [600, 470], [640, 440], [680, 470], [680, 700]], kind: 'teal' })],
     },
     {
       name: 'Crate & Glass',
@@ -100,12 +108,12 @@
       tip: 'The plank swings when water hits it. Run your line just over the top.',
       ink: 1620,
       faucet: { x: 400, y: 190, rate: 50, total: 177 },
-      glasses: [{ x: 900, y: 460, w: 126, h: 118, need: 0.55 }],
+      glasses: [{ x: 900, y: 460, w: 150, h: 118, need: 0.45 }],
       seesaws: [{ x: 700, y: 300, w: 320, h: 16 }],
     },
     {
       name: 'Two Taps',
-      tip: 'Both glasses must be filled. Solve one tap at a time.',
+      tip: 'One column splits the room. Each tap pours on its own side — solve them one at a time.',
       ink: 1490,
       faucets: [
         { x: 250, y: 190, rate: 46, total: 120 },
@@ -115,6 +123,7 @@
         { x: 470, y: 470, w: 108, h: 112, need: 0.68 },
         { x: 810, y: 470, w: 108, h: 112, need: 0.62 },
       ],
+      platforms: [P({ x: 640, y: 380, w: 60, h: 300, kind: 'stone' })],
     },
     {
       name: 'The Neck',

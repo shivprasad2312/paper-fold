@@ -54,7 +54,9 @@
       const scene = game.scene;
       ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
       ctx.clearRect(0, 0, this.cw, this.ch);
-      this.drawPaper(ctx);
+      const theme = HG.themeFor(scene ? scene.level : null);
+      this.theme = theme;
+      this.drawPaper(ctx, theme);
 
       ctx.save();
       ctx.translate(this.tx, this.ty);
@@ -74,14 +76,15 @@
     }
 
     // ------------------------------------------------------------ background
-    drawPaper(ctx) {
-      ctx.fillStyle = C.paper;
+    drawPaper(ctx, theme) {
+      const th = theme || HG.THEMES[0];
+      ctx.fillStyle = th.paper;
       ctx.fillRect(0, 0, this.cw, this.ch);
       const s = 34 * this.scale;
       const offX = this.tx % s;
       const offY = this.ty % s;
       ctx.lineWidth = 1;
-      ctx.strokeStyle = C.gridSmall;
+      ctx.strokeStyle = th.gridSmall;
       ctx.beginPath();
       for (let x = offX; x < this.cw; x += s) {
         ctx.moveTo(Math.round(x) + 0.5, 0);
@@ -94,7 +97,7 @@
       ctx.stroke();
       // heavier grid every 5 cells
       const b = s * 5;
-      ctx.strokeStyle = C.gridBig;
+      ctx.strokeStyle = th.gridBig;
       ctx.beginPath();
       for (let x = this.tx % b; x < this.cw; x += b) {
         ctx.moveTo(Math.round(x) + 0.5, 0);
@@ -172,7 +175,7 @@
 
     drawPlatform(ctx, p) {
       if (p.poly) return this.drawPoly(ctx, p);
-      const d = p.def, s = this.shade(d.kind);
+      const d = p.def, s = this.shade(d.coaster ? (this.theme && this.theme.coast) || d.kind : d.kind);
       ctx.save();
       ctx.translate(d.x, d.y);
       ctx.rotate(d.angle || 0);

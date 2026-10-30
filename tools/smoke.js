@@ -83,7 +83,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     w.dispatchEvent(up);
   };
   let idleWhileDrawing = false;
-  drag([[300, 208], [300, 250], [810, 350]], () => {
+  drag([[300, 200], [300, 250], [810, 350]], () => {
     idleWhileDrawing = Game.scene.state === 'idle' && Game.scene.faucets[0].remaining ===
       Game.scene.faucets[0].def.total;
   });
@@ -124,7 +124,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     Object.defineProperty(up2, 'pointerId', { value: 1 });
     w.dispatchEvent(up2);
   };
-  drawStroke([[400, 208], [400, 250], [640, 310]]);
+  drawStroke([[400, 200], [400, 250], [640, 310]]);
   drawStroke([[616, 472], [790, 472]]);
   await wait(60);
   const g26 = Game.scene.glasses[0];

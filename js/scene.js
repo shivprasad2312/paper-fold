@@ -6,13 +6,14 @@
   'use strict';
   const HG = global.HG;
   const Matter = global.Matter;
-  const { Engine, Composite, Bodies, Body, Constraint, Events } = Matter;
+  const { Engine, Composite, Bodies, Body, Constraint, Events, Collision } = Matter;
   const M = HG.M;
 
   const WALL = 7;               // glass wall thickness
   const INK_W = 15;             // ink line thickness
   const INK_MIN_STEP = 9;       // simplified point spacing
-  const ANCHOR_R = 16;          // how close ink must be to nail itself down
+  const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
+  const INK_DENSITY = 0.0018;   // ink is iron wire, not paint: it has real mass
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
   const MAX_DROP_SPEED = 22;    // px/step where droplets start tunnelling 15px ink
@@ -189,12 +190,13 @@
 
       // A glass is a loose object, so it needs a ledge to start on. Levels that
       // deliberately leave one dangling set `hanging: true` instead.
+      const platforms = lv.platforms.slice();
       this.coasters = [];
       lv.glasses.forEach((g) => {
         if (g.hanging || g.fixed) return;
         const bottom = g.y + g.h / 2;
         const halfW = g.w / 2;
-        const already = lv.platforms.concat(lv.crates.map((c) => ({
+        const already = platforms.concat(lv.crates.map((c) => ({
           x: c.x, y: c.y, w: c.size, h: c.size, angle: c.angle || 0,
         }))).some((p) => {
           const top = p.y - p.h / 2;
@@ -206,11 +208,13 @@
           x: g.x, y: bottom + 7, w: g.w * 1.3, h: 14,
           angle: 0, kind: 'wood', coaster: true,
         };
-        lv.platforms.push(shelf);
+        // NOTE: never push into lv.platforms — that mutates the level data and
+        // every restart would add another phantom ledge
+        platforms.push(shelf);
         this.coasters.push(shelf);
       });
 
-      lv.platforms.forEach((p) => {
+      platforms.forEach((p) => {
         if (p.poly) {
           // free-form slab (ramps, wedges, big trapezoids)
           const pts = p.poly.map(([x, y]) => ({ x, y }));
@@ -273,9 +277,10 @@
           damping: 0.1,
           render: { visible: false },
         }));
-        if (s.speed) Body.setAngularVelocity(b, s.speed);
-        // tiny asymmetry so a resting bar starts to turn when hit
-        Body.setAngularVelocity(b, (s.speed || 0) + (Math.random() - 0.5) * 0.02);
+        // deterministic nudge (no Math.random): the same level must play the
+        // same way every time, otherwise "won" becomes a coin flip
+        const seed = Math.sin((s.x + s.y) * 0.017) * 0.01;
+        Body.setAngularVelocity(b, (s.speed || 0) + seed);
         this.spinners.push({ def: s, body: b });
       });
 
@@ -432,44 +437,61 @@
       return Math.max(0, this.ink.budget - this.ink.used);
     }
 
-    // solid things your ink can be nailed to: scenery, crates and the tap itself
+    // Solid things a wire can actually be hooked onto: scenery, crates, the tap
+    // housing and push-pins — plus wire that is already nailed down itself, so
+    // lines can be chained. There is no "near enough" padding in this list: the
+    // contact test below decides whether the ink really touches it.
     anchorBodies() {
       if (this._anchors) return this._anchors;
       this._anchors = Composite.allBodies(this.world).filter((b) => {
+        if (b.label === 'ink') return !!(b.strokeRef && b.strokeRef.anchored);
         if (!b.isStatic) return false;
-        if (b.label === 'ink') {
-          // only a finished, anchored stroke can hold another stroke — the
-          // segments of the line you are drawing must never anchor themselves
-          return !!(b.strokeRef && b.strokeRef.anchored);
-        }
         return b.label === 'platform' || b.label === 'crate' ||
           b.label === 'faucet' || b.label === 'pin';
       });
       return this._anchors;
     }
 
-    // nearest point of the nearest anchor body, used when a stroke is left in the air
-    nearestAnchor(x, y) {
-      let best = null;
-      for (const b of this.anchorBodies()) {
-        if (b.label === 'ink' && b.isFallback) continue;
-        const bx = M.clamp(x, b.bounds.min.x, b.bounds.max.x);
-        const by = M.clamp(y, b.bounds.min.y, b.bounds.max.y);
-        const d = M.dist(x, y, bx, by);
-        if (!best || d < best.d) best = { d, x: bx, y: by, body: b };
+    // Real contact test (SAT) between the segments of a stroke and the scenery.
+    // A wire only sticks where its own geometry overlaps a solid body: a line
+    // that merely passes nearby, or stops a few pixels short, hangs on nothing
+    // and therefore falls.
+    inkContacts(st) {
+      const out = [];
+      const anchors = this.anchorBodies();
+      for (const seg of st.segs) {
+        const sb = seg.body;
+        for (const b of anchors) {
+          if (b === sb || b.strokeRef === st) continue;
+          let hit = null;
+          try { hit = Collision.collides(sb, b); } catch (e) { hit = null; }
+          if (!hit || !hit.collided) continue;
+          let px = seg.mx, py = seg.my;
+          if (hit.supports && hit.supports.length) {
+            let n = 0; px = 0; py = 0;
+            for (const sup of hit.supports) {
+              if (!sup) continue;
+              px += sup.x; py += sup.y; n++;
+            }
+            if (n) { px /= n; py /= n; } else { px = seg.mx; py = seg.my; }
+          }
+          out.push({ body: b, x: px, y: py, seg });
+        }
       }
-      return best;
+      return out;
     }
 
-    // does this world point touch something solid?
+    // does a world point touch something solid? (used for hints / diagnostics)
     isAnchorPoint(x, y) {
+      const probe = Bodies.circle(x, y, INK_W / 2 + CONTACT_TOL, { isStatic: true });
       for (const b of this.anchorBodies()) {
-        const bb = b.bounds;
-        if (x >= bb.min.x - ANCHOR_R && x <= bb.max.x + ANCHOR_R &&
-            y >= bb.min.y - ANCHOR_R && y <= bb.max.y + ANCHOR_R) return true;
+        let hit = null;
+        try { hit = Collision.collides(probe, b); } catch (e) { hit = null; }
+        if (hit && hit.collided) return true;
       }
       return false;
     }
+
 
     beginInk(x, y) {
       this._anchors = null;
@@ -526,6 +548,10 @@
       return true;
     }
 
+    // A finished stroke is a piece of iron wire: heavy, rigid, and only held up
+    // where it is actually hooked onto something. One nail = it swings from that
+    // point. Two or more nails = it is locked, like wire bent around two hooks.
+    // No nails = it is loose wire and it falls.
     endInk() {
       const st = this.ink.active;
       if (!st) return false;
@@ -537,36 +563,27 @@
       }
       this.ink.strokes.push(st);
 
-      // ---- is this stroke nailed to anything solid?
-      let anchored = st.pins.length > 0;
-      if (!anchored) {
-        for (const p of st.points) {
-          if (this.isAnchorPoint(p.x, p.y)) { anchored = true; st.pins.push({ x: p.x, y: p.y }); break; }
-        }
-      }
-      st.anchored = anchored;
-      if (anchored) {
-        st.segs.forEach((seg) => { seg.body.isProvisional = false; });
-        this._anchors = null;      // a new anchor exists for later strokes
-        return true;
-      }
+      // ---- where does the wire actually touch something solid?
+      const contacts = this.inkContacts(st);
 
-      // ---- nothing holds it: hand it to gravity as one rigid body
+      // ---- the wire itself: one rigid body, real mass, always dynamic
       st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
       const parts = st.segs.slice(0, MAX_STROKE_PARTS).map((seg) =>
         Bodies.rectangle(seg.mx, seg.my, seg.len, INK_W, {
           angle: seg.angle,
-          density: 0.0009,
+          density: INK_DENSITY,
           chamfer: { radius: INK_W / 2 },
         })
       );
       const body = Body.create({
         parts,
-        friction: 0.45,
+        friction: 0.5,
+        frictionStatic: 0.7,
         frictionAir: 0.008,
-        restitution: 0.04,
+        restitution: 0.02,
         label: 'ink',
       });
+      body.strokeRef = st;
       Composite.add(this.world, body);
       st.body = body;
       st.segs.forEach((seg) => {
@@ -575,8 +592,30 @@
         seg.ly = seg.my - body.position.y;
         seg.body = body;
       });
+
+      // ---- nail it where it touches. A nail is a weld, not a hinge: the wire
+      // keeps exactly the shape you drew and holds the load. Wire that touches
+      // nothing is only held by gravity, so it drops.
+      st.pins = [];
+      st.pinSupports = [];
+      const seen = new Set();
+      for (const c of contacts) {
+        if (st.pins.length >= 4) break;
+        const key = c.body.id + ':' + Math.round(c.x / 14) + ',' + Math.round(c.y / 14);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        st.pins.push({ x: c.x, y: c.y });
+        st.pinSupports.push(c.body);
+      }
+      // a nailed wire is welded where it touches: dried ink is rigid, so it
+      // holds the water instead of sagging. Wire with no nail stays dynamic.
+      if (st.pins.length) Body.setStatic(body, true);
+
+      st.anchored = st.pins.length > 0;
+      this._anchors = null;      // a new (possibly anchored) stroke exists
       return true;
     }
+
 
     // current world-space endpoints of every ink segment (static or falling)
     inkWorldSegments() {
@@ -632,7 +671,9 @@
             l.y > g.top + 4 && l.y < g.bottom + 4) return true;
       }
       for (const f of this.faucets) {
-        if (Math.abs(x - f.x) < 54 && y > f.y - 96 && y < f.y + 16) return true;
+        // the tap itself is solid; leave a 6 px skirt so a line can be hooked
+        // just under the nozzle plate, exactly where the stream comes out
+        if (Math.abs(x - f.x) < 48 && y > f.y - 96 && y < f.y + 9) return true;
       }
       for (const m of this.level.movers) {
         if (Math.abs(x - m.x - 0) < m.w / 2 + 6 && Math.abs(y - m.y) < m.h / 2 + 6) return true;
@@ -674,7 +715,8 @@
           const sx = f.x + M.rand(-1, 1) * (f.def.spread * 10 + 2);
           // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
           // droplet born inside a static body gets squeezed out sideways
-          const p = this.water.spawn(sx, f.y + 4 + HG.Water.R + 1.5, M.rand(-0.55, 0.55), 2.2);
+          const sy = f.y + 4 + HG.Water.R + 1.5;
+          const p = this.water.spawn(sx, sy, M.rand(-0.55, 0.55), 2.2);
           if (p) f.remaining--;
         }
         f.flow = f.remaining > 0 ? 1 : 0;
@@ -691,6 +733,15 @@
         // NOTE: only the position is moved. Giving a static "kinematic" body a
         // velocity makes Matter fire water into orbit on contact.
         Body.setPosition(m.body, { x, y });
+      }
+
+      // ---- a swinging wire is a joint chain: keep it inside sane limits
+      for (const st of this.ink.strokes) {
+        const b = st.body;
+        if (!b || st.gone) continue;
+        const sp = Math.hypot(b.velocity.x, b.velocity.y);
+        if (sp > 24) Body.setVelocity(b, { x: (b.velocity.x / sp) * 24, y: (b.velocity.y / sp) * 24 });
+        if (Math.abs(b.angularVelocity) > 8) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 8);
       }
 
       // ---- keep knocked-over glasses from exploding
@@ -837,9 +888,36 @@
     physics(dt) {
       if (this.frozen) return;
       Engine.update(this.engine, dt);
+      this.holdAnchoredInk();
     }
 
-    // kept for API compatibility — drawing no longer stops time
+    // A nailed wire stays nailed while the thing it is nailed to is still
+    // there. If that support moves away (a crate slides off, a block is knocked
+    // over) the nails have nothing to grip and the wire drops — physics, not a
+    // permanent freeze.
+    holdAnchoredInk() {
+      for (const st of this.ink.strokes) {
+        const b = st.body;
+        if (!b || st.gone || !b.isStatic || !st.pins.length) continue;
+        let held = 0;
+        for (let i = 0; i < st.pinSupports.length; i++) {
+          const sup = st.pinSupports[i];
+          const pin = st.pins[i];
+          if (!sup || !pin) continue;
+          if (sup.isStatic) { held++; continue; }
+          const probe = Bodies.circle(pin.x, pin.y, 4, { isStatic: true });
+          let hit = null;
+          try { hit = Collision.collides(probe, sup); } catch (e) { hit = null; }
+          if (hit && hit.collided) held++;
+        }
+        if (!held) {
+          Body.setStatic(b, false);
+          st.anchored = false;
+          st.pins = [];
+          this._anchors = null;
+        }
+      }
+    }
 
     destroy() {
       if (this._onCollide) Events.off(this.engine, 'collisionStart', this._onCollide);
