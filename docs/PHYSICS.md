@@ -99,6 +99,22 @@ There is no chain reaction to begin with: one droplet is born per unit of tap
 budget, the population is capped at 340, and it only grows while the tap runs. What
 looked like fission was a heap of static-pose beads being jostled by the solver.
 
+**§3f — nothing foreign is drawn inside the water.**
+Reported as *"there is something inside the water droplets, dark blue, moving around
+inside them"*. It was the renderer, not the simulation. Two circles of radius 7 whose
+centres are 14 px apart touch tangentially, which leaves an **8 px² hole at every
+triple junction**, and each circle's own dark rim shows wherever its neighbour does not
+cover it. In a packed mass — a stream running down a line, a heap in a corner — that
+painted a lattice of paper shards and dark blue crescents *inside* the liquid, and
+because the particles jostle, the lattice crawled. Fixed by drawing the body fatter
+than the collision circle (R+5.0 rim, R+4.2 liquid) so the junctions close, and only
+highlighting droplets that really are on the surface. Measured over four levels: page
+showing through the liquid **0.30–0.85 % → 0.003–0.07 %**, interior rim blue
+**1.4–2.4 % → 0.6–1.4 %** (what remains is the thin edge of the silhouette at the
+surface). `tools/waterpixels.js` is the check: it labels the non-water regions and
+counts the ones the frame border cannot reach, so a sealed hole in the liquid fails the
+build.
+
 ## 5. Findings from this audit (all fixed)
 
 0. **The wire was glued to thin air.** A bounding-box anchor test with a 16 px tolerance

@@ -812,59 +812,77 @@
       const ps = scene.water.particles;
       if (!ps.length) return;
       const R = HG.Water.R;
-      // pass 1 — darker silhouette (reads as the rim of the liquid)
+      // A droplet is a circle, but water is not: two circles of radius R whose
+      // centres are 2R apart touch tangentially and leave an 8 px2 hole at
+      // every triple junction, and each circle's own rim shows *inside* the
+      // mass wherever its neighbour does not cover it. On screen that is a
+      // lattice of pale shards and dark crescents sitting inside the water, and
+      // because the particles jostle, they appear to move around inside it.
+      // So the body is drawn fatter than the collision circle (R+3.2 for the
+      // rim, R+2.0 for the liquid) which closes the junctions, and the
+      // highlight pass only marks droplets that really are on the surface.
+      const RIM = R + 5.0;
+      const BODY = R + 4.2;
+
+      // pass 1 — the rim of the liquid, as one continuous silhouette
       ctx.beginPath();
       for (let i = 0; i < ps.length; i++) {
         const b = ps[i].body;
-        ctx.moveTo(b.position.x + R + 1.5, b.position.y);
-        ctx.arc(b.position.x, b.position.y, R + 1.5, 0, HG.TAU);
+        ctx.moveTo(b.position.x + RIM, b.position.y);
+        ctx.arc(b.position.x, b.position.y, RIM, 0, HG.TAU);
       }
       ctx.fillStyle = C.waterDeep;
       ctx.fill();
-      // pass 2 — the liquid itself
+
+      // pass 2 — the liquid itself. Same union, slightly smaller, so the rim
+      // only survives on the outside of the mass.
       ctx.beginPath();
       for (let i = 0; i < ps.length; i++) {
         const b = ps[i].body;
-        ctx.moveTo(b.position.x + R + 0.4, b.position.y);
-        ctx.arc(b.position.x, b.position.y, R + 0.4, 0, HG.TAU);
+        ctx.moveTo(b.position.x + BODY, b.position.y);
+        ctx.arc(b.position.x, b.position.y, BODY, 0, HG.TAU);
       }
-      ctx.fillStyle = C.water;
+      const grd = ctx.createLinearGradient(0, 120, 0, 700);
+      grd.addColorStop(0, C.waterMid);
+      grd.addColorStop(1, C.water);
+      ctx.fillStyle = grd;
       ctx.fill();
-      // pass 3 — highlights only where the surface is exposed (looks wet).
-      // A coarse height grid keeps this O(n) instead of O(n^2).
-      const CELL = 26;
-      const cols = Math.ceil(HG.W / CELL) + 2;
-      const rows = Math.ceil(HG.H / CELL) + 2;
-      if (!this._topGrid || this._topGrid.length < cols * rows) {
-        this._topGrid = new Float32Array(cols * rows);
-      }
-      const grid = this._topGrid;
-      grid.fill(0);
-      const cellOf = (p) => {
-        const cx = M.clamp((p.x / CELL) | 0, 0, cols - 1);
-        const cy = M.clamp((p.y / CELL) | 0, 0, rows - 1);
-        return { cx, cy, i: cy * cols + cx };
-      };
-      for (let i = 0; i < ps.length; i++) {
-        const { cx, cy, i: gi } = cellOf(ps[i].body.position);
-        // store the highest (smallest y) droplet per cell
-        if (grid[gi] === 0 || ps[i].body.position.y < grid[gi]) grid[gi] = ps[i].body.position.y;
-        void cx; void cy;
-      }
-      ctx.fillStyle = 'rgba(255,255,255,.7)';
+
+      // pass 3 — highlights, but only where the surface is actually exposed.
+      // A droplet with another droplet above it is *inside* the water, and a
+      // white dot there is what makes a heap look like a bag of cells.
+      const cell = R * 2.2;
+      const hash = new Map();
+      const key = (x, y) => ((x / cell) | 0) * 73856093 ^ ((y / cell) | 0) * 19349663;
       for (let i = 0; i < ps.length; i++) {
         const b = ps[i].body;
-        const { cx, cy } = cellOf(b.position);
-        let exposed = true;
-        for (let gx = cx - 1; gx <= cx + 1 && exposed; gx++) {
-          for (let gy = cy - 1; gy <= cy + 1; gy++) {
-            const top = grid[gy * cols + gx];
-            if (top !== 0 && top < b.position.y - R * 0.75) { exposed = false; break; }
+        const k = key(b.position.x, b.position.y);
+        let bucket = hash.get(k);
+        if (!bucket) { bucket = []; hash.set(k, bucket); }
+        bucket.push(b);
+      }
+      ctx.fillStyle = 'rgba(255,255,255,.42)';
+      for (let i = 0; i < ps.length; i++) {
+        const b = ps[i].body;
+        const gx = (b.position.x / cell) | 0, gy = (b.position.y / cell) | 0;
+        let covered = false;
+        for (let dx = -1; dx <= 1 && !covered; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const bucket = hash.get((gx + dx) * 73856093 ^ (gy + dy) * 19349663);
+            if (!bucket) continue;
+            for (const q of bucket) {
+              if (q === b) continue;
+              // anything above, or above-and-to-the-side, hides it: only the
+              // true top surface of the liquid gets a highlight
+              if (q.position.y < b.position.y - R * 0.25 &&
+                  Math.abs(q.position.x - b.position.x) < R * 2.0) { covered = true; break; }
+            }
+            if (covered) break;
           }
         }
-        if (!exposed) continue;
+        if (covered) continue;
         ctx.beginPath();
-        ctx.arc(b.position.x - 1.2, b.position.y - 2.4, Math.min(2.6, R * 0.34), 0, HG.TAU);
+        ctx.arc(b.position.x - 1.8, b.position.y - 3.0, Math.min(2.0, R * 0.28), 0, HG.TAU);
         ctx.fill();
       }
 

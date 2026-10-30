@@ -183,6 +183,7 @@ checks, and what it found the last time it was run:
 | the water column stays a stream, not a heap | 26 droplets alive at the peak |
 | the stream falls, it does not spray sideways | 0.0 % of droplet-frames moving >4 px/frame sideways |
 | droplets are not flung back up out of the liquid | 0.0 % of droplet-frames moving upward |
+| nothing foreign is drawn inside the water | 0.003 % page showing through (1 px), 0.98 % rim blue |
 
 Fixes that came out of that audit: droplets spawned 7.5 px inside the tap plate; the pour started on
 pointer-*down* instead of on lift; a once-per-frame solver let fast droplets straddle the wire; and
@@ -230,7 +231,10 @@ This repo ships a headless harness so level design isn't guesswork:
 * `tools/autotune.js` hill-climbs a stroke until a level is won; `tools/anchorize.js` reports which
   ink strokes of a solution landed on an anchor and which ones fell (a diagnostic, not a solver).
 * `tools/shot.js` renders the actual game canvas through `@napi-rs/canvas` to a PNG, and
-  `tools/sheet.js` builds the contact sheet in `docs/levels.png`.
+  `tools/sheet.js` builds the contact sheet in `docs/levels.png`. `tools/zoom.js` renders a
+  magnified crop so a single droplet can be inspected, and `tools/waterpixels.js` checks that
+  nothing foreign is drawn *inside* the water (it labels the non-water regions and counts any
+  that the frame border cannot reach — a sealed hole in the liquid).
 * `tools/smoke.js` boots the built single-file game in jsdom, clicks Play, draws with pointer events,
   waits for a win, checks the dialog opens and the star was saved, then repeats the whole flow on a
   floating-glass level and asserts the glass stayed supported and got filled.
