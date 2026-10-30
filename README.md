@@ -83,55 +83,17 @@ tools/              dev server, single-file builder, headless simulator, verifie
 
 ### Levels
 
-35 levels. Every one of them is **generated and then proved**: `tools/design.js` places the
-tap and the glass, solves the ballistic aim that lands the water in the mouth, searches for the
-scenery that will carry a drawn line to that aim, and then plays the finished level four times —
-once with its own line and three more with the same line nudged by a pixel or two. A level only
-ships if a hand-drawn line, not a machine-perfect one, wins it. The reference solutions in
-`tools/solutions.js` are the lines that proof used.
+**70 levels, seven chapters of ten**, each chapter teaching one idea:
+The Pour (the line is a chute) · The Obstacle (scenery in the way) · The Weight (loose balls) ·
+The Machine (wind and heat) · The Glass (the target is unstable) · Two Bodies (more than one stream)
+· The Exams (two mechanics at once).
 
-The variety is in the *shape of the thing you rest the line on* — a floating bracket, a small peg,
-a wide shelf, or a stone column standing on the ground — and in where the tap, the glass and the
-hazards sit. Nothing moves on its own: the pinned bars are scenery that only turns once water or a
-line hits it.
-
-| # | Name | Structure |
-| --- | --- | --- |
-| 1 | First Pour | 2 brackets · one glass |
-| 2 | A Gentle Slope | 3 brackets · one glass · 1 hot pad |
-| 3 | Small Step | 2 pegs · one glass |
-| 4 | Over The Wall | 2 brackets · one glass · teal crate |
-| 5 | Twin Falls | 2 brackets · one fork, two glasses |
-| 6 | Crate & Glass | 2 shelves · one glass · teal crate |
-| 7 | Wall Run | 2 brackets · one glass · 1 hot pad |
-| 8 | Hot Floor | 2 brackets · one glass · 2 hot pads |
-| 9 | Spinner | 2 pegs · one glass · 1 pinned bar |
-| 10 | Tilting Plank | 2 brackets · one glass · teal crate |
-| 11 | The Bridge | 3 columns · one glass |
-| 12 | The Neck | 2 brackets · one glass · 1 hot pad |
-| 13 | Crosswind | 2 pegs · one glass · blower |
-| 14 | The Staircase | 3 brackets · one glass · wood+teal crate |
-| 15 | Pillar Drop | 3 brackets · one glass · stone crate |
-| 16 | Gear Works | 2 brackets · one glass · 2 pinned bars |
-| 17 | Long Reach | 2 brackets · one glass |
-| 18 | The Long Drop | 2 brackets · one glass |
-| 19 | Hot Pipes | 2 brackets · one glass · 3 hot pads |
-| 20 | The Sink | 2 brackets · one glass · 1 pinned bar |
-| 21 | Twin Spinners | 2 pegs · one glass · 2 pinned bars |
-| 22 | Upstream | 3 brackets · one glass · blower |
-| 23 | The Gauntlet | 2 brackets · one glass · 1 hot pad, 2 pinned bars |
-| 24 | Two Storeys | 4 brackets · two glasses, high and low · 2 taps · teal crate |
-| 25 | Last Drop | 2 brackets · one glass · 1 hot pad |
-| 26 | Hold It Up | 2 brackets · one glass |
-| 27 | Two Hands | 4 brackets · two glasses, high and low · 2 taps · teal crate |
-| 28 | Slippery Shelf | 3 brackets · one glass · ice crate |
-| 29 | Diamond Gap | 2 pegs · one glass · teal crate |
-| 30 | Gap Bridge | 2 brackets · one glass · 1 hot pad |
-| 31 | The Wedge | 2 brackets · one glass · 1 pinned bar |
-| 32 | Falling Weight | 2 brackets · one glass · wood+teal crate |
-| 33 | Wind Tunnel | 2 brackets · one glass · blower |
-| 34 | Juggler | 2 brackets · one glass · 2 pinned bars |
-| 35 | Grand Finale | 2 brackets · one glass · 1 hot pad, 2 pinned bars |
+Every level is authored as a **scene** — a tap, a glass and three to six objects on paper — and the
+line is then found and proved by `tools/solve.js`: it enumerates the rest points the scenery
+offers, draws candidate lines through them, plays each one, and ships the ones that win *and* still
+win when the line is nudged by a pixel or two. Nothing in a level is driven; a pinned bar only turns
+when water or a line hits it. Loose balls come in two weights: heavy (orange, dead) and light (teal,
+bouncy).
 
 ---
 

@@ -205,6 +205,7 @@
 
       this.platforms = [];
       this.crates = [];
+      this.balls = [];
       this.spinners = [];
       this.seesaws = [];
       this.hots = [];
@@ -307,6 +308,28 @@
         const b = mk(c.x, c.y, c.size, c.size, c.angle || 0, c.kind || 'wood', 'crate');
         this.crates.push({ def: c, body: b, kind: c.kind || 'wood' });
       });
+      // Loose weights. A ball is thrown by the level and then belongs to the
+      // physics: it rolls, it lands on your ink, it can knock the glass over.
+      // Nothing drives it — no motor, no path — so it is not a moving obstacle
+      // in the sense this game bans.
+      (lv.balls || []).forEach((def) => {
+        const heavy = (def.kind || 'heavy') === 'heavy';
+        const b = Bodies.circle(def.x, def.y, def.r, {
+          label: 'ball',
+          friction: heavy ? 0.42 : 0.2,
+          frictionAir: heavy ? 0.004 : 0.002,
+          frictionStatic: heavy ? 0.6 : 0.1,
+          // the heavy ball is a dead weight, the light one is a rubber ball
+          restitution: heavy ? 0.06 : 0.62,
+          density: heavy ? 0.0062 : 0.0016,
+          slop: 0.12,
+        });
+        b.kind = def.kind || 'heavy';
+        b.ballDef = def;
+        Composite.add(this.world, b);
+        this.balls.push({ def, body: b, kind: b.kind });
+      });
+
       lv.hots.forEach((h) => this.hots.push(Object.assign({}, h)));
       lv.fans.forEach((f) => this.fans.push(Object.assign({}, f)));
 

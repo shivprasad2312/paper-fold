@@ -119,6 +119,7 @@
       (scene.pins || []).forEach((p) => this.drawPin(ctx, p));
       scene.platforms.forEach((p) => this.drawPlatform(ctx, p));
       scene.crates.forEach((c) => this.drawCrate(ctx, c));
+      scene.balls.forEach((b) => this.drawBall(ctx, b));
       scene.seesaws.forEach((s) => this.drawSeesaw(ctx, s));
       scene.spinners.forEach((s) => this.drawSpinner(ctx, s, dt));
 
@@ -273,6 +274,31 @@
       ctx.arc(0, 0, p.r * 0.28, 0, HG.TAU);
       ctx.fillStyle = 'rgba(45,59,71,.5)';
       ctx.fill();
+      ctx.restore();
+    }
+
+    // A loose weight: flat colour, hard outline, one highlight. Heavy = orange,
+    // light = teal, so the level's own colour tells you what it will do.
+    drawBall(ctx, ball) {
+      const p = ball.body.position;
+      const r = ball.def.r;
+      const heavy = ball.kind !== 'light';
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      this.popShadow(ctx, r * 2, r * 2);
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, HG.TAU);
+      const grd = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.2, 0, 0, r);
+      if (heavy) {
+        grd.addColorStop(0, '#f6a252');
+        grd.addColorStop(1, '#e8822a');
+      } else {
+        grd.addColorStop(0, '#6fb3b8');
+        grd.addColorStop(1, '#3f8a93');
+      }
+      ctx.fillStyle = grd;
+      ctx.fill();
+      this.outline(ctx, 3);
       ctx.restore();
     }
 
