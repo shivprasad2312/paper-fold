@@ -161,21 +161,26 @@ checks, and what it found the last time it was run:
 | Check | Result |
 | --- | --- |
 | gravity is one global acceleration | 0.384 px/step² (≈ 1381 px/s²) |
-| a droplet cannot shove a glass | 500 : 1 mass ratio, full glass of water = 12 % of the cup |
-| a supported glass rests without jitter | 0.58 px drift over 6 s |
-| droplets are born outside the tap collider | 3–4 px clear of the plate |
-| no droplet can tunnel through a 15 px line | fastest 21.1 px/step vs 22 px of travel — clamp at 22 |
-| ink that touches nothing falls | y 300 → 912 in 1 s, culled when it leaves the level |
-| ink that touches scenery is static | 31 segments, up to 3 nails |
+| a droplet cannot shove a glass | 467 : 1 mass ratio, full glass of water = 12 % of the cup |
+| a supported glass rests without jitter | 0.91 px drift over 6 s |
+| droplets are born outside the tap collider | 3.5 px clear of the plate |
+| a droplet moves less than a rod-thickness per solver step | 6.2 px/step (18.6 px/frame ÷ 3 substeps) vs an 8 px rod |
+| no droplet can tunnel through a drawn line | 18.6 px/frame vs 22 px of rod + droplet |
+| a welded wire never moves, even under a 5 s stream | identical geometry, 4 nails, `isStatic` |
+| water resting on the wire is asleep, not buzzing | worst 0.014 px/step, 0 of 12 600 samples moving |
+| ink that touches nothing falls | y 300 → 894 in 1 s, culled when it leaves the level |
+| ink that touches scenery is static | 63 segments, up to 4 nails |
 | a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
 | unsupported glass / crate fall | glass leaves the level, crate drops 660 px |
-| water stays pooled once it lands | fill 0.86 → 0.86 after 10 s |
-| same strokes, same result | 31/31/31/31/31 droplets over 5 runs |
+| water stays pooled once it lands | fill 0.73 → 0.73 after 10 s |
+| same strokes, same result | 31/32/31/31/31 droplets over 5 runs |
 
 Fixes that came out of that audit: ink was anchoring to *its own* half-drawn segments (so every
 line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
-pointer-*down* instead of on lift, the speed clamp allowed tunnelling, and the glass carried an
-unnecessary ×3.5 rotational cheat. Full report, including the intentional shortcuts (static
+pointer-*down* instead of on lift, a once-per-frame solver let fast droplets straddle the wire (the
+"vibrating line" report), and the glass carried an unnecessary ×3.5 rotational cheat. The latest
+pass halved the wire to 8 px, added three physics substeps per frame with a 18 px/frame droplet
+speed ceiling, and put a rest floor under settled bodies — see [`docs/PHYSICS.md`](docs/PHYSICS.md). Full report, including the intentional shortcuts (static
 anchored ink, no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
 ## 4. Testing without a browser
@@ -189,9 +194,12 @@ This repo ships a headless harness so level design isn't guesswork:
 * `tools/flaky.js` (`npm run flaky`) replays every reference solution four times and fails the build
   if a level wins only sometimes.
 * `tools/solutions.js` holds one human-style reference solution per level.
+* `tools/margins.js` reports, per level, how far the reference solution clears its target — the
+  number that decides whether a level is comfortable or knife-edge.
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
-  **35/35 levels solvable**, and every glass's fill target sits ~20 % below the maximum the
-  reference solution can actually reach, so wins are not knife-edge.
+  **35/35 levels solvable**, confirmed by `tools/flaky.js` over four full passes. Targets are
+  re-cushioned whenever the reference solution wins by less than two droplets, so a win never hangs
+  on a single particle.
 * `tools/grid.js` brute-forces one-stroke solutions (used to confirm each new layout is beatable),
   `tools/probe.js` / `tools/trace.js` print per-frame glass pose, fill and droplet paths.
 * `tools/autotune.js` hill-climbs a stroke until a level is won; `tools/anchorize.js` reports which

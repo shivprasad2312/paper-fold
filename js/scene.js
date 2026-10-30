@@ -10,13 +10,14 @@
   const M = HG.M;
 
   const WALL = 7;               // glass wall thickness
-  const INK_W = 15;             // ink line thickness
-  const INK_MIN_STEP = 9;       // simplified point spacing
+  const INK_W = 8;              // ink line thickness (half the old 15 px rod)
+  const INK_MIN_STEP = 5;       // simplified point spacing (finer: thin rods need it)
+  const PHYS_SUBSTEPS = 3;      // solver passes per rendered frame (see physics())
   const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
   const INK_DENSITY = 0.0018;   // ink is iron wire, not paint: it has real mass
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
-  const MAX_DROP_SPEED = 22;    // px/step where droplets start tunnelling 15px ink
+  const MAX_DROP_SPEED = 18;    // px/frame: 6 px per solver step, under the 8 px rod
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
@@ -481,6 +482,73 @@
       return out;
     }
 
+    // A stroke ends either in mid-air or against something solid. Where the pen
+    // was stopped by a surface, the ink was stopped by it too — so the drawn end
+    // is notched a hair into that surface. This is what makes the weld honest:
+    // the wire's own geometry overlaps the thing it is nailed to, instead of
+    // relying on being "near enough".
+    pressStrokeEnds(st) {
+      const SNAP_REACH = 10;    // px: only ends that were essentially pressed on
+      const SINK = 1.2;         // px inside the surface
+      const anchors = this.anchorBodies().filter((b) => b.label !== 'ink');
+      if (!anchors.length) return;
+      const nearest = (x, y) => {
+        let best = null;
+        for (const b of anchors) {
+          const vs = b.vertices;
+          for (let i = 0; i < vs.length; i++) {
+            const a = vs[i], c = vs[(i + 1) % vs.length];
+            const dx = c.x - a.x, dy = c.y - a.y;
+            const L2 = dx * dx + dy * dy || 1;
+            const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (y - a.y) * dy) / L2));
+            const px = a.x + dx * t, py = a.y + dy * t;
+            const d = M.dist(px, py, x, y);
+            if (!best || d < best.d) best = { d, x: px, y: py, body: b };
+          }
+        }
+        return best;
+      };
+      const press = (seg, atStart) => {
+        const px = atStart ? seg.x1 : seg.x2;
+        const py = atStart ? seg.y1 : seg.y2;
+        const near = nearest(px, py);
+        if (!near || near.d > SNAP_REACH || near.d < 0.01) return;
+        const ox = px - near.x, oy = py - near.y;
+        const L = Math.hypot(ox, oy) || 1;
+        const nx = near.x + (ox / L) * SINK;
+        const ny = near.y + (oy / L) * SINK;
+        this.reshapeSeg(seg, atStart, nx, ny);
+      };
+      press(st.segs[0], true);
+      if (st.segs.length > 1) press(st.segs[st.segs.length - 1], false);
+    }
+
+    // replace one end of a segment's geometry (the collider is rebuilt from it)
+    reshapeSeg(seg, atStart, nx, ny) {
+      const x1 = atStart ? nx : seg.x1;
+      const y1 = atStart ? ny : seg.y1;
+      const x2 = atStart ? seg.x2 : nx;
+      const y2 = atStart ? seg.y2 : ny;
+      seg.x1 = x1; seg.y1 = y1; seg.x2 = x2; seg.y2 = y2;
+      const len = M.dist(x1, y1, x2, y2);
+      if (len < 0.5) return;
+      seg.angle = Math.atan2(y2 - y1, x2 - x1);
+      seg.len = len + INK_W * 0.9;
+      seg.mx = (x1 + x2) / 2;
+      seg.my = (y1 + y2) / 2;
+      if (seg.body && seg.body.isProvisional) {
+        Composite.remove(this.world, seg.body);
+        const body = Bodies.rectangle(seg.mx, seg.my, seg.len, INK_W, {
+          isStatic: true, angle: seg.angle, label: 'ink',
+          friction: 0.6, restitution: 0.03, chamfer: { radius: INK_W * 0.44 },
+        });
+        body.isProvisional = true;
+        body.strokeRef = seg.stroke;
+        Composite.add(this.world, body);
+        seg.body = body;
+      }
+    }
+
     // does a world point touch something solid? (used for hints / diagnostics)
     isAnchorPoint(x, y) {
       const probe = Bodies.circle(x, y, INK_W / 2 + CONTACT_TOL, { isStatic: true });
@@ -522,7 +590,7 @@
         (last.x + nx) / 2, (last.y + ny) / 2,
         len + INK_W * 0.9, INK_W,
         { isStatic: true, angle, label: 'ink', friction: 0.6, restitution: 0.03,
-          chamfer: { radius: INK_W / 2 } }
+          chamfer: { radius: INK_W * 0.44 } }
       );
       body.isProvisional = true;
       Composite.add(this.world, body);
@@ -563,6 +631,9 @@
       }
       this.ink.strokes.push(st);
 
+      // ---- press the ends into whatever they were drawn against
+      this.pressStrokeEnds(st);
+
       // ---- where does the wire actually touch something solid?
       const contacts = this.inkContacts(st);
 
@@ -572,7 +643,7 @@
         Bodies.rectangle(seg.mx, seg.my, seg.len, INK_W, {
           angle: seg.angle,
           density: INK_DENSITY,
-          chamfer: { radius: INK_W / 2 },
+          chamfer: { radius: INK_W * 0.44 },
         })
       );
       const body = Body.create({
@@ -657,13 +728,18 @@
 
     inkPointBlocked(x, y) {
       // don't allow drawing inside scenery / the glass / the tap
+      // The pen stops when the *ink* touches, not when the cursor does: the
+      // 2 px sink lets a drawn stroke actually meet the surface (a marker line
+      // creeps a hair into the wall it runs into). Without it ink could never
+      // reach a surface at all, and a wire could never be nailed to anything.
+      const PAD = 2;
       const inRect = (r) =>
-        Math.abs(x - r.x) <= r.w / 2 + 4 && Math.abs(y - r.y) <= r.h / 2 + 4;
+        Math.abs(x - r.x) <= r.w / 2 + PAD && Math.abs(y - r.y) <= r.h / 2 + PAD;
       for (const p of this.level.platforms) {
         if (Math.abs(p.angle || 0) < 0.01 && inRect(p)) return true;
       }
       for (const c of this.level.crates) {
-        if (Math.abs(x - c.x) <= c.size / 2 + 4 && Math.abs(y - c.y) <= c.size / 2 + 4) return true;
+        if (Math.abs(x - c.x) <= c.size / 2 + PAD && Math.abs(y - c.y) <= c.size / 2 + PAD) return true;
       }
       for (const g of this.glasses) {
         const l = g.toLocal(x, y);
@@ -885,10 +961,55 @@
     }
 
     // --------------------------------------------------------------- physics
+    // The wire is a thin rod now (8 px) and a droplet in free fall covers about
+    // 11 px per frame at terminal speed — more than half a rod. Stepping the
+    // solver once per frame let a fast droplet straddle the rod in a single
+    // step: it would sink in, get shoved out, sink again. On screen that reads
+    // exactly like the wire shivering when water lands on it. Three substeps cut
+    // the per-step travel to ~3.8 px, well under the rod, so contact is resolved
+    // on the surface and stays put.
     physics(dt) {
       if (this.frozen) return;
-      Engine.update(this.engine, dt);
+      // Speed ceiling for the fluid. A droplet is a 14 px ball and the wire is an
+      // 8 px rod: above this it would cross the rod inside one solver step and
+      // pop through (or, worse, alternately inside and outside it — a shiver).
+      const MAXV = MAX_DROP_SPEED;
+      for (const p of this.water.particles) {
+        const b = p.body;
+        const sp = Math.hypot(b.velocity.x, b.velocity.y);
+        if (sp > MAXV) Body.setVelocity(b, { x: (b.velocity.x / sp) * MAXV, y: (b.velocity.y / sp) * MAXV });
+      }
+      const n = PHYS_SUBSTEPS;
+      const h = dt / n;
+      for (let i = 0; i < n; i++) Engine.update(this.engine, h);
       this.holdAnchoredInk();
+      this.calmBodies();
+    }
+
+    // Numerical dust: the solver leaves a few hundredths of a pixel per step of
+    // residual motion in a stack that has already come to rest. Nothing in the
+    // game wants that — it is the "buzzing" look on pooled water — so anything
+    // below the visible threshold is snapped to a dead stop. Bodies that are
+    // genuinely moving are untouched.
+    calmBodies() {
+      const EPS = 0.035;
+      for (const p of this.water.particles) {
+        const b = p.body;
+        if (!b || b.isSleeping) continue;
+        if (Math.abs(b.velocity.x) < EPS && Math.abs(b.velocity.y) < EPS) {
+          Body.setVelocity(b, { x: 0, y: 0 });
+          b.angularVelocity = 0;
+        }
+      }
+      for (const st of this.ink.strokes) {
+        const b = st.body;
+        if (!b || st.gone || b.isStatic) continue;
+        if (Math.abs(b.velocity.x) < EPS && Math.abs(b.velocity.y) < EPS
+            && Math.abs(b.angularVelocity) < 0.002) {
+          Body.setVelocity(b, { x: 0, y: 0 });
+          Body.setAngularVelocity(b, 0);
+        }
+      }
     }
 
     // A nailed wire stays nailed while the thing it is nailed to is still
@@ -905,7 +1026,7 @@
           const pin = st.pins[i];
           if (!sup || !pin) continue;
           if (sup.isStatic) { held++; continue; }
-          const probe = Bodies.circle(pin.x, pin.y, 4, { isStatic: true });
+          const probe = Bodies.circle(pin.x, pin.y, 3, { isStatic: true });
           let hit = null;
           try { hit = Collision.collides(probe, sup); } catch (e) { hit = null; }
           if (hit && hit.collided) held++;
@@ -929,6 +1050,7 @@
 
   Scene.WALL = WALL;
   Scene.INK_W = INK_W;
+  Scene.SUBSTEPS = PHYS_SUBSTEPS;
   HG.Scene = Scene;
   HG.Glass = Glass;
 })(window);

@@ -82,6 +82,44 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
+// ------------------------------------------------- 3b. settled contact is still
+// A nailed wire and a pool of settled water must be *perfectly* motionless.
+// Anything left moving is what a player reports as "the line is vibrating".
+{
+  // NB: deep-copy the level — levels are shared objects, and scribbling on one
+  // here would corrupt every later check.
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 150, y: 620, w: 60, h: 60, need: 0.99 }];
+  lv.faucet = { x: 640, y: 120, rate: 50, total: 400 };
+  lv.platforms = [{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[420, 408], [420, 300]], [[860, 408], [860, 300]], [[420, 408], [860, 408]]]);
+  const wire = sc.ink.strokes[0];
+  const shape0 = JSON.stringify(sc.inkWorldSegments());
+  sc.start();
+  // 4 s of pour, then 1 s of quiet, then measure for 2 s
+  for (let i = 0; i < 60 * 5; i++) { sc.step(STEP); sc.physics(STEP); }
+  const shapeAfterPour = JSON.stringify(sc.inkWorldSegments());
+  let worstSpeed = 0, moving = 0, samples = 0;
+  for (let i = 0; i < 60 * 2; i++) {
+    sc.step(STEP); sc.physics(STEP);
+    for (const p of sc.water.particles) {
+      const v = Math.hypot(p.body.velocity.x, p.body.velocity.y) / HG.Scene.SUBSTEPS;
+      samples++;
+      if (v > worstSpeed) worstSpeed = v;
+      if (v > 0.2) moving++;
+    }
+  }
+  say('## 3b. Settled contact is motionless');
+  check(wire.anchored && wire.body.isStatic, 'a wire drawn on a ledge is welded, not simulated',
+    (wire.pins.length || 0) + ' nail(s), static ' + wire.body.isStatic);
+  check(shapeAfterPour === shape0, 'the welded wire never moves, even under a 5 s stream',
+    shapeAfterPour === shape0 ? 'identical geometry over 5 s of water' : 'geometry drifted');
+  check((moving / samples) < 0.01, 'water resting on the wire is asleep, not buzzing',
+    'worst ' + worstSpeed.toFixed(3) + ' px/step, ' + moving + '/' + samples + ' samples moving');
+  sc.destroy();
+}
+
 // ------------------------------------------------------------ 4. tap spawn
 {
   const sc = fresh(1);
@@ -118,10 +156,21 @@ const drawAll = (scene, strokes) => {
     }
     sc.destroy();
   }
-  const safe = INK_W + HG.Water.R;
+  // The solver runs SUBSTEPS passes per rendered frame, so what matters is the
+  // distance a droplet covers in one *solver* step, measured against the rod it
+  // has to land on. Above the rod thickness the contact is resolved mid-air on
+  // one step and mid-rod on the next — the flicker that reads as a shivering
+  // wire. Above rod + droplet diameter it tunnels outright.
+  const sub = HG.Scene.SUBSTEPS;
+  const perStep = maxV / sub;
+  const contactSafe = INK_W;
+  const tunnelSafe = INK_W + 2 * HG.Water.R;
   say('## 5. Continuous collision');
-  check(maxV < safe, 'no droplet is fast enough to tunnel through a drawn line',
-    'fastest ' + maxV.toFixed(1) + ' px/step vs ' + safe + ' px of line+droplet');
+  check(perStep < contactSafe, 'a droplet moves less than a rod-thickness per solver step',
+    'fastest ' + perStep.toFixed(1) + ' px/step (' + maxV.toFixed(1) + ' px/frame / ' + sub +
+    ' substeps) vs ' + contactSafe + ' px rod');
+  check(maxV < tunnelSafe, 'no droplet is fast enough to tunnel through a drawn line',
+    'fastest ' + maxV.toFixed(1) + ' px/frame vs ' + tunnelSafe + ' px of rod + droplet');
 }
 
 // ------------------------------------------------------- 6. ink obeys gravity
