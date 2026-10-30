@@ -304,28 +304,30 @@
 
     drawCrate(ctx, c) {
       const d = c.def, s = this.shade(c.kind);
-      const sz = d.size;
+      // a crate is a cube, a masonry block is a rectangle
+      const w = d.w || d.size, h = d.h || d.size;
+      const inset = Math.min(7, Math.min(w, h) / 4);
       ctx.save();
       ctx.translate(c.body.position.x, c.body.position.y);
       if (c.body.angle) ctx.rotate(c.body.angle);
-      HG.roundRectPath(ctx, -sz / 2, -sz / 2, sz, sz, 7);
-      const grd = ctx.createLinearGradient(0, -sz / 2, 0, sz / 2);
+      HG.roundRectPath(ctx, -w / 2, -h / 2, w, h, Math.min(7, Math.min(w, h) / 4));
+      const grd = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
       grd.addColorStop(0, s.light);
       grd.addColorStop(0.5, s.fill);
       grd.addColorStop(1, s.dark);
       ctx.fillStyle = grd;
       ctx.fill();
       this.outline(ctx, 3.4);
-      HG.roundRectPath(ctx, -sz / 2 + 7, -sz / 2 + 7, sz - 14, sz - 14, 4);
+      HG.roundRectPath(ctx, -w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2, 3);
       ctx.strokeStyle = 'rgba(45,59,71,.3)';
       ctx.lineWidth = 2.4;
       ctx.stroke();
       if (c.kind === 'wood') {
         ctx.beginPath();
-        ctx.moveTo(-sz / 2 + 7, -sz / 2 + 7);
-        ctx.lineTo(sz / 2 - 7, sz / 2 - 7);
-        ctx.moveTo(sz / 2 - 7, -sz / 2 + 7);
-        ctx.lineTo(-sz / 2 + 7, sz / 2 - 7);
+        ctx.moveTo(-w / 2 + inset, -h / 2 + inset);
+        ctx.lineTo(w / 2 - inset, h / 2 - inset);
+        ctx.moveTo(w / 2 - inset, -h / 2 + inset);
+        ctx.lineTo(-w / 2 + inset, h / 2 - inset);
         ctx.stroke();
       }
       ctx.restore();

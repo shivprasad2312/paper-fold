@@ -122,7 +122,7 @@ function anchorsOf(scene) {
   scene.crates.forEach((c) => {
     const d = c.def;
     if (d.dynamic) return;
-    const [l, r] = rectTopEdge({ x: d.x, y: d.y, w: d.size, h: d.size, angle: d.angle || 0 });
+    const [l, r] = rectTopEdge({ x: d.x, y: d.y, w: d.w || d.size, h: d.h || d.size, angle: d.angle || 0 });
     for (const t of [0.02, 0.3, 0.5, 0.7, 0.98]) push(l.x + (r.x - l.x) * t, l.y + (r.y - l.y) * t - 4, 'crate');
   });
   return out;
@@ -478,7 +478,9 @@ if (EMIT) {
       }
       if (lv.crates.length) {
         L.push('      crates: [');
-        lv.crates.forEach((c) => L.push('        { x: ' + num(c.x) + ', y: ' + num(c.y) + ', size: ' + c.size + ', kind: \'' + c.kind + '\'' + (c.angle ? ', angle: ' + ang(c.angle) : '') + ' },'));
+        lv.crates.forEach((c) => L.push('        { x: ' + num(c.x) + ', y: ' + num(c.y) + ', ' +
+          (c.w ? 'w: ' + num(c.w) + ', h: ' + num(c.h) : 'size: ' + c.size) + ', kind: \'' + c.kind + '\'' +
+          (c.angle ? ', angle: ' + ang(c.angle) : '') + ' },'));
         L.push('      ],');
       }
       if (lv.balls.length) {

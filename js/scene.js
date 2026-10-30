@@ -291,7 +291,7 @@
       });
       lv.crates.forEach((c) => {
         if (c.dynamic) {
-          const b = Bodies.rectangle(c.x, c.y, c.size, c.size, {
+          const b = Bodies.rectangle(c.x, c.y, c.w || c.size, c.h || c.size, {
             angle: c.angle || 0,
             friction: 0.45,
             frictionAir: 0.004,
@@ -305,7 +305,11 @@
           this.crates.push({ def: c, body: b, kind: b.kind });
           return;
         }
-        const b = mk(c.x, c.y, c.size, c.size, c.angle || 0, c.kind || 'wood', 'crate');
+        // A crate is a cube; a masonry block is any rectangle. Same body, same
+        // rules — the only difference is that a block can be long and thin, and
+        // a long thin stone is what a lintel is.
+        const bw = c.w || c.size, bh = c.h || c.size;
+        const b = mk(c.x, c.y, bw, bh, c.angle || 0, c.kind || 'wood', 'crate');
         this.crates.push({ def: c, body: b, kind: c.kind || 'wood' });
       });
       // Loose weights. A ball is thrown by the level and then belongs to the

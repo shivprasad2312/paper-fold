@@ -267,27 +267,42 @@ six are drawable with the existing visual language: flat silhouette, hard outlin
 colour = meaning (teal = structure, grey + arrow = machine, orange = loose weight, cream = masonry,
 pale silver = reflective, ochre = porous).
 
-### A7 · Masonry blocks and a keystone gap  *(civil)*
+### A7 · Loose masonry  *(civil)* — **revised after testing**
 
-**What it is.** Cream sandstone blocks laid in a **semicircular arch**, with one block missing at the
-crown. The player's ink can become the missing voussoir.
+**What the brief said.** A semicircular ring of cream voussoirs with one block missing at the crown:
+an arch stands by being squeezed, so put the ink in the gap and the ring closes.
 
-**The law.** An arch stands in **pure compression**. Each block pushes on its neighbour along the
-joint; the *thrust line* must stay inside the masonry. Remove the keystone and the two haunches
-rotate outward and the arch collapses. Put the ink in the gap and it works — because the ink is a
-wedge being squeezed, and compression is what it is good at.
+**What the engine said.** I built it: nine tangent voussoirs, radial joints, springing on two piers, and
+a solver grid over twenty-four keystone positions and widths. **It never stood.** Every configuration
+collapsed in under a third of a second, with or without ink. The numbers are in
+`docs/GOAL-AND-WIN-CONDITIONS.md` §7, but the reason is geometric, not a bug:
 
-**The construction.** The arc, its chord, and the tangent at the springing. The student reads the
-arch's radius and places the line along the thrust path.
+* two neighbouring rectangles cut on radial joints touch at a **point**, not on a face, so a ring of
+  them has hinges it was never supposed to have;
+* a dry arch holds because the *thrust line* stays inside the masonry — that needs friction acting over
+  time and mass doing the pressing, and this engine gives a block 1/60 s to develop it;
+* most importantly: **a keystone is a wedge and the ink is a uniform rod.** A rod dropped into a crown
+  gap with parallel faces slides straight out. To make it grip I would have to special-case the ink's
+  shape, and every rule in this project says the ink is one thing everywhere.
 
-**What it tests.** That a *structure can be held by being squeezed*. Nothing else in the game teaches
-this, and it is the single most beautiful idea in civil engineering.
+So the *idea* was right and the *asset* was wrong. An arch belongs in a teaching diagram, not in a
+60 Hz rigid-body game where the player's tool is a straight rod.
 
-**Looks like.** Cream blocks with visible mortar joints and a faint chisel line; the missing block is
-a dark gap that the ink fills.
+**What ships instead: loose masonry.** Stone blocks of any rectangular proportion, released by the
+level and then owned by the physics. A block can be caught on your wire, carried along it, and **laid
+flat** — and a flat stone is a *plug*, which a ball can never be. The law is the one that matters at
+this chapter: **a body you did not draw is still part of your structure**, and the force you apply to it
+is the only control you have. It also gives the chapter its engineering voice: you do not move a stone,
+you *build a chute and let gravity do the work*.
 
-**Danger.** Never let the arch *look* like it stands without the keystone — the collapse must be
-immediate and obvious or the physics reads as a bug.
+**What it tests.** Load path: the wire carries the stone, so the wire must itself be supported. Mass:
+the same slope delivers a heavy block and a light one very differently. Placement: a plug only seals if
+it lands *across* the gap, not beside it.
+
+**Looks like.** Cream sandstone, hard outline, visible chisel line — `kind: 'stone'`, any `w × h`.
+
+**Danger.** A block that lands on the glass knocks it off its base. That is a fair loss, but the loss
+message has to say so ("the glass was knocked over"), not "lost".
 
 ---
 
@@ -897,8 +912,11 @@ inequality, applied to the whole curriculum.
 
 ## Part 6 — Build order, if this were being made
 
-1. **A7 arch and A8 truss** — engineering assets, conceptually richest, and they unlock chapters 7 and
-   8 (20 levels) with the least new physics modelling.
+1. ~~**A7 arch and A8 truss**~~ → **A7 loose masonry: DONE** (see the revision above). The arch half of
+   this step was tested and rejected; masonry blocks ship, and they are the only new asset so far that
+   needs no new physics modelling at all — a block is a body. A8 truss is next, and it carries the same
+   warning: a "structure that racks" needs joints that hold under load, and ink cannot be pinned to a
+   frame. If it cannot be built honestly, it will be redesigned rather than faked.
 2. **A10 pulley** — one constraint and one wheel; unlocks chapter 10 and half of chapter 19.
 3. **A11 reflector** — only needs the ball's restitution path; unlocks chapter 11.
 4. **A9 membrane** — the most delicate: a soft body with a changing shape, and the biggest risk of

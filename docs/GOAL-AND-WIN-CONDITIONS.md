@@ -243,6 +243,49 @@ a placement problem. Every one of the seventy signatures is unique.
 | `smoke` | all checks pass — both demo levels now draw their *reference* line instead of a line typed in an earlier round |
 | build · sheet | 346 kB single file; 70-panel sheet regenerated |
 
+## 7b. The keystone experiment — a negative result, kept
+
+The 200-level design proposes a masonry arch whose missing keystone the player's ink replaces. I built
+it and it does not work. The result is recorded because it is the kind of thing that otherwise gets
+re-attempted every few months.
+
+**What was built.** `buildArch()` in `js/scene.js`: *n* tangent voussoirs of a given radius and
+thickness, radial joints, a configurable number of missing blocks, springing on two static piers whose
+tops were measured off the lowest voussoir rather than computed from the nominal radius (the first
+version left a few pixels of daylight under the springing and the whole ring dropped before the player
+drew anything).
+
+**What was measured** — maximum displacement of any voussoir after 4 s:
+
+| Configuration | Variants tried | Result |
+|---|---|---|
+| full ring, loose blocks, 9–17 voussoirs | 12 | collapses (`>14 000 px`, out of the level) |
+| ring with one gap at the crown | 12 | collapses |
+| gap at a haunch (`at` = 1, 2) | 24 | collapses |
+| ink rod in the gap: 5 heights × 4 widths × 2 gap positions | 40 | collapses, **exactly like the no-ink control** |
+| springing voussoirs fixed into the abutment | 8 | collapses |
+| voussoirs packed (`press` 0.5–3 px of pre-compression) | 24 | collapses |
+
+**Why it cannot work here.**
+
+1. **Geometry.** Two rectangles cut on radial joints meet at a *point*, not along a face. A ring of them
+   is a chain of hinges, not an arch.
+2. **Time.** A dry arch develops its thrust over a load path that needs a static problem solved; a
+   1/60 s rigid-body step with `slop 0.04` gives the blocks one frame to press on each other before they
+   are already moving. Once a ring is a mechanism it is a mechanism — you cannot un-drop it.
+3. **Shape.** This is the one that decides it: **a keystone is a wedge; the ink is a uniform rod.** In a
+   crown gap with parallel faces, a rod has nothing to grip and slides out. Every alternative needed the
+   ink to be a special shape in one level, which breaks the first rule of the game.
+
+**What was shipped instead.** Loose masonry: rectangular stone blocks (`kind: 'stone'`, any `w × h`),
+released by the level, caught on the player's wire, and laid flat as a plug. Same chapter, same civil
+voice, and it is true — the player does not move the stone, they build the chute.
+
+The lesson for the remaining assets: **test the asset in isolation before designing levels on it**, and
+report the negative result rather than tuning until something merely passes.
+
+---
+
 ## 8. Definition of done
 
 A chapter is done when:
