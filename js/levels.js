@@ -25,49 +25,58 @@
   const LEVELS = [
     {
       name: 'First Pour',
-      tip: 'Tap, glass, gravity. Watch it fill, then try drawing anything at all.',
+      tip: 'Tap, glass, gravity. Draw a line from the tap to the glass and see if it stays.',
       ink: 650,
       faucet: { x: 640, y: 190, rate: 46, total: 105 },
-      glasses: [{ x: 640, y: 470, w: 104, h: 118, need: 0.55 }],
+      glasses: [{ x: 1110, y: 489, w: 104, h: 118, need: 0.55 }],
       // a stone pedestal holds the glass: the tutorial room is not an empty page
       platforms: [
-        P({ x: 640, y: 560, w: 60, h: 64, kind: 'stone' }),
-        P({ x: 640, y: 606, w: 230, h: 24, kind: 'stone' }),
+        P({ x: 1110, y: 579, w: 60, h: 64, kind: 'stone' }),
+        P({ x: 1110, y: 625, w: 230, h: 24, kind: 'stone' }),
+        P({ x: 588.4, y: 289, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 805, y: 346, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 1021.6, y: 403, w: 64, h: 14, kind: 'wood' }), // authored support,
       ],
     },
     {
       name: 'A Gentle Slope',
-      tip: 'A crate stands in the stream. Hook your ramp onto it and let the water run right.',
+      tip: 'A crate stands in the stream. Lay your line across it and a second rest so it cannot tip.',
       ink: 1190,
       faucet: { x: 400, y: 190, rate: 46, total: 105 },
       glasses: [{ x: 780, y: 470, w: 104, h: 118, need: 0.61 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 680, y: 418, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 680, y: 473, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 356.8, y: 292, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 683.2, y: 381, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       crates: [{ x: 560, y: 470, size: 96, kind: 'wood' }],
     },
     {
       name: 'Small Step',
-      tip: 'A metal shelf hangs mid-way. Step the water down onto it first.',
+      tip: 'A metal shelf hangs mid-way. Rest the line on it and on one more support.',
       ink: 690,
       faucet: { x: 470, y: 190, rate: 46, total: 105 },
       glasses: [{ x: 760, y: 470, w: 104, h: 118, need: 0.53 }],
-      platforms: [P({ x: 620, y: 340, w: 150, h: 20, kind: 'metal' })],
+      platforms: [P({ x: 620, y: 340, w: 150, h: 20, kind: 'metal' }),
+        P({ x: 412.4, y: 292, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 677.6, y: 381, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'Over The Wall',
-      tip: 'The wall blocks a straight ramp. Send the water over the top of it.',
+      tip: 'The wall blocks a straight ramp. Go over the top of it.',
       ink: 920,
       faucet: { x: 420, y: 190, rate: 46, total: 177 },
       platforms: [P({ x: 620, y: 332, w: 180, h: 26 }),
-        P({ x: 770, y: 367, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 770, y: 422, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 389.6, y: 292, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 770.4, y: 381, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       glasses: [{ x: 880, y: 470, w: 108, h: 118, need: 0.58 }],
     },
     {
       name: 'Double Trouble',
-      tip: 'Two glasses under one tap. Build a V between them — the wedge in the middle is a good post.',
+      tip: 'Two glasses, one tap. A peak in the middle of the line splits the stream both ways.',
       ink: 1420,
       faucet: { x: 640, y: 190, rate: 52, total: 130 },
       glasses: [
@@ -75,30 +84,35 @@
         { x: 850, y: 480, w: 100, h: 112, need: 0.52 },
       ],
       platforms: [P({ poly: [[600, 700], [600, 470], [640, 440], [680, 470], [680, 700]], kind: 'teal' }),
-        P({ x: 538, y: 415, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 538, y: 470, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 524.5, y: 406, w: 80, h: 14, kind: 'wood' }), // authored support
+        P({ x: 755.5, y: 406, w: 80, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'Crate & Glass',
-      tip: 'The stream clips the rim — a small slide above the glass centres it.',
+      tip: 'The stream clips the rim. Nudge it over with a short line that has two places to sit.',
       ink: 650,
       faucet: { x: 556, y: 216, rate: 46, total: 105 },
       glasses: [{ x: 630, y: 452, w: 96, h: 112, need: 0.56 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 542, y: 387, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 542, y: 442, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 470.8, y: 347, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 575.2, y: 377, w: 84, h: 14, kind: 'wood' }), // authored support,
+      ],
       crates: [{ x: 722, y: 448, size: 68, kind: 'teal' }],
     },
     {
       name: 'Wall Run',
-      tip: 'The tall wall stands between tap and glass. Arc a line over the top.',
+      tip: 'The tall wall stands between tap and glass. Take the long way over.',
       ink: 1710,
       faucet: { x: 330, y: 190, rate: 46, total: 112 },
       glasses: [{ x: 900, y: 500, w: 112, h: 118, need: 0.58 }],
       platforms: [P({ x: 620, y: 445, w: 26, h: 170, kind: 'stone' }),
-        P({ x: 790, y: 396, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 790, y: 451, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 290.4, y: 290.3, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 545, y: 351.5, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 799.6, y: 412.7, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'Hot Floor',
@@ -108,19 +122,23 @@
       glasses: [{ x: 900, y: 430, w: 104, h: 118, need: 0.57 }],
       hots: [{ x: 600, y: 560, w: 420, h: 28, angle: 0 }],
       platforms: [P({ x: 1000, y: 520, w: 190, h: 24 }),
-        P({ x: 803, y: 418, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 803, y: 473, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 392.8, y: 285.6, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 787.2, y: 347.4, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'Spinner',
-      tip: 'The spinning bar scatters water. A line through its path jams it solid.',
+      tip: 'The spinning bar scatters water. Give the line room to carry the stream past it.',
       ink: 670,
       faucet: { x: 480, y: 190, rate: 48, total: 130 },
       glasses: [{ x: 790, y: 520, w: 112, h: 118, need: 0.61 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 601, y: 324, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 601, y: 379, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 409.2, y: 286.7, w: 104, h: 14, kind: 'wood' }), // authored support
+        P({ x: 565, y: 336.5, w: 104, h: 14, kind: 'wood' }), // authored support
+        P({ x: 720.8, y: 386.3, w: 104, h: 14, kind: 'wood' }), // authored support,
+      ],
       spinners: [{ x: 620, y: 320, w: 250, h: 18 }],
     },
     {
@@ -131,8 +149,10 @@
       glasses: [{ x: 900, y: 460, w: 150, h: 118, need: 0.35 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 772, y: 405, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 772, y: 460, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 376, y: 290.4, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 784, y: 372.6, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       seesaws: [{ x: 700, y: 300, w: 320, h: 16 }],
     },
     {
@@ -148,16 +168,17 @@
         { x: 810, y: 470, w: 108, h: 112, need: 0.52 },
       ],
       platforms: [P({ x: 640, y: 380, w: 60, h: 300, kind: 'stone' }),
-        P({ x: 365, y: 407, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 365, y: 462, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 365, y: 407, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 365, y: 462, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 934, y: 399, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 934, y: 454, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 168.4, y: 284.7, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 290, y: 328, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 411.6, y: 371.3, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 1111.6, y: 284.7, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 990, y: 328, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 868.4, y: 371.3, w: 84, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'The Neck',
-      tip: 'The glass is hanging in mid-air. Draw something under it before you pour.',
+      tip: 'The ceiling takes the stream. Catch it coming off the edge.',
       ink: 900,
       faucet: { x: 520, y: 190, rate: 48, total: 118 },
       pins: [{ x: 530, y: 548 }, { x: 750, y: 548 }],
@@ -175,20 +196,24 @@
       glasses: [{ x: 900, y: 460, w: 112, h: 118, need: 0.56 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 801, y: 438, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 801, y: 493, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 359.2, y: 290.4, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 780.8, y: 372.6, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       fans: [{ x: 175, y: 330, w: 46, h: 170, angle: 0, force: 0.16 }],
     },
     {
       name: 'Crate Stack',
-      tip: 'Climb over the crates, or use them to anchor your line.',
+      tip: 'Climb over the crates, and rest the line on them while you do.',
       ink: 1810,
       faucet: { x: 400, y: 190, rate: 46, total: 177 },
       glasses: [{ x: 960, y: 430, w: 104, h: 118, need: 0.60 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 850, y: 367, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 850, y: 422, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 385.6, y: 285.6, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 834.4, y: 347.4, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       crates: [
         { x: 620, y: 560, size: 90 }, { x: 620, y: 470, size: 90 },
         { x: 620, y: 380, size: 90 }, { x: 710, y: 560, size: 90 },
@@ -208,44 +233,47 @@
       ],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 674, y: 340, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 674, y: 395, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
     },
     {
       name: 'Gear Works',
-      tip: 'Two spinning bars. Pin one down with ink and guide the water past.',
+      tip: 'Two spinning bars. Guide the water past both and keep your line clear.',
       ink: 650,
       faucet: { x: 640, y: 190, rate: 46, total: 112 },
       glasses: [{ x: 880, y: 470, w: 104, h: 118, need: 0.52 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 675, y: 333, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 675, y: 388, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 560.8, y: 321.9, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 690, y: 356.5, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 819.2, y: 391.1, w: 84, h: 14, kind: 'wood' }), // authored support,
+      ],
       spinners: [{ x: 520, y: 280, w: 210, h: 16 }, { x: 760, y: 380, w: 190, h: 16 }],
     },
     {
       name: 'Moving Block',
-      tip: 'The glass has nothing under it, and a block patrols the middle. Support it first.',
+      tip: 'The block patrols the middle. Time the line so the water lands while it is away.',
       ink: 1250,
       faucet: { x: 500, y: 190, rate: 50, total: 152 },
       pins: [{ x: 800, y: 548 }, { x: 1005, y: 548 }],
       glasses: [{ x: 900, y: 470, w: 112, h: 118, need: 0.48, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 801, y: 404, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 801, y: 459, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       movers: [{ x: 650, y: 360, w: 170, h: 26, dx: 0, dy: 180, period: 3.4, phase: 0 }],
     },
     {
       name: 'The Long Drop',
-      tip: 'A very long way across. Keep the line shallow and let it run.',
+      tip: 'A very long way across. Keep the line shallow and give it three supports.',
       ink: 2150,
       faucet: { x: 250, y: 190, rate: 46, total: 187 },
       glasses: [{ x: 980, y: 520, w: 112, h: 118, need: 0.58 }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 870, y: 416, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 870, y: 471, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+        P({ x: 262.8, y: 300, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 827.2, y: 423, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
       crates: [{ x: 1150, y: 600, size: 76 }, { x: 1150, y: 520, size: 76, kind: 'teal' }],
     },
     {
@@ -258,18 +286,18 @@
         { x: 520, y: 320, w: 300, h: 26, angle: 0 },
         { x: 820, y: 440, w: 300, h: 26, angle: 0 },
       ],
-      platforms: [P({ x: 1000, y: 620, w: 260, h: 26 }), P({ x: 761, y: 356, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 761, y: 411, w: 56, h: 14, kind: 'stone' })],
+      platforms: [P({ x: 1000, y: 620, w: 260, h: 26 }),],
     },
     {
       name: 'The Sink',
-      tip: 'Draw a bowl to catch the stream, then tip it with a slope into the glass.',
+      tip: 'The glass sits in a hollow. Get the stream over the lip and into the mouth.',
       ink: 2040,
       faucet: { x: 380, y: 190, rate: 50, total: 125 },
       glasses: [{ x: 900, y: 520, w: 104, h: 118, need: 0.57 }],
       platforms: [P({ x: 900, y: 620, w: 320, h: 26, kind: 'metal' }),
-        P({ x: 804, y: 497, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 804, y: 552, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 384, y: 335.2, w: 84, h: 14, kind: 'wood' }), // authored support
+        P({ x: 756, y: 407.8, w: 84, h: 14, kind: 'wood' }), // authored support,
+      ],
       spinners: [{ x: 700, y: 300, w: 140, h: 16 }],
     },
     {
@@ -285,14 +313,13 @@
     },
     {
       name: 'Upstream',
-      tip: 'Blow the water the other way — the wind is your friend here.',
+      tip: 'The wind blows upstream. Let the line do the work, not the water.',
       ink: 1290,
       faucet: { x: 900, y: 190, rate: 48, total: 197 },
       glasses: [{ x: 420, y: 500, w: 118, h: 118, need: 0.58 }],
       fans: [{ x: 1080, y: 380, w: 46, h: 190, angle: 0, force: 0.2, dir: -1 }],
       platforms: [P({ x: 420, y: 600, w: 300, h: 26, kind: 'metal' }),
-        P({ x: 580, y: 334, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 580, y: 389, w: 56, h: 14, kind: 'stone' })],
+      ],
     },
     {
       name: 'The Gauntlet',
@@ -304,8 +331,7 @@
       spinners: [{ x: 520, y: 330, w: 220, h: 16 }],
       movers: [{ x: 820, y: 240, w: 140, h: 24, dx: 0, dy: 60, period: 3.2, phase: 0.5 }],
       platforms: [P({ x: 1000, y: 620, w: 280, h: 26 }),
-        P({ x: 836, y: 400, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 836, y: 455, w: 56, h: 14, kind: 'stone' })],
+      ],
     },
     {
       name: 'Two Storeys',
@@ -320,16 +346,16 @@
         { x: 200, y: 560, w: 104, h: 112, need: 0.51 },
       ],
       platforms: [P({ x: 1130, y: 430, w: 200, h: 24, kind: 'metal' }),
-        P({ x: 293, y: 415, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 293, y: 470, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 293, y: 415, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 293, y: 470, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 787, y: 437, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 787, y: 492, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 980, y: 385.8, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 740, y: 400.2, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 431.2, y: 421.1, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 340, y: 453, w: 64, h: 14, kind: 'wood' }), // authored support
+        P({ x: 248.8, y: 484.9, w: 64, h: 14, kind: 'wood' }), // authored support,
+      ],
     },
     {
       name: 'Last Drop',
-      tip: 'Everything at once. Stay calm, use short lines and aim for the centre.',
+      tip: 'A hot pad guards one glass. Keep that stream high and thin.',
       ink: 1520,
       faucet: { x: 640, y: 190, rate: 54, total: 175 },
       glasses: [
@@ -338,23 +364,21 @@
       ],
       platforms: [
         P({ x: 300, y: 630, w: 240, h: 24, kind: 'metal' }),
-        P({ x: 980, y: 630, w: 240, h: 24, kind: 'metal' }),
-        P({ x: 812, y: 381, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 812, y: 436, w: 56, h: 14, kind: 'stone' })],
+        P({ x: 980, y: 630, w: 240, h: 24, kind: 'metal' }),],
       hots: [{ x: 640, y: 660, w: 300, h: 26, angle: 0 }],
       crates: [{ x: 640, y: 430, size: 64 }],
     },
     {
       name: 'Hold It Up',
-      tip: 'Nothing is holding the glass. Sketch a shelf under it, then aim your ramp.',
+      tip: 'The glass is not resting on anything yet. Give it a ledge before you pour.',
       ink: 1150,
       faucet: { x: 400, y: 190, rate: 50, total: 140 },
       pins: [{ x: 600, y: 472 }, { x: 800, y: 472 }],
       glasses: [{ x: 700, y: 380, w: 104, h: 118, need: 0.52, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 601, y: 350, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 601, y: 405, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+      ],
       crates: [
         { x: 640, y: 540, size: 78, kind: 'teal', angle: 0.785 },
         { x: 775, y: 540, size: 78, kind: 'teal', angle: 0.785 },
@@ -362,7 +386,7 @@
     },
     {
       name: 'Two Hands',
-      tip: 'Two glasses, both floating, two taps. Support each one and feed it.',
+      tip: 'Two glasses, two taps. Support the line on both sides before either pour.',
       ink: 1500,
       faucets: [
         { x: 320, y: 190, rate: 46, total: 115 },
@@ -375,12 +399,7 @@
       ],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 369, y: 329, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 369, y: 384, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 369, y: 329, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 369, y: 384, w: 56, h: 14, kind: 'stone' }),
-        P({ x: 912, y: 330, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 912, y: 385, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       crates: [{ x: 640, y: 600, size: 70, kind: 'teal', angle: 0.785 }],
     },
     {
@@ -392,21 +411,19 @@
       glasses: [{ x: 520, y: 440, w: 108, h: 118, need: 0.56, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 623, y: 345, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 623, y: 400, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       fans: [{ x: 900, y: 250, w: 260, h: 64, angle: 0, force: 0.19, dir: -1, style: 'blower' }],
     },
     {
       name: 'Diamond Gap',
-      tip: 'The glass hovers over two diamonds. A straight edge is all you need.',
+      tip: 'The glass hovers over two diamonds. Bridge the gap and pour.',
       ink: 1150,
       faucet: { x: 610, y: 190, rate: 48, total: 120 },
       pins: [{ x: 545, y: 475 }, { x: 735, y: 475 }],
       glasses: [{ x: 640, y: 400, w: 104, h: 118, need: 0.55, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 555, y: 256, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 555, y: 311, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       crates: [
         { x: 560, y: 570, size: 86, kind: 'teal', angle: 0.785 },
         { x: 725, y: 570, size: 86, kind: 'teal', angle: 0.785 },
@@ -431,9 +448,7 @@
       glasses: [{ x: 640, y: 430, w: 104, h: 118, need: 0.56, hanging: true }],
       pins: [{ x: 562, y: 505 }, { x: 718, y: 505 }],
       platforms: [
-        P({ poly: [[430, 700], [430, 650], [790, 560], [1140, 560], [1140, 700]], kind: 'teal' }),
-        P({ x: 541, y: 374, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 541, y: 429, w: 56, h: 14, kind: 'stone' })],
+        P({ poly: [[430, 700], [430, 650], [790, 560], [1140, 560], [1140, 700]], kind: 'teal' }),],
     },
     {
       name: 'Falling Weight',
@@ -444,8 +459,7 @@
       glasses: [{ x: 740, y: 470, w: 112, h: 118, need: 0.52, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 632, y: 422, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 632, y: 477, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       crates: [
         { x: 930, y: 210, size: 84, kind: 'teal', angle: 0.3, hanging: true },
         { x: 1130, y: 640, size: 80, kind: 'wood' },
@@ -460,8 +474,7 @@
       glasses: [{ x: 900, y: 470, w: 104, h: 118, need: 0.60, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 802, y: 382, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 802, y: 437, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       fans: [{ x: 250, y: 290, w: 230, h: 58, angle: 0, force: 0.15, dir: 1, style: 'blower' }],
     },
     {
@@ -473,8 +486,7 @@
       glasses: [{ x: 820, y: 460, w: 122, h: 114, need: 0.35, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 720, y: 376, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 720, y: 431, w: 56, h: 14, kind: 'stone' })],
+      platforms: [],
       spinners: [{ x: 620, y: 320, w: 220, h: 16 }],
       crates: [{ x: 1100, y: 620, size: 80, kind: 'teal', angle: 0.785 }],
     },
@@ -487,8 +499,8 @@
       glasses: [{ x: 1000, y: 430, w: 104, h: 118, need: 0.54, hanging: true }],
       // the ramp needs something solid under its far end — a wire with one
       // nail swings, a wire resting on a bracket holds the water
-      platforms: [P({ x: 892, y: 414, w: 20, h: 96, kind: 'stone' }),
-        P({ x: 892, y: 469, w: 56, h: 14, kind: 'stone' })],
+      platforms: [
+      ],
       fans: [{ x: 560, y: 300, w: 230, h: 58, angle: 0, force: 0.16, dir: 1, style: 'blower' }],
       hots: [{ x: 640, y: 650, w: 420, h: 26, angle: 0 }],
       crates: [

@@ -29,11 +29,9 @@
         restitution: 0.03,
         density: 0.0016,
         slop: 0.02,
-        // Water collides with the world, and with other water — but never with
-        // drawn ink. Ink is iron: a droplet is a few hundredths of its mass, so
-        // water must not be able to move it, not even by a fraction of a pixel.
-        // The ink side of that contact is resolved by Scene.resolveWaterInk(),
-        // which pushes the *droplet* out of the wire and leaves the wire alone.
+        // Water collides with everything, including drawn ink. A stream leaning
+        // on a ramp is the whole mechanic: it holds the ramp down, and if the
+        // ramp is badly placed it shoves it off the ledge.
         collisionFilter: { category: HG.CAT_WATER, mask: HG.MASK_WATER },
       });
       const Matter = global.Matter;

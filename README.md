@@ -133,15 +133,15 @@ anchored in place, which is now the intended way to build a shelf — a free-flo
 * **World**: fixed 1280×720 stage, letterboxed to any screen size (the camera never crops the level).
 * **Physics**: Matter.js at a fixed 60 Hz step, decoupled from rendering (`requestAnimationFrame`,
   max 4 catch-up steps).
-* **Ink is iron wire, not paint.** Every ~9 px of pointer travel becomes a chamfered rectangle.
-  Ink is measured in world pixels and never refunded, exactly like the original meter. On release
-  the stroke is rebuilt as **one rigid compound body with real mass** (`density 0.0018`, so a 90 px
-  line weighs about 3.5 mass units against a droplet's 0.25). Its segments are then tested against
-  the scenery with Matter's collision query: every genuine overlap becomes an anchor (max 4) and the
-  wire is rigid *at that pose*. A wire that touches nothing is
-  left dynamic and falls out of the level. A wire whose support later moves is released too — the
-  anchor is a joint, not a permanent freeze. Nothing is painted onto the line: no nail heads, no
-  studs — the stroke renders exactly as drawn, a thin dark wire.
+* **Ink is iron wire, not paint — and nothing ever pins it.** On release the stroke is rebuilt as
+  **one rigid body with real mass** (`density 0.020`: a 440 px line weighs 36 against a droplet's 0.25)
+  and it is *never* welded, hinged, frozen or attached. It stays up because its own shape is carried
+  by scenery — lying across two ledges, sitting in a notch, hooked around a corner — and it falls out
+  of the level otherwise. Water is a real collision partner, so a badly seated ramp gets shoved off
+  its supports exactly like the reference game. The collision shape is the drawn polyline fitted with
+  as few straight bars as it allows (a straight drawn line is 3–5 bars): a body built from ninety
+  tiny boxes has ninety seams to chatter on and slowly *walks* off any ledge. Nothing is painted onto
+  the line — no nail heads, no studs — it renders exactly as drawn, a thin dark wire.
 * **Water**: small circles on one collision layer, low friction so they shuffle over each other like a
   liquid, mild air friction so they don't slingshot. Water level in a glass is computed from the
   sorted droplet heights (top 18 % ignored so an incoming droplet can't fake a full glass) and
@@ -167,35 +167,32 @@ checks, and what it found the last time it was run:
 | droplets are born outside the tap collider | 3.3 px clear of the plate |
 | a droplet moves less than a rod-thickness per solver step | 3.7 px/step (14.9 px/frame ÷ 4 substeps) vs a 4 px rod |
 | no droplet can tunnel through a drawn line | 14.9 px/frame vs 18 px of rod + droplet |
-| a braced wire never moves, even under a 5 s stream | identical geometry, 2 contacts, `isStatic` |
-| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 240 samples moving |
-| **water cannot move the wire at all** | stream vs no stream: wire geometry differs by **0.00000 px** over 180 frames, 2 685 droplet/wire contacts resolved |
-| ...and the wire is not frozen | the same hinged wire still swings 134 px on its own weight |
-| a wire held at one point is **not** welded | 1 contact, dynamic, on a revolute joint |
-| a cantilevered wire swings down about its anchor | rotated 64° in 4 s, centre fell 160 px, then rest |
-| ink that touches nothing falls | y 300 → 894 in 1 s, culled when it leaves the level |
-| ink that touches scenery is static | 63 segments, up to 4 anchor contacts |
-| a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
-| unsupported glass / crate fall | glass leaves the level, crate drops 660 px |
-| water stays pooled once it lands | fill 0.73 → 0.73 after 10 s |
-| same strokes, same result | 27/27/27/27/28 droplets over 5 runs |
+| a line at rest is **not** welded | `isStatic false`, 0 contacts, **0.0023 px** vertex drift over 5 s |
+| ...and does not creep or buzz | 0.0000 px of frame-to-frame motion over 300 frames |
+| a line drawn in empty air falls | culled below the level |
+| a long overhang on one small ledge tips off | culled |
+| a line across two supports stays put | settles in 1 s, angle 1.2° |
+| **water really does push the line** | 11–16 active ink/water contacts, line drifts 2.9 px over 3 s |
+| ...without turning into a vibration | 0.04 px/frame, 0 of 180 frames above the motion floor |
+| ink that touches nothing falls | y 300 → 802 in 1 s, culled when it leaves the level |
+| a falling line lands on the glass rim | rests at y 405 on a rim at y 411 |
+| unsupported glass / crate fall | glass leaves the level, crate drops 650 px |
+| water stays pooled once it lands | fill 0.77 → 0.77 after 10 s |
+| same strokes, same result | 27/27/27/27/27 droplets over 5 runs |
 
-Fixes that came out of that audit: ink was anchoring to *its own* half-drawn segments (so every
-line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
-pointer-*down* instead of on lift, a once-per-frame solver let fast droplets straddle the wire (the
-"vibrating line" report), the glass carried an unnecessary ×3.5 rotational cheat, and — the last
-one — **a single anchor point was welded like a steel bracket**, so a ramp hooked on the tap hung out
-sideways holding water. One contact is now a revolute joint: the wire swings down about it and settles;
-two or more contacts is a weld, because that is wire bent around two hooks. Last is the *vibration*:
-Matter was still solving `droplet | ink` as a collision, so a running stream rocked the wire (0.58 px
-per frame, moving in 175 of 180 frames). Water and ink are now separate collision categories and the
-contact is a **one-way** resolver that only moves the droplet, so the wire is provably deaf to water:
-audit §3d runs the same scene with and without a stream and the wire's geometry diverges by
-0.00000 px. The wire is 4 px and drawn as one clean
-line — no nail dots, no studs, nothing the player did not draw — physics runs four substeps per frame
-under a 14 px/frame droplet ceiling, and every ramp stands
-on a stone bracket. Full report, including the intentional shortcuts (braced ink is static,
-no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
+Fixes that came out of that audit: droplets spawned 7.5 px inside the tap plate; the pour started on
+pointer-*down* instead of on lift; a once-per-frame solver let fast droplets straddle the wire; and
+the big one — **the game used to invent its own physics**. Earlier rounds "held" a drawn line by
+welding it to whatever it overlapped, then by a hinge at a single contact, then by making it deaf to
+water. All of that is gone. A line is now an ordinary body: it falls unless its shape catches
+something, and a running stream pushes it (audit §3d measures both). The last defect that surfaced
+was subtler: a stroke built from ~90 short boxes *walks*, 0.46 px/frame with nothing touching it,
+sliding 71 px off a bridge it had been sitting on perfectly. Fitting the same polyline with a few
+long bars took that to 0.11 px/frame. Levels are no longer hand-propped either: `tools/author3.js`
+searches for a ramp and the supports that carry it, confirms every candidate with a second pour, and
+`tools/apply-authored.js` writes the supports into the level and the drawing into the reference
+solutions. Full report, including the intentional shortcuts (no world floor, kinematic movers, hot
+pads that delete droplets) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
 ## 4. Testing without a browser
 

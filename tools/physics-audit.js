@@ -25,6 +25,7 @@ const fresh = (id) => new HG.Scene(HG.levelById(id));
 const drawAll = (scene, strokes) => {
   for (const st of strokes) {
     const pts = poly(st);
+    if (pts.length < 2) continue;
     scene.beginInk(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) scene.addInkPoint(pts[i].x, pts[i].y);
     scene.endInk();
@@ -83,86 +84,123 @@ const drawAll = (scene, strokes) => {
 }
 
 // ------------------------------------------------- 3b. settled contact is still
-// A braced wire and a pool of settled water must be *perfectly* motionless.
+// A line lying on scenery, with the tap shut, must be *perfectly* motionless.
 // Anything left moving is what a player reports as "the line is vibrating".
-{
-  // NB: deep-copy the level — levels are shared objects, and scribbling on one
-  // here would corrupt every later check.
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));   // glass on its pedestal
-  lv.platforms = lv.platforms.concat([{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }]);
-  const sc = new HG.Scene(lv);
-  // a wire lying along the ledge: it is pressed onto it at both ends
-  drawAll(sc, [[[420, 408], [860, 408]]]);
-  const wire = sc.ink.strokes[0];
-  const shape0 = JSON.stringify(sc.inkWorldSegments());
-  sc.start();
-  for (let i = 0; i < 60 * 5; i++) { sc.step(STEP); sc.physics(STEP); }
-  // let the last of the stream land and settle before judging "at rest"
-  for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
-  const shapeAfterPour = JSON.stringify(sc.inkWorldSegments());
-  let worstSpeed = 0, moving = 0, samples = 0;
-  for (let i = 0; i < 60 * 2; i++) {
-    sc.step(STEP); sc.physics(STEP);
-    for (const p of sc.water.particles) {
-      const v = Math.hypot(p.body.velocity.x, p.body.velocity.y) / HG.Scene.SUBSTEPS;
-      samples++;
-      if (v > worstSpeed) worstSpeed = v;
-      if (v > 0.2) moving++;
-    }
-  }
-  say('## 3b. Settled contact is motionless');
-  check(wire.pins.length >= 2 && wire.body.isStatic, 'a wire resting on a ledge is welded, not simulated',
-    (wire.pins.length || 0) + ' anchor(s), static ' + wire.body.isStatic);
-  check(shapeAfterPour === shape0, 'the braced wire never moves, even under a 5 s stream',
-    shapeAfterPour === shape0 ? 'identical geometry over 5 s of water' : 'geometry drifted');
-  check((moving / samples) < 0.005, 'water resting on the wire is asleep, not buzzing',
-    'worst ' + worstSpeed.toFixed(3) + ' px/step, ' + moving + '/' + samples + ' samples moving');
-  sc.destroy();
-}
-
-// ----------------------------------------------- 3c. one contact is a hinge
-// The reported bug: a line hooked onto the tap stayed out sideways like a steel
-// bracket. A single point contact cannot carry a lever, so the wire must swing
-// about that point until its weight hangs under it.
 {
   const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
   lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
-  lv.faucet = { x: 330, y: 190, rate: 40, total: 400 };
+  lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
-  lv.platforms = [];
+  lv.platforms = [{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }];
   lv.crates = []; lv.pins = [];
   const sc = new HG.Scene(lv);
-  drawAll(sc, [[[330, 200], [330, 250], [810, 350]]]);   // hooked on the tap only
-  const st = sc.ink.strokes[0];
-  const nails = st.pins.filter((p) => p && st.pinSupports.some((b) => b && b.label === 'faucet')).length;
-  const a0 = st.body.angle;
-  const endY0 = st.body.position.y;
-  sc.start(); sc.state = 'pouring'; sc.startDelay = 1e9;
-  for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
-  const swing = Math.abs(((st.body.angle - a0) * 180) / Math.PI);
-  say('## 3c. One contact is a hinge, not a bracket');
-  check(st.pins.length === 1 && !st.body.isStatic, 'a wire held at a single point is not welded',
-    st.pins.length + ' anchor(s), static ' + st.body.isStatic);
-  check(swing > 30, 'a cantilevered wire swings down about its anchor',
-    'rotated ' + swing.toFixed(1) + '° in 4 s, centre fell ' + (st.body.position.y - endY0).toFixed(1) + ' px');
-  check(Math.abs(st.body.angularVelocity) < 0.08, 'and it comes to rest instead of swinging forever',
-    'angular velocity ' + st.body.angularVelocity.toFixed(3) + ' rad/step');
+  drawAll(sc, [[[430, 405], [850, 405]]]);      // lying flat along the plank
+  const wire = sc.ink.strokes[0];
+  sc.start();
+  for (let i = 0; i < 60; i++) { sc.step(STEP); sc.physics(STEP); }
+  const shape0 = sc.inkWorldSegments().map((v) => [v.x1, v.y1, v.x2, v.y2]);
+  let worstStep = 0, prev = shape0.map((v) => v.slice());
+  for (let i = 0; i < 60 * 5; i++) {
+    sc.step(STEP); sc.physics(STEP);
+    const g = sc.inkWorldSegments();
+    for (let k = 0; k < g.length; k++) {
+      worstStep = Math.max(worstStep, Math.hypot(g[k].x1 - prev[k][0], g[k].y1 - prev[k][1]));
+    }
+    prev = g.map((v) => [v.x1, v.y1, v.x2, v.y2]);
+  }
+  const shapeAfter = sc.inkWorldSegments().map((v) => [v.x1, v.y1, v.x2, v.y2]);
+  let creep = 0;
+  if (shapeAfter.length !== shape0.length) creep = Infinity;
+  else for (let k = 0; k < shape0.length; k++) {
+    for (let j = 0; j < 4; j++) creep = Math.max(creep, Math.abs(shapeAfter[k][j] - shape0[k][j]));
+  }
+  say('## 3b. Settled contact is motionless');
+  check(!wire.body.isStatic, 'a line that rests on scenery is never welded down',
+    'static ' + wire.body.isStatic + ', ' + (wire.pins.length || 0) + ' contact(s)');
+  check(creep < 0.01, 'and it does not creep: identical geometry over 5 s',
+    'max vertex drift ' + (creep === Infinity ? 'wire removed' : creep.toFixed(4) + ' px'));
+  check(worstStep < 0.01, 'no frame-to-frame motion at rest (nothing to call a vibration)',
+    'worst ' + worstStep.toFixed(4) + ' px per frame over 300 frames');
   sc.destroy();
 }
 
-// --------------------------------------------- 3d. water cannot move the wire
-// The reported bug: the wire shivered when droplets bounced off it. Ink and
-// water now live in separate collision categories, and the contact is resolved
-// on the droplet alone (Scene.resolveWaterInk). The proof is an A/B run: the
-// same wire, same frames, one with a stream over it and one with the tap shut.
-// If water transferred any impulse at all the two traces would drift apart.
+// ------------------------------------ 3c. only real contact can hold a line up
+// The rule the whole game now rests on: a drawn line is a loose body. It stays
+// where you put it only while its own shape is carried by scenery, and it tips
+// off or falls when it is not. These are the two failure modes a player sees.
+{
+  // (a) nothing under it -> it falls out of the level
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
+  lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
+  lv.faucets = [lv.faucet];
+  lv.platforms = []; lv.crates = []; lv.pins = [];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[330, 250], [700, 330]]]);
+  const st = sc.ink.strokes[0];
+  const y0 = st.body.position.y;
+  sc.start();
+  for (let i = 0; i < 90; i++) { sc.step(STEP); sc.physics(STEP); }
+  say('## 3c. Only real contact holds a line up');
+  check(!st.body || st.body.position.y > y0 + 40, 'a line drawn in empty air falls away',
+    st.body ? 'fell ' + (st.body.position.y - y0).toFixed(0) + ' px' : 'culled below the level');
+  sc.destroy();
+}
+{
+  // (b) resting on ONE narrow ledge, the line tips off it
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 120, y: 660, w: 60, h: 60, need: 0.99, hanging: true }];
+  lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
+  lv.faucets = [lv.faucet];
+  lv.platforms = [{ x: 620, y: 420, w: 80, h: 16, kind: 'wood', angle: 0 }];
+  lv.crates = []; lv.pins = [];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[480, 300], [660, 408]]]);      // one end on the ledge, the rest cantilevered
+  const st = sc.ink.strokes[0];
+  sc.start();
+  for (let i = 0; i < 120; i++) { sc.step(STEP); sc.physics(STEP); }
+  check(!st.body || st.body.position.y > 460, 'a long overhang on one small ledge tips off it',
+    st.body ? 'body at y ' + st.body.position.y.toFixed(0) + ', angle ' + st.body.angle.toFixed(2) : 'culled');
+  sc.destroy();
+}
+{
+  // (c) resting across TWO supports, it holds - and it is still a loose body
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 120, y: 660, w: 60, h: 60, need: 0.99, hanging: true }];
+  lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
+  lv.faucets = [lv.faucet];
+  lv.platforms = [
+    { x: 420, y: 332, w: 80, h: 14, kind: 'wood', angle: 0 },
+    { x: 760, y: 392, w: 80, h: 14, kind: 'wood', angle: 0 },
+  ];
+  lv.crates = []; lv.pins = [];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[380, 320], [800, 385]]]);
+  const st = sc.ink.strokes[0];
+  sc.start();
+  for (let i = 0; i < 60; i++) { sc.step(STEP); sc.physics(STEP); }
+  const y1 = st.body.position.y, a1 = st.body.angle;
+  for (let i = 0; i < 120; i++) { sc.step(STEP); sc.physics(STEP); }
+  const drift = st.body ? Math.hypot(st.body.position.x - 590, st.body.position.y - y1) : Infinity;
+  check(!st.body.isStatic && Math.abs(st.body.angle - a1) < 0.02, 'a line lying across two supports stays put',
+    'angle ' + (st.body.angle * 180 / Math.PI).toFixed(2) + '°, drift ' + drift.toFixed(2) + ' px, static ' + st.body.isStatic);
+  sc.destroy();
+}
+
+// ---------------------------------------------- 3d. water pushes the line
+// The other half of the rule: a stream is allowed to lean on the line. This is
+// the mechanic the reference game is built on — a badly placed ramp gets shoved
+// off its rests — and it must happen without the line buzzing frame to frame.
 {
   const build = (water, stroke, plank) => {
     const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
     lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
-    lv.faucet = { x: 330, y: 190, rate: 70, total: water ? 900 : 0, spread: 0.55 };
+    lv.faucet = { x: 520, y: 190, rate: 70, total: water ? 900 : 0, spread: 0.55 };
     lv.faucets = [lv.faucet];
-    lv.platforms = plank ? [{ x: 430, y: 420, w: 380, h: 20, kind: 'wood', angle: 0 }] : [];
+    lv.platforms = plank ? [
+      { x: 420, y: 332, w: 80, h: 14, kind: 'wood', angle: 0 },
+      { x: 760, y: 392, w: 80, h: 14, kind: 'wood', angle: 0 },
+    ] : [];
     lv.crates = []; lv.pins = [];
     const sc = new HG.Scene(lv);
     drawAll(sc, [stroke]);
@@ -172,52 +210,58 @@ const drawAll = (scene, strokes) => {
   const geo = (sc) => sc.inkWorldSegments().map((s) => [s.x1, s.y1, s.x2, s.y2]);
   const run = (water, stroke, plank, frames) => {
     const sc = build(water, stroke, plank);
-    const frames_ = [];
-    for (let i = 0; i < frames; i++) { sc.step(STEP); sc.physics(STEP); frames_.push(geo(sc)); }
+    for (let i = 0; i < 120; i++) { sc.step(STEP); sc.physics(STEP); }  // settle onto the rests
+    const g0 = geo(sc).map((v) => v.slice());
+    let prev = geo(sc), worstStep = 0, drift = 0, moving = 0;
+    const drops0 = sc.water.particles.length;
+    for (let i = 0; i < frames; i++) {
+      sc.step(STEP); sc.physics(STEP);
+      const g = geo(sc);
+      if (!g.length) { sc.destroy(); return { fell: true, worstStep: Infinity, drift: Infinity, moving: frames }; }
+      let step = 0;
+      for (let k = 0; k < Math.min(g.length, prev.length); k++) {
+        step = Math.max(step, Math.hypot(g[k][0] - prev[k][0], g[k][1] - prev[k][1]));
+      }
+      worstStep = Math.max(worstStep, step); if (step > 0.05) moving++;
+      for (let k = 0; k < Math.min(g.length, g0.length); k++) {
+        drift = Math.max(drift, Math.hypot(g[k][0] - g0[k][0], g[k][1] - g0[k][1]));
+      }
+      prev = g;
+    }
     const drops = sc.water.particles.length;
-    const contacts = sc.inkSpills || 0;
     sc.destroy();
-    return { frames_: frames_, drops, contacts };
+    return { fell: false, worstStep, drift, moving, drops: Math.max(drops, drops0) };
   };
   const F = 180;
-  say('## 3d. Water cannot move the wire (A/B: stream vs dry)');
-  for (const c of [
-    { label: 'hinged wire (one contact) in a stream', stroke: [[330, 200], [330, 250], [560, 300]], plank: true, mustMove: true },
-    { label: 'braced wire on a plank in a stream', stroke: [[300, 406], [560, 406]], plank: true, mustMove: false },
-  ]) {
-    const wet = run(true, c.stroke, c.plank, F);
-    const dry = run(false, c.stroke, c.plank, F);
-    let worst = 0, shape = false;
-    for (let f = 0; f < F; f++) {
-      const a = wet.frames_[f], b = dry.frames_[f];
-      if (a.length !== b.length) { shape = true; break; }
-      for (let i = 0; i < a.length; i++) for (let k = 0; k < 4; k++) worst = Math.max(worst, Math.abs(a[i][k] - b[i][k]));
-    }
-    const g0 = wet.frames_[0], gN = wet.frames_[F - 1];
-    let travel = 0;
-    for (let i = 0; i < g0.length; i++) travel = Math.max(travel, Math.hypot(gN[i][0] - g0[i][0], gN[i][1] - g0[i][1]));
-    check(wet.contacts > 20, c.label + ': water really is landing on it',
-      wet.contacts + ' droplet/wire contacts resolved, ' + wet.drops + ' droplets in flight');
-    check(!shape && worst === 0, c.label + ': zero impulse from water (stream vs no stream are identical)',
-      shape ? 'wire geometry changed shape' : 'max divergence ' + worst.toFixed(5) + ' px over ' + F + ' frames');
-    check(c.mustMove ? travel > 1 : travel < 0.01,
-      c.mustMove ? c.label + ': and the wire is still a free physical body, not frozen'
-                 : c.label + ': a braced wire stays exactly put',
-      'wire moved ' + travel.toFixed(3) + ' px over 3 s');
-  }
-  // the mechanism itself: the two categories must not intersect, on every part
+  const line = [[380, 318], [800, 392]];
+  say('## 3d. Water pushes the line (and does not make it buzz)');
+  const dry = run(false, line, true, F);
+  const wet = run(true, line, true, F);
+  check(!dry.fell && dry.worstStep < 0.02, 'a line lying across two rests is dead still with the tap shut',
+    'worst frame-to-frame move ' + dry.worstStep.toFixed(3) + ' px');
+  check(!wet.fell, 'and the stream does not knock it out of the level on its own');
+  check(wet.drift > 0.2, 'a running stream really does lean on the line and move it',
+    'line drifted ' + wet.drift.toFixed(2) + ' px over 3 s of water');
+  check(wet.worstStep < 0.5 && wet.moving < F * 0.25,
+    'but the push is smooth: no frame-to-frame rattle',
+    'worst step ' + wet.worstStep.toFixed(2) + ' px, moving in ' + wet.moving + '/' + F + ' frames');
+  // and water and ink must actually be colliding bodies, not a special case
   {
-    const sc = build(true, [[330, 200], [330, 250], [560, 300]], true);
-    for (let i = 0; i < 40; i++) { sc.step(STEP); sc.physics(STEP); }
+    const sc = build(true, line, true);
+    for (let i = 0; i < 60; i++) { sc.step(STEP); sc.physics(STEP); }
     const st = sc.ink.strokes[0];
-    const parts = st.body.parts.map((x) => x.collisionFilter);
-    const wf = sc.water.particles.length ? sc.water.particles[0].body.collisionFilter : null;
-    check(!!wf, 'droplets exist and are made of water', wf ? 'sampled one' : 'no droplet to sample');
-    const okParts = parts.every((f) => (f.mask & HG.CAT_WATER) === 0 && f.category === HG.CAT_INK);
-    check(okParts, 'every part of a compound wire excludes the water category',
-      parts.length + ' parts, category ' + parts[0].category + ', mask 0x' + parts[0].mask.toString(16));
-    check(!wf || (wf.mask & HG.CAT_INK) === 0 && wf.category === HG.CAT_WATER,
-      'and droplets neither see nor are seen by ink', wf ? 'droplet category ' + wf.category + ', mask 0x' + wf.mask.toString(16) : 'no droplet to sample');
+    const parts = new Set(st.body.parts);
+    let pairs = 0;
+    for (const q of sc.engine.pairs.list) {
+      if (!q || !q.isActive) continue;
+      const a = parts.has(q.bodyA), b = parts.has(q.bodyB);
+      if (a === b) continue;
+      const other = a ? q.bodyB : q.bodyA;
+      if (other.label === 'water') pairs++;
+    }
+    check(pairs > 0, 'droplets are in real contact with the drawn line', pairs + ' active ink/water pairs');
+    check(sc.water.particles.length && !st.body.isStatic, 'the line is an ordinary dynamic body',
+      'static ' + st.body.isStatic + ', mass ' + st.body.mass.toFixed(1) + ', droplets ' + sc.water.particles.length);
     sc.destroy();
   }
 }
@@ -285,19 +329,29 @@ const drawAll = (scene, strokes) => {
   for (let i = 0; i < 60; i++) { sc.step(STEP); sc.physics(STEP); }
   const fell = !st.body || st.body.position.y > y0 + 30;
   say('## 6. Ink');
-  check(st.anchored === false, 'a stroke that touches nothing is not anchored');
+  check(st.anchored === false, 'a stroke that touches nothing has no support');
   check(fell, 'an unanchored stroke falls under gravity',
     'y ' + y0.toFixed(0) + ' -> ' + (st.body ? st.body.position.y.toFixed(0) : 'culled'));
   sc.destroy();
 }
 
 {
-  const sc = fresh(1);
-  drawAll(sc, [[[400, 536], [900, 536]]]);           // along the coaster top
+  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
+  lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
+  lv.faucets = [lv.faucet];
+  lv.platforms = [{ x: 640, y: 420, w: 460, h: 20, kind: 'wood', angle: 0 }];
+  lv.crates = []; lv.pins = [];
+  const sc = new HG.Scene(lv);
+  drawAll(sc, [[[430, 402], [850, 402]]]);           // just above the plank top
   const st = sc.ink.strokes[0];
-  check(st.anchored === true, 'a stroke that touches scenery is anchored');
-  check(st.segs.every((sg) => sg.body.isStatic), 'anchored ink is solved as static contact',
-    st.segs.length + ' segments, ' + st.pins.length + ' contact(s)');
+  const y0 = st.body.position.y;
+  sc.start();
+  for (let i = 0; i < 90; i++) { sc.step(STEP); sc.physics(STEP); }
+  check(!!st.body && st.body.position.y < y0 + 14, 'a stroke laid on scenery stays on it',
+    'y ' + y0.toFixed(0) + ' -> ' + (st.body ? st.body.position.y.toFixed(0) : 'culled'));
+  check(!!st.body && !st.body.isStatic, 'but touching scenery never freezes the line — it stays a loose body',
+    st.segs.length + ' segments, ' + st.pins.length + ' reported contact(s), static ' + (st.body && st.body.isStatic));
   sc.destroy();
 }
 
@@ -319,10 +373,10 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
-// ------------------------------------------- 7b. iron-wire semantics
+// ------------------------------------------- 7b. a line is never pinned
 {
-  // (a) wire that touches the tap is nailed; check it is solved as a body that
-  //     still exists after 3 s (it must not evaporate, and it must not drift)
+  // (a) the exact drawing that used to be "nailed to the tap": from under the
+  //     nozzle down to the glass. Nothing holds it now, so it must fall.
   const sc = fresh(2);
   const pts = poly([[400, 200], [400, 300], [700, 372]]);
   sc.beginInk(pts[0].x, pts[0].y);
@@ -331,27 +385,11 @@ const drawAll = (scene, strokes) => {
   const held = sc.ink.strokes[0];
   const p0 = { x: held.body.position.x, y: held.body.position.y };
   sc.start();
-  for (let i = 0; i < 180; i++) { sc.step(STEP); sc.physics(STEP); }
-  const moved = Math.hypot(held.body.position.x - p0.x, held.body.position.y - p0.y);
-  check(held.anchored && moved < 12,
-    'wire hooked onto the tap stays where it was drawn',
-    held.pins.length + ' contact(s), moved ' + moved.toFixed(1) + ' px in 3 s');
-
+  for (let i = 0; i < 120; i++) { sc.step(STEP); sc.physics(STEP); }
+  check(!held.body || Math.hypot(held.body.position.x - p0.x, held.body.position.y - p0.y) > 40,
+    'a line that only leans under the tap is not held by it — it falls away',
+    held.body ? 'moved ' + Math.hypot(held.body.position.x - p0.x, held.body.position.y - p0.y).toFixed(0) + ' px' : 'culled');
   sc.destroy();
-
-  // (b) the same wire with no scenery in reach must fall, not hover
-  const sc2 = fresh(2);
-  const pts2 = poly([[200, 300], [330, 300]]);
-  sc2.beginInk(pts2[0].x, pts2[0].y);
-  for (let i = 1; i < pts2.length; i++) sc2.addInkPoint(pts2[i].x, pts2[i].y);
-  sc2.endInk();
-  const loose = sc2.ink.strokes[0];
-  sc2.start();
-  for (let i = 0; i < 60; i++) { sc2.step(STEP); sc2.physics(STEP); }
-  check(!loose.anchored && (!loose.body || loose.body.position.y > 340),
-    'the same drawing in mid-air falls instead of hanging',
-    'y 300 -> ' + (loose.body ? loose.body.position.y.toFixed(0) : 'gone'));
-  sc2.destroy();
 }
 
 // -------------------------------------------- 8. unsupported things drop
