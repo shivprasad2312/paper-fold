@@ -921,3 +921,21 @@ The whole document is the argument that these four cannot be separated:
 
 A level that only one of them likes is a bad level. A level all four sign is a level that a student
 can solve with a pencil, and then enjoy proving on screen.
+
+---
+
+## Standing note — the seventy that exist today
+
+This document designs 200 rooms. The seventy already built now pass a stricter test than the one they
+were built under, and that test is the one the remaining 130 will have to pass too:
+
+* the pour is **deterministic** (fixed droplet radii, a sine-wave stream), so a proved line is proved
+  for the player and not just for the tool;
+* the reference line must win on **six twitchy hands** (four of them) and **four human hands** at
+  ±2.4 px (three of them) — a room that only works when the wire is traced exactly is a tracing
+  exercise, not a puzzle;
+* the level proved and the level shipped must be the *same numbers* (angles to three decimals, stroke
+  endpoints to four).
+
+Result: `verify` 70/70, firm-hand tolerance 70/70. The full contract lives in
+`docs/GOAL-AND-WIN-CONDITIONS.md`.

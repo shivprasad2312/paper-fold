@@ -9,6 +9,11 @@
 
   const R0 = 7;                     // particle radius (world px)
   const R = R0;
+  // Three radii in a fixed cycle instead of a random one. Water that is a
+  // random size every time makes the pour a different pour every time, and a
+  // line that was proved to fill the glass can then miss it by two droplets on
+  // the next run. Same cycle order, same look, same result.
+  const RADII = [R, R + 0.8, R + 0.4];
   const MAX_PARTICLES = 340;
 
   class Water {
@@ -22,7 +27,8 @@
 
     spawn(x, y, vx, vy) {
       if (this.particles.length >= MAX_PARTICLES) return null;
-      const body = Bodies.circle(x, y, R + Math.random() * 0.9, {
+      this._i = ((this._i || 0) + 1) % RADII.length;
+      const body = Bodies.circle(x, y, RADII[this._i], {
         label: 'water',
         friction: 0.0015,
         frictionAir: 0.02,

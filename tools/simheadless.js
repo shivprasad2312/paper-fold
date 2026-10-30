@@ -7,6 +7,29 @@
 'use strict';
 const path = require('path');
 
+// ------------------------------------------------------------------- seeds
+// Droplets get a slightly random radius (js/water.js) because identical ones
+// look like plastic beads. That one hundredth of a pixel was enough to make a
+// proved line lose its own proof on the next run: the proof and the
+// verification were playing two different games.
+//
+// So the headless toolchain runs on a seeded generator. Same level, same seed,
+// same strokes -> the same pour, every time. `flaky` deliberately walks the
+// seed instead, which is how real variance gets measured instead of hidden.
+let _rand = Math.random;
+function seed(n) {
+  let a = (n >>> 0) || 1;
+  _rand = () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+seed(1234);
+Math.random = () => _rand();
+
 function boot() {
   // --- tiny browser shims ---------------------------------------------------
   global.window = global;
@@ -45,6 +68,7 @@ function play(HG, id, strokes, opts) {
   opts = opts || {};
   // opts.level lets a design tool play a *modified* layout (a candidate prop,
   // a moved crate) without touching the shipped levels.
+  seed(opts.seed === undefined ? 1234 + id : opts.seed);
   const level = opts.level ? JSON.parse(JSON.stringify(opts.level)) : HG.levelById(id);
   const scene = new HG.Scene(level);
   let ok = true;
@@ -132,4 +156,4 @@ function poly(points) {
   return out;
 }
 
-module.exports = { boot, play, line, poly, STEP };
+module.exports = { boot, play, line, poly, seed, STEP };

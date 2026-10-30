@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const { JSDOM } = require('jsdom');
+const SOLUTIONS = require('./solutions');
 const { createCanvas } = require('@napi-rs/canvas');
 
 const file = path.resolve(__dirname, '../dist/happy-glass.html');
@@ -83,7 +84,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     w.dispatchEvent(up);
   };
   let idleWhileDrawing = false;
-  drag([[300, 200], [300, 250], [810, 350]], () => {
+  const l7 = (SOLUTIONS[7] && SOLUTIONS[7][0]) || [[300, 200], [300, 250], [810, 350]];
+  drag(l7.map((p) => [p[0], p[1]]), () => {
     idleWhileDrawing = Game.scene.state === 'idle' && Game.scene.faucets[0].remaining ===
       Game.scene.faucets[0].def.total;
   });
@@ -124,8 +126,10 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     Object.defineProperty(up2, 'pointerId', { value: 1 });
     w.dispatchEvent(up2);
   };
-  drawStroke([[400, 200], [400, 250], [640, 310]]);
-  drawStroke([[616, 472], [790, 472]]);
+  // The level's own reference line, not a line typed in years ago. A hard-coded
+  // stroke in a smoke test goes stale the moment the level is rebuilt, and then
+  // the test is measuring the level's history instead of its physics.
+  (SOLUTIONS[26] || []).forEach((pl) => drawStroke(pl));
   await wait(60);
   const g26 = Game.scene.glasses[0];
   check('floating glass is dynamic', g26.dynamic && !!g26.body);
@@ -133,7 +137,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let i = 0; i < 420 && Game.scene.state !== 'won'; i++) await wait(16);
   check('dynamic glass level resolves (won=' + Game.scene.state + ')', Game.scene.state === 'won');
   check('dynamic glass stayed supported', Math.abs(Game.scene.glasses[0].cy - y0) < 40);
-  check('dynamic glass got filled', Game.scene.glasses[0].fill > 0.5);
+  check('dynamic glass got filled', Game.scene.glasses[0].fill >= Game.scene.glasses[0].need - 1e-9);
 
   // ---- anchoring: an unanchored stroke must fall, an anchored one must hold
   Game.startLevel(1);

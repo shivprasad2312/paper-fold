@@ -11,20 +11,20 @@ scenery (ledges, crates, the tap housing, or the push-pins dotted around later l
 the level the instant you release it.
 
 Vanilla JS + [Matter.js](https://brm.io/matter-js/) physics. No frameworks, no build step required,
-no runtime dependencies. 35 hand-tuned levels, three-star ink scoring, sound synthesised with the
+no runtime dependencies. 70 hand-tuned levels, three-star ink scoring, sound synthesised with the
 WebAudio API (no audio files), and a fully offline single-file build.
 
 ```
 npm start            # http://localhost:4173
 npm run build        # dist/happy-glass.html  (one self-contained file, open it anywhere)
-npm run verify       # headless playthrough of all 35 levels
+npm run verify       # headless playthrough of all 70 levels
 npm run audit        # physics audit: masses, colliders, tunnelling, resting contact
-npm run flaky        # plays every level 4x and fails if any run loses
+npm run flaky        # redraws every reference line with an unsteady hand
 npm run smoke        # boots the built file in jsdom and plays a level end to end
 npm run shots        # renders canvas screenshots to shots/
 ```
 
-![All 35 levels](docs/levels.png)
+![All 70 levels](docs/levels.png)
 
 | A floating glass must be propped up | …then it fills like any other |
 | --- | --- |
@@ -70,7 +70,7 @@ index.html          the game shell + DOM UI (menu, level select, how to play, re
 css/style.css       all UI styling (fonts, buttons, sheets, dialogs, rotate hint)
 js/util.js          helpers, palette, save data (localStorage), star maths
 js/audio.js         WebAudio sfx: pour bed, plops, draw scribble, star chime, win/fail jingles
-js/levels.js        35 hand-authored levels (data only, easy to extend)
+js/levels.js        70 hand-authored levels (data only, easy to extend)
 js/scene.js         level → Matter.js world: scenery, glasses, taps, ink strokes, win/lose logic
 js/water.js         the fluid: up to 300 soft droplets, fans, hazards, cosmetic splashes
 js/render.js        the whole look: paper grid, platforms, glasses + faces, water, HUD, overlays
@@ -191,10 +191,14 @@ This repo ships a headless harness so level design isn't guesswork:
   glass that has no corridor left to draw in, and `tools/delivery.js` sizes each tap to the water its
   glass actually needs (before it existed, levels poured 3–8x too much and the surplus heaped on the
   line).
-* `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
-  **35/35 levels solvable**, confirmed by `tools/flaky.js` over four full passes. Targets are
-  re-cushioned whenever the reference solution wins by less than two droplets, so a win never hangs
-  on a single particle.
+* `npm run verify` plays all 70 levels and reports fill ratios, ink used and stars. Current state:
+  **70/70 levels solvable**. The pour is deterministic — droplets take their radius from a fixed
+  three-value cycle and the stream wobbles on two sine waves instead of on `Math.random` — so
+  verification replays *the* pour the level was proved on instead of a cousin of it. Before that
+  fix the count wandered between 61 and 68 out of 70 while every individual check said "passed".
+* `npm run flaky` measures tolerance instead of luck: it redraws every reference line with an
+  unsteady hand (the wire keeps its length, every point drifts ±2.4 px on a slow wave) and reports
+  how many hands a level survives. One hand takes a light ±1.2 px wobble as a second opinion.
 * `tools/grid.js` brute-forces one-stroke solutions (used to confirm each new layout is beatable),
   `tools/probe.js` / `tools/trace.js` print per-frame glass pose, fill and droplet paths.
 * `tools/autotune.js` hill-climbs a stroke until a level is won; `tools/anchorize.js` reports which

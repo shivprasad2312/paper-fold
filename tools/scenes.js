@@ -96,13 +96,13 @@ const S = [
   },
   {
     id: 9, name: "The Notch",
-    tip: "A slab with a hole in it. The water has to go through the hole.",
+    tip: "A slab with a hole in it, and the glass right underneath. The hole is wide — the approach is the puzzle.",
     faucet: { x: 420, y: 150 },
-    glasses: [{ x: 800, y: 560, w: 108, h: 118, need: 0.55 }],
+    glasses: [{ x: 740, y: 470, w: 132, h: 112, need: 0.55 }],
     stage: [
-      { x: 420, y: 260, w: 170, h: 14 },
-      { x: 640, y: 400, w: 160, h: 20 },
-      { x: 880, y: 400, w: 200, h: 20 },
+      { x: 420, y: 270, w: 170, h: 14 },
+      { x: 600, y: 360, w: 150, h: 20 },
+      { x: 900, y: 360, w: 180, h: 20 },
     ],
   },
   {
@@ -128,13 +128,13 @@ const S = [
   },
   {
     id: 12, name: "Under The Shelf",
-    tip: "A wide shelf hangs over the drop. Come in low.",
+    tip: "A wide shelf hangs over the approach, not the mouth. Come in low and early.",
     faucet: { x: 430, y: 170 },
     glasses: [{ x: 950, y: 560, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.12 },
-      { x: 780, y: 400, w: 150, h: 14, angle: 0.16 },
-      { x: 700, y: 330, w: 220, h: 18 },
+      { x: 790, y: 410, w: 150, h: 14, angle: 0.16 },
+      { x: 580, y: 265, w: 210, h: 18 },
     ],
   },
   {
@@ -161,14 +161,14 @@ const S = [
   },
   {
     id: 15, name: "Ice Run",
-    tip: "An ice block under the gap. It is slick; the water does not care.",
+    tip: "A slick block sits under the gap. Water cannot run on it, so the line must span it.",
     faucet: { x: 430, y: 170 },
     glasses: [{ x: 1010, y: 560, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
-      { x: 780, y: 400, w: 150, h: 14, angle: 0.15 },
+      { x: 790, y: 400, w: 150, h: 14, angle: 0.15 },
     ],
-    crates: [{ x: 760, y: 470, size: 110, kind: "ice" }],
+    crates: [{ x: 630, y: 520, size: 120, kind: "ice" }],
   },
   {
     id: 16, name: "The Sill",
@@ -182,14 +182,17 @@ const S = [
   },
   {
     id: 17, name: "Stone Step",
-    tip: "A stone block breaks the fall. End the line before it.",
+    tip: "Two stone blocks stand under the run. Their tops are flat rests for the wire.",
     faucet: { x: 430, y: 170 },
-    glasses: [{ x: 1040, y: 560, w: 108, h: 118, need: 0.55 }],
+    glasses: [{ x: 960, y: 560, w: 108, h: 118, need: 0.55 }],
     stage: [
-      { x: 430, y: 280, w: 180, h: 14, angle: 0.14 },
-      { x: 800, y: 370, w: 160, h: 14, angle: 0.12 },
+      { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
+      { x: 880, y: 470, w: 150, h: 14, angle: 0.1 },
     ],
-    crates: [{ x: 700, y: 520, size: 120, kind: "stone" }],
+    crates: [
+      { x: 600, y: 360, size: 120, kind: "stone" },
+      { x: 760, y: 440, size: 120, kind: "stone" },
+    ],
   },
   {
     id: 18, name: "The Trench",
@@ -207,21 +210,21 @@ const S = [
     id: 19, name: "The Ledge",
     tip: "A long ledge, then nothing. End the line and let the water fly.",
     faucet: { x: 430, y: 170 },
-    glasses: [{ x: 1090, y: 560, w: 108, h: 118, need: 0.55 }],
+    glasses: [{ x: 1000, y: 570, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 430, y: 300, w: 180, h: 14, angle: 0.12 },
-      { x: 780, y: 370, w: 260, h: 14, angle: 0.1 },
+      { x: 760, y: 390, w: 140, h: 14, angle: 0.1 },
     ],
   },
   {
     id: 20, name: "Split Sill",
-    tip: "Two sills with a hole between them. Aim through it.",
+    tip: "Two sills with a gap between them. Aim the water through the gap, not at the glass.",
     faucet: { x: 430, y: 170 },
     glasses: [{ x: 820, y: 620, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
-      { x: 640, y: 430, w: 140, h: 18 },
-      { x: 960, y: 430, w: 170, h: 18 },
+      { x: 600, y: 430, w: 140, h: 18 },
+      { x: 1010, y: 430, w: 170, h: 18 },
     ],
   },
   {
@@ -314,14 +317,15 @@ const S = [
   },
   {
     id: 29, name: "Heavy Lid",
-    tip: "A heavy ball above the mouth. Let it settle, then pour past it.",
+    tip: "A heavy ball rests above the plinth. Pour past it — and do not knock it into the glass.",
     faucet: { x: 430, y: 170 },
-    glasses: [{ x: 1010, y: 520, w: 104, h: 124, need: 0.5 }],
+    glasses: [{ x: 1060, y: 560, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
-      { x: 790, y: 390, w: 150, h: 14, angle: 0.13 },
+      { x: 770, y: 390, w: 150, h: 14, angle: 0.14 },
     ],
-    balls: [{ x: 960, y: 300, r: 22, kind: "heavy" }],
+    crates: [{ x: 900, y: 500, size: 110, kind: "stone" }],
+    balls: [{ x: 900, y: 250, r: 22, kind: "heavy" }],
   },
   {
     id: 30, name: "The Keeper",
@@ -383,13 +387,13 @@ const S = [
   {
     id: 35, name: "The Drift",
     tip: "A long corridor with wind across it. The line is the only shelter.",
-    faucet: { x: 420, y: 170 },
+    faucet: { x: 420, y: 140 },
     glasses: [{ x: 1080, y: 580, w: 108, h: 118, need: 0.52 }],
     stage: [
       { x: 420, y: 280, w: 170, h: 14, angle: 0.13 },
       { x: 770, y: 360, w: 220, h: 14, angle: 0.11 },
     ],
-    fans: [{ x: 640, y: 210, w: 120, h: 60, force: 0.12, dir: 1 }],
+    fans: [{ x: 560, y: 210, w: 120, h: 60, force: 0.085, dir: 1 }],
   },
   {
     id: 36, name: "Two Blowers",
@@ -437,14 +441,13 @@ const S = [
   },
   {
     id: 40, name: "Weather",
-    tip: "Wind, heat and a loose weight. Everything this chapter taught.",
+    tip: "Wind and heat together. Keep the water off the floor and on course.",
     faucet: { x: 430, y: 170 },
     glasses: [{ x: 1010, y: 570, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 430, y: 280, w: 180, h: 14, angle: 0.14 },
       { x: 780, y: 370, w: 180, h: 14, angle: 0.12 },
     ],
-    balls: [{ x: 940, y: 220, r: 19, kind: "heavy" }],
     fans: [{ x: 660, y: 220, w: 110, h: 60, force: 0.09, dir: -1 }],
     hots: [{ x: 760, y: 650, w: 300, h: 26 }],
   },
@@ -549,13 +552,14 @@ const S = [
   },
   {
     id: 50, name: "The Exam",
-    tip: "A sliding glass, a gap and one line.",
+    tip: "A glass on a slope, a loose weight, one line. Both have to be handled.",
     faucet: { x: 430, y: 170 },
     glasses: [{ x: 990, y: 530, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 430, y: 280, w: 180, h: 14, angle: 0.14 },
       { x: 770, y: 370, w: 170, h: 14, angle: 0.12 },
       { x: 960, y: 600, w: 280, h: 16, angle: 0.07 },
+      { x: 1112, y: 570, w: 18, h: 46 },
     ],
     balls: [{ x: 800, y: 220, r: 19, kind: "light" }],
   },
@@ -625,11 +629,12 @@ const S = [
   },
   {
     id: 57, name: "Long Arm",
-    tip: "Everything is far apart. One long line is cheaper than three short ones.",
+    tip: "Everything is far apart. A span this long needs a bearing in the middle.",
     faucet: { x: 420, y: 170 },
     glasses: [{ x: 1080, y: 560, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 420, y: 270, w: 170, h: 14, angle: 0.12 },
+      { x: 620, y: 306, w: 110, h: 14 },
       { x: 820, y: 330, w: 240, h: 14, angle: 0.1 },
     ],
   },

@@ -30,6 +30,21 @@ const { boot, play, poly } = require('./simheadless');
 const HG = boot();
 const only = process.argv.slice(2).filter((a) => /^\d+$/.test(a)).map(Number);
 const EMIT = process.argv.includes('--emit');
+// Six hands, not one. A pour is chaotic — droplets pack differently every time
+// — so a line that wins only because it happened to be drawn exactly is not a
+// solution, it is a coincidence. Each variant shifts alternate points the
+// opposite way, which is what a slightly unsteady hand does: the wire keeps its
+// length and changes shape.
+const JITTER = [[3, 1], [-3, 1], [2, 3], [-2, -2], [4, 0], [0, 4]];
+// The same unsteady hand `tools/flaky.js` uses: every point drifts ±2.4 px on a
+// slow wave. Alternating jitter is a twitchy hand; this one is a *human* hand,
+// and a level has to survive three of its four tries before it ships.
+const WAVY = [0, 1, 2, 3];
+const WAVY_AMP = 2.4;
+const wavyLine = (pts, run) => poly(pts.map((p, i) => [
+  p.x + Math.cos(run * 2.1 + i * 0.7) * WAVY_AMP,
+  p.y + Math.sin(run * 1.3 + i * 0.5) * WAVY_AMP,
+]), 8);
 
 const W = HG.W, H = HG.H;
 const G = 1381;          // px/s^2, measured in this engine
@@ -159,7 +174,7 @@ function buildLevel(spec) {
 
   // A level that wins without a single stroke is not a puzzle: the scenery has
   // already done the job. Check that first, before spending time on the search.
-  const idle = play(HG, id, [], { frames: 60 * 28, level: base });
+  const idle = play(HG, id, [], { frames: 60 * 34, level: base });
   if (idle.won) return { id, spec, failed: true, reason: 'the scenery alone wins it' };
 
   const scene = new HG.Scene(JSON.parse(JSON.stringify(base)));
@@ -282,7 +297,7 @@ function buildLevel(spec) {
 
   const toPoly = (pts) => poly(pts.map((p) => [p.x, p.y]), 8);
   const jitter = (pts, k) => {
-    const d = [[2, 1], [-2, -1], [1, 3], [-1, -2]][k % 4];
+    const d = JITTER[k % JITTER.length];
     return poly(pts.map((p, i) => [p.x + (i % 2 ? -d[0] : d[0]), p.y + d[1]]), 8);
   };
 
@@ -324,23 +339,40 @@ function buildLevel(spec) {
     const k = c.pts.map((p) => Math.round(p.x) + ',' + Math.round(p.y)).join('>');
     if (tried.has(k)) continue;
     tried.add(k);
-    if (tried.size > 14) break;
-    const r = play(HG, id, [toPoly(c.pts)], { frames: 60 * 28, level: base });
+    if (tried.size > 18) break;
+    // Prove the numbers that will actually ship. The emitter writes four
+    // decimals, and this game is chaotic enough that a ten-thousandth of a pixel
+    // decided one level: the wire settled a hair differently and 5 % of the
+    // water went over the far edge. Quantising first means the proof and the
+    // player are drawing the same wire.
+    const pts = c.pts.map((p) => ({ x: +p.x.toFixed(4), y: +p.y.toFixed(4) }));
+    const r = play(HG, id, [toPoly(pts)], { frames: 60 * 34, level: base });
     if (!r.won) continue;
+    // No fill margin here, and the reason is worth writing down: the simulation
+    // stops the moment the glass is full, so `fill` at the win is `need` plus at
+    // most one droplet *by construction*. Asking for need + 0.06 rejects every
+    // legal solution in the game. Robustness is measured the only way it can be
+    // — the same line nudged three ways (P4), on a pour that is now
+    // deterministic whatever the seed (P3).
     let stable = 0;
-    for (let k2 = 0; k2 < 3; k2++) {
-      if (play(HG, id, [jitter(c.pts, k2)], { frames: 60 * 28, level: base }).won) stable++;
+    for (let k2 = 0; k2 < JITTER.length; k2++) {
+      if (play(HG, id, [jitter(pts, k2)], { frames: 60 * 34, level: base }).won) stable++;
     }
-    if (stable < 2) continue;
+    if (stable < 4) continue;                        // four hands out of six
+    let wavy = 0;
+    for (const run of WAVY) {
+      if (play(HG, id, [wavyLine(pts, run)], { frames: 60 * 34, level: base }).won) wavy++;
+    }
+    if (wavy < 3) continue;                          // three of four steady hands
     let len = 0;
-    for (let i = 1; i < c.pts.length; i++) len += Math.hypot(c.pts[i].x - c.pts[i - 1].x, c.pts[i].y - c.pts[i - 1].y);
+    for (let i = 1; i < pts.length; i++) len += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
     base.ink = Math.max(60, Math.round(len * 1.35 / 10) * 10);
-    const again = play(HG, id, [toPoly(c.pts)], { frames: 60 * 28, level: base });
+    const again = play(HG, id, [toPoly(pts)], { frames: 60 * 34, level: base });
     return {
       id, spec, level: base,
-      strokes: [c.pts.map((p) => [p.x, p.y])],
-      line: c.pts.map((p) => [Math.round(p.x), Math.round(p.y)]),
-      ink: base.ink, inkUsed: Math.round(len), fill: again.fills, off: c.off, stable,
+      strokes: [pts.map((p) => [p.x, p.y])],
+      line: pts.map((p) => [Math.round(p.x), Math.round(p.y)]),
+      ink: base.ink, inkUsed: Math.round(len), fill: again.fills, off: c.off, stable, wavy,
     };
   }
   const bestSc = scored.length ? scored[0].sc : 0;
@@ -384,7 +416,8 @@ for (const spec of SCENES) {
       '(' + res.anchors + ' anchors, ' + res.cands + ' candidates, ' + secs + ')');
   } else {
     console.log('L' + String(spec.id).padStart(2), spec.name.padEnd(18), 'ok  line', res.inkUsed + '/' + res.ink,
-      ' fill', res.fill.map((f) => f.fill.toFixed(2)).join('/'), ' jitter', res.stable + '/3', secs);
+      ' fill', res.fill.map((f) => f.fill.toFixed(2)).join('/'),
+      ' hands', res.stable + '/' + JITTER.length, 'wavy', res.wavy + '/' + WAVY.length, secs);
     fs.writeFileSync(path.join(CACHE, 'L' + spec.id + '.json'), JSON.stringify(res, null, 1));
   }
 }
@@ -413,6 +446,11 @@ if (EMIT) {
     process.exitCode = 1;
   } else {
     const num = (n) => Math.round(n * 10) / 10;
+    // Angles get three decimals. Rounding them to one turned 0.12 rad into 0.1
+    // and 0.07 into 0.1 — a five-pixel change of slope over a plank, which is
+    // enough to move where the water leaves the edge. The shipped level was not
+    // the level that had been proved, and the difference came back as "flaky".
+    const ang = (n) => Math.round(n * 1000) / 1000;
     const one = (lv) => {
       const L = [];
       L.push('    {');
@@ -432,7 +470,7 @@ if (EMIT) {
       L.push('      ],');
       const P = (p) => p.poly
         ? 'P({ poly: [' + p.poly.map((q) => '[' + num(q[0]) + ', ' + num(q[1]) + ']').join(', ') + '], kind: \'' + (p.kind || 'teal') + '\' })'
-        : 'P({ x: ' + num(p.x) + ', y: ' + num(p.y) + ', w: ' + p.w + ', h: ' + p.h + ', kind: \'' + (p.kind || 'teal') + '\'' + (p.angle ? ', angle: ' + num(p.angle) : '') + ' })';
+        : 'P({ x: ' + num(p.x) + ', y: ' + num(p.y) + ', w: ' + p.w + ', h: ' + p.h + ', kind: \'' + (p.kind || 'teal') + '\'' + (p.angle ? ', angle: ' + ang(p.angle) : '') + ' })';
       if (lv.platforms.length) {
         L.push('      platforms: [');
         lv.platforms.forEach((p) => L.push('        ' + P(p) + ','));
@@ -440,7 +478,7 @@ if (EMIT) {
       }
       if (lv.crates.length) {
         L.push('      crates: [');
-        lv.crates.forEach((c) => L.push('        { x: ' + num(c.x) + ', y: ' + num(c.y) + ', size: ' + c.size + ', kind: \'' + c.kind + '\'' + (c.angle ? ', angle: ' + num(c.angle) : '') + ' },'));
+        lv.crates.forEach((c) => L.push('        { x: ' + num(c.x) + ', y: ' + num(c.y) + ', size: ' + c.size + ', kind: \'' + c.kind + '\'' + (c.angle ? ', angle: ' + ang(c.angle) : '') + ' },'));
         L.push('      ],');
       }
       if (lv.balls.length) {
@@ -455,7 +493,7 @@ if (EMIT) {
       }
       if (lv.fans.length) {
         L.push('      fans: [');
-        lv.fans.forEach((f) => L.push('        { x: ' + num(f.x) + ', y: ' + num(f.y) + ', w: ' + f.w + ', h: ' + f.h + ', angle: ' + (f.angle || 0) + ', force: ' + (f.force || 0.13) + ', dir: ' + (f.dir || 1) + ' },'));
+        lv.fans.forEach((f) => L.push('        { x: ' + num(f.x) + ', y: ' + num(f.y) + ', w: ' + f.w + ', h: ' + f.h + ', angle: ' + ang(f.angle || 0) + ', force: ' + (f.force || 0.13) + ', dir: ' + (f.dir || 1) + ' },'));
         L.push('      ],');
       }
       if (lv.spinners.length) {
@@ -474,7 +512,13 @@ if (EMIT) {
     fs.writeFileSync('js/levels.js', head + '  const LEVELS = [\n' + body + '\n  ];\n\n' + file.slice(tailFrom));
 
     const solHead = fs.readFileSync('tools/solutions.js', 'utf8').split('module.exports = {')[0];
-    const solBody = all.map((r) => '  ' + r.id + ': [[[' + r.line.map((p) => p[0] + ', ' + p[1]).join('], [') + ']]],').join('\n');
+    // The solutions file gets the float endpoints that were actually proved,
+    // not their integer rounding: half a pixel at the end of a wire is enough to
+    // change where it comes to rest against a plank edge, and a resting wire is
+    // the whole solution.
+    const solBody = all.map((r) => '  ' + r.id + ': [[[' +
+      r.strokes[0].map((p) => (Math.round(p[0] * 1e4) / 1e4) + ', ' + (Math.round(p[1] * 1e4) / 1e4)).join('], [') +
+      ']]],').join('\n');
     fs.writeFileSync('tools/solutions.js', solHead + 'module.exports = {\n' + solBody + '\n};\n');
     console.log('wrote js/levels.js and tools/solutions.js (' + all.length + ' levels)');
   }

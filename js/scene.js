@@ -791,11 +791,18 @@
         f.acc -= spawns;
         while (spawns-- > 0 && f.remaining > 0) {
           if (this.water.particles.length >= HG.Water.MAX_PARTICLES) break;
-          const sx = f.x + M.rand(-1, 1) * (f.def.spread * 4 + 1);
+          // The stream breathes: a slow wobble, not a random one. Random spawn
+          // offsets were the real source of "it passed yesterday": the same
+          // line poured a different stream and missed the mouth. Two sine
+          // waves at unrelated rates give the same living look with a stream
+          // that is identical every time the level is played.
+          f.n = (f.n || 0) + 1;
+          const w = Math.sin(f.n * 1.7) * 0.6 + Math.sin(f.n * 0.43) * 0.4;
+          const sx = f.x + w * (f.def.spread * 4 + 1);
           // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
           // droplet born inside a static body gets squeezed out sideways
           const sy = f.y + 4 + HG.Water.R + 1.5;
-          const p = this.water.spawn(sx, sy, M.rand(-0.55, 0.55), 2.2);
+          const p = this.water.spawn(sx, sy, w * 0.55, 2.2);
           if (p) f.remaining--;
         }
         f.flow = f.remaining > 0 ? 1 : 0;

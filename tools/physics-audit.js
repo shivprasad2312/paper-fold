@@ -364,7 +364,10 @@ const drawAll = (scene, strokes) => {
 // ------------------------------------------------------- 6. ink obeys gravity
 {
   const sc = fresh(1);
-  drawAll(sc, [[[400, 300], [560, 300]]]);           // touches nothing
+  // Open air. The old stroke sat at y 300 across x 400–560, which is inside
+  // level 1's first plank: the wire was resting on scenery and the check was
+  // measuring how far a supported line slides. 620–780 at y 250 is empty.
+  drawAll(sc, [[[620, 250], [780, 250]]]);           // touches nothing
   const st = sc.ink.strokes[0];
   const y0 = st.body.position.y;
   sc.start();

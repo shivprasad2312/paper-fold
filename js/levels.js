@@ -124,7 +124,7 @@
     {
       name: "Step Down",
       tip: "A shelf hangs above the glass. Get the water past it, not through it.",
-      ink: 570,
+      ink: 530,
       faucet: { x: 400, y: 160, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 520, w: 108, h: 118, need: 0.55 },
@@ -136,16 +136,16 @@
     },
     {
       name: "The Notch",
-      tip: "A slab with a hole in it. The water has to go through the hole.",
+      tip: "A slab with a hole in it, and the glass right underneath. The hole is wide — the approach is the puzzle.",
       ink: 640,
       faucet: { x: 420, y: 150, rate: 26, total: 90 },
       glasses: [
-        { x: 800, y: 560, w: 108, h: 118, need: 0.55 },
+        { x: 740, y: 470, w: 132, h: 112, need: 0.55 },
       ],
       platforms: [
-        P({ x: 420, y: 260, w: 170, h: 14, kind: 'teal' }),
-        P({ x: 640, y: 400, w: 160, h: 20, kind: 'teal' }),
-        P({ x: 880, y: 400, w: 200, h: 20, kind: 'teal' }),
+        P({ x: 420, y: 270, w: 170, h: 14, kind: 'teal' }),
+        P({ x: 600, y: 360, w: 150, h: 20, kind: 'teal' }),
+        P({ x: 900, y: 360, w: 180, h: 20, kind: 'teal' }),
       ],
     },
     {
@@ -158,7 +158,7 @@
       ],
       platforms: [
         P({ x: 470, y: 250, w: 190, h: 14, kind: 'teal' }),
-        P({ x: 760, y: 300, w: 150, h: 14, kind: 'teal', angle: 0.2 }),
+        P({ x: 760, y: 300, w: 150, h: 14, kind: 'teal', angle: 0.16 }),
       ],
     },
     {
@@ -170,23 +170,23 @@
         { x: 1010, y: 520, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 420, y: 300, w: 190, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 790, y: 350, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 420, y: 300, w: 190, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 790, y: 350, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 700, y: 420, w: 26, h: 170, kind: 'teal' }),
       ],
     },
     {
       name: "Under The Shelf",
-      tip: "A wide shelf hangs over the drop. Come in low.",
-      ink: 790,
+      tip: "A wide shelf hangs over the approach, not the mouth. Come in low and early.",
+      ink: 680,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 950, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.2 }),
-        P({ x: 700, y: 330, w: 220, h: 18, kind: 'teal' }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 790, y: 410, w: 150, h: 14, kind: 'teal', angle: 0.16 }),
+        P({ x: 580, y: 265, w: 210, h: 18, kind: 'teal' }),
       ],
     },
     {
@@ -198,8 +198,8 @@
         { x: 860, y: 600, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 700, y: 360, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 700, y: 360, w: 150, h: 14, kind: 'teal', angle: 0.14 }),
         P({ x: 860, y: 470, w: 18, h: 150, kind: 'teal', angle: 0.4 }),
       ],
     },
@@ -212,7 +212,7 @@
         { x: 1000, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 760, y: 420, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
       ],
       crates: [
@@ -222,18 +222,18 @@
     },
     {
       name: "Ice Run",
-      tip: "An ice block under the gap. It is slick; the water does not care.",
-      ink: 750,
+      tip: "A slick block sits under the gap. Water cannot run on it, so the line must span it.",
+      ink: 810,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.2 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 790, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.15 }),
       ],
       crates: [
-        { x: 760, y: 470, size: 110, kind: 'ice' },
+        { x: 630, y: 520, size: 120, kind: 'ice' },
       ],
     },
     {
@@ -245,24 +245,25 @@
         { x: 930, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
         P({ x: 790, y: 380, w: 60, h: 14, kind: 'teal' }),
       ],
     },
     {
       name: "Stone Step",
-      tip: "A stone block breaks the fall. End the line before it.",
-      ink: 780,
+      tip: "Two stone blocks stand under the run. Their tops are flat rests for the wire.",
+      ink: 760,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
-        { x: 1040, y: 560, w: 108, h: 118, need: 0.55 },
+        { x: 960, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 800, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 880, y: 470, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
       ],
       crates: [
-        { x: 700, y: 520, size: 120, kind: 'stone' },
+        { x: 600, y: 360, size: 120, kind: 'stone' },
+        { x: 760, y: 440, size: 120, kind: 'stone' },
       ],
     },
     {
@@ -274,8 +275,8 @@
         { x: 900, y: 620, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 390, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 760, y: 390, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 800, y: 500, w: 20, h: 190, kind: 'teal' }),
         P({ x: 1020, y: 500, w: 20, h: 190, kind: 'teal' }),
       ],
@@ -283,41 +284,41 @@
     {
       name: "The Ledge",
       tip: "A long ledge, then nothing. End the line and let the water fly.",
-      ink: 860,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
-        { x: 1090, y: 560, w: 108, h: 118, need: 0.55 },
+        { x: 1000, y: 570, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
-        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 260, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 760, y: 390, w: 140, h: 14, kind: 'teal', angle: 0.1 }),
       ],
     },
     {
       name: "Split Sill",
-      tip: "Two sills with a hole between them. Aim through it.",
-      ink: 390,
+      tip: "Two sills with a gap between them. Aim the water through the gap, not at the glass.",
+      ink: 530,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 820, y: 620, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 640, y: 430, w: 140, h: 18, kind: 'teal' }),
-        P({ x: 960, y: 430, w: 170, h: 18, kind: 'teal' }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 600, y: 430, w: 140, h: 18, kind: 'teal' }),
+        P({ x: 1010, y: 430, w: 170, h: 18, kind: 'teal' }),
       ],
     },
     {
       name: "Dead Weight",
       tip: "A heavy ball hangs over the gap. Whatever you draw, it lands on.",
-      ink: 840,
+      ink: 750,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 970, y: 540, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 700, y: 240, r: 22, kind: 'heavy' },
@@ -332,8 +333,8 @@
         { x: 980, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 790, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 790, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.14 }),
       ],
       balls: [
         { x: 980, y: 230, r: 22, kind: 'heavy' },
@@ -348,8 +349,8 @@
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 300, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 780, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 720, y: 230, r: 17, kind: 'light' },
@@ -358,14 +359,14 @@
     {
       name: "The Brace",
       tip: "A heavy ball sits mid-air. The wire can run over it.",
-      ink: 660,
+      ink: 890,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 700, y: 340, r: 20, kind: 'heavy' },
@@ -380,8 +381,8 @@
         { x: 1030, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 340, w: 200, h: 14, kind: 'teal', angle: 0.2 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 760, y: 340, w: 200, h: 14, kind: 'teal', angle: 0.18 }),
       ],
       balls: [
         { x: 770, y: 270, r: 20, kind: 'heavy' },
@@ -396,8 +397,8 @@
         { x: 990, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 150, h: 14, kind: 'teal', angle: 0.13 }),
       ],
       balls: [
         { x: 660, y: 230, r: 22, kind: 'heavy' },
@@ -413,8 +414,8 @@
         { x: 930, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 400, w: 150, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 700, y: 300, r: 22, kind: 'heavy' },
@@ -429,8 +430,8 @@
         { x: 1010, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.13 }),
       ],
       balls: [
         { x: 760, y: 250, r: 19, kind: 'light' },
@@ -438,18 +439,21 @@
     },
     {
       name: "Heavy Lid",
-      tip: "A heavy ball above the mouth. Let it settle, then pour past it.",
-      ink: 800,
+      tip: "A heavy ball rests above the plinth. Pour past it — and do not knock it into the glass.",
+      ink: 830,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
-        { x: 1010, y: 520, w: 104, h: 124, need: 0.5 },
+        { x: 1060, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 790, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.14 }),
+      ],
+      crates: [
+        { x: 900, y: 500, size: 110, kind: 'stone' },
       ],
       balls: [
-        { x: 960, y: 300, r: 22, kind: 'heavy' },
+        { x: 900, y: 250, r: 22, kind: 'heavy' },
       ],
     },
     {
@@ -461,8 +465,8 @@
         { x: 980, y: 580, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 770, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 680, y: 220, r: 22, kind: 'heavy' },
@@ -472,14 +476,14 @@
     {
       name: "Crosswind",
       tip: "The blower pushes the stream sideways. Get above it.",
-      ink: 760,
+      ink: 640,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       fans: [
         { x: 700, y: 250, w: 120, h: 60, angle: 0, force: 0.12, dir: -1 },
@@ -494,8 +498,8 @@
         { x: 990, y: 570, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 390, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 390, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 560, y: 330, w: 90, h: 20, kind: 'teal' }),
       ],
       fans: [
@@ -505,14 +509,14 @@
     {
       name: "Updraft",
       tip: "This blower points up. It slows the water instead of pushing it aside.",
-      ink: 630,
+      ink: 550,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 950, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 760, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.13 }),
       ],
       fans: [
         { x: 650, y: 470, w: 140, h: 70, angle: 0, force: 0.09, dir: 1 },
@@ -527,8 +531,8 @@
         { x: 1000, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 770, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 900, y: 230, r: 19, kind: 'heavy' },
@@ -541,16 +545,16 @@
       name: "The Drift",
       tip: "A long corridor with wind across it. The line is the only shelter.",
       ink: 790,
-      faucet: { x: 420, y: 170, rate: 26, total: 90 },
+      faucet: { x: 420, y: 140, rate: 26, total: 90 },
       glasses: [
         { x: 1080, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 420, y: 280, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 360, w: 220, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 420, y: 280, w: 170, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 360, w: 220, h: 14, kind: 'teal', angle: 0.11 }),
       ],
       fans: [
-        { x: 640, y: 210, w: 120, h: 60, angle: 0, force: 0.12, dir: 1 },
+        { x: 560, y: 210, w: 120, h: 60, angle: 0, force: 0.085, dir: 1 },
       ],
     },
     {
@@ -562,8 +566,8 @@
         { x: 980, y: 570, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       fans: [
         { x: 600, y: 220, w: 100, h: 60, angle: 0, force: 0.09, dir: -1 },
@@ -579,8 +583,8 @@
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       hots: [
         { x: 700, y: 650, w: 320, h: 26 },
@@ -595,8 +599,8 @@
         { x: 1010, y: 570, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       hots: [
         { x: 620, y: 650, w: 240, h: 26 },
@@ -612,8 +616,8 @@
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       spinners: [
         { x: 900, y: 330, w: 190, h: 16, speed: 0 },
@@ -621,18 +625,15 @@
     },
     {
       name: "Weather",
-      tip: "Wind, heat and a loose weight. Everything this chapter taught.",
-      ink: 690,
+      tip: "Wind and heat together. Keep the water off the floor and on course.",
+      ink: 730,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 570, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-      ],
-      balls: [
-        { x: 940, y: 220, r: 19, kind: 'heavy' },
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 780, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       hots: [
         { x: 760, y: 650, w: 300, h: 26 },
@@ -650,9 +651,9 @@
         { x: 950, y: 540, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 930, y: 600, w: 260, h: 16, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 930, y: 600, w: 260, h: 16, kind: 'teal', angle: 0.07 }),
       ],
     },
     {
@@ -664,8 +665,8 @@
         { x: 900, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 380, w: 170, h: 13, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 760, y: 380, w: 170, h: 13, kind: 'teal', angle: 0.12 }),
         P({ x: 790, y: 470, w: 18, h: 180, kind: 'teal' }),
         P({ x: 1130, y: 470, w: 18, h: 180, kind: 'teal' }),
       ],
@@ -673,14 +674,14 @@
     {
       name: "Edge Of The World",
       tip: "The glass is one nudge from a long fall.",
-      ink: 710,
+      ink: 800,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 540, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 990, y: 600, w: 180, h: 18, kind: 'teal' }),
       ],
     },
@@ -693,8 +694,8 @@
         { x: 900, y: 620, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 830, y: 470, w: 22, h: 180, kind: 'teal' }),
         P({ x: 970, y: 470, w: 22, h: 180, kind: 'teal' }),
       ],
@@ -708,8 +709,8 @@
         { x: 960, y: 530, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -721,8 +722,8 @@
         { x: 920, y: 470, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 920, y: 540, w: 90, h: 130, kind: 'teal' }),
       ],
     },
@@ -735,8 +736,8 @@
         { x: 980, y: 520, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -748,8 +749,8 @@
         { x: 960, y: 600, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 370, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 1160, y: 470, w: 200, h: 18, kind: 'teal' }),
       ],
     },
@@ -762,22 +763,23 @@
         { x: 950, y: 560, w: 100, h: 140, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 150, h: 14, kind: 'teal', angle: 0.14 }),
       ],
     },
     {
       name: "The Exam",
-      tip: "A sliding glass, a gap and one line.",
+      tip: "A glass on a slope, a loose weight, one line. Both have to be handled.",
       ink: 670,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 990, y: 530, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 960, y: 600, w: 280, h: 16, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 960, y: 600, w: 280, h: 16, kind: 'teal', angle: 0.07 }),
+        P({ x: 1112, y: 570, w: 18, h: 46, kind: 'teal' }),
       ],
       balls: [
         { x: 800, y: 220, r: 19, kind: 'light' },
@@ -786,7 +788,7 @@
     {
       name: "Twin Taps",
       tip: "Two taps, one glass. The line has to serve the one that is running.",
-      ink: 600,
+      ink: 750,
       faucets: [
         { x: 430, y: 170, rate: 26, total: 90 },
         { x: 1150, y: 190, rate: 26, total: 90 },
@@ -795,8 +797,8 @@
         { x: 980, y: 570, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -811,8 +813,8 @@
         { x: 1020, y: 580, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 390, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 390, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -824,8 +826,8 @@
         { x: 900, y: 540, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 760, y: 390, w: 150, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -837,8 +839,8 @@
         { x: 900, y: 560, w: 112, h: 112, need: 0.45 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 760, y: 370, w: 150, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 170, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 760, y: 370, w: 150, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -850,8 +852,8 @@
         { x: 1000, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 390, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 390, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       spinners: [
         { x: 720, y: 260, w: 170, h: 16, speed: 0 },
@@ -866,21 +868,22 @@
         { x: 1020, y: 560, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 930, y: 440, w: 150, h: 16, kind: 'teal' }),
       ],
     },
     {
       name: "Long Arm",
-      tip: "Everything is far apart. One long line is cheaper than three short ones.",
+      tip: "Everything is far apart. A span this long needs a bearing in the middle.",
       ink: 980,
       faucet: { x: 420, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1080, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 420, y: 270, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 420, y: 270, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 620, y: 306, w: 110, h: 14, kind: 'teal' }),
         P({ x: 820, y: 330, w: 240, h: 14, kind: 'teal', angle: 0.1 }),
       ],
     },
@@ -893,8 +896,8 @@
         { x: 1000, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -906,8 +909,8 @@
         { x: 940, y: 580, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       spinners: [
         { x: 700, y: 470, w: 180, h: 16, speed: 0 },
@@ -925,8 +928,8 @@
         { x: 940, y: 580, w: 116, h: 118, need: 0.38 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       spinners: [
         { x: 700, y: 470, w: 160, h: 16, speed: 0 },
@@ -941,8 +944,8 @@
         { x: 1120, y: 520, w: 104, h: 124, need: 0.48 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 820, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 820, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 950, y: 220, r: 19, kind: 'heavy' },
@@ -957,14 +960,14 @@
     {
       name: "Narrow World",
       tip: "A chimney, a blower and a glass in the middle of it all.",
-      ink: 520,
+      ink: 480,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 620, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 370, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 820, y: 500, w: 18, h: 180, kind: 'teal' }),
         P({ x: 980, y: 500, w: 18, h: 180, kind: 'teal' }),
       ],
@@ -981,9 +984,9 @@
         { x: 960, y: 540, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 950, y: 610, w: 250, h: 16, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 770, y: 370, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
+        P({ x: 950, y: 610, w: 250, h: 16, kind: 'teal', angle: 0.07 }),
       ],
       crates: [
         { x: 1120, y: 470, size: 110, kind: 'ice' },
@@ -992,14 +995,14 @@
     {
       name: "Needle",
       tip: "A mouth the width of your line. Precision only.",
-      ink: 650,
+      ink: 570,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 590, w: 92, h: 118, need: 0.45 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 1170, y: 460, w: 150, h: 16, kind: 'teal' }),
       ],
     },
@@ -1012,8 +1015,8 @@
         { x: 1000, y: 600, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 370, w: 190, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 370, w: 190, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 1180, y: 470, w: 180, h: 18, kind: 'teal' }),
       ],
       fans: [
@@ -1023,14 +1026,14 @@
     {
       name: "The Gauntlet",
       tip: "Hot plate, pinned bar, weighted ball. One careful line.",
-      ink: 810,
+      ink: 770,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1050, y: 580, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 800, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.14 }),
+        P({ x: 800, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 990, y: 210, r: 19, kind: 'heavy' },
@@ -1051,8 +1054,8 @@
         { x: 1010, y: 470, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 790, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 790, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
       ],
     },
     {
@@ -1064,8 +1067,8 @@
         { x: 900, y: 620, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 780, y: 360, w: 170, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 780, y: 360, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 660, y: 470, w: 200, h: 18, kind: 'teal' }),
       ],
     },
@@ -1078,8 +1081,8 @@
         { x: 1010, y: 580, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 790, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 790, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       fans: [
         { x: 660, y: 470, w: 110, h: 60, angle: 0, force: 0.1, dir: 1 },
@@ -1097,8 +1100,8 @@
         { x: 1030, y: 600, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
-        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
-        P({ x: 800, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.1 }),
+        P({ x: 430, y: 270, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
+        P({ x: 800, y: 360, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
       ],
       balls: [
         { x: 930, y: 200, r: 19, kind: 'heavy' },
