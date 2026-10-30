@@ -47,7 +47,7 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 | **Win condition** | Fill the glass to the dotted line; the glass smiles. | Fill ratio is measured from the real water surface **and** droplet count inside the glass. Every glass in a level must be filled. |
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
 | **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right under the nozzle and just above the rim). On release every segment is tested against the scenery with a real collision query: each place it actually touches becomes an **anchor** and the wire is welded there — the drawing itself is never decorated, it stays the plain line you drew. A line that touches one thing only swings from that point; no contact at all → the whole line stays one rigid body and falls. If an anchoring support later moves away, the line comes off and drops. |
-| **Hazards** | Hot pads evaporate water, gears/spinners scatter it, moving blocks obstruct it, some levels need multiple glasses filled at once, fans/escalators push water. | All of the above are implemented: heated pads, spinning bars (free pin joints), tilting planks, patrolling blocks, blowers (the grey arrow box), crates and diamonds, tilted and polygon shelves, 1–3 glasses and 1–2 taps. |
+| **Hazards** | Hot pads evaporate water, gears/spinners scatter it, some levels need multiple glasses filled at once, fans push water. | All of the above are implemented: heated pads, pinned bars (free pin joints that only turn when something hits them), tilting planks, blowers (the grey arrow box), crates and diamonds, brackets/shelves/pegs/columns, 1–2 glasses and 1–2 taps. **Nothing in a level moves on its own.** |
 | **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". |
 | **Retry** | Retry is free and instant; you keep trying until the water runs out. | Restart button (or `R`), plus automatic fail detection once the tap is empty and the water has settled. |
 | **Feel** | Hand-drawn look, thick dark outlines, pastel palette, paper grid, wooden HUD, bouncy UI, happy glass face. | Same art direction, drawn procedurally on a canvas (no image assets at all). |
@@ -83,48 +83,55 @@ tools/              dev server, single-file builder, headless simulator, verifie
 
 ### Levels
 
-35 levels, hand-placed, each introducing or combining one idea. Levels 26–35 are the
-"floating glass" set, where support comes first and the pour comes second. From level 12 onward
-most layouts also carry **push-pins** (small tacks on the scenery): a stroke that touches one is
-anchored in place, which is now the intended way to build a shelf — a free-floating bridge will fall:
+35 levels. Every one of them is **generated and then proved**: `tools/design.js` places the
+tap and the glass, solves the ballistic aim that lands the water in the mouth, searches for the
+scenery that will carry a drawn line to that aim, and then plays the finished level four times —
+once with its own line and three more with the same line nudged by a pixel or two. A level only
+ships if a hand-drawn line, not a machine-perfect one, wins it. The reference solutions in
+`tools/solutions.js` are the lines that proof used.
 
-| # | Name | Idea |
+The variety is in the *shape of the thing you rest the line on* — a floating bracket, a small peg,
+a wide shelf, or a stone column standing on the ground — and in where the tap, the glass and the
+hazards sit. Nothing moves on its own: the pinned bars are scenery that only turns once water or a
+line hits it.
+
+| # | Name | Structure |
 | --- | --- | --- |
-| 1 | First Pour | no scenery at all — just tap, glass and a stone pedestal |
-| 2 | A Gentle Slope | first ramp, drawn around a wooden crate |
-| 3 | Small Step | step the water down onto a hanging metal shelf |
-| 4 | Over The Wall | arc over a wall |
-| 5 | Double Trouble | split one stream into two glasses around a teal wedge |
-| 6 | Crate & Glass | the stream clips the rim (nod to the reference screenshot) |
-| 7 | Wall Run | tall wall, arc over it |
-| 8 | Hot Floor | heated pad vaporises water |
-| 9 | Spinner | rotating bar scatters water — jam it with a line |
-| 10 | Tilting Plank | free-turning plank you have to run over |
-| 11 | Two Taps | a stone column splits the room: two taps, two glasses |
-| 12 | The Neck | narrow gap between two ledges |
-| 13 | Crosswind | blower pushes the stream |
-| 14 | Crate Stack | climb over crates |
-| 15 | Three Is A Crowd | three-way split |
-| 16 | Gear Works | two spinners |
-| 17 | Moving Block | patrolling block, slide underneath |
-| 18 | The Long Drop | long shallow run |
-| 19 | Hot Pipes | two hot pads |
-| 20 | The Sink | spinner in the way, metal shelf below |
-| 21 | Twin Spinners | two spinners, catch the spray |
-| 22 | Upstream | wind blows the other way |
-| 23 | The Gauntlet | hot pad + spinner + patrol |
-| 24 | Two Storeys | two taps at different heights |
-| 25 | Last Drop | everything at once |
-| 26 | Hold It Up | a glass with nothing under it, over two diamonds |
-| 27 | Two Hands | two floating glasses, two taps |
-| 28 | Blow Dry | blower vs. a floating glass |
-| 29 | Diamond Gap | straight edge between two diamonds |
-| 30 | Gap Bridge | the glass dangles in a gap |
-| 31 | The Wedge | build a flat ledge on a sloped slab |
-| 32 | Falling Weight | a loose crate tries to smash the glass |
-| 33 | Wind Tunnel | one blower, one stream, one glass to catch |
-| 34 | Juggler | loose glass + spinning bar |
-| 35 | Grand Finale | floating glass, blower and hot pad |
+| 1 | First Pour | 2 brackets · one glass |
+| 2 | A Gentle Slope | 3 brackets · one glass · 1 hot pad |
+| 3 | Small Step | 2 pegs · one glass |
+| 4 | Over The Wall | 2 brackets · one glass · teal crate |
+| 5 | Twin Falls | 2 brackets · one fork, two glasses |
+| 6 | Crate & Glass | 2 shelves · one glass · teal crate |
+| 7 | Wall Run | 2 brackets · one glass · 1 hot pad |
+| 8 | Hot Floor | 2 brackets · one glass · 2 hot pads |
+| 9 | Spinner | 2 pegs · one glass · 1 pinned bar |
+| 10 | Tilting Plank | 2 brackets · one glass · teal crate |
+| 11 | The Bridge | 3 columns · one glass |
+| 12 | The Neck | 2 brackets · one glass · 1 hot pad |
+| 13 | Crosswind | 2 pegs · one glass · blower |
+| 14 | The Staircase | 3 brackets · one glass · wood+teal crate |
+| 15 | Pillar Drop | 3 brackets · one glass · stone crate |
+| 16 | Gear Works | 2 brackets · one glass · 2 pinned bars |
+| 17 | Long Reach | 2 brackets · one glass |
+| 18 | The Long Drop | 2 brackets · one glass |
+| 19 | Hot Pipes | 2 brackets · one glass · 3 hot pads |
+| 20 | The Sink | 2 brackets · one glass · 1 pinned bar |
+| 21 | Twin Spinners | 2 pegs · one glass · 2 pinned bars |
+| 22 | Upstream | 3 brackets · one glass · blower |
+| 23 | The Gauntlet | 2 brackets · one glass · 1 hot pad, 2 pinned bars |
+| 24 | Two Storeys | 4 brackets · two glasses, high and low · 2 taps · teal crate |
+| 25 | Last Drop | 2 brackets · one glass · 1 hot pad |
+| 26 | Hold It Up | 2 brackets · one glass |
+| 27 | Two Hands | 4 brackets · two glasses, high and low · 2 taps · teal crate |
+| 28 | Slippery Shelf | 3 brackets · one glass · ice crate |
+| 29 | Diamond Gap | 2 pegs · one glass · teal crate |
+| 30 | Gap Bridge | 2 brackets · one glass · 1 hot pad |
+| 31 | The Wedge | 2 brackets · one glass · 1 pinned bar |
+| 32 | Falling Weight | 2 brackets · one glass · wood+teal crate |
+| 33 | Wind Tunnel | 2 brackets · one glass · blower |
+| 34 | Juggler | 2 brackets · one glass · 2 pinned bars |
+| 35 | Grand Finale | 2 brackets · one glass · 1 hot pad, 2 pinned bars |
 
 ---
 
@@ -196,8 +203,8 @@ sliding 71 px off a bridge it had been sitting on perfectly. Fitting the same po
 long bars took that to 0.11 px/frame. Levels are no longer hand-propped either: `tools/author3.js`
 searches for a ramp and the supports that carry it, confirms every candidate with a second pour, and
 `tools/apply-authored.js` writes the supports into the level and the drawing into the reference
-solutions. Full report, including the intentional shortcuts (no world floor, kinematic movers, hot
-pads that delete droplets) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
+solutions. Full report, including the intentional shortcuts (no world floor, hot pads that delete droplets,
+anchoring by collision query) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
 ## 4. Testing without a browser
 

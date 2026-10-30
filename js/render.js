@@ -120,7 +120,6 @@
       scene.platforms.forEach((p) => this.drawPlatform(ctx, p));
       scene.crates.forEach((c) => this.drawCrate(ctx, c));
       scene.seesaws.forEach((s) => this.drawSeesaw(ctx, s));
-      scene.movers.forEach((m) => this.drawMover(ctx, m));
       scene.spinners.forEach((s) => this.drawSpinner(ctx, s, dt));
 
       // glasses (back) — dynamic glasses are drawn in their own space so they

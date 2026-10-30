@@ -172,6 +172,15 @@
   class Scene {
     constructor(level) {
       this.level = level;
+      // Sleeping stays OFF, on purpose. It looks like the fix for a pile that
+      // never stops buzzing, but it is not: Matter wakes a whole connected
+      // island, so one droplet landing on a sleeping heap wakes all 120 bodies
+      // *at once*, the solver corrects their overlap together and the pile
+      // erupts — measured, one droplet displaced the heap by a median of 28 px
+      // (worst 80 px). That is the "chain reaction" a player sees. The real
+      // cure is the contact slop in water.js: let droplets rest slightly into
+      // each other and the solver stops fighting, so a pile is still
+      // (0.003 px/frame) and an impact stays local (median 0.2 px).
       this.engine = Engine.create({ enableSleeping: false });
       this.world = this.engine.world;
       this.engine.gravity.y = 1;
@@ -198,7 +207,6 @@
       this.crates = [];
       this.spinners = [];
       this.seesaws = [];
-      this.movers = [];
       this.hots = [];
       this.fans = [];
       this.glasses = [];
@@ -320,10 +328,10 @@
           damping: 0.1,
           render: { visible: false },
         }));
-        // deterministic nudge (no Math.random): the same level must play the
-        // same way every time, otherwise "won" becomes a coin flip
-        const seed = Math.sin((s.x + s.y) * 0.017) * 0.01;
-        Body.setAngularVelocity(b, (s.speed || 0) + seed);
+        // A pinned bar hangs still until something hits it. It is scenery, not
+        // a machine: no motor, no seeded spin — a bar that drifts on its own is
+        // a moving bar, and this game has none.
+        Body.setAngularVelocity(b, 0);
         this.spinners.push({ def: s, body: b });
       });
 
@@ -348,15 +356,6 @@
         this.seesaws.push({ def: s, body: b });
       });
 
-      lv.movers.forEach((m) => {
-        const b = Bodies.rectangle(m.x, m.y, m.w, m.h, {
-          isStatic: true,
-          label: 'mover',
-          chamfer: { radius: 6 },
-        });
-        Composite.add(this.world, b);
-        this.movers.push({ def: m, body: b });
-      });
     }
 
     buildGlasses() {
@@ -735,9 +734,6 @@
         const inHousing = Math.abs(x - f.x) < 33 && y > f.y - 80 && y < f.y - 14;
         if (inHousing) return true;
       }
-      for (const m of this.level.movers) {
-        if (Math.abs(x - m.x - 0) < m.w / 2 + 6 && Math.abs(y - m.y) < m.h / 2 + 6) return true;
-      }
       return false;
     }
 
@@ -783,17 +779,6 @@
         if (f.remaining > 0) flowing = true;
       }
       this.pouringNow = flowing;
-
-      // ---- movers (kinematic blocks)
-      for (const m of this.movers) {
-        const d = m.def;
-        const t = (this.time / 1000 / d.period + d.phase) * Math.PI * 2;
-        const x = d.x + Math.sin(t) * d.dx;
-        const y = d.y + Math.sin(t) * d.dy;
-        // NOTE: only the position is moved. Giving a static "kinematic" body a
-        // velocity makes Matter fire water into orbit on contact.
-        Body.setPosition(m.body, { x, y });
-      }
 
       // ---- a swinging wire is a joint chain: keep it inside sane limits
       for (const st of this.ink.strokes) {

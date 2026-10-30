@@ -419,7 +419,15 @@ const drawAll = (scene, strokes) => {
 {
   // (a) the exact drawing that used to be "nailed to the tap": from under the
   //     nozzle down to the glass. Nothing holds it now, so it must fall.
-  const sc = fresh(2);
+  //     Tested in an empty room: the level's own brackets must not be able to
+  //     rescue the stroke, or the check would silently pass on scenery.
+  const bare = {
+    id: 998, name: 'bare', ink: 900,
+    faucets: [{ x: 400, y: 190, rate: 26, total: 60 }],
+    glasses: [{ x: 700, y: 372, w: 108, h: 118, need: 0.5 }],
+    platforms: [], crates: [], spinners: [], seesaws: [], hots: [], fans: [], pins: [],
+  };
+  const sc = new HG.Scene(JSON.parse(JSON.stringify(bare)));
   const pts = poly([[400, 200], [400, 300], [700, 372]]);
   sc.beginInk(pts[0].x, pts[0].y);
   for (let i = 1; i < pts.length; i++) sc.addInkPoint(pts[i].x, pts[i].y);

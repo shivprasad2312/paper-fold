@@ -157,7 +157,8 @@ build.
 | 4 physics substeps per frame | 4 px line vs 3.7 px/step droplets | contact is resolved on the line, not inside it |
 | the pen refuses to draw inside scenery (2 px pad) | a stroke drawn through a wall would explode on the next step | you cannot draw *into* a ledge; you draw onto it |
 | hot pads delete droplets instead of boiling them | 300-particle budget | ~2 % water loss per touch, plus steam puffs |
-| movers are kinematic (`Body.setPosition`) | giving a static body velocity launched water into orbit | obstacles push water by sweeping through it |
+| no moving obstacles at all | a bar that is driven by the game is a bar the player cannot reason about; the old patrolling blocks swept water into orbit | every pinned bar starts at rest (`angular velocity 0`) and only turns when water or a line hits it |
+| water that misses every glass is drained after 0.6 s at rest | a shallow puddle on a flat plank never goes still: 0.09 px/frame of creep 12 s later, which a player reads as the water chain-reacting | a miss is a miss; flowing water (a trickle crossing the floor, a stream running a ramp) is never in contact-rest and is never touched |
 
 ## 7. Objective function the levels are verified against
 
@@ -169,7 +170,32 @@ build.
 3. **ink efficiency** — stars from the 3-block meter, so the reference solutions stay inside
    the budget.
 
-The reference solutions are *authored*, not hand-drawn: `tools/author3.js` searches for a
-ramp and the supports that carry it, then confirms every candidate with a second, independent
-pour. `tools/apply-authored.js` writes the supports into `js/levels.js` and the drawing into
-`tools/solutions.js`.
+`tools/flaky.js` goes further and replays each level four times: any run that loses a glass is a
+level that is too tight to ship. The current set is stable, 4/4 on all 35.
+
+## 8. How the levels are made
+
+`tools/design.js` is the level set's whole authoring pipeline, and it is deliberately fussy:
+
+1. **aim, don't guess.** Water leaving a ramp keeps the speed it picked up on the slope and then
+   flies. `landing()` solves that ballistic arc (measured `g = 1381 px/s²`, an effective
+   `0.78` factor for drag and rolling loss) and keeps only the ramps whose predicted landing falls
+   inside the glass mouth. A ramp that ends *above* the glass always overshoots; the aim has to end
+   uphill of it.
+2. **the line must be drawable.** The pen refuses ink inside scenery with a 2 px sink
+   (`Scene#inkPointBlocked`). A candidate line is sampled every 6 px against that same rule, and
+   the bracket under it is dropped 14/17/21 px below the wire until the pen accepts every sample.
+   Without this the generator proved lines the player could not draw — L17 measured 0.51 in the
+   game and 0.56 in the proof.
+3. **nothing floats.** A pad is a bracket, a peg, a shelf or a column standing on the floor; the
+   line is a loose body that lands on them, and the proof runs the real collision solver.
+4. **a hand must be able to repeat it.** The proof replays the line three more times, each nudged
+   by 1–3 px in a different direction, and the level ships only if at least two of those also win.
+   This is what rejects knife-edge solutions (the old L2 failed exactly this way).
+5. **size the tap to the glass.** The tap delivers `2.9–3.2×` the droplets the glass needs, so a
+   line that drinks a little water still fills it, and `physics-audit` refuses anything above 3.2×
+   so no level turns into a flood.
+
+`node tools/design.js --write` regenerates `js/levels.js` and `tools/solutions.js`; results are
+cached per level in `/tmp/design-L<id>.json` so a set of 35 can be solved in chunks and assembled
+with `--emit`.
