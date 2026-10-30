@@ -179,6 +179,10 @@ checks, and what it found the last time it was run:
 | unsupported glass / crate fall | glass leaves the level, crate drops 650 px |
 | water stays pooled once it lands | fill 0.77 → 0.77 after 10 s |
 | same strokes, same result | 27/27/27/27/27 droplets over 5 runs |
+| a level does not deliver a flood | tap 86 droplets for a glass needing 34 (2.5x) |
+| the water column stays a stream, not a heap | 26 droplets alive at the peak |
+| the stream falls, it does not spray sideways | 0.0 % of droplet-frames moving >4 px/frame sideways |
+| droplets are not flung back up out of the liquid | 0.0 % of droplet-frames moving upward |
 
 Fixes that came out of that audit: droplets spawned 7.5 px inside the tap plate; the pour started on
 pointer-*down* instead of on lift; a once-per-frame solver let fast droplets straddle the wire; and
@@ -211,9 +215,12 @@ This repo ships a headless harness so level design isn't guesswork:
   number that decides whether a level is comfortable or knife-edge.
 * `tools/cushion.js` lowers any target the reference solution only clears by one droplet, so a win
   never hangs on a single particle.
-* `tools/props.js` stands a stone bracket under every ramp that would otherwise hang on one contact;
-  `tools/postfit.js` slides it until the water clears it cleanly, `tools/reanchor.js` reports which
-  strokes have a real second support and which do not.
+* `tools/author3.js` authors a level's *supporting scenery*: it picks a ramp, stands rests under it,
+  and confirms every candidate with a second, independent pour. `tools/apply-authored.js` writes the
+  rests into `js/levels.js` and the drawing into `tools/solutions.js`. `tools/layout.js` moves a
+  glass that has no corridor left to draw in, and `tools/delivery.js` sizes each tap to the water its
+  glass actually needs (before it existed, levels poured 3–8x too much and the surplus heaped on the
+  line).
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:
   **35/35 levels solvable**, confirmed by `tools/flaky.js` over four full passes. Targets are
   re-cushioned whenever the reference solution wins by less than two droplets, so a win never hangs

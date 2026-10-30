@@ -76,6 +76,29 @@ Same scene, same frames, tap shut vs tap running:
 That is the reference behaviour: the stream leans on the line, the line barely notices
 a good ramp and gets shoved by a bad one.
 
+**§3e — the stream behaves like water.**
+The report was *"the droplets look excited, like nuclear fission"*. It was three
+things at once: the levels poured 3–8× the water the glass needs (median 3.5×, worst
+8.5×), so the surplus had nowhere to go and heaped on the line; droplets had no
+cohesion, so a stream fell as a shower of beads; and every droplet was painted as
+its own bubble with a 2.6 px rim, which makes a heap read as a cluster of cells.
+Now: taps are sized to their glass (1.75–2.4× margin, `tools/delivery.js`), the pour
+is a thread (22–32 droplets/s, not a jet), `Water.cohere()` pulls each droplet a
+fraction of a pixel toward its neighbours and blends a little of their velocity, and
+the rim is 1.5 px. Measured on the same level, same frames:
+
+| | before | now |
+| --- | --- | --- |
+| water delivered vs. needed | 5.2× | 2.5× |
+| droplets alive at the peak | 147 | 26 |
+| droplet-frames moving >4 px/frame sideways | — | **0.0 %** |
+| droplet-frames moving upward | — | **0.0 %** |
+| median peak across all 35 levels | 92 | 49 |
+
+There is no chain reaction to begin with: one droplet is born per unit of tap
+budget, the population is capped at 340, and it only grows while the tap runs. What
+looked like fission was a heap of static-pose beads being jostled by the solver.
+
 ## 5. Findings from this audit (all fixed)
 
 0. **The wire was glued to thin air.** A bounding-box anchor test with a 16 px tolerance
