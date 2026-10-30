@@ -75,14 +75,16 @@ Consequences that are intentional:
    `endInk()` on **lift** calls `scene.start()`. Later strokes never pause anything.
 4. **Tunnelling window.** Droplets were clamped at 30 px/step, but Matter has no continuous
    collision detection and a line is only ~8 px thick (+7 px droplet radius = 22 px of travel).
-   The clamp is now **18 px/frame**, i.e. 6.2 px per solver step — less than the rod itself.
+   The clamp is now **16 px/frame**, i.e. 4 px per solver step — less than the 6 px rod.
 5. **The line "vibrated".** Reported twice: while it hung there, and again when water hit it. The
    measurement said the *body* was perfectly still — but a droplet free-falls 6–11 px per frame and
    the solver ran once per frame, so a landing droplet alternated between "above the rod" and
    "inside the rod" every frame: the contact point jumped, water squirted sideways and pooled water
-   shimmered. Fixed by (a) three substeps per frame, (b) the 18 px/frame ceiling, (c) a rest floor
+   shimmered. Fixed by (a) four substeps per frame, (b) the 16 px/frame ceiling, (c) a rest floor
    that zeroes sub-0.035 px/step residue. Audit §3b and §5 now measure all three: **identical wire
-   geometry over 5 s of pouring, 0 of 12 600 resting water samples moving.**
+   geometry over 5 s of pouring, 0 of 3 360 resting water samples moving.** That killed the
+   *visible* shimmer caused by a stale contact point, but not the impulse itself: the wire was still
+   being pushed by every droplet that landed on it. See item 9.
 6. **A single nail was acting like a steel bracket.** With one contact the wire was welded outright, so
    a ramp hooked on the tap hung out sideways, dead still, holding water — physically impossible, since
    a point contact cannot resist a lever. One nail is now a **hinge**: the nail point is projected back
@@ -99,6 +101,25 @@ Consequences that are intentional:
 8. **Glass inertia was multiplied ×3.5** to stop flicking. With the weighted base already in place,
    ×2 is stable in 4 consecutive full playthroughs and tips more believably, so it is now ×2.
 
+9. **Water was still allowed to push the wire.** After item 5 the contact was stable, but Matter
+   still solved `droplet | ink` as a real collision: every drop in a stream applied an impulse to the
+   rod, so a wire hanging from one nail kept rocking for as long as the tap ran (measured: up to
+   0.58 px of wire movement per frame, 175 of 180 frames in motion, i.e. visible vibration). A droplet
+   is 0.254 mass units against a 90 px wire's 2.6 — a real iron wire does not shiver under a tap.
+   Water and ink are now in **separate collision categories** (`0x0004` / `0x0002`, masks
+   `0xfffb` / `0xfffd`) so Matter never pairs them, and every *part* of a compound wire carries the
+   ink filter — `Body.create({ parts })` resets each part's filter to the default, which is the
+   detail that lets water fall straight through a wire. The contact is resolved instead by
+   `Scene.resolveWaterInk()`, a one-way pass that runs after each substep and only ever moves the
+   **droplet**: it is pushed back out of the rod capsule, its inward velocity is cancelled
+   (restitution 0.02) and its sliding velocity is damped by a 0.5 %/substep film drag, which keeps a
+   stream leaving the wire where it always did. The wire can therefore not receive an impulse at all.
+   Audit §3d proves it as an A/B experiment: the same scene, same frames, once with a stream landing
+   on the wire (2 000–10 000 droplet/wire contacts resolved) and once with the tap shut.
+   **Wire geometry diverges by 0.00000 px over 180 frames in both the hinged and the braced case**,
+   while the hinged wire still swings 132 px under its own weight — the wire is still a free physical
+   body, it is simply deaf to water.
+
 ## 5. Deliberate deviations (documented cheats)
 
 | Cheat | Why it is there | Effect |
@@ -106,8 +127,10 @@ Consequences that are intentional:
 | anchored ink is static (infinite mass) | a drawn line is "ink that dried"; the level must not sag under water | a nailed line cannot be pushed by anything |
 | no world floor | a glass or line that falls off the level is removed | failing is unambiguous, and it matches the reference game |
 | the glass starts on a small wooden ledge ("coaster") | a loose cup on nothing at all is a design bug, not a puzzle | every non-hanging glass has a real supporting body |
-| terminal-velocity clamp (18 px/frame) | no CCD in Matter | water never tunnels through ink |
+| terminal-velocity clamp (16 px/frame) | no CCD in Matter | water never tunnels through ink |
 | 4 physics substeps per frame | 6 px wire vs 4–16 px/frame droplets | contact is resolved on the rod, not inside it |
+| water ↮ ink: separate collision categories | a stream must not be able to move the wire, but must still run along it | `resolveWaterInk()` stops the droplet on the rod and never lets it touch the wire's body |
+| water has a 0.5 %/substep drag on wet ink | without it a droplet slingshots down the wire and overshoots the glass | streams leave the wire on the same path they always did |
 | a single nail is a hinge, not a weld | a point contact cannot carry a cantilever | a wire held at one point swings down and settles |
 | hot pads delete droplets instead of boiling them | 300-particle budget | ~2 % water loss per touch, plus steam puffs |
 | movers are kinematic (`Body.setPosition`) | giving a static body velocity launched water into orbit | obstacles push water by sweeping through it |

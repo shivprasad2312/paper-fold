@@ -29,7 +29,12 @@
         restitution: 0.03,
         density: 0.0016,
         slop: 0.02,
-        collisionFilter: { category: 0x0002, mask: 0xffff },
+        // Water collides with the world, and with other water — but never with
+        // drawn ink. Ink is iron: a droplet is a few hundredths of its mass, so
+        // water must not be able to move it, not even by a fraction of a pixel.
+        // The ink side of that contact is resolved by Scene.resolveWaterInk(),
+        // which pushes the *droplet* out of the wire and leaves the wire alone.
+        collisionFilter: { category: HG.CAT_WATER, mask: HG.MASK_WATER },
       });
       const Matter = global.Matter;
       Matter.Body.setVelocity(body, { x: vx || 0, y: vy || 0 });

@@ -14,6 +14,9 @@
   const INK_MIN_STEP = 4;       // simplified point spacing (finer: thin rods need it)
   const PHYS_SUBSTEPS = 4;      // solver passes per rendered frame (see physics())
   const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
+  // water clings to a wet rod: fraction of the sliding velocity removed per
+  // substep of contact. Tuned so a stream leaves the wire where it always did.
+  const WATER_TANGENT = 0.005;
   const INK_DENSITY = 0.0018;   // ink is iron wire, not paint: it has real mass
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
@@ -540,7 +543,9 @@
         Composite.remove(this.world, seg.body);
         const body = Bodies.rectangle(seg.mx, seg.my, seg.len, INK_W, {
           isStatic: true, angle: seg.angle, label: 'ink',
-          friction: 0.6, restitution: 0.03, chamfer: { radius: INK_W * 0.44 },
+          friction: 0.6, restitution: 0.03,
+          collisionFilter: { category: HG.CAT_INK, mask: HG.MASK_INK },
+          chamfer: { radius: INK_W * 0.44 },
         });
         body.isProvisional = true;
         body.strokeRef = seg.stroke;
@@ -590,6 +595,7 @@
         (last.x + nx) / 2, (last.y + ny) / 2,
         len + INK_W * 0.9, INK_W,
         { isStatic: true, angle, label: 'ink', friction: 0.6, restitution: 0.03,
+          collisionFilter: { category: HG.CAT_INK, mask: HG.MASK_INK },
           chamfer: { radius: INK_W * 0.44 } }
       );
       body.isProvisional = true;
@@ -653,8 +659,14 @@
         frictionAir: 0.008,
         restitution: 0.02,
         label: 'ink',
+        collisionFilter: { category: HG.CAT_INK, mask: HG.MASK_INK },
       });
       body.strokeRef = st;
+      // Matter pairs *parts* with water, not the compound: every part needs the
+      // same filter, or water would crawl through the segments individually.
+      for (const part of body.parts) {
+        part.collisionFilter = { category: HG.CAT_INK, mask: HG.MASK_INK, group: 0 };
+      }
       Composite.add(this.world, body);
       st.body = body;
       st.segs.forEach((seg) => {
@@ -996,8 +1008,14 @@
       }
       const n = PHYS_SUBSTEPS;
       const h = dt / n;
+      this.buildInkGrid();
       for (let i = 0; i < n; i++) {
+        for (const p of this.water.particles) {
+          p._px = p.body.position.x;
+          p._py = p.body.position.y;
+        }
         Engine.update(this.engine, h);
+        this.resolveWaterInk();
         this.solveHinge();
       }
       this.holdAnchoredInk();
@@ -1034,23 +1052,158 @@
     // there. If that support moves away (a crate slides off, a block is knocked
     // over) the nails have nothing to grip and the wire drops — physics, not a
     // permanent freeze.
-    // A wire hanging from a single nail is a physical pendulum about that nail:
-    // the nail point stays put, the rest of the wire is pulled round by gravity.
-    // We hold the point with a projection (translate the body so the point
-    // returns to its nail, then kill the velocity *at that point*), which is
-    // exactly a revolute joint and cannot be cheated by the solver.
+    // ------------------------------------------------- water cannot move ink
+    // Drawn ink is iron. A droplet weighs a few hundredths of the wire, and a
+    // real wire does not shiver when water lands on it — so water is simply not
+    // allowed to touch the wire as far as Matter is concerned (see HG.CAT_*).
+    // The contact is resolved here instead, and only on the *droplet*: it is
+    // pushed back out of the rod and its inward velocity is cancelled. The wire
+    // never receives an impulse, in any state — braced, hinged, or falling.
+    // ------------------------------------------------- water cannot move ink
+    // Drawn ink is iron. A droplet weighs a few hundredths of the wire, and a
+    // real wire does not shiver when water lands on it, so water is not in the
+    // ink's collision mask at all (see HG.CAT_WATER / HG.CAT_INK). The contact
+    // is resolved here instead, and only on the *droplet*: it is pushed back out
+    // of the rod and its inward velocity is cancelled. The wire never receives
+    // an impulse, so it cannot vibrate — braced, hinged, or falling.
+    //
+    // Shape maths is done once per frame (buildInkGrid); the per-substep pass
+    // (resolveWaterInk) then only walks the cells the droplets are actually in.
+    buildInkGrid() {
+      const segs = this.inkWorldSegments();
+      const CELL = 64;
+      const ROD = INK_W / 2;
+      const pad = HG.Water.R + ROD + 1;
+      const rods = [];
+      const grid = new Map();
+      let bx0 = Infinity, by0 = Infinity, bx1 = -Infinity, by1 = -Infinity;
+      for (let i = 0; i < segs.length; i++) {
+        const seg = segs[i];
+        const ex = seg.x2 - seg.x1, ey = seg.y2 - seg.y1;
+        const L2 = ex * ex + ey * ey;
+        if (L2 < 1e-6) continue;
+        const L = Math.sqrt(L2);
+        const rod = {
+          x1: seg.x1, y1: seg.y1, ex, ey, L2,
+          ux: ex / L, uy: ey / L,
+          lox: Math.min(seg.x1, seg.x2), hix: Math.max(seg.x1, seg.x2),
+          loy: Math.min(seg.y1, seg.y2), hiy: Math.max(seg.y1, seg.y2),
+        };
+        rods.push(rod);
+        bx0 = Math.min(bx0, rod.lox); by0 = Math.min(by0, rod.loy);
+        bx1 = Math.max(bx1, rod.hix); by1 = Math.max(by1, rod.hiy);
+        const x0 = Math.floor((rod.lox - pad) / CELL), x1 = Math.floor((rod.hix + pad) / CELL);
+        const y0 = Math.floor((rod.loy - pad) / CELL), y1 = Math.floor((rod.hiy + pad) / CELL);
+        for (let cx = x0; cx <= x1; cx++) {
+          for (let cy = y0; cy <= y1; cy++) {
+            const k = cx * 4096 + cy;      // numeric key: this runs every substep
+            let arr = grid.get(k);
+            if (!arr) grid.set(k, (arr = []));
+            arr.push(rod);
+          }
+        }
+      }
+      this._inkGrid = rods.length
+        ? { grid, CELL, rods, bx0: bx0 - pad, by0: by0 - pad, bx1: bx1 + pad, by1: by1 + pad }
+        : null;
+    }
+
+    resolveWaterInk() {
+      const g = this._inkGrid;
+      const parts = this.water.particles;
+      if (!g || !parts.length) return;
+      const ROD = INK_W / 2;
+      const REST = 0.02;                      // water barely rebounds off iron
+      const TANGENT = Scene.WATER_TANGENT;    // sliding drag of the water film
+      const MAXPUSH = 2.5;                    // px per substep: no teleporting
+      const CELL = g.CELL, bx0 = g.bx0, by0 = g.by0, bx1 = g.bx1, by1 = g.by1;
+      for (let n = 0; n < parts.length; n++) {
+        const p = parts[n];
+        if (p.dead) continue;
+        const b = p.body;
+        const r = b.circleRadius || HG.Water.R;
+        const reach = r + ROD;
+        const px = b.position.x, py = b.position.y;
+        if (px < bx0 || px > bx1 || py < by0 || py > by1) continue;   // nowhere near ink
+        const bucket = g.grid.get(Math.floor((px - 0.5) / CELL) * 4096 + Math.floor((py - 0.5) / CELL));
+        if (!bucket) continue;
+        const p0x = p._px === undefined ? px : p._px;
+        const p0y = p._py === undefined ? py : p._py;
+        for (let k = 0; k < bucket.length; k++) {
+          const rod = bucket[k];
+          let t = ((px - rod.x1) * rod.ex + (py - rod.y1) * rod.ey) / rod.L2;
+          const clamped = t < 0 || t > 1;
+          t = t < 0 ? 0 : t > 1 ? 1 : t;
+          const qx = rod.x1 + rod.ex * t, qy = rod.y1 + rod.ey * t;
+          const dx = px - qx, dy = py - qy;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d >= reach) continue;
+
+          let nx, ny;
+          if (clamped) {
+            // past an end: the cap behaves like a circle around that endpoint
+            if (d > 1e-4) { nx = dx / d; ny = dy / d; }
+            else { nx = -rod.uy; ny = rod.ux; }
+          } else {
+            // Along the rod, use the side the droplet came from, not the
+            // direction it happens to be off-centre in: a droplet landing hard
+            // can sit on the centreline for a substep, and a radial normal there
+            // is a coin toss that can push it through the wire.
+            let side = (p0x - qx) * -rod.uy + (p0y - qy) * rod.ux;
+            if (Math.abs(side) < 0.35 && d > 1e-4) side = dx * -rod.uy + dy * rod.ux >= 0 ? 1 : -1;
+            const sgn = side >= 0 ? 1 : -1;
+            nx = -rod.uy * sgn; ny = rod.ux * sgn;
+          }
+
+          const vx = b.velocity.x, vy = b.velocity.y;
+          const vn = vx * nx + vy * ny;
+          const push = Math.min(reach - d, MAXPUSH);
+          if (push < 0.05 && vn >= 0) continue;  // in the film, drifting off: leave it
+          this.inkSpills = (this.inkSpills || 0) + 1;   // droplet/wire contacts resolved
+
+          if (push > 0) Body.translate(b, { x: nx * push, y: ny * push });
+          let v2x = vx, v2y = vy;
+          if (vn < 0) {                          // kill only the inward component
+            v2x = vx - vn * (1 + REST) * nx;
+            v2y = vy - vn * (1 + REST) * ny;
+          }
+          // water clings: the film on a wet rod drags, so a droplet does not
+          // slingshot down the wire and overshoot the glass it was aimed at.
+          const vt = v2x * -ny + v2y * nx;
+          if (vt !== 0) {                        // v' = v - TANGENT * (v.t) t
+            v2x += TANGENT * vt * ny;
+            v2y -= TANGENT * vt * nx;
+          }
+          if (v2x !== vx || v2y !== vy) Body.setVelocity(b, { x: v2x, y: v2y });
+        }
+      }
+    }
+
     solveHinge() {
       for (const st of this.ink.strokes) {
         const b = st.body, h = st.hinge;
         if (!b || st.gone || !h || b.isStatic) continue;
         const cos = Math.cos(b.angle), sin = Math.sin(b.angle);
-        const px = b.position.x + h.lx * cos - h.ly * sin;
-        const py = b.position.y + h.lx * sin + h.ly * cos;
-        // positional projection: put the nail point back on its nail
-        Body.translate(b, { x: h.x - px, y: h.y - py });
-        // velocity at the nail point (v + w x r) must be zero
+        // nail -> centre of mass, in world space
         const rx = h.lx * cos - h.ly * sin;
         const ry = h.lx * sin + h.ly * cos;
+
+        // A nail has friction. Near its rest angle a heavy wire simply does not
+        // creep: without this the projection leaves a hundredth of a pixel of
+        // noise every substep, which reads as a shimmer on a dead-still wire.
+        const armX = -rx;                 // COM relative to the nail, x
+        const arm = Math.hypot(rx, ry) || 1;
+        if (Math.abs(armX) < 0.02 * arm && Math.abs(b.angularVelocity) < 0.004) {
+          Body.setVelocity(b, { x: 0, y: 0 });
+          Body.setAngularVelocity(b, 0);
+          continue;
+        }
+
+        // positional projection: put the nail point back on its nail
+        const px = b.position.x + rx;
+        const py = b.position.y + ry;
+        Body.translate(b, { x: h.x - px, y: h.y - py });
+        // velocity at the nail point (v + w x r) must be zero
         const vx = b.velocity.x - b.angularVelocity * ry;
         const vy = b.velocity.y + b.angularVelocity * rx;
         const r2 = rx * rx + ry * ry;
@@ -1064,7 +1217,6 @@
         Body.setAngularVelocity(b, b.angularVelocity * 0.994);
       }
     }
-
     holdAnchoredInk() {
       for (const st of this.ink.strokes) {
         const b = st.body;
@@ -1097,6 +1249,7 @@
     }
   }
 
+  Scene.WATER_TANGENT = WATER_TANGENT;   // fractional slide drag per contact substep
   Scene.WALL = WALL;
   Scene.INK_W = INK_W;
   Scene.SUBSTEPS = PHYS_SUBSTEPS;

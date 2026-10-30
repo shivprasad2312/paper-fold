@@ -11,6 +11,15 @@
   HG.H = 720;
   HG.TAU = Math.PI * 2;
 
+  // Collision groups. Water and drawn ink are deliberately in different worlds:
+  // Matter resolves contacts for *both* bodies, and a continuously landing stream
+  // would rock a hanging wire. Water is stopped by ink in Scene.resolveWaterInk()
+  // instead, which only ever moves the droplet.
+  HG.CAT_INK = 0x0002;
+  HG.CAT_WATER = 0x0004;
+  HG.MASK_INK = 0xffff & ~HG.CAT_WATER;
+  HG.MASK_WATER = 0xffff & ~HG.CAT_INK;
+
   const M = (HG.M = {
     clamp: (v, a, b) => (v < a ? a : v > b ? b : v),
     lerp: (a, b, t) => a + (b - a) * t,

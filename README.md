@@ -167,7 +167,9 @@ checks, and what it found the last time it was run:
 | a droplet moves less than a rod-thickness per solver step | 4.2 px/step (16.6 px/frame ÷ 4 substeps) vs a 6 px rod |
 | no droplet can tunnel through a drawn line | 16.6 px/frame vs 20 px of rod + droplet |
 | a braced wire never moves, even under a 5 s stream | identical geometry, 4 nails, `isStatic` |
-| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 120 samples moving |
+| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 360 samples moving |
+| **water cannot move the wire at all** | stream vs no stream: wire geometry differs by **0.00000 px** over 180 frames, 2 171 droplet/wire contacts resolved |
+| ...and the wire is not frozen | the same hinged wire still swings 132 px on its own weight |
 | a wire with a single nail is **not** welded | 1 nail, dynamic, on a revolute joint |
 | a cantilevered wire swings down about its nail | rotated 65° in 4 s, centre fell 139 px, then rest |
 | ink that touches nothing falls | y 300 → 894 in 1 s, culled when it leaves the level |
@@ -175,7 +177,7 @@ checks, and what it found the last time it was run:
 | a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
 | unsupported glass / crate fall | glass leaves the level, crate drops 660 px |
 | water stays pooled once it lands | fill 0.73 → 0.73 after 10 s |
-| same strokes, same result | 31/32/31/31/31 droplets over 5 runs |
+| same strokes, same result | 27/27/27/27/28 droplets over 5 runs |
 
 Fixes that came out of that audit: ink was anchoring to *its own* half-drawn segments (so every
 line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
@@ -183,7 +185,12 @@ pointer-*down* instead of on lift, a once-per-frame solver let fast droplets str
 "vibrating line" report), the glass carried an unnecessary ×3.5 rotational cheat, and — the last
 one — **a single nail was welded like a steel bracket**, so a ramp hooked on the tap hung out
 sideways holding water. One nail is now a revolute joint: the wire swings down about it and settles;
-two or more nails is a weld, because that is wire bent around two hooks. The wire is 6 px (down from
+two or more nails is a weld, because that is wire bent around two hooks. Last is the *vibration*:
+Matter was still solving `droplet | ink` as a collision, so a running stream rocked the wire (0.58 px
+per frame, moving in 175 of 180 frames). Water and ink are now separate collision categories and the
+contact is a **one-way** resolver that only moves the droplet, so the wire is provably deaf to water:
+audit §3d runs the same scene with and without a stream and the wire's geometry diverges by
+0.00000 px. The wire is 6 px (down from
 15), physics runs four substeps per frame under a 16 px/frame droplet ceiling, and every ramp stands
 on a stone bracket. Full report, including the intentional shortcuts (braced ink is static,
 no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
@@ -195,7 +202,9 @@ This repo ships a headless harness so level design isn't guesswork:
 * `tools/simheadless.js` boots the real `scene.js`/`water.js` in Node (the only shim is
   `localStorage`), so the *exact* simulation that runs in the browser can be played from the CLI.
 * `tools/physics-audit.js` (`npm run audit`) measures the running world: masses, collider overlap at
-  spawn, tunnelling margins, resting-contact drift, and whether unsupported bodies actually fall.
+  spawn, tunnelling margins, resting-contact drift, whether unsupported bodies actually fall, and —
+  the §3d A/B run — whether a stream can move a drawn wire at all (same scene with and without the
+  tap open; the two wire traces must be identical).
 * `tools/flaky.js` (`npm run flaky`) replays every reference solution four times and fails the build
   if a level wins only sometimes.
 * `tools/solutions.js` holds one human-style reference solution per level.

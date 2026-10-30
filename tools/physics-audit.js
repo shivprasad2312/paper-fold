@@ -150,6 +150,78 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
+// --------------------------------------------- 3d. water cannot move the wire
+// The reported bug: the wire shivered when droplets bounced off it. Ink and
+// water now live in separate collision categories, and the contact is resolved
+// on the droplet alone (Scene.resolveWaterInk). The proof is an A/B run: the
+// same wire, same frames, one with a stream over it and one with the tap shut.
+// If water transferred any impulse at all the two traces would drift apart.
+{
+  const build = (water, stroke, plank) => {
+    const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+    lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
+    lv.faucet = { x: 330, y: 190, rate: 70, total: water ? 900 : 0, spread: 0.55 };
+    lv.faucets = [lv.faucet];
+    lv.platforms = plank ? [{ x: 430, y: 420, w: 380, h: 20, kind: 'wood', angle: 0 }] : [];
+    lv.crates = []; lv.pins = [];
+    const sc = new HG.Scene(lv);
+    drawAll(sc, [stroke]);
+    sc.start();
+    return sc;
+  };
+  const geo = (sc) => sc.inkWorldSegments().map((s) => [s.x1, s.y1, s.x2, s.y2]);
+  const run = (water, stroke, plank, frames) => {
+    const sc = build(water, stroke, plank);
+    const frames_ = [];
+    for (let i = 0; i < frames; i++) { sc.step(STEP); sc.physics(STEP); frames_.push(geo(sc)); }
+    const drops = sc.water.particles.length;
+    const contacts = sc.inkSpills || 0;
+    sc.destroy();
+    return { frames_: frames_, drops, contacts };
+  };
+  const F = 180;
+  say('## 3d. Water cannot move the wire (A/B: stream vs dry)');
+  for (const c of [
+    { label: 'hinged wire (1 nail) in a stream', stroke: [[330, 200], [330, 250], [560, 300]], plank: true, mustMove: true },
+    { label: 'braced wire on a plank in a stream', stroke: [[300, 406], [560, 406]], plank: true, mustMove: false },
+  ]) {
+    const wet = run(true, c.stroke, c.plank, F);
+    const dry = run(false, c.stroke, c.plank, F);
+    let worst = 0, shape = false;
+    for (let f = 0; f < F; f++) {
+      const a = wet.frames_[f], b = dry.frames_[f];
+      if (a.length !== b.length) { shape = true; break; }
+      for (let i = 0; i < a.length; i++) for (let k = 0; k < 4; k++) worst = Math.max(worst, Math.abs(a[i][k] - b[i][k]));
+    }
+    const g0 = wet.frames_[0], gN = wet.frames_[F - 1];
+    let travel = 0;
+    for (let i = 0; i < g0.length; i++) travel = Math.max(travel, Math.hypot(gN[i][0] - g0[i][0], gN[i][1] - g0[i][1]));
+    check(wet.contacts > 20, c.label + ': water really is landing on it',
+      wet.contacts + ' droplet/wire contacts resolved, ' + wet.drops + ' droplets in flight');
+    check(!shape && worst === 0, c.label + ': zero impulse from water (stream vs no stream are identical)',
+      shape ? 'wire geometry changed shape' : 'max divergence ' + worst.toFixed(5) + ' px over ' + F + ' frames');
+    check(c.mustMove ? travel > 1 : travel < 0.01,
+      c.mustMove ? c.label + ': and the wire is still a free physical body, not frozen'
+                 : c.label + ': a braced wire stays exactly put',
+      'wire moved ' + travel.toFixed(3) + ' px over 3 s');
+  }
+  // the mechanism itself: the two categories must not intersect, on every part
+  {
+    const sc = build(true, [[330, 200], [330, 250], [560, 300]], true);
+    for (let i = 0; i < 40; i++) { sc.step(STEP); sc.physics(STEP); }
+    const st = sc.ink.strokes[0];
+    const parts = st.body.parts.map((x) => x.collisionFilter);
+    const wf = sc.water.particles.length ? sc.water.particles[0].body.collisionFilter : null;
+    check(!!wf, 'droplets exist and are made of water', wf ? 'sampled one' : 'no droplet to sample');
+    const okParts = parts.every((f) => (f.mask & HG.CAT_WATER) === 0 && f.category === HG.CAT_INK);
+    check(okParts, 'every part of a compound wire excludes the water category',
+      parts.length + ' parts, category ' + parts[0].category + ', mask 0x' + parts[0].mask.toString(16));
+    check(!wf || (wf.mask & HG.CAT_INK) === 0 && wf.category === HG.CAT_WATER,
+      'and droplets neither see nor are seen by ink', wf ? 'droplet category ' + wf.category + ', mask 0x' + wf.mask.toString(16) : 'no droplet to sample');
+    sc.destroy();
+  }
+}
+
 // ------------------------------------------------------------ 4. tap spawn
 {
   const sc = fresh(1);
