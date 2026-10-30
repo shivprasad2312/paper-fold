@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#eabb80" />
+  <title>Mango Gulail — Rooftop challenge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+<main class="game-shell">
+  <canvas id="game" aria-label="Mango Gulail game. Drag the stone back in the slingshot and release to launch."></canvas>
+  <div class="snowfall" aria-hidden="true"></div>
+  <header class="top-bar">
+    <div class="brand"><div class="brand-seal">✺</div><div><div class="brand-name">MANGO <span>GULAIL</span></div><div class="brand-sub">THE ROOFTOP CHALLENGE</div></div></div>
+    <div class="top-actions"><button id="levels" class="level-button" title="Choose a level"><span class="grid-icon">▦</span><span>LEVELS</span></button><div class="pieces-box"><span>▥</span><div><small>PIECES LEFT</small><strong id="remaining-top">0</strong></div></div><button class="icon-button" id="sound" aria-label="Mute sound effects" title="Sound effects">♫</button><button class="icon-button" id="restart" aria-label="Restart level" title="Restart level">↻</button></div>
+  </header>
+  <section class="scene-heading" aria-live="polite"><div class="eyebrow"><span></span><b id="chapter">THE SNOWY VILLAGE</b><span></span></div><h1 id="level-title">The snowy lookout</h1><p id="level-subtitle">Knock every piece and bird below its base</p></section>
+  <div class="level-badge"><div class="badge-art">✦</div><div><small>LEVEL</small><strong id="level-number">01 <em>/ 30</em></strong></div></div>
+  <button id="theme-switch" class="theme-button" type="button" aria-controls="theme-menu" aria-expanded="false" aria-label="Choose theme" title="Choose theme"><span aria-hidden="true">♣</span><span id="theme-label">JUNGLE</span><span class="theme-change">CHANGE ▾</span></button>
+  <div id="theme-menu" class="theme-menu hidden" role="group" aria-label="Choose a theme">
+    <div class="theme-menu-heading">CHOOSE YOUR WORLD</div>
+    <button type="button" data-theme="snow"><span aria-hidden="true">❄</span><span><b>Snowy Village</b><small>Levels 1–30</small></span></button>
+    <button type="button" data-theme="desert"><span aria-hidden="true">☀</span><span><b>Desert Village</b><small>Levels 31–60</small></span></button>
+    <button type="button" data-theme="jungle"><span aria-hidden="true">♣</span><span><b>Jungle Canopy</b><small>Levels 61–90</small></span></button>
+  </div>
+  <div class="hint" id="hint"><div class="hint-icon">↙</div><div><strong>Ready, aim, fire!</strong><small><span id="hint-detail">Pull the stone back &amp; release</span></small></div><button id="dismiss-hint" aria-label="Dismiss instructions">×</button></div>
+  <div class="bottom-left"><div class="ammo-label"><span id="ammo-label-text">YOUR STONES</span> <span id="ammo-count">3</span></div><div class="ammo-dots" id="ammo-dots"></div></div>
+  <div class="bottom-right"><div class="mission-icon">◎</div><div><small>YOUR MISSION</small><strong id="mission-text">Clear pieces &amp; birds</strong></div><span id="target-count" class="target-count">0 left</span></div>
+  <div class="footer-note" id="footer-note">A LITTLE DHAMAAL, A LOT OF SAND <span>✽</span></div>
+  <div class="modal hidden" id="result-modal" role="dialog" aria-modal="true" aria-labelledby="result-title"><div class="modal-card"><div class="modal-ornament">✦ &nbsp; ✿ &nbsp; ✦</div><div class="modal-emoji" id="result-emoji">🥭</div><div class="modal-kicker" id="result-kicker">MISSION COMPLETE</div><h2 id="result-title">Kya baat hai!</h2><p id="result-text">Every piece and bird fell below its base.</p><button class="primary-button" id="result-button">Next level <span>→</span></button><button class="text-button" id="result-retry">Play again</button></div></div>
+  <div class="modal hidden" id="levels-modal" role="dialog" aria-modal="true" aria-labelledby="levels-title"><div class="modal-card levels-card"><button class="close-modal" id="close-levels" aria-label="Close level selection">×</button><div class="modal-kicker">YOUR ROOFTOP CHALLENGE</div><h2 id="levels-title">Choose a level</h2><p id="levels-description">Desert Village · Levels 31–60</p><div id="levels-grid" class="levels-grid"></div><div class="levels-foot">Complete a level to unlock the next one <span>✦</span></div></div></div>
+  <div class="rotate-note">For the best experience, turn your phone sideways ↻</div>
+</main>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
