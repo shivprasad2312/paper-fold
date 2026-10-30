@@ -62,8 +62,8 @@
     paper: '#f6f5ef',
     gridSmall: '#e7e6dd',
     gridBig: '#dedcd1',
-    stroke: '#33434f',        // player drawn ink line
-    strokeEdge: '#22303a',
+    stroke: '#1d262d',        // player drawn ink line: a thin black wire
+    strokeEdge: '#141b20',
     water: '#8fd3f4',
     waterMid: '#6cc5ef',
     waterDeep: '#4bb2e6',

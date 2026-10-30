@@ -775,57 +775,35 @@
     }
 
     // -------------------------------------------------------------------- ink
+    // The drawn line is exactly what the reference draws: one clean, thin,
+    // near-black stroke from the pen. No nails, no studs, no shine — the player
+    // drew a line, so the game shows a line. Where that line is held is a
+    // physics question, not a decoration.
     drawInk(ctx, scene) {
       const segs = scene.inkWorldSegments();
       if (!segs.length) return;
+      const W = HG.Scene.INK_W;
       ctx.save();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      // shadow — the wire is half as thick now, so the drop shadow has to be
-      // tight as well or the line reads as a fat marker again
-      ctx.strokeStyle = 'rgba(45,59,71,.15)';
-      ctx.lineWidth = HG.Scene.INK_W + 2;
+      // the faintest drop shadow, so the wire still reads on a pale prop
+      ctx.strokeStyle = 'rgba(45,59,71,.10)';
+      ctx.lineWidth = W;
       ctx.beginPath();
       segs.forEach((s) => {
-        ctx.moveTo(s.x1 + 1, s.y1 + 2);
-        ctx.lineTo(s.x2 + 1, s.y2 + 2);
+        ctx.moveTo(s.x1 + 0.6, s.y1 + 1);
+        ctx.lineTo(s.x2 + 0.6, s.y2 + 1);
       });
       ctx.stroke();
       // body
       ctx.strokeStyle = C.stroke;
-      ctx.lineWidth = HG.Scene.INK_W;
+      ctx.lineWidth = W;
       ctx.beginPath();
       segs.forEach((s) => {
         ctx.moveTo(s.x1, s.y1);
         ctx.lineTo(s.x2, s.y2);
       });
       ctx.stroke();
-      // marker highlight — a thin wire gets a thin specular streak
-      ctx.strokeStyle = 'rgba(140,170,190,.5)';
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      segs.forEach((s) => {
-        const dx = s.x2 - s.x1, dy = s.y2 - s.y1;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = (-dy / len) * 1.0, ny = (dx / len) * 1.0;
-        ctx.moveTo(s.x1 + nx, s.y1 + ny);
-        ctx.lineTo(s.x2 + nx, s.y2 + ny);
-      });
-      ctx.stroke();
-
-      // little "nails" where a stroke bit into something solid
-      scene.ink.strokes.forEach((st) => {
-        if (!st.anchored || !st.pins || !st.pins.length) return;
-        st.pins.forEach((p) => {
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, 2.6, 0, HG.TAU);
-          ctx.fillStyle = '#f4e1b8';
-          ctx.fill();
-          ctx.strokeStyle = C.ink;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        });
-      });
       ctx.restore();
     }
 

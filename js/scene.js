@@ -10,7 +10,7 @@
   const M = HG.M;
 
   const WALL = 7;               // glass wall thickness
-  const INK_W = 6;              // ink line thickness (40% of the original 15 px)
+  const INK_W = 4;              // ink line thickness: a thin drawn wire
   const INK_MIN_STEP = 4;       // simplified point spacing (finer: thin rods need it)
   const PHYS_SUBSTEPS = 4;      // solver passes per rendered frame (see physics())
   const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
@@ -20,7 +20,7 @@
   const INK_DENSITY = 0.0018;   // ink is iron wire, not paint: it has real mass
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
-  const MAX_DROP_SPEED = 16;    // px/frame: 4 px per solver step, under the 6 px rod
+  const MAX_DROP_SPEED = 14;    // px/frame: 3.5 px per solver step, under the 4 px rod
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*

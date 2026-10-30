@@ -46,7 +46,7 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 | **Core loop** | A tap/faucet pours water; you draw one or more solid ink lines that act as ramps, funnels and walls; the glass must fill above its dotted line. | Identical. The tap stays shut and the world is frozen while you plan; **lifting the pencil after your first line opens the tap**, and any line you draw later is added to the same running world. |
 | **Win condition** | Fill the glass to the dotted line; the glass smiles. | Fill ratio is measured from the real water surface **and** droplet count inside the glass. Every glass in a level must be filled. |
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
-| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right under the nozzle and just above the rim). On release every segment is tested against the scenery with a real collision query: each place it actually touches becomes a **nail** (drawn as a small dot) and the wire is welded there. No contact at all → the whole line stays one rigid body and falls. If a nailed support later moves away, the nails pull out and the line drops. |
+| **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right under the nozzle and just above the rim). On release every segment is tested against the scenery with a real collision query: each place it actually touches becomes an **anchor** and the wire is welded there — the drawing itself is never decorated, it stays the plain line you drew. A line that touches one thing only swings from that point; no contact at all → the whole line stays one rigid body and falls. If an anchoring support later moves away, the line comes off and drops. |
 | **Hazards** | Hot pads evaporate water, gears/spinners scatter it, moving blocks obstruct it, some levels need multiple glasses filled at once, fans/escalators push water. | All of the above are implemented: heated pads, spinning bars (free pin joints), tilting planks, patrolling blocks, blowers (the grey arrow box), crates and diamonds, tilted and polygon shelves, 1–3 glasses and 1–2 taps. |
 | **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". |
 | **Retry** | Retry is free and instant; you keep trying until the water runs out. | Restart button (or `R`), plus automatic fail detection once the tap is empty and the water has settled. |
@@ -86,7 +86,7 @@ tools/              dev server, single-file builder, headless simulator, verifie
 35 levels, hand-placed, each introducing or combining one idea. Levels 26–35 are the
 "floating glass" set, where support comes first and the pour comes second. From level 12 onward
 most layouts also carry **push-pins** (small tacks on the scenery): a stroke that touches one is
-nailed in place, which is now the intended way to build a shelf — a free-floating bridge will fall:
+anchored in place, which is now the intended way to build a shelf — a free-floating bridge will fall:
 
 | # | Name | Idea |
 | --- | --- | --- |
@@ -137,10 +137,11 @@ nailed in place, which is now the intended way to build a shelf — a free-float
   Ink is measured in world pixels and never refunded, exactly like the original meter. On release
   the stroke is rebuilt as **one rigid compound body with real mass** (`density 0.0018`, so a 90 px
   line weighs about 3.5 mass units against a droplet's 0.25). Its segments are then tested against
-  the scenery with Matter's collision query: every genuine overlap becomes a nail (max 4), the wire
-  is welded *at that pose*, and the nails are drawn as little dots. A wire that touches nothing is
+  the scenery with Matter's collision query: every genuine overlap becomes an anchor (max 4) and the
+  wire is rigid *at that pose*. A wire that touches nothing is
   left dynamic and falls out of the level. A wire whose support later moves is released too — the
-  nail is a joint, not a permanent freeze.
+  anchor is a joint, not a permanent freeze. Nothing is painted onto the line: no nail heads, no
+  studs — the stroke renders exactly as drawn, a thin dark wire.
 * **Water**: small circles on one collision layer, low friction so they shuffle over each other like a
   liquid, mild air friction so they don't slingshot. Water level in a glass is computed from the
   sorted droplet heights (top 18 % ignored so an incoming droplet can't fake a full glass) and
@@ -164,16 +165,16 @@ checks, and what it found the last time it was run:
 | a droplet cannot shove a glass | 501 : 1 mass ratio, full glass of water = 11 % of the cup |
 | a supported glass rests without jitter | 0.91 px drift over 6 s |
 | droplets are born outside the tap collider | 3.3 px clear of the plate |
-| a droplet moves less than a rod-thickness per solver step | 4.2 px/step (16.6 px/frame ÷ 4 substeps) vs a 6 px rod |
-| no droplet can tunnel through a drawn line | 16.6 px/frame vs 20 px of rod + droplet |
-| a braced wire never moves, even under a 5 s stream | identical geometry, 4 nails, `isStatic` |
-| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 360 samples moving |
-| **water cannot move the wire at all** | stream vs no stream: wire geometry differs by **0.00000 px** over 180 frames, 2 171 droplet/wire contacts resolved |
-| ...and the wire is not frozen | the same hinged wire still swings 132 px on its own weight |
-| a wire with a single nail is **not** welded | 1 nail, dynamic, on a revolute joint |
-| a cantilevered wire swings down about its nail | rotated 65° in 4 s, centre fell 139 px, then rest |
+| a droplet moves less than a rod-thickness per solver step | 3.7 px/step (14.9 px/frame ÷ 4 substeps) vs a 4 px rod |
+| no droplet can tunnel through a drawn line | 14.9 px/frame vs 18 px of rod + droplet |
+| a braced wire never moves, even under a 5 s stream | identical geometry, 2 contacts, `isStatic` |
+| water resting on the wire is asleep, not buzzing | worst 0.000 px/step, 0 of 3 240 samples moving |
+| **water cannot move the wire at all** | stream vs no stream: wire geometry differs by **0.00000 px** over 180 frames, 2 685 droplet/wire contacts resolved |
+| ...and the wire is not frozen | the same hinged wire still swings 134 px on its own weight |
+| a wire held at one point is **not** welded | 1 contact, dynamic, on a revolute joint |
+| a cantilevered wire swings down about its anchor | rotated 64° in 4 s, centre fell 160 px, then rest |
 | ink that touches nothing falls | y 300 → 894 in 1 s, culled when it leaves the level |
-| ink that touches scenery is static | 63 segments, up to 4 nails |
+| ink that touches scenery is static | 63 segments, up to 4 anchor contacts |
 | a falling line lands on the glass rim | rests at y 404 on a rim at y 411 |
 | unsupported glass / crate fall | glass leaves the level, crate drops 660 px |
 | water stays pooled once it lands | fill 0.73 → 0.73 after 10 s |
@@ -183,15 +184,16 @@ Fixes that came out of that audit: ink was anchoring to *its own* half-drawn seg
 line hung in mid-air), droplets spawned 7.5 px inside the tap plate, the pour started on
 pointer-*down* instead of on lift, a once-per-frame solver let fast droplets straddle the wire (the
 "vibrating line" report), the glass carried an unnecessary ×3.5 rotational cheat, and — the last
-one — **a single nail was welded like a steel bracket**, so a ramp hooked on the tap hung out
-sideways holding water. One nail is now a revolute joint: the wire swings down about it and settles;
-two or more nails is a weld, because that is wire bent around two hooks. Last is the *vibration*:
+one — **a single anchor point was welded like a steel bracket**, so a ramp hooked on the tap hung out
+sideways holding water. One contact is now a revolute joint: the wire swings down about it and settles;
+two or more contacts is a weld, because that is wire bent around two hooks. Last is the *vibration*:
 Matter was still solving `droplet | ink` as a collision, so a running stream rocked the wire (0.58 px
 per frame, moving in 175 of 180 frames). Water and ink are now separate collision categories and the
 contact is a **one-way** resolver that only moves the droplet, so the wire is provably deaf to water:
 audit §3d runs the same scene with and without a stream and the wire's geometry diverges by
-0.00000 px. The wire is 6 px (down from
-15), physics runs four substeps per frame under a 16 px/frame droplet ceiling, and every ramp stands
+0.00000 px. The wire is 4 px and drawn as one clean
+line — no nail dots, no studs, nothing the player did not draw — physics runs four substeps per frame
+under a 14 px/frame droplet ceiling, and every ramp stands
 on a stone bracket. Full report, including the intentional shortcuts (braced ink is static,
 no world floor, kinematic movers) is in [`docs/PHYSICS.md`](docs/PHYSICS.md).
 
@@ -212,7 +214,7 @@ This repo ships a headless harness so level design isn't guesswork:
   number that decides whether a level is comfortable or knife-edge.
 * `tools/cushion.js` lowers any target the reference solution only clears by one droplet, so a win
   never hangs on a single particle.
-* `tools/props.js` stands a stone bracket under every ramp that would otherwise hang on one nail;
+* `tools/props.js` stands a stone bracket under every ramp that would otherwise hang on one contact;
   `tools/postfit.js` slides it until the water clears it cleanly, `tools/reanchor.js` reports which
   strokes have a real second support and which do not.
 * `npm run verify` plays all 35 levels and reports fill ratios, ink used and stars. Current state:

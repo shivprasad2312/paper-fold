@@ -112,7 +112,7 @@ const drawAll = (scene, strokes) => {
   }
   say('## 3b. Settled contact is motionless');
   check(wire.pins.length >= 2 && wire.body.isStatic, 'a wire resting on a ledge is welded, not simulated',
-    (wire.pins.length || 0) + ' nail(s), static ' + wire.body.isStatic);
+    (wire.pins.length || 0) + ' anchor(s), static ' + wire.body.isStatic);
   check(shapeAfterPour === shape0, 'the braced wire never moves, even under a 5 s stream',
     shapeAfterPour === shape0 ? 'identical geometry over 5 s of water' : 'geometry drifted');
   check((moving / samples) < 0.005, 'water resting on the wire is asleep, not buzzing',
@@ -120,10 +120,10 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
-// --------------------------------------------------- 3c. one nail is a hinge
+// ----------------------------------------------- 3c. one contact is a hinge
 // The reported bug: a line hooked onto the tap stayed out sideways like a steel
 // bracket. A single point contact cannot carry a lever, so the wire must swing
-// about the nail until its weight hangs under it.
+// about that point until its weight hangs under it.
 {
   const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
   lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
@@ -140,10 +140,10 @@ const drawAll = (scene, strokes) => {
   sc.start(); sc.state = 'pouring'; sc.startDelay = 1e9;
   for (let i = 0; i < 60 * 4; i++) { sc.step(STEP); sc.physics(STEP); }
   const swing = Math.abs(((st.body.angle - a0) * 180) / Math.PI);
-  say('## 3c. One nail is a hinge, not a bracket');
-  check(st.pins.length === 1 && !st.body.isStatic, 'a wire with a single nail is not welded',
-    st.pins.length + ' nail(s), static ' + st.body.isStatic);
-  check(swing > 30, 'a cantilevered wire swings down about its nail',
+  say('## 3c. One contact is a hinge, not a bracket');
+  check(st.pins.length === 1 && !st.body.isStatic, 'a wire held at a single point is not welded',
+    st.pins.length + ' anchor(s), static ' + st.body.isStatic);
+  check(swing > 30, 'a cantilevered wire swings down about its anchor',
     'rotated ' + swing.toFixed(1) + '° in 4 s, centre fell ' + (st.body.position.y - endY0).toFixed(1) + ' px');
   check(Math.abs(st.body.angularVelocity) < 0.08, 'and it comes to rest instead of swinging forever',
     'angular velocity ' + st.body.angularVelocity.toFixed(3) + ' rad/step');
@@ -182,7 +182,7 @@ const drawAll = (scene, strokes) => {
   const F = 180;
   say('## 3d. Water cannot move the wire (A/B: stream vs dry)');
   for (const c of [
-    { label: 'hinged wire (1 nail) in a stream', stroke: [[330, 200], [330, 250], [560, 300]], plank: true, mustMove: true },
+    { label: 'hinged wire (one contact) in a stream', stroke: [[330, 200], [330, 250], [560, 300]], plank: true, mustMove: true },
     { label: 'braced wire on a plank in a stream', stroke: [[300, 406], [560, 406]], plank: true, mustMove: false },
   ]) {
     const wet = run(true, c.stroke, c.plank, F);
@@ -297,7 +297,7 @@ const drawAll = (scene, strokes) => {
   const st = sc.ink.strokes[0];
   check(st.anchored === true, 'a stroke that touches scenery is anchored');
   check(st.segs.every((sg) => sg.body.isStatic), 'anchored ink is solved as static contact',
-    st.segs.length + ' segments, ' + st.pins.length + ' nail(s)');
+    st.segs.length + ' segments, ' + st.pins.length + ' contact(s)');
   sc.destroy();
 }
 
@@ -335,7 +335,7 @@ const drawAll = (scene, strokes) => {
   const moved = Math.hypot(held.body.position.x - p0.x, held.body.position.y - p0.y);
   check(held.anchored && moved < 12,
     'wire hooked onto the tap stays where it was drawn',
-    held.pins.length + ' nail(s), moved ' + moved.toFixed(1) + ' px in 3 s');
+    held.pins.length + ' contact(s), moved ' + moved.toFixed(1) + ' px in 3 s');
 
   sc.destroy();
 
