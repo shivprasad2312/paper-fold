@@ -31,7 +31,8 @@ function levelOf(room) {
     crates: (room.crates || []).map((c) => Object.assign({ kind: 'wood', angle: 0 }, c)),
     balls: room.balls || [], hots: room.hots || [],
     fans: (room.fans || []).map((f) => Object.assign({ angle: 0, force: 0.12, dir: 1 }, f)),
-    spinners: [], seesaws: [], pins: [],
+    spinners: room.spinners || [], seesaws: room.seesaws || [],
+    pins: (room.pins || []).map((q) => Object.assign({ r: 11 }, q)),
   };
 }
 

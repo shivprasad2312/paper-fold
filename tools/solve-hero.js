@@ -59,7 +59,8 @@ function levelOf(room) {
     balls: room.balls || [],
     hots: room.hots || [],
     fans: (room.fans || []).map((f) => Object.assign({ angle: 0, force: 0.12, dir: 1 }, f)),
-    spinners: [], seesaws: [], pins: [],
+    spinners: room.spinners || [], seesaws: room.seesaws || [],
+    pins: (room.pins || []).map((q) => Object.assign({ r: 11 }, q)),
   };
 }
 
@@ -496,6 +497,11 @@ if (EMIT) {
       if (lv.balls.length) {
         L.push('      balls: [');
         lv.balls.forEach((b) => L.push('        { x: ' + num(b.x) + ', y: ' + num(b.y) + ', r: ' + (b.r || 22) + ', kind: \'' + (b.kind || 'heavy') + '\' },'));
+        L.push('      ],');
+      }
+      if (lv.pins && lv.pins.length) {
+        L.push('      pins: [');
+        lv.pins.forEach((q) => L.push('        { x: ' + num(q.x) + ', y: ' + num(q.y) + ', r: ' + (q.r || 11) + ' },'));
         L.push('      ],');
       }
       if (lv.hots.length) {

@@ -112,336 +112,382 @@ const S = [
   // The ball rooms. Every one of them: a ball is on its way into the glass
   // before a single drop falls, and the ink has to stop it without stealing
   // the pour. `answers` is a list of strokes where the room needs two hands.
+
+  // ------------------------------------------------------- 9-15 water rooms
+  // New water rooms on assets the first eight never used: a hot pad that eats
+  // the pour, a narrow mouth, a shade over the cup, walls in the way.
   {
-    id: 9, name: "The Chute", verb: "chock", intent: "bar",
-    // one stroke: the chock
-    answer: [[590,468.9720882021777],[590,378.9720882021777]],
+    id: 9, name: "The Hot Floor", verb: undefined,
+    answer: [[470,500],[700,470],[820,540]],
+    faucet: { x: 640, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 860, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 640, y: 560, w: 60, h: 20, kind: 'wood' },
+    ],
+    crates: [{ x: 470, y: 600, w: 100, h: 180, kind: 'wood' }],
+    hots: [{ x: 640, y: 676, w: 220, h: 22 }],
+  },
+  {
+    id: 10, name: "Narrow Neck", verb: undefined,
+    answer: [[540,488],[670,548]],
+    faucet: { x: 640, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 700, y: 621, w: 90, h: 118, need: 0.45 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+    ],
+    crates: [{ x: 520, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+  {
+    id: 11, name: "The Shade", verb: undefined,
+    answer: [[472,486],[812,552]],
+    faucet: { x: 640, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 820, y: 470, w: 260, h: 18, kind: 'wood' },
+      { x: 960, y: 600, w: 16, h: 180, kind: 'wood' },
+    ],
+    crates: [{ x: 520, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+  {
+    id: 12, name: "Mirror Wall", verb: undefined,
+    answer: [[920,508],[460,548]],
+    faucet: { x: 820, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 460, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 620, y: 620, w: 22, h: 150, kind: 'wood' },
+    ],
+    crates: [{ x: 920, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+  {
+    id: 13, name: "Two Taps", verb: undefined,
+    answer: [[420,508],[650,548]],
+    faucets: [{ x: 460, y: 170, rate: 22, total: 70 }, { x: 900, y: 170, rate: 22, total: 70 }],
+    glasses: [{ x: 680, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+    ],
+    crates: [{ x: 420, y: 600, w: 100, h: 180, kind: 'wood' }, { x: 900, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+  {
+    id: 14, name: "The Low Wall", verb: undefined,
+    answer: [[400,508],[830,548]],
+    faucet: { x: 500, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 860, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 700, y: 620, w: 22, h: 150, kind: 'wood' },
+    ],
+    crates: [{ x: 400, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+  {
+    id: 15, name: "Deep Sill", verb: undefined,
+    answer: [[440,508],[790,548]],
+    faucet: { x: 520, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 700, y: 544, w: 240, h: 18, kind: 'wood' },
+    ],
+    crates: [{ x: 440, y: 600, w: 100, h: 180, kind: 'wood' }],
+  },
+
+  // ------------------------------------------------------- 16-40 ball rooms
+  // Every one starts with a ball already on its way into the glass. The stop is
+  // always a stroke that RESTS on the room — a bar standing on the chute, a
+  // brace off a crate, a V, a trough, or a line hung from a push-pin.
+  {
+    id: 16, name: "First Blood", verb: "CH",
+    answer: [[566,462.6],[566,372.6]],
     faucet: { x: 700, y: 170, rate: 26, total: 110 },
     glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 523, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
-        { x: 384, y: 555, w: 26, h: 249, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 523, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    crates: [{ x: 590, y: 640, w: 90, h: 80, kind: 'wood' }],
-    balls: [{ x: 540, y: 397.7, r: 26, kind: 'heavy' }],
+    balls: [{ x: 518, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 10, name: "Steep Drop", verb: "brake", intent: "bar",
-    // one stroke: the chock
-    answer: [[390, 471.7], [390, 361.7]],
+    id: 17, name: "The Brace", verb: "BR",
+    answer: [[278,536.8],[378,461.1]],
     faucet: { x: 480, y: 170, rate: 26, total: 110 },
     glasses: [{ x: 480, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[221.1, 421.4], [450.4, 492.3], [221.1, 487.4]], kind: 'wood' },
-        { x: 225, y: 559, w: 26, h: 243, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 303, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    balls: [{ x: 340, y: 398.2, r: 26, kind: 'heavy' }],
+    crates: [{ x: 278, y: 605, w: 100, h: 190, kind: 'wood' }],
+    balls: [{ x: 298, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 11, name: "The Queue", verb: "queue", intent: "bar",
-    // one stroke: the chock
-    answer: [[693,466.515851019583],[693,376.515851019583]],
-    faucet: { x: 820, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 632.6, y: 462, w: 320, h: 16, angle: 0.24, kind: 'teal' },
-        { x: 483, y: 556, w: 26, h: 248, kind: 'wood' },
-    ],
-    balls: [{ x: 638, y: 395.1, r: 26, kind: 'heavy' }, { x: 575, y: 379.6, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 12, name: "The Ladle", verb: "ladle", intent: "trough",
-    // one stroke: the chock
-    answer: [[485,463.4072491593668],[513,463.4072491593668],[513,389.4072491593668],[543,383.4072491593668]],
-    faucet: { x: 640, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 640, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[301.7, 406.9], [610.1, 492.3], [301.7, 472.9]], kind: 'wood' },
-        { x: 306, y: 551, w: 26, h: 257, kind: 'wood' },
-    ],
-    balls: [{ x: 458, y: 390.2, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 13, name: "Spout And Chock", verb: "pour", intent: "chock",
-    // two strokes: the spout, then the chock
-    answers: [[[372,486],[710,552]],[[827,460.23904347478117],[827,370.23904347478117]]],
-    faucet: { x: 450, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 875.3, y: 455.7, w: 300, h: 16, angle: -0.3, kind: 'teal' },
-        { x: 1025, y: 550, w: 26, h: 261, kind: 'wood' },
-    ],
-    crates: [{ x: 420, y: 590, w: 100, h: 180, kind: 'wood' }],
-    balls: [{ x: 882, y: 385.2, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 14, name: "Long Fall", verb: "eave", intent: "chock",
-    // two strokes: the spout, then the chock
-    answers: [[[372,486],[710,552]],[[827,466.515851019583],[827,376.515851019583]]],
-    faucet: { x: 450, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 916.6, y: 454.8, w: 380, h: 16, angle: -0.24, kind: 'wood' },
-        { x: 1107, y: 549, w: 26, h: 262, kind: 'wood' },
-    ],
-    crates: [{ x: 420, y: 590, w: 100, h: 180, kind: 'wood' }],
-    balls: [{ x: 882, y: 395.1, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 15, name: "High Cup", verb: "lift", intent: "chock",
-    // one stroke: the chock
-    answer: [[573,363.4497219928312],[573,273.4497219928312]],
-    faucet: { x: 700, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 520, w: 108, h: 118, need: 0.5, hanging: true }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[380.1, 314.1], [670.0, 391.2], [380.1, 380.1]], kind: 'teal' },
-        { x: 384, y: 505, w: 26, h: 350, kind: 'wood' },
-    ],
-    balls: [{ x: 518, y: 290.8, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 16, name: "The Pedestal", verb: "tower", intent: "chock",
-    // one stroke: the chock
-    answer: [[433,385.515851019583],[433,295.515851019583]],
-    faucet: { x: 560, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 560, y: 540, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 372.6, y: 381, w: 320, h: 16, angle: 0.24, kind: 'wood' },
-        { x: 223, y: 515, w: 26, h: 329, kind: 'wood' },
-        { x: 560, y: 606, w: 160, h: 14, kind: 'wood' },
-    ],
-    balls: [{ x: 378, y: 314.1, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 17, name: "Right Bank", verb: "bank", intent: "chock",
-    // one stroke: the chock
-    answer: [[547,460.2390434747811],[547,370.2390434747811]],
-    faucet: { x: 420, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 420, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 614.4, y: 449.8, w: 340, h: 16, angle: -0.3, kind: 'teal' },
-        { x: 783, y: 544, w: 26, h: 272, kind: 'wood' },
-    ],
-    balls: [{ x: 602, y: 385.2, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 18, name: "Steep Bank", verb: "stem", intent: "chock",
-    // one stroke: the chock
-    answer: [[987,455.9092257993347],[987,365.9092257993347]],
-    faucet: { x: 860, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 860, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[889.4, 492.4], [1134.5, 405.7], [889.4, 558.4]], kind: 'wood' },
-        { x: 1143, y: 551, w: 26, h: 259, kind: 'wood' },
-    ],
-    balls: [{ x: 1042, y: 378.5, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 19, name: "Cross Pour", verb: "cross", intent: "chock",
-    // two strokes: the spout, then the chock
-    answers: [[[232,486],[570,552]],[[687,464.4497219928312],[687,374.4497219928312]]],
-    faucet: { x: 320, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 560, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 737, y: 461.4, w: 300, h: 16, angle: -0.26, kind: 'teal' },
-        { x: 888, y: 555, w: 26, h: 249, kind: 'wood' },
-    ],
-    crates: [{ x: 280, y: 590, w: 100, h: 180, kind: 'wood' }],
-    balls: [{ x: 742, y: 391.8, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 20, name: "Low Dish", verb: "cradle", intent: "chock",
-    // one stroke: the chock
-    answer: [[513,447.55857230450744],[513,357.55857230450744]],
-    faucet: { x: 640, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 640, y: 600, w: 108, h: 118, need: 0.45 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 442.1, y: 441.9, w: 340, h: 16, angle: 0.22, kind: 'wood' },
-        { x: 282, y: 546, w: 26, h: 267, kind: 'wood' },
-        { x: 640, y: 666, w: 170, h: 14, kind: 'wood' },
-    ],
-    balls: [{ x: 458, y: 377.3, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 21, name: "High Pour", verb: "drop", intent: "chock",
-    // one stroke: the chock
-    answer: [[827,399.23904347478117],[827,309.23904347478117]],
-    faucet: { x: 700, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 560, w: 108, h: 118, need: 0.5, hanging: true }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[729.6, 431.4], [1016.2, 342.7], [729.6, 497.4]], kind: 'teal' },
-        { x: 1025, y: 519, w: 26, h: 322, kind: 'wood' },
-    ],
-    balls: [{ x: 882, y: 324.2, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 22, name: "Long Ledge", verb: "ledge", intent: "chock",
-    // one stroke: the chock
-    answer: [[827,464.4497219928312],[827,374.4497219928312]],
-    faucet: { x: 700, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 925.3, y: 448.6, w: 400, h: 16, angle: -0.26, kind: 'wood' },
-        { x: 1125, y: 543, w: 26, h: 275, kind: 'wood' },
-    ],
-    balls: [{ x: 882, y: 391.8, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 23, name: "Low Run", verb: "skim", intent: "chock",
-    // one stroke: the chock
-    answer: [[773,469.57176724498385],[773,379.57176724498385]],
+    id: 18, name: "The Wedge", verb: "VG",
+    answer: [[740,462.6],[766,392.6],[792,462.6]],
     faucet: { x: 900, y: 170, rate: 26, total: 110 },
     glasses: [{ x: 900, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 682.2, y: 460.4, w: 380, h: 16, angle: 0.21, kind: 'teal' },
-        { x: 502, y: 554, w: 26, h: 251, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 723, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    balls: [{ x: 718, y: 399.8, r: 26, kind: 'heavy' }],
+    balls: [{ x: 718, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 24, name: "Wide Glass", verb: "gather", intent: "chock",
-    // one stroke: the chock
-    answer: [[513,465.48583729212646],[513,375.48583729212646]],
+    id: 19, name: "Steep Gate", verb: "CH",
+    answer: [[806,452.3],[806,362.3]],
+    faucet: { x: 940, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 940, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 795.3, y: 458.9, w: 240, h: 16, angle: 0.35, kind: 'teal' },
+    ],
+    balls: [{ x: 758, y: 376.7, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 20, name: "Hooked", verb: "PH",
+    answer: [[646,344.6],[646,460.6]],
+    faucet: { x: 780, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 780, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 603, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    pins: [{ x: 646, y: 344.6, r: 11 }],
+    balls: [{ x: 598, y: 391.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 21, name: "The Ladle", verb: "LD",
+    answer: [[396,442.8],[396,398.8],[456,420],[456,464]],
+    faucet: { x: 560, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 560, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 414.9, y: 460, w: 240, h: 16, angle: 0.34, kind: 'teal' },
+    ],
+    balls: [{ x: 378, y: 378.5, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 22, name: "Straight Face", verb: "BR",
+    answer: [[438,536.8],[538,461.1]],
     faucet: { x: 640, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 640, y: 621, w: 140, h: 118, need: 0.45 }],
+    glasses: [{ x: 640, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[319.3, 418.0], [610.0, 492.3], [319.3, 484.0]], kind: 'wood' },
-        { x: 323, y: 557, w: 26, h: 246, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 463, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    balls: [{ x: 458, y: 393.4, r: 26, kind: 'heavy' }],
+    crates: [{ x: 438, y: 605, w: 100, h: 190, kind: 'wood' }],
+    balls: [{ x: 458, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 25, name: "High Left", verb: "tilt", intent: "chock",
-    // one stroke: the chock
-    answer: [[607,401.3581574505233],[607,311.3581574505233]],
+    id: 23, name: "High Ball", verb: "VG",
+    answer: [[700,397.1],[726,327.1],[752,397.1]],
+    faucet: { x: 860, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 860, y: 560, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 684.7, y: 394.7, w: 300, h: 16, angle: 0.3, kind: 'teal' },
+      { x: 860, y: 653, w: 180, h: 70, kind: 'wood' },
+    ],
+    balls: [{ x: 678, y: 324.2, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 24, name: "Short Drop", verb: "LD",
+    answer: [[238,438.2],[238,394.2],[298,414.7],[298,458.7]],
+    faucet: { x: 420, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 420, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 274.5, y: 461.1, w: 240, h: 16, angle: 0.33, kind: 'teal' },
+    ],
+    balls: [{ x: 238, y: 380.2, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 25, name: "Pin Trick", verb: "PH",
+    answer: [[426,303.6],[426,419.6]],
+    faucet: { x: 560, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 560, y: 580, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 383, y: 420.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+      { x: 560, y: 673, w: 180, h: 70, kind: 'wood' },
+    ],
+    pins: [{ x: 426, y: 303.6, r: 11 }],
+    balls: [{ x: 378, y: 350.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 26, name: "Twin Glasses", verb: "CH+split",
+    answers: [[[480, 560], [610, 488], [740, 560]], [[326, 462.6], [326, 372.6]]],
+    faucet: { x: 610, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 460, y: 621, w: 108, h: 118, need: 0.5 }, { x: 760, y: 621, w: 104, h: 118, need: 0.35 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 283, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    crates: [{ x: 258, y: 605, w: 100, h: 190, kind: 'wood' }],
+    balls: [{ x: 278, y: 391.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 27, name: "Spout Left", verb: "CH+spout",
+    answers: [[[432,486],[772,550]],[[914,462.6],[914,372.6]]],
     faucet: { x: 480, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 480, y: 560, w: 108, h: 118, need: 0.5, hanging: true }],
+    glasses: [{ x: 780, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 656.2, y: 397.5, w: 300, h: 16, angle: -0.28, kind: 'teal' },
-        { x: 806, y: 522, w: 26, h: 316, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 957, y: 461.4, w: 300, h: 16, angle: -0.26, kind: 'teal' },
     ],
-    balls: [{ x: 662, y: 327.5, r: 26, kind: 'heavy' }],
+    crates: [{ x: 480, y: 590, w: 100, h: 180, kind: 'wood' }],
+    balls: [{ x: 962, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 26, name: "Deep Cup", verb: "settle", intent: "chock",
-    // one stroke: the chock
-    answer: [[633,414.9092257993347],[633,324.9092257993347]],
+    id: 28, name: "Spout Right", verb: "CH+spout",
+    answers: [[[848, 486], [508, 550]], [[366, 462.6], [366, 372.6]]],
+    faucet: { x: 800, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 500, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 323, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    crates: [{ x: 800, y: 590, w: 100, h: 180, kind: 'wood' }],
+    balls: [{ x: 318, y: 391.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 29, name: "Spout Wire", verb: "VG+spout",
+    answers: [[[1008,486],[668,509]],[[500,421.6],[526,351.6],[552,421.6]]],
+    faucet: { x: 960, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 660, y: 580, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 483, y: 420.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+      { x: 660, y: 673, w: 180, h: 70, kind: 'wood' },
+    ],
+    crates: [{ x: 960, y: 590, w: 100, h: 180, kind: 'wood' }],
+    balls: [{ x: 478, y: 350.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 30, name: "Two Mouths", verb: "VG+split",
+    answers: [[[640,560],[770,488],[900,560]],[[460,462.6],[486,392.6],[512,462.6]]],
+    faucet: { x: 770, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 620, y: 621, w: 108, h: 118, need: 0.5 }, { x: 920, y: 621, w: 104, h: 118, need: 0.35 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 443, y: 461.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    balls: [{ x: 438, y: 391.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 31, name: "Long Chute", verb: "CH",
+    answer: [[506,467],[506,377]],
+    faucet: { x: 640, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 640, y: 621, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 422.6, y: 458.5, w: 380, h: 16, angle: 0.22, kind: 'teal' },
+    ],
+    balls: [{ x: 458, y: 398.3, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 32, name: "The Plinth", verb: "PH",
+    answer: [[586, 244.2], [586, 360.2]],
+    faucet: { x: 700, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 700, y: 500, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 533, y: 358.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+      { x: 700, y: 601, w: 190, h: 84, kind: 'wood' },
+    ],
+    pins: [{ x: 586, y: 244.2, r: 11 }],
+    balls: [{ x: 528, y: 288.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 33, name: "Hanging Low", verb: "BR",
+    answer: [[258,475.8],[358,400.1]],
+    faucet: { x: 460, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 460, y: 560, w: 108, h: 118, need: 0.5, hanging: true }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 283, y: 400.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    crates: [{ x: 258, y: 570.8, w: 100, h: 190, kind: 'wood' }],
+    balls: [{ x: 278, y: 330.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 34, name: "Hanging Ladle", verb: "LD",
+    answer: [[376,364.8],[376,320.8],[436,340.7],[436,384.7]],
+    faucet: { x: 540, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 540, y: 540, w: 108, h: 118, need: 0.5, hanging: true }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 365.6, y: 371.8, w: 300, h: 16, angle: 0.32, kind: 'teal' },
+    ],
+    balls: [{ x: 358, y: 300.9, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 35, name: "Hanging Pin", verb: "PH",
+    answer: [[696, 281.6], [696, 397.6]],
+    faucet: { x: 820, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 820, y: 540, w: 108, h: 118, need: 0.5, hanging: true }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 653, y: 398.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
+    ],
+    pins: [{ x: 696, y: 281.6, r: 11 }],
+    balls: [{ x: 648, y: 328.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 36, name: "Trough Run", verb: "LD",
+    answer: [[596,454.6],[596,410.6],[656,426.6],[656,470.6]],
     faucet: { x: 760, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 760, y: 580, w: 108, h: 118, need: 0.45 }],
+    glasses: [{ x: 760, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 596, y: 412.3, w: 280, h: 16, angle: 0.34, kind: 'wood' },
-        { x: 470, y: 527, w: 26, h: 306, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 563.7, y: 456.3, w: 340, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    balls: [{ x: 578, y: 337.5, r: 26, kind: 'heavy' }],
+    balls: [{ x: 578, y: 391.8, r: 26, kind: 'heavy' }],
   },
   {
-    id: 27, name: "The Rim", verb: "rim", intent: "chock",
-    // one stroke: the chock
-    answer: [[873,462.3581574505233],[873,372.3581574505233]],
+    id: 37, name: "The Rim", verb: "CH",
+    answer: [[874,462.6],[874,372.6]],
     faucet: { x: 1000, y: 170, rate: 26, total: 110 },
     glasses: [{ x: 1000, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[681.9, 409.4], [970.2, 492.3], [681.9, 475.4]], kind: 'teal' },
-        { x: 686, y: 553, w: 26, h: 255, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 823.8, y: 458.5, w: 300, h: 16, angle: 0.28, kind: 'teal' },
     ],
     balls: [{ x: 818, y: 388.5, r: 26, kind: 'heavy' }],
   },
   {
-    id: 28, name: "Narrow Neck", verb: "narrow", intent: "chock",
-    // one stroke: the chock
-    answer: [[493,466.51585101958307],[493,376.51585101958307]],
-    faucet: { x: 620, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 620, y: 621, w: 92, h: 118, need: 0.55 }],
+    id: 38, name: "Left Wedge", verb: "VG",
+    answer: [[460,458.1],[434,388.1],[408,458.1]],
+    faucet: { x: 300, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 300, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 422.9, y: 459.6, w: 340, h: 16, angle: 0.24, kind: 'wood' },
-        { x: 264, y: 554, w: 26, h: 253, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 475.3, y: 455.7, w: 300, h: 16, angle: -0.3, kind: 'teal' },
     ],
-    balls: [{ x: 438, y: 395.1, r: 26, kind: 'heavy' }],
+    balls: [{ x: 482, y: 385.2, r: 26, kind: 'heavy' }],
   },
   {
-    id: 29, name: "The Long Walk", verb: "trudge", intent: "chock",
-    // one stroke: the chock
-    answer: [[573,467.5400140253591],[573,377.5400140253591]],
-    faucet: { x: 700, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 463.5, y: 452.1, w: 420, h: 16, angle: 0.23, kind: 'teal' },
-        { x: 265, y: 546, w: 26, h: 268, kind: 'wood' },
-    ],
-    balls: [{ x: 518, y: 396.7, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 30, name: "Harrow", verb: "harrow", intent: "chock",
-    // one stroke: the chock
-    answer: [[740,461.30217986924833],[740,371.30217986924833]],
-    faucet: { x: 600, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 600, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { poly: [[642.7, 492.4], [978.1, 392.3], [642.7, 558.4]], kind: 'wood' },
-        { x: 986, y: 544, w: 26, h: 272, kind: 'wood' },
-    ],
-    balls: [{ x: 795, y: 386.9, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 31, name: "The Stall", verb: "stall", intent: "chock",
-    // one stroke: the chock
-    answer: [[685,459.1684690831962],[685,369.1684690831962]],
-    faucet: { x: 820, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 632.4, y: 452.7, w: 310, h: 16, angle: 0.31, kind: 'teal' },
-        { x: 491, y: 547, w: 26, h: 267, kind: 'wood' },
-    ],
-    balls: [{ x: 630, y: 383.6, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 32, name: "Gantry", verb: "gantry", intent: "chock",
-    // one stroke: the chock
-    answer: [[420,464.4497219928312],[420,374.4497219928312]],
-    faucet: { x: 560, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 560, y: 621, w: 108, h: 118, need: 0.5 }],
-    stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 321.7, y: 448.6, w: 400, h: 16, angle: 0.26, kind: 'wood' },
-        { x: 134, y: 543, w: 26, h: 275, kind: 'wood' },
-    ],
-    balls: [{ x: 365, y: 391.8, r: 26, kind: 'heavy' }],
-  },
-  {
-    id: 33, name: "Last Light", verb: "ward", intent: "chock",
-    // one stroke: the chock
-    answer: [[1045,468.55857230450744],[1045,378.55857230450744]],
+    id: 39, name: "Hanging Rim", verb: "CH",
+    answer: [[786,362.8],[786,262.8]],
     faucet: { x: 900, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 900, y: 621, w: 108, h: 118, need: 0.5 }],
+    glasses: [{ x: 900, y: 500, w: 108, h: 118, need: 0.5, hanging: true }],
     stage: [
-        { x: 640, y: 690, w: 1100, h: 20 },
-        { x: 1122.2, y: 445.1, w: 360, h: 16, angle: -0.22, kind: 'teal' },
-        { x: 1307, y: 555, w: 26, h: 251, kind: 'wood' },
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 731, y: 358.4, w: 300, h: 16, angle: 0.26, kind: 'teal' },
     ],
-    balls: [{ x: 1100, y: 398.3, r: 26, kind: 'heavy' }],
+    balls: [{ x: 726, y: 288.8, r: 26, kind: 'heavy' }],
+  },
+  {
+    id: 40, name: "Last Light", verb: "LD",
+    answer: [[436,430.7],[436,386.7],[496,404],[496,448]],
+    faucet: { x: 600, y: 170, rate: 26, total: 110 },
+    glasses: [{ x: 600, y: 600, w: 108, h: 118, need: 0.5 }],
+    stage: [
+      { x: 640, y: 690, w: 1100, h: 20 },
+      { x: 423.8, y: 437.5, w: 300, h: 16, angle: 0.28, kind: 'teal' },
+      { x: 600, y: 680.0, w: 180, h: 40.0, kind: 'wood' },
+    ],
+    balls: [{ x: 418, y: 367.5, r: 26, kind: 'heavy' }],
   },
 ];
 

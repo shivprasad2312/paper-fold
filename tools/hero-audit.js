@@ -99,13 +99,38 @@ rows.filter((r) => r.bearing < 1).forEach((r) =>
 const lean = rows.filter((r) => r.bearing >= 2).length;
 if (lean < 3) fail('only ' + lean + ' room(s) need the line to bridge two or more pieces');
 
-// ---- 3. no two rooms are the same picture
-const seen = new Map();
+// ---- 3. no two rooms may demand the same STROKE.
+// The previous gate hashed the verb word and the prop count, and passed twenty-one
+// copies of one vertical bar. This hashes what the player's hand actually does:
+// every reference stroke, translated so its room's cup is at the origin, then
+// rounded to 10 px. Two rooms with the same hash ask the player for the same line.
+const strokeSigs = new Map();
 rows.forEach((r) => {
-  const sig = [r.verb, r.taps, r.cups, Math.round(r.offset / 60), r.hanging ? 'h' : 's',
-    Math.round(r.props / 2)].join('|');
-  if (seen.has(sig)) fail('room ' + seen.get(sig) + ' and room ' + r.id + ' are the same picture (' + sig + ')');
-  seen.set(sig, r.id);
+  const lv = HG.LEVELS.find((l) => l.id === r.id);
+  const strokes = (SOLUTIONS[r.id] || []);
+  if (!strokes.length) return;
+  const g = lv.glasses[0];
+  const sig = strokes.map((st) => st.map((q) => [
+    Math.round((q.x - g.x) / 10) * 10,
+    Math.round((q.y - 0) / 10) * 10,
+  ].join(','))).join('|');
+  r.stroke = sig;
+  if (strokeSigs.has(sig)) fail('room ' + r.id + ' ' + r.name + ' demands the same stroke as room ' +
+    strokeSigs.get(sig) + ' (' + (strokes.length + ' stroke' + (strokes.length > 1 ? 's' : '')) + ')');
+  else strokeSigs.set(sig, r.id);
+});
+const distinctStrokes = strokeSigs.size;
+if (distinctStrokes < rows.length) fail('only ' + distinctStrokes + ' distinct strokes across ' + rows.length + ' rooms');
+
+// ---- 3b. a ball room must be lethal at t = 0: untouched, the ball must spoil the cup
+const ballRooms = rows.filter((r) => {
+  const lv = HG.LEVELS.find((l) => l.id === r.id);
+  return (lv.balls || []).length > 0;
+});
+ballRooms.forEach((r) => {
+  const lv = HG.LEVELS.find((l) => l.id === r.id);
+  const idle = play(HG, r.id, [], { frames: 60 * 26 });
+  if (idle.won) fail('room ' + r.id + ' ' + r.name + ' has a ball but wins untouched — the ball is decoration');
 });
 
 // ---- 4. the ink budget has to mean something

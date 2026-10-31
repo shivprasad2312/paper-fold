@@ -14,7 +14,7 @@ Vanilla JS + [Matter.js](https://brm.io/matter-js/) physics. No frameworks, no b
 no runtime dependencies. Three-star ink scoring, sound synthesised with the WebAudio API (no audio
 files), and a fully offline single-file build.
 
-**The level set is built around verbs, not around ramps.** The 33 rooms are one
+**The level set is built around verbs, not around ramps.** The 40 rooms are one
 idea each — *build the cup a floor*, *split one stream two ways*, *span two unequal blocks*, *funnel
 two taps into one mouth*, *route around a shelf*, *latch a hanging cup*, *cascade one cup into
 another*, *come in low under a ledge* — and every one is proved by playing it, not by predicting it.
@@ -24,7 +24,7 @@ The reasoning, the competitor teardown and the proof numbers are in
 [docs/COMPETITOR-GRAMMAR.md](docs/COMPETITOR-GRAMMAR.md). The old seventy-room set is in git history
 at `7a5e29c`.
 
-### Testing all 33 rooms without earning them
+### Testing all 40 rooms without earning them
 
 Add a query string to the address (works on the dev server and on the built file):
 
@@ -110,7 +110,7 @@ tools/              dev server, single-file builder, headless simulator, verifie
 
 ### Levels
 
-**33 rooms, one verb each.** A room is authored as a scene in `tools/hero-rooms.js` — a tap, one or
+**40 rooms, one idea each.** A room is authored as a scene in `tools/hero-rooms.js` — a tap, one or
 two glasses, two to five pieces of scenery and, from room 9 on, a loose ball — and it declares the
 verb it teaches and the *shape* its answer is meant to be. `tools/solve-hero.js` then finds and proves a line for it: it enumerates
 the shapes that verb implies (a ledge under a hanging cup, a tent over a pedestal, a roof between two
@@ -128,7 +128,7 @@ ships it only if it survives six twitchy hands and four wavy ones.
 | 7 | Cascade | cascade | the top cup fills first, then the bottom one gets the rest |
 | 8 | Under The Ledge | overhang | the cup is *under* the shelf — come in low |
 
-Then **rooms 9–33** turn the ball on. Every one of them is a room where the glass is already being
+Then **rooms 16–40** turn the ball on. Every one of them is a room where the glass is already being
 threatened by a loose ball before the first droplet lands, and a ball that touches the mouth spoils
 the glass outright — the room can no longer be won. The ink has to stop the ball (a bar standing on
 the ramp it rolls down), catch it (a drawn ladle), stop two at once (the queue), or do it while also
