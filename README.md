@@ -18,6 +18,9 @@ WebAudio API (no audio files), and a fully offline single-file build.
 
 Add a query string to the address (works on the dev server and on the built file):
 
+**Easiest:** open **Levels** and press `🔓 Unlock all levels (testing)` under the grid. It survives a
+reload and turns into `🔒 Lock levels again`. There is also a `U` key, and these URLs:
+
 | URL | What it does |
 |---|---|
 | `index.html?unlock=all` | every level open in the grid, with a yellow `TEST` badge on screen |
@@ -25,8 +28,8 @@ Add a query string to the address (works on the dev server and on the built file
 | `index.html?unlock=reset` | back to normal progression |
 
 During play: **← →** step a level, **R** retry, **Esc** back to the grid. The badge only appears while
-the levels are open this way, so an unlocked build can never be mistaken for real progress — and the
-flag itself is not written to storage.
+the levels are open this way, so an unlocked build can never be mistaken for real progress — and one tap
+puts it back.
 
 ```
 npm start            # http://localhost:4173

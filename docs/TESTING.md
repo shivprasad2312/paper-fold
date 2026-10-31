@@ -11,15 +11,22 @@ person even though a machine could solve it*. Sorted into what I would look at f
 
 ## How to open all of them
 
-| URL | Effect |
-|---|---|
-| `?unlock=all` | every level open in the grid, yellow `TEST` badge on screen |
-| `?unlock=all&level=37` | straight into level 37 |
-| `?unlock=reset` | back to normal progression |
+**Open the game, tap "Levels", and press the yellow `🔓 Unlock all levels (testing)` button at the
+bottom of the grid.** That is the route that needs no address bar and survives a reload. It turns into
+`🔒 Lock levels again` once it is on.
 
-In play: **← →** step a level, **R** retry, **Esc** back to the grid. The badge is drawn only while the
-levels are open this way, and the flag is never written to storage — close the tab and the game is the
-game again.
+Three ways in, because a query string survives neither a preview frame nor a reload:
+
+| Way | Where |
+|---|---|
+| **Button** | Levels screen, under the grid |
+| **`U` key** | anywhere in the game |
+| **URL** | `?unlock=all` (every level open), `?unlock=all&level=37` (jump to 37), `?unlock=reset` (lock again) |
+
+While unlocked, a yellow `TEST · n/70 · ← → step · R retry · Esc levels` badge sits at the bottom of the
+screen. In play: **← →** step a level, **R** retry, **Esc** back to the grid. The setting is stored so a
+reload does not lose it, and one tap turns it off — the label is what keeps an unlocked build from ever
+being mistaken for real progress.
 
 ---
 

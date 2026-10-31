@@ -56,7 +56,31 @@
     //
     // Nothing in normal play changes: with no query string the game is exactly
     // the game.
+    // A reviewer cannot play seventy rooms by finishing sixty-nine of them
+    // first, and a level that is only reachable by earning it is a level that
+    // never gets looked at. Three ways in, because a query string survives
+    // neither a preview iframe nor a reload:
+    //
+    //   1. the "Unlock all" button on the level-select screen
+    //   2. the U key, anywhere
+    //   3. ?unlock=all  (and ?level=37 to jump straight there)
+    //
+    // It is stored, so it survives a reload — and it is labelled on screen and
+    // one tap from off, which is what keeps an unlocked build from ever being
+    // mistaken for real progress. With nothing set, the game is the game.
+    setTestOpen(on) {
+      HG.save.testOpen = !!on;
+      HG.save.unlocked = on ? HG.LEVELS.length : Math.max(1, HG.save.solvedCount() + 1);
+      if (on) this.showTestBadge(); else this.hideTestBadge();
+      if (HG.UI && HG.UI.buildLevelGrid) HG.UI.buildLevelGrid();
+      if (HG.UI && HG.UI.refreshTestButton) HG.UI.refreshTestButton();
+      return HG.save.testOpen;
+    },
+
     testMode() {
+      // switched on during an earlier visit: honour it with no query string
+      if (HG.save.testOpen) HG.save.unlocked = HG.LEVELS.length;
+
       let q = null;
       try {
         q = new URLSearchParams(global.location.search);
@@ -64,16 +88,14 @@
       if (!q) return 0;
       const unlock = (q.get('unlock') || '').toLowerCase();
       if (unlock === 'all' || unlock === 'dev' || unlock === 'yes') {
-        HG.save.unlocked = HG.LEVELS.length;
         HG.save.testOpen = true;
+        HG.save.unlocked = HG.LEVELS.length;
       } else if (unlock === 'reset' || unlock === 'off' || unlock === 'no') {
-        HG.save.unlocked = 1;
         HG.save.testOpen = false;
+        HG.save.unlocked = Math.max(1, HG.save.solvedCount() + 1);
       }
       const want = parseInt(q.get('level') || '0', 10);
-      if (want >= 1 && want <= HG.LEVELS.length) {
-        if (want <= HG.save.unlocked) return want;
-      }
+      if (want >= 1 && want <= HG.LEVELS.length && want <= HG.save.unlocked) return want;
       return 0;
     },
 
@@ -83,8 +105,16 @@
 
     // A reviewer has to be able to tell "open" from "earned" at a glance, so the
     // unlock is labelled on screen and cannot be mistaken for progress.
+    hideTestBadge() {
+      if (this.testBadge && this.testBadge.parentNode) {
+        this.testBadge.parentNode.removeChild(this.testBadge);
+      }
+      this.testBadge = null;
+    },
+
     showTestBadge() {
-      if (!HG.save.testOpen || this.testBadge) return;
+      if (!HG.save.testOpen) { this.hideTestBadge(); return; }
+      if (this.testBadge) return;
       const el = document.createElement('div');
       el.id = 'test-badge';
       el.style.cssText = [
@@ -235,6 +265,9 @@
           }
         }
         if (e.key === 'e' || e.key === 'E') { if (this.mode === 'play') this.restart(); }
+        // U opens/locks the whole set. The button on the level screen does the
+        // same thing, for a phone with no keyboard.
+        if (e.key === 'u' || e.key === 'U') { this.setTestOpen(!HG.save.testOpen); }
       });
 
       // first gesture unlocks audio on iOS

@@ -193,3 +193,14 @@ body.too-narrow .rotate-hint{display:flex;}
 @media (prefers-reduced-motion:reduce){
   *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
 }
+
+/* Test mode — opening every level for review. Deliberately quiet, deliberately
+   labelled: it must never look like part of the game. */
+.test-foot{display:flex;justify-content:center;padding-top:2px;}
+.btn-test{
+  font:600 12.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.02em;color:var(--ink);
+  background:#ffeaa0;border:2px dashed rgba(45,59,71,.55);border-radius:999px;
+  padding:9px 16px;box-shadow:none;opacity:.9;
+}
+.btn-test:hover{opacity:1;}
+.btn-test.is-on{background:#ffd447;border-style:solid;}

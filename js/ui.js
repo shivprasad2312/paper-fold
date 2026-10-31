@@ -33,8 +33,29 @@
       this.buildLevelGrid();
       this.refreshHomeStats();
       this.setSoundLabel();
+      this.bindTestButton();
       this.show('menu');
       this.watchOrientation();
+    },
+
+    // The reviewer's escape hatch, on the screen where the locks are.
+    bindTestButton() {
+      const btn = HG.dom('#unlock-all');
+      if (!btn) return;
+      this.testBtn = btn;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.game.setTestOpen(!HG.save.testOpen);
+      });
+      this.refreshTestButton();
+    },
+
+    refreshTestButton() {
+      const btn = this.testBtn || HG.dom('#unlock-all');
+      if (!btn) return;
+      const on = HG.save.testOpen;
+      btn.classList.toggle('is-on', on);
+      btn.textContent = on ? '🔒 Lock levels again' : '🔓 Unlock all levels (testing)';
     },
 
     action(act) {

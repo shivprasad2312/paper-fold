@@ -179,30 +179,58 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   w.dispatchEvent(up3);
   check('tap keeps pouring while drawing again', after < before - 1);
 
-  // ---- test mode: ?unlock=all must open everything, and say so
+  // ---- test mode: three ways in, all of them reversible and labelled
   {
-    const dom2 = new JSDOM(html, {
-      runScripts: 'dangerously', pretendToBeVisual: true,
-      url: 'https://example.com/?unlock=all&level=37',
-      beforeParse(window) {
-        window.HTMLCanvasElement.prototype.getContext = function (type) {
-          if (!this.__ctx) this.__ctx = createCanvas(this.width || 1280, this.height || 720).getContext(type);
-          return this.__ctx;
-        };
-        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientWidth', { get() { return 1280; } });
-        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientHeight', { get() { return 720; } });
-      },
-    });
-    await wait(600);
-    const w2 = dom2.window;
+    const mk = async (url) => {
+      const d = new JSDOM(html, {
+        runScripts: 'dangerously', pretendToBeVisual: true, url,
+        beforeParse(window) {
+          window.HTMLCanvasElement.prototype.getContext = function (type) {
+            if (!this.__ctx) this.__ctx = createCanvas(this.width || 1280, this.height || 720).getContext(type);
+            return this.__ctx;
+          };
+          Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientWidth', { get() { return 1280; } });
+          Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientHeight', { get() { return 720; } });
+        },
+      });
+      await wait(600);
+      return d.window;
+    };
+
+    // (a) the button on the level screen — the only route that needs no address bar
+    let w2 = await mk('https://example.com/');
+    const btn = w2.document.querySelector('#unlock-all');
+    check('the level screen offers an unlock button', !!btn);
+    btn.dispatchEvent(new w2.MouseEvent('click', { bubbles: true }));
+    await wait(80);
+    w2.HG.UI.buildLevelGrid();
+    check('the button opens every level', w2.HG.save.unlocked === w2.HG.LEVELS.length,
+      w2.HG.save.unlocked + '/' + w2.HG.LEVELS.length);
+    check('no level stays locked in the grid',
+      w2.document.querySelectorAll('.level-cell.is-locked').length === 0,
+      w2.document.querySelectorAll('.level-cell.is-locked').length + ' locked');
+    check('test mode is labelled on screen', !!w2.document.querySelector('#test-badge'));
+    const saved = JSON.parse(w2.localStorage.getItem('happyglass.save.v1') || '{}');
+    check('the unlock is remembered across a reload', saved.testOpen === true);
+    btn.dispatchEvent(new w2.MouseEvent('click', { bubbles: true }));
+    await wait(80);
+    check('and it can be switched off again', w2.HG.save.testOpen === false &&
+      !w2.document.querySelector('#test-badge'));
+    w2.close();
+
+    // (b) the query string, and a direct jump
+    w2 = await mk('https://example.com/?unlock=all&level=37');
     check('?unlock=all opens every level', w2.HG.save.unlocked === w2.HG.LEVELS.length,
       w2.HG.save.unlocked + '/' + w2.HG.LEVELS.length);
     check('?level=37 jumps straight there', w2.__HG.Game.levelId === 37, 'level ' + w2.__HG.Game.levelId);
-    const badge = w2.document.querySelector('#test-badge');
-    check('test mode is labelled on screen', !!badge && /TEST/.test(badge.textContent));
-    check('the badge is not written to the save', !JSON.parse(
-      w2.localStorage.getItem('happyglass.save.v1') || '{}').testOpen);
-    dom2.window.close();
+    w2.close();
+
+    // (c) the U key
+    w2 = await mk('https://example.com/');
+    w2.dispatchEvent(new w2.KeyboardEvent('keydown', { key: 'u', bubbles: true }));
+    await wait(60);
+    check('U opens every level', w2.HG.save.unlocked === w2.HG.LEVELS.length);
+    w2.close();
   }
 
   console.log(report.join('\n'));

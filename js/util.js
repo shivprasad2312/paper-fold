@@ -92,7 +92,7 @@
 
   // ---------------------------------------------------------------- save data
   const KEY = 'happyglass.save.v1';
-  const DEFAULT_SAVE = { stars: {}, unlocked: 1, sound: true };
+  const DEFAULT_SAVE = { stars: {}, unlocked: 1, sound: true, testOpen: false };
 
   HG.save = (function () {
     let data = Object.assign({}, DEFAULT_SAVE, { stars: {} });
@@ -104,6 +104,7 @@
           data.stars = parsed.stars && typeof parsed.stars === 'object' ? parsed.stars : {};
           data.unlocked = Math.max(1, parsed.unlocked | 0 || 1);
           data.sound = parsed.sound !== false;
+          data.testOpen = parsed.testOpen === true;
         }
       }
     } catch (e) { /* private mode / disabled storage */ }
@@ -133,10 +134,13 @@
         for (const k in data.stars) if (data.stars[k] > 0) t++;
         return t;
       },
-      // Session-only: "this page was opened with the levels unlocked". Deliberately
-      // not written to storage — close the tab and the game is the game again.
-      testOpen: false,
-      reset() { data = { stars: {}, unlocked: 1, sound: data.sound }; flush(); },
+      // "The levels are open for testing." This IS written to storage: a reviewer
+      // should not have to fight the address bar on every reload or every device.
+      // What protects real progress is that it is labelled on screen and always
+      // reversible — never that it is forgotten.
+      get testOpen() { return data.testOpen === true; },
+      set testOpen(v) { data.testOpen = !!v; flush(); },
+      reset() { data = { stars: {}, unlocked: 1, sound: data.sound, testOpen: false }; flush(); },
     };
   })();
 
