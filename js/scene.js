@@ -169,6 +169,38 @@
     return runs;
   }
 
+  // Is a world point inside a box that may be rotated about its own centre?
+  // `pad` widens the box on every side, which is how the pen gets its 2 px sink.
+  function inOBB(x, y, r, pad) {
+    const a = r.angle || 0;
+    const dx = x - r.x, dy = y - r.y;
+    const c = Math.cos(a), s = Math.sin(a);
+    const lx = dx * c + dy * s;                 // into the box's own frame
+    const ly = -dx * s + dy * c;
+    const p = pad || 0;
+    return Math.abs(lx) <= r.w / 2 + p && Math.abs(ly) <= r.h / 2 + p;
+  }
+
+  // ...and inside a free-form slab. The point is expanded by `pad` so a stroke
+  // that runs into an edge is refused just as firmly as one in the middle.
+  function insidePolyPts(x, y, poly, pad) {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+    if (hit) return true;
+    // near an edge? distance from the point to each segment, within pad
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const ax = poly[j][0], ay = poly[j][1], bx = poly[i][0], by = poly[i][1];
+      const vx = bx - ax, vy = by - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy || 1)));
+      const px = ax + vx * t, py = ay + vy * t;
+      if (Math.hypot(x - px, y - py) <= (pad || 0)) return true;
+    }
+    return false;
+  }
+
   class Scene {
     constructor(level) {
       this.level = level;
@@ -734,24 +766,46 @@
     }
 
     inkPointBlocked(x, y) {
-      // don't allow drawing inside scenery / the glass / the tap
+      // Don't allow drawing inside scenery / the glass / the tap.
       // The pen stops when the *ink* touches, not when the cursor does: the
       // 2 px sink lets a drawn stroke actually meet the surface (a marker line
       // creeps a hair into the wall it runs into). Without it ink could never
       // reach a surface at all, and a wire could never be nailed to anything.
-      const PAD = 2;
-      const inRect = (r) =>
-        Math.abs(x - r.x) <= r.w / 2 + PAD && Math.abs(y - r.y) <= r.h / 2 + PAD;
-      for (const p of this.level.platforms) {
-        if (Math.abs(p.angle || 0) < 0.01 && inRect(p)) return true;
+      //
+      // Every angled plank in this game was drawable-through until now: the old
+      // test only looked at axis-aligned planks, and almost every plank is
+      // tilted by 0.1-0.16 rad. A stroke laid inside one was created overlapping
+      // solid scenery and the solver shoved it out, which reads as the wire
+      // being pushed *into* the base. The test is an oriented box now.
+      //
+      // The pad is a fraction of a pixel rather than 2: the ink body is 4 px
+      // thick, so a stroke whose centre touches a face already sinks about 2 px
+      // into it — that IS the 2 px sink. Refusing the centre 2 px early blocked
+      // every stroke that runs along a plank, which is the commonest answer in
+      // the game.
+      const PAD = 0.6;
+      // The built scenery, not the level data: the auto-generated coaster under
+      // each glass is real geometry and must refuse ink like anything else.
+      for (const p of this.platforms) {
+        const d = p.def;
+        if (!d) continue;
+        if (d.poly) {
+          if (insidePolyPts(x, y, d.poly, PAD)) return true;
+          continue;
+        }
+        if (inOBB(x, y, { x: d.x, y: d.y, w: d.w, h: d.h, angle: d.angle || 0 }, PAD)) return true;
       }
-      for (const c of this.level.crates) {
-        if (Math.abs(x - c.x) <= c.size / 2 + PAD && Math.abs(y - c.y) <= c.size / 2 + PAD) return true;
+      for (const c of this.crates) {
+        const d = c.def;
+        if (d.dynamic) continue;                   // a loose block can be drawn around
+        const w = d.w || d.size, h = d.h || d.size;
+        if (inOBB(x, y, { x: d.x, y: d.y, w, h, angle: d.angle || 0 }, PAD)) return true;
       }
       for (const g of this.glasses) {
-        const l = g.toLocal(x, y);
-        if (l.x > g.x - g.topHalf - 2 && l.x < g.x + g.topHalf + 2 &&
-            l.y > g.top + 4 && l.y < g.bottom + 4) return true;
+        const half = g.topHalf + 2, hh = (g.bottom - g.top) / 2 + 4;
+        if (inOBB(x, y, { x: g.x, y: g.top + hh - 2, w: half * 2, h: hh * 2, angle: g.angle || 0 }, 0)) {
+          return true;
+        }
       }
       for (const f of this.faucets) {
         // Only the tap *housing* is no-draw. The nozzle plate below it is solid

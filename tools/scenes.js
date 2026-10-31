@@ -46,7 +46,7 @@ const S = [
     id: 4, name: "The Wedge",
     tip: "The slope on the page is free. Get the water onto it.",
     faucet: { x: 470, y: 170 },
-    glasses: [{ x: 1060, y: 540, w: 108, h: 118, need: 0.55 }],
+    glasses: [{ x: 1070, y: 540, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 470, y: 300, w: 170, h: 14 },
       { poly: [[640, 372], [1010, 452], [1010, 500], [640, 420]], kind: "teal" },
@@ -80,8 +80,12 @@ const S = [
     glasses: [{ x: 800, y: 600, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 440, y: 260, w: 170, h: 14 },
-      { x: 750, y: 470, w: 18, h: 180 },
-      { x: 850, y: 470, w: 18, h: 180 },
+      // The chimney has to be wider than the cup. It was 82 px of clear width
+      // around a 108 px glass, so the glass started 13 px inside each wall and
+      // the solver spent the first frames shoving it out.
+      { x: 734, y: 470, w: 18, h: 180 },
+      { x: 866, y: 470, w: 18, h: 180 },
+      { x: 800, y: 666, w: 112, h: 14 },
     ],
   },
   {
@@ -133,7 +137,12 @@ const S = [
     glasses: [{ x: 950, y: 560, w: 108, h: 118, need: 0.55 }],
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.12 },
-      { x: 790, y: 410, w: 150, h: 14, angle: 0.16 },
+      // The run-off plank has to actually reach the mouth. It ended 32 px short
+      // of it, so water left its low end and fell into the gap beside the cup —
+      // the old reference line only "worked" because it was sunk into the plank
+      // and changed the exit point. The pen refuses that now, and the room had
+      // no honest answer at all.
+      { x: 838, y: 398, w: 170, h: 14, angle: 0.16 },
       { x: 580, y: 265, w: 210, h: 18 },
     ],
   },
@@ -145,7 +154,7 @@ const S = [
     stage: [
       { x: 430, y: 280, w: 180, h: 14, angle: 0.12 },
       { x: 700, y: 360, w: 150, h: 14, angle: 0.14 },
-      { x: 860, y: 470, w: 18, h: 150, angle: 0.4 },
+      { x: 860, y: 464, w: 18, h: 150, angle: 0.4 },
     ],
   },
   {
@@ -459,7 +468,7 @@ const S = [
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
       { x: 770, y: 380, w: 170, h: 14, angle: 0.12 },
-      { x: 930, y: 600, w: 260, h: 16, angle: 0.07 },
+      { x: 930, y: 611, w: 260, h: 16, angle: 0.07 },
     ],
   },
   {
@@ -478,7 +487,7 @@ const S = [
     id: 43, name: "Edge Of The World",
     tip: "The glass is one nudge from a long fall.",
     faucet: { x: 430, y: 170 },
-    glasses: [{ x: 1010, y: 540, w: 108, h: 118, need: 0.52 }],
+    glasses: [{ x: 1010, y: 532, w: 108, h: 118, need: 0.52 }],
     stage: [
       { x: 430, y: 280, w: 180, h: 14, angle: 0.13 },
       { x: 780, y: 370, w: 160, h: 14, angle: 0.12 },
@@ -516,7 +525,7 @@ const S = [
     stage: [
       { x: 430, y: 290, w: 180, h: 14, angle: 0.13 },
       { x: 780, y: 380, w: 160, h: 14, angle: 0.12 },
-      { x: 920, y: 540, w: 90, h: 130 },
+      { x: 920, y: 594, w: 90, h: 130 },
     ],
   },
   {

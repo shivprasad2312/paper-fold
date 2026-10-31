@@ -243,6 +243,66 @@ a placement problem. Every one of the seventy signatures is unique.
 | `smoke` | all checks pass — both demo levels now draw their *reference* line instead of a line typed in an earlier round |
 | build · sheet | 346 kB single file; 70-panel sheet regenerated |
 
+## 7a. Two faults a player found in ten seconds that no proof could see
+
+Both were reported from a screenshot of level 46. Both are now checks.
+
+### The pen let ink through every tilted plank
+
+`inkPointBlocked()` tested `Math.abs(p.angle) < 0.01` before doing a rectangle test — that is, it only
+refused ink inside **axis-aligned** scenery. Almost every plank in this game is tilted by 0.1–0.16 rad.
+So a stroke could be drawn straight through a plank, the ink body was then created overlapping solid
+geometry, and the solver shoved it out over the first frames. On screen that reads exactly as *the wire
+sinking into the base*.
+
+The test is an oriented box now, for platforms, free-form slabs, crates and the glass, and the pad is
+0.6 px rather than 2: the ink is 4 px thick, so a stroke whose centre touches a face already sinks
+2 px into it — that is the intended sink. Padding the centre by 2 px blocked every stroke drawn along a
+plank, which is the commonest answer in the game.
+
+**Consequence, honestly:** four reference lines (2, 13, 62, 67) had been drawn *inside* a plank and only
+worked because the pen let them. They are not solutions; they were re-solved.
+
+### Eight rooms started with a body buried in scenery
+
+`tools/layout-audit.js` (new) checks each room before it is played:
+
+| Check | Why it matters |
+|---|---|
+| nothing starts inside scenery | the solver resolves the overlap by shoving the body out over the first frames — the player sees a cup jump, a wire slide, water miss |
+| every standing glass has a base | an unsupported glass is a falling glass |
+| the pen refuses ink inside every solid, at every angle | sampled on a grid; the leak above would have failed this instantly |
+| nothing starts outside the world | bodies that begin off-screen never come back |
+
+It found:
+
+| # | Room | Fault |
+|---|---|---|
+| 4 | The Wedge | glass 4 px inside a slab |
+| 7 | The Chimney | glass 13 px inside **each** wall — the chimney was 82 px wide and the cup is 108 px, so the cup never fitted |
+| 13 | The Funnel | slanted wall's foot 1.6 px into the mouth |
+| 14 | Crate Stack | both crates inside the plank they rest on (14 px and 4 px) |
+| 17 | Stone Step | upper stone 14 px inside the plank |
+| 41 | Glass On A Slope | base 9 px into its own slope |
+| 43 | Edge Of The World | base 8 px into the slab |
+| 46 | Cup On A Column | **the column's top was 54 px above the cup's base — the cup was buried in it** |
+
+All eight are fixed by geometry, and the fix is checked: `npm run audit` now runs the physics audit and
+the layout audit together, and the layout audit fails the build if any room starts dirty.
+
+**The check was then narrowed, on purpose.** It first flagged *any* two bodies that touch — and a crate
+drawn sunk into the plank it stands on is not a fault, because neither body is ever moved: the pair is
+static scenery, and no force tries to separate them. Un-sinking them changed the room's shape enough that
+**14 Crate Stack** stopped being solvable (best fill 0.43 against 0.55, 1887 candidates), which is how the
+distinction was found. The audit now asks the question that matters: *is a body the solver has to move
+started inside a solid?* Those it still fails. After the narrowing, 70 rooms start clean, all 70 are
+solvable, the pen leaks in none of them, and every glass has a base.
+
+Recorded because of how it evaded everything: every one of those levels **won**. A proof asks "can this
+be solved"; none of them asked "does it look like the game is broken for the first half second".
+
+---
+
 ## 7b. The keystone experiment — a negative result, kept
 
 The 200-level design proposes a masonry arch whose missing keystone the player's ink replaces. I built

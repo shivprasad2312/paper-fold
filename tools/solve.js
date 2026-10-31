@@ -97,9 +97,20 @@ function polyTops(pts) {
   return out;
 }
 
+// How far above a surface a hand may lay the wire. 8 px was the only option for
+// a long time, and after the pen started refusing ink inside *tilted* planks
+// that single height became the difference between "there is an answer" and
+// "there is none": a wire 8 px up is not flush with the plank, so water leaves
+// it early and misses. A hand would lay it almost on the surface. Both heights
+// are legal (the pen refuses a centre inside the body, and the ink's own
+// half-thickness supplies the 2 px sink), so the search tries both.
+const ANCHOR_LIFTS = [8, 3];
+
 function anchorsOf(scene) {
   const out = [];
-  const push = (x, y, tag) => out.push({ x, y, tag });
+  const push = (x, y, tag) => {
+    for (const lift of ANCHOR_LIFTS) out.push({ x, y: y + (8 - lift), tag });
+  };
   scene.platforms.forEach((pl) => {
     const d = pl.def;
     if (d.poly) {
@@ -179,6 +190,12 @@ function buildLevel(spec) {
 
   const scene = new HG.Scene(JSON.parse(JSON.stringify(base)));
   const anchors = anchorsOf(scene);
+  // The tap plate itself is a support, and the most natural opening move in the
+  // game is to start the wire just under the nozzle. Without an anchor there the
+  // search could only build answers that begin on scenery.
+  base.faucets.forEach((f) => {
+    for (const dy of [26, 46]) anchors.push({ x: f.x, y: f.y + dy, tag: 'tap' });
+  });
   const glasses = scene.glasses;
   const g0 = glasses[0];
   const targetY = g0.top;
@@ -214,7 +231,11 @@ function buildLevel(spec) {
       // Uphill runs are not: water would not go up them.
       if (drop < -3) continue;
       if (Math.abs(b.x - a.x) < 45) continue;
-      if (drop / Math.abs(b.x - a.x) > 0.6) continue;
+      // Steep is fine when the run begins at the tap: the stream falls onto the
+      // wire and is redirected, it never has to creep along it. Everywhere else
+      // a steep run is a chute the water never settles on.
+      const steep = a.tag === 'tap' ? 1.35 : 0.6;
+      if (drop / Math.abs(b.x - a.x) > steep) continue;
       if (!clearRun(a, b)) continue;
       edges.push([a, b]);
     }
@@ -258,7 +279,7 @@ function buildLevel(spec) {
     const uy0 = (path[1].y - a0.y) / (Math.hypot(path[1].x - a0.x, path[1].y - a0.y) || 1);
     // the wire may start under the tap and hang past the last support
     for (const backExt of [0, 60, 120]) {
-      for (const ext of [0, 30, 60, 100, 140]) {
+      for (const ext of [0, 30, 60, 100, 140, 190, 240]) {
         const pts = path.map((p) => ({ x: p.x, y: p.y }));
         pts[0] = { x: pts[0].x - ux0 * backExt, y: pts[0].y - uy0 * backExt };
         const last = pts[pts.length - 1];
@@ -266,7 +287,7 @@ function buildLevel(spec) {
         const span = Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y);
         if (span < 100 || span > 780) continue;
         // the tap has to be over the line, or nothing lands on it
-        const lo = Math.min(pts[0].x, pts[1].x) + 6, hi = Math.max(pts[0].x, pts[1].x) - 6;
+        const lo = Math.min(pts[0].x, pts[1].x) - 6, hi = Math.max(pts[0].x, pts[1].x) + 6;
         if (faucet.x < lo || faucet.x > hi) continue;
         let ok = true;
         for (let k = 1; k < pts.length && ok; k++) if (!clearRun(pts[k - 1], pts[k])) ok = false;

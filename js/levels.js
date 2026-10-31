@@ -27,7 +27,7 @@
     {
       name: "First Pour",
       tip: "Two planks, one gap. Rest the line across them and let gravity do the rest.",
-      ink: 800,
+      ink: 840,
       faucet: { x: 400, y: 160, rate: 26, total: 90 },
       glasses: [
         { x: 880, y: 470, w: 108, h: 118, need: 0.55 },
@@ -40,7 +40,7 @@
     {
       name: "The Weight",
       tip: "A ball hangs over the gap. Whatever you draw, it will land on.",
-      ink: 800,
+      ink: 840,
       faucet: { x: 400, y: 160, rate: 26, total: 90 },
       glasses: [
         { x: 880, y: 470, w: 108, h: 118, need: 0.5 },
@@ -70,10 +70,10 @@
     {
       name: "The Wedge",
       tip: "The slope on the page is free. Get the water onto it.",
-      ink: 1020,
+      ink: 1060,
       faucet: { x: 470, y: 170, rate: 26, total: 90 },
       glasses: [
-        { x: 1060, y: 540, w: 108, h: 118, need: 0.55 },
+        { x: 1070, y: 540, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
         P({ x: 470, y: 300, w: 170, h: 14, kind: 'teal' }),
@@ -117,8 +117,9 @@
       ],
       platforms: [
         P({ x: 440, y: 260, w: 170, h: 14, kind: 'teal' }),
-        P({ x: 750, y: 470, w: 18, h: 180, kind: 'teal' }),
-        P({ x: 850, y: 470, w: 18, h: 180, kind: 'teal' }),
+        P({ x: 734, y: 470, w: 18, h: 180, kind: 'teal' }),
+        P({ x: 866, y: 470, w: 18, h: 180, kind: 'teal' }),
+        P({ x: 800, y: 666, w: 112, h: 14, kind: 'teal' }),
       ],
     },
     {
@@ -178,21 +179,21 @@
     {
       name: "Under The Shelf",
       tip: "A wide shelf hangs over the approach, not the mouth. Come in low and early.",
-      ink: 680,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 950, y: 560, w: 108, h: 118, need: 0.55 },
       ],
       platforms: [
         P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
-        P({ x: 790, y: 410, w: 150, h: 14, kind: 'teal', angle: 0.16 }),
+        P({ x: 838, y: 398, w: 170, h: 14, kind: 'teal', angle: 0.16 }),
         P({ x: 580, y: 265, w: 210, h: 18, kind: 'teal' }),
       ],
     },
     {
       name: "The Funnel",
       tip: "Two angled walls narrowing to a mouth.",
-      ink: 480,
+      ink: 660,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 860, y: 600, w: 108, h: 118, need: 0.55 },
@@ -200,13 +201,13 @@
       platforms: [
         P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.12 }),
         P({ x: 700, y: 360, w: 150, h: 14, kind: 'teal', angle: 0.14 }),
-        P({ x: 860, y: 470, w: 18, h: 150, kind: 'teal', angle: 0.4 }),
+        P({ x: 860, y: 464, w: 18, h: 150, kind: 'teal', angle: 0.4 }),
       ],
     },
     {
       name: "Crate Stack",
       tip: "Two crates and a plank. The crate tops are rests too.",
-      ink: 710,
+      ink: 690,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 560, w: 108, h: 118, need: 0.55 },
@@ -239,7 +240,7 @@
     {
       name: "The Sill",
       tip: "A narrow sill juts out under the pour. One line, two contacts.",
-      ink: 740,
+      ink: 780,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 930, y: 560, w: 108, h: 118, need: 0.55 },
@@ -252,7 +253,7 @@
     {
       name: "Stone Step",
       tip: "Two stone blocks stand under the run. Their tops are flat rests for the wire.",
-      ink: 760,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 960, y: 560, w: 108, h: 118, need: 0.55 },
@@ -269,7 +270,7 @@
     {
       name: "The Trench",
       tip: "The glass sits in a trench. Reach over the lip.",
-      ink: 560,
+      ink: 550,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 620, w: 108, h: 118, need: 0.55 },
@@ -284,7 +285,7 @@
     {
       name: "The Ledge",
       tip: "A long ledge, then nothing. End the line and let the water fly.",
-      ink: 710,
+      ink: 720,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 570, w: 108, h: 118, need: 0.55 },
@@ -297,7 +298,7 @@
     {
       name: "Split Sill",
       tip: "Two sills with a gap between them. Aim the water through the gap, not at the glass.",
-      ink: 530,
+      ink: 860,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 820, y: 620, w: 108, h: 118, need: 0.5 },
@@ -311,7 +312,7 @@
     {
       name: "Dead Weight",
       tip: "A heavy ball hangs over the gap. Whatever you draw, it lands on.",
-      ink: 750,
+      ink: 780,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 970, y: 540, w: 108, h: 118, need: 0.52 },
@@ -327,7 +328,7 @@
     {
       name: "Ball And Glass",
       tip: "The ball is aimed at the glass. Stop it.",
-      ink: 830,
+      ink: 680,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 560, w: 108, h: 118, need: 0.52 },
@@ -343,7 +344,7 @@
     {
       name: "Rubber Ball",
       tip: "A light ball bounces off whatever you draw. Use the bounce.",
-      ink: 700,
+      ink: 670,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
@@ -359,7 +360,7 @@
     {
       name: "The Brace",
       tip: "A heavy ball sits mid-air. The wire can run over it.",
-      ink: 890,
+      ink: 820,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 560, w: 108, h: 118, need: 0.52 },
@@ -391,7 +392,7 @@
     {
       name: "Two Weights",
       tip: "A heavy one and a light one. They behave nothing alike.",
-      ink: 810,
+      ink: 700,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 990, y: 560, w: 108, h: 118, need: 0.5 },
@@ -408,7 +409,7 @@
     {
       name: "The Plug",
       tip: "The gap under the sill fits a ball exactly.",
-      ink: 810,
+      ink: 530,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 930, y: 580, w: 108, h: 118, need: 0.52 },
@@ -440,7 +441,7 @@
     {
       name: "Heavy Lid",
       tip: "A heavy ball rests above the plinth. Pour past it — and do not knock it into the glass.",
-      ink: 830,
+      ink: 910,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1060, y: 560, w: 108, h: 118, need: 0.5 },
@@ -459,7 +460,7 @@
     {
       name: "The Keeper",
       tip: "Everything loose in this room ends up in the glass. Keep it out.",
-      ink: 680,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 580, w: 108, h: 118, need: 0.5 },
@@ -476,7 +477,7 @@
     {
       name: "Crosswind",
       tip: "The blower pushes the stream sideways. Get above it.",
-      ink: 640,
+      ink: 740,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 560, w: 108, h: 118, need: 0.52 },
@@ -492,7 +493,7 @@
     {
       name: "Wind Shadow",
       tip: "Stand in the lee of the block and the wind cannot touch the water.",
-      ink: 860,
+      ink: 740,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 990, y: 570, w: 108, h: 118, need: 0.52 },
@@ -525,7 +526,7 @@
     {
       name: "Fan And Ball",
       tip: "Wind and a loose weight, both aimed at the same corridor.",
-      ink: 810,
+      ink: 700,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 560, w: 108, h: 118, need: 0.5 },
@@ -560,7 +561,7 @@
     {
       name: "Two Blowers",
       tip: "Wind from both sides. There is a still pocket in the middle.",
-      ink: 800,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 570, w: 108, h: 118, need: 0.5 },
@@ -577,7 +578,7 @@
     {
       name: "Hot Plate",
       tip: "Heat under the gap. Anything that misses is gone, not pooled.",
-      ink: 720,
+      ink: 660,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
@@ -593,7 +594,7 @@
     {
       name: "Steam Room",
       tip: "Two hot plates and a short run. Keep every drop in the air.",
-      ink: 730,
+      ink: 650,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 570, w: 108, h: 118, need: 0.52 },
@@ -610,7 +611,7 @@
     {
       name: "The Lid",
       tip: "A pinned bar hangs over the mouth. It turns when hit; your line will not.",
-      ink: 720,
+      ink: 660,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 970, y: 560, w: 108, h: 118, need: 0.52 },
@@ -626,7 +627,7 @@
     {
       name: "Weather",
       tip: "Wind and heat together. Keep the water off the floor and on course.",
-      ink: 730,
+      ink: 810,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 570, w: 108, h: 118, need: 0.5 },
@@ -645,7 +646,7 @@
     {
       name: "Glass On A Slope",
       tip: "The glass stands on a slope and it will slide.",
-      ink: 800,
+      ink: 520,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 950, y: 540, w: 108, h: 118, need: 0.52 },
@@ -653,13 +654,13 @@
       platforms: [
         P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
         P({ x: 770, y: 380, w: 170, h: 14, kind: 'teal', angle: 0.12 }),
-        P({ x: 930, y: 600, w: 260, h: 16, kind: 'teal', angle: 0.07 }),
+        P({ x: 930, y: 611, w: 260, h: 16, kind: 'teal', angle: 0.07 }),
       ],
     },
     {
       name: "Glass In A Gap",
       tip: "The glass hangs in a gap between two walls. Hold it and fill it.",
-      ink: 710,
+      ink: 580,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 560, w: 108, h: 118, need: 0.52 },
@@ -674,10 +675,10 @@
     {
       name: "Edge Of The World",
       tip: "The glass is one nudge from a long fall.",
-      ink: 800,
+      ink: 830,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
-        { x: 1010, y: 540, w: 108, h: 118, need: 0.52 },
+        { x: 1010, y: 532, w: 108, h: 118, need: 0.52 },
       ],
       platforms: [
         P({ x: 430, y: 280, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
@@ -688,7 +689,7 @@
     {
       name: "The Narrow Neck",
       tip: "A mouth the width of a droplet. Aim, do not pour.",
-      ink: 580,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 620, w: 108, h: 118, need: 0.52 },
@@ -716,7 +717,7 @@
     {
       name: "Cup On A Column",
       tip: "The glass balances on a column. Anything landing on it is a problem.",
-      ink: 670,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 920, y: 470, w: 108, h: 118, need: 0.5 },
@@ -724,13 +725,13 @@
       platforms: [
         P({ x: 430, y: 290, w: 180, h: 14, kind: 'teal', angle: 0.13 }),
         P({ x: 780, y: 380, w: 160, h: 14, kind: 'teal', angle: 0.12 }),
-        P({ x: 920, y: 540, w: 90, h: 130, kind: 'teal' }),
+        P({ x: 920, y: 594, w: 90, h: 130, kind: 'teal' }),
       ],
     },
     {
       name: "Hands Off",
       tip: "Nothing under the glass but air. Catch it, then fill it.",
-      ink: 750,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 980, y: 520, w: 108, h: 118, need: 0.5 },
@@ -757,7 +758,7 @@
     {
       name: "Deep Cup",
       tip: "A tall glass and a short drop. Too steep and it sprays past.",
-      ink: 680,
+      ink: 650,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 950, y: 560, w: 100, h: 140, need: 0.5 },
@@ -770,7 +771,7 @@
     {
       name: "The Exam",
       tip: "A glass on a slope, a loose weight, one line. Both have to be handled.",
-      ink: 670,
+      ink: 750,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 990, y: 530, w: 108, h: 118, need: 0.5 },
@@ -788,7 +789,7 @@
     {
       name: "Twin Taps",
       tip: "Two taps, one glass. The line has to serve the one that is running.",
-      ink: 750,
+      ink: 670,
       faucets: [
         { x: 430, y: 170, rate: 26, total: 90 },
         { x: 1150, y: 190, rate: 26, total: 90 },
@@ -804,7 +805,7 @@
     {
       name: "Second Spout",
       tip: "A second spout pours into the same room. It is not your friend.",
-      ink: 690,
+      ink: 790,
       faucets: [
         { x: 430, y: 170, rate: 26, total: 90 },
         { x: 760, y: 170, rate: 26, total: 90 },
@@ -820,7 +821,7 @@
     {
       name: "Overflow",
       tip: "Fill the first glass and the rest spills into the second.",
-      ink: 630,
+      ink: 790,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 540, w: 108, h: 118, need: 0.5 },
@@ -833,7 +834,7 @@
     {
       name: "Two Glasses",
       tip: "One stream, two mouths. The line decides which one gets fed.",
-      ink: 530,
+      ink: 660,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 560, w: 112, h: 112, need: 0.45 },
@@ -862,7 +863,7 @@
     {
       name: "Rejoin",
       tip: "Two corridors, one glass. Pick the one the tap can feed.",
-      ink: 690,
+      ink: 900,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1020, y: 560, w: 108, h: 118, need: 0.52 },
@@ -890,7 +891,7 @@
     {
       name: "Lever",
       tip: "A seesaw under the drop. Put the water on the heavy end.",
-      ink: 740,
+      ink: 640,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1000, y: 560, w: 108, h: 118, need: 0.5 },
@@ -960,7 +961,7 @@
     {
       name: "Narrow World",
       tip: "A chimney, a blower and a glass in the middle of it all.",
-      ink: 480,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 900, y: 620, w: 108, h: 118, need: 0.5 },
@@ -978,7 +979,7 @@
     {
       name: "Slippery When Wet",
       tip: "Ice everywhere and a glass on a slope. Speed is the enemy.",
-      ink: 670,
+      ink: 560,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 960, y: 540, w: 108, h: 118, need: 0.5 },
@@ -1026,7 +1027,7 @@
     {
       name: "The Gauntlet",
       tip: "Hot plate, pinned bar, weighted ball. One careful line.",
-      ink: 770,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1050, y: 580, w: 108, h: 118, need: 0.5 },
@@ -1048,7 +1049,7 @@
     {
       name: "Uphill",
       tip: "The glass is higher than the last support. The water has to fly.",
-      ink: 970,
+      ink: 880,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 470, w: 108, h: 118, need: 0.5 },
@@ -1075,7 +1076,7 @@
     {
       name: "Last Light",
       tip: "Wind, a pivot and a glass that will not stand still.",
-      ink: 650,
+      ink: 590,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1010, y: 580, w: 108, h: 118, need: 0.5 },
@@ -1094,7 +1095,7 @@
     {
       name: "Grand Finale",
       tip: "Everything the game has taught, in one room. One line, one chance.",
-      ink: 880,
+      ink: 710,
       faucet: { x: 430, y: 170, rate: 26, total: 90 },
       glasses: [
         { x: 1030, y: 600, w: 108, h: 118, need: 0.5 },
