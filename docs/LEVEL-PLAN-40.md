@@ -89,35 +89,63 @@ Every one of these has a ball already on its way into the glass at t = 0. A ball
 mouth spoils the cup and the room can no longer be won (`js/scene.js`, circle-vs-mouth, every
 frame). The answer must stop the ball *and* still let the water in.
 
-| # | Room | Trap / trick | Assets | Stop | Water | Stroke |
-|---|---|---|---|---|---|---|
-| 16 | **First Blood** | a ball rolls down a chute straight into the mouth. Teach the verb: you must stop it. | chute (plank), 1 ball | CH | W1 | short vertical bar on the chute |
-| 17 | **The Brace** | same idea but no room to stand a bar on the chute — the answer leans on the crate behind it | chute + low crate at its back | BR | W1 | long diagonal, crate-top → chute |
-| 18 | **The Wedge** | a bar standing alone tips; the ball has to be dropped into a crook | chute, 1 ball, open ground | VG | W1 | V standing on the chute |
-| 19 | **The Gate** | two crates already stand in the chute's path — but the gap between them is 44 px too wide | chute + two crates with a gap | SP | W1 | bar laid across the two crates |
-| 20 | **Hooked** | nothing to build from on the ramp side; a push-pin hangs overhead | chute + push-pin above it | PH | W1 | diagonal pin → chute |
-| 21 | **The Ladle** | the chute is short and steep: a bar would be jumped | steep short chute | LD | W1 | U drawn across the chute |
-| 22 | **Two Balls** | two balls nose to tail on one chute; stopping the front one is not enough | chute, 2 balls | CH | W1 | longer bar, further upstream |
-| 23 | **The Queue** | three balls, one chute, and the stroke has to be drawn before the first arrives | chute, 3 balls | BR | W1 | diagonal brace |
-| 24 | **Off The Sill** | the cup hangs and the ball comes from a sill above it | hanging cup + sill | CH | W4 | bar on the sill |
-| 25 | **Two Glasses** | two cups, one tap; the ball only threatens the near one | 2 cups, chute over the near cup | VG | W3 | V + split for the far cup |
-| 26 | **Shaded Cup** | the ball is on the far side of a shelf that shades the tap's stream | shelf + chute + ball | SP | W2 | bar across crates + spout |
-| 27 | **The Hot Chute** | the ball rolls across a hot pad; the only support for a stroke is the pad's cold rim | chute through a hot zone | BR | W5 | diagonal that also keeps the pour off the pad |
-| 28 | **Crosswind Ball** | a fan pushes the pour left; the ball comes from the right | fan + right-hand chute | CH | W5 | bar + a shelter for the stream |
-| 29 | **Drop Zone** | the ball falls from a shelf edge straight down into the mouth | shelf edge over the mouth | SP | W1 | bar spanning two crates under the drop |
-| 30 | **High Ball** | the cup is high on a ledge and the ball rolls off the same ledge | raised cup + ledge | PH | W1 | pin-hook |
-| 31 | **The Long Fall** | the ball starts high and arrives fast; a short bar is jumped | tall steep chute | LD | W1 | ladle |
-| 32 | **Twin Threats** | two balls, two different chutes, both aimed at the same cup | two chutes, 2 balls | SP | W1 | one span that blocks both mouths |
-| 33 | **The Shelf Above** | a shelf over the cup catches the pour *and* the ball | shelf over cup + ball | BR | W2 | diagonal + spout around the shelf |
-| 34 | **Pinned High** | the cup is under a pin, the ball comes along the floor | floor-level ball + pin | PH | W1 | hook |
-| 35 | **The Narrows** | narrow mouth; the ball can barely fit, so it must be stopped at the lip | narrow cup + chute | VG | W1 | V |
-| 36 | **Split And Stop** | two cups, tap in the middle, ball aimed at the right cup | 2 cups, centre tap, ball | CH | W3 | bar + tent |
-| 37 | **The Staircase** | two chutes at different heights, ball arrives on the lower one | 2 static chutes | BR | W1 | diagonal |
-| 38 | **The Vault** | the cup is behind a low wall; the ball comes over the wall | static wall + chute | SP | W2 | span + spout over the wall |
-| 39 | **Last Light** | far cup, long stage, ball from the far end, tap far left | long stage | LD | W2 | ladle + spout |
-| 40 | **The Finale** | a hanging cup, a ball from a pinned chute, a fan pushing the pour | hanging cup + pin + fan + ball | PH | W4+W5 | hook + windbreak |
+### The correction this round is built on
 
----
+The first 40-room set failed for a reason no gate was measuring: **the ball arrived down a tilted
+plank in all 25 ball rooms.** A player does not read a room as "a wall, a V, a trough, a brace" —
+they read *a ball rolling down a ramp into a cup*, and the stop shape is the small print. Twenty-five
+different stops on twenty-five ramps is still one room drawn twenty-five times.
+
+So this round varies the **delivery** first and the stop second:
+
+| Delivery | How it works | Rooms |
+|---|---|---|
+| **thrown** | the ball flies in from off-screen at 7–16 px/frame, flat, lobbed, sinking or backhanded from the right | 16–27 |
+| **sill** | a ball perched on the far edge of a wooden sill, tipped off so it falls 60 px across into the mouth | 21, 28–40 |
+| ~~chute~~ | the old ramp delivery. **None left.** A tilted plank aimed at the cup is gone from the set. | — |
+
+That is 11 thrown and 14 tipped. `hero-audit` now measures it: it walks each ball room, works out how
+the ball is arriving, and **fails the set if more than 6 of the 25 arrive down a slope**, or if every
+ball arrives the same way. The "slope in every level" complaint cannot come back silently.
+
+The tap had to change to make this physical. Because the ball now arrives *first*, the water would
+otherwise win the race in 1.7 s — so a level may hold the tap shut for a beat (`delay` in
+`js/levels.js`, honoured by `Scene.start()`). Thrown rooms open after 1.6 s, sill rooms after 2.2 s:
+the ball lands, spoils the cup if you did nothing, and only then does the pour begin. Same player
+rule as before — the tap never opens until you have drawn something.
+
+### The rooms
+
+| # | Room | Delivery | Trap | The stroke it demands |
+|---|---|---|---|---|
+| 16 | **The Pitch** | thrown, flat, left | it crosses the room before your line is dry | a post far out in its lane (2 pts) |
+| 17 | **Underhand** | thrown, slow, low | it drops early — aim where it lands, not at the cup | a low post near the mouth |
+| 18 | **Flat Throw** | thrown, fast | the fastest flat ball in the set | a short slanted plate |
+| 19 | **The Lob** | thrown, lobbed | it sails over a post standing in front of the cup | a post set back under the far side of the arc |
+| 20 | **Long Shot** | thrown, very fast | the arc is long, the cup is far down its lane | a V trap in the lane |
+| 21 | **Low Pitch** | sill, low | the sill sits low: the ball is on you at once | a V crook at the drop line |
+| 22 | **High Toss** | thrown, tossed | it goes up before it comes down, and the cup is under the descent | a tall post |
+| 23 | **Cross Fire** | thrown, from the right | everything you have learned is mirrored | a post to the right |
+| 24 | **Backhand** | thrown, from the right, low | the water starts while the ball is still crossing | a low dam to the right |
+| 25 | **Backhand Lob** | thrown, from the right, lobbed | a lob from the right clears a right-hand post | a post under the left side of the arc |
+| 26 | **Sidearm** | thrown, from the right, fast | it arrives level with the rim | an L canopy |
+| 27 | **Sinker** | thrown, downward | it drops as it arrives; flat ground work fails | a V |
+| 28 | **The Drop** | sill | tips off the sill straight for the mouth | a cradle just off the rim |
+| 29 | **High Sill** | sill, high | the shortest fall in the set | an L bracket hung high |
+| 30 | **Low Sill** | sill, low | barely falls before it is at the rim | a V |
+| 31 | **Narrow Sill** | sill, narrow | a narrow shelf sheds the ball sideways | a slanted plate |
+| 32 | **Left Sill** | sill, from the far side | the shelf reaches in from the right | a cradle facing the other way |
+| 33 | **Far Sill** | sill, distant | it leaves a far sill and has room to speed up | a long slant |
+| 34 | **Overhang** | sill, overhanging the cup | it is past the rim before you see it | a V under the overhang |
+| 35 | **Sill Trap** | sill, close to the wall | the ball rides in against the wall | a cradle that uses the wall |
+| 36 | **Long Drop** | sill, very high | a long fall with time to draw | a plate hung off the sill itself |
+| 37 | **High Drop** | sill, highest | the least time in the whole set | a plate hung high off the sill |
+| 38 | **Quick Drop** | sill, low and close | no time at all | a plate under the sill |
+| 39 | **Left Drop** | sill, reaching from the right | the shelf comes in backwards | a slanted plate |
+| 40 | **Last Drop** | sill | the last ball, the widest open mouth | a short slant at the drop line |
+
+Every room is one stroke, proved by `tools/solve-hero.js`, and every stroke has a different shape
+after translation to the cup — 25 signatures, none repeated.
 
 ## The gate this plan has to pass
 
@@ -129,6 +157,10 @@ the one the last set lacked:
 * **every room must state its trap in one sentence**, and the trap must be real: the idle play (no
   ink) must lose. A room that wins untouched is not a room.
 * **the ball must be dangerous at t = 0** — an untouched ball must reach the mouth.
+* **the ball must not arrive the same way every time** — `hero-audit` classifies each ball room's
+  delivery (thrown / tipped off a sill / dropped / rolled down a slope) and fails the set if more
+  than 6 of 25 are slope-delivered, or if every ball arrives identically. This is the gate the
+  previous set would have failed.
 
 Status tracking lives at the bottom of this file as rooms are proved.
 
@@ -142,7 +174,8 @@ verify        40/40 levels solvable with their reference line
 layout        40 rooms clean, 0 pen leaks, every glass supported, nothing outside the world
 physics       all checks pass
 hero-check    40/40 won; hands 4-6 of 6, wavy 3-4 of 4 on every room
-hero-audit    all checks pass — including the stroke gate
+hero-audit    all checks pass — stroke gate and delivery gate
+              deliveries: 11 thrown, 14 tipped off a sill, 0 slopes
 smoke         no runtime errors, unlock button and query string still work
 ```
 
@@ -157,17 +190,54 @@ That gate was itself buggy on the first run — it read `q.x` on `[[x, y]]` arra
 came out `NaN,NaN` and it reported "7 distinct strokes" for the whole set. A gate that reports a
 constant is not a gate; it was fixed and re-run before any of these numbers were believed.
 
-**Result: 40 rooms, 40 distinct stroke signatures.** The ball rooms rotate through four different
-stop shapes so the player is not drawing the same line 25 times:
+**Result: 40 rooms, 40 distinct stroke signatures.** The ball rooms use nine different stroke
+topologies — post, low post, far post, slanted plate, V, cradle, L canopy, bracket, and a plate hung
+off the sill — with no shape used more than four times:
 
-| Stop | Rooms | What the hand draws |
+| Stop family | Rooms | What the hand draws |
 |---|---|---|
-| bar on the chute | 16, 20, 24, 31, 35, 39 | short vertical bar, standing on the ramp |
-| V wedge | 17, 21, 25, 32, 36, 40 | three points, a crook the ball drops into |
-| trough / ladle | 18, 22, 26, 33, 37 | four points, a box open at the top |
-| diagonal brace | 19, 23, 30, 34, 38 | a long slanted line ending proud of the chute |
-| spout + stop | 27, 28, 29 | two strokes: carry the water, then stop the ball |
-| split + stop | 26, 30 | two strokes: split the stream, then stop the ball |
+| post (short, tall, far) | 16, 17, 19, 22, 23, 24, 25 | a vertical bar standing on the floor in the ball's lane |
+| slanted plate | 18, 31, 33, 39, 40 | two points, leaning across the drop line |
+| V / crook | 20, 21, 27, 30, 34 | three points, a pocket the ball drops into |
+| cradle / basket | 28, 32, 35 | an L that catches the ball beside the mouth |
+| L canopy / bracket | 26, 29 | a post with an arm over the mouth |
+| plate hung off the sill | 36, 37, 38 | two points, anchored on the sill itself |
+
+### What the delivery gate found that the stroke gate could not
+
+Rebuilding the ball rooms took three attempts, and the first two were rejected by measurement, not
+by taste:
+
+1. **The stop-stroke search wrote one picture.** With a fixed vocabulary screened per room, the
+   solver kept choosing the same post; twenty rooms' worth of candidates collapsed to one shape.
+   Fixed by enumerating *every* working stroke for every room and then matching rooms to shapes
+   globally, so a room cannot take a shape that another room needs more.
+2. **A ball dropped into the mouth cannot be stopped without blocking the pour** — unless the tap
+   sits *below* the catch. That is why the tap delay exists, and why the sill rooms catch the ball
+   in the air rather than fencing the mouth.
+
+### What did not work, and is not in the set
+
+Probed this round and rejected, because they would have been fiction:
+
+* **The chute itself.** A ball leaving a 0.22–0.34 rad plank at 62 px above the rim overshoots the
+  mouth every time (it crosses the rim line at y ≈ 457 and lands 130 px past the cup). Every chute
+  room had to be converted to a throw or a sill.
+* **Deflecting a ball on the floor.** A ball that has left its chute moves slowly and a drawn
+  deflector only nudges it.
+* **Ramming a dropped ball out of the air with a swinging ink body.** The ball wins every time.
+* **A ball that must be stopped by water.** A full spout moves a heavy ball ~6 px.
+* **Moving a perched ball by 6 px.** The tip off a sill edge is knife-edge: 6 px either way flips
+  whether it lands in the mouth. The sill geometry is set once and proved; the ball may sit up to
+  6 px into the sill it is perched on, and `layout-audit` allows exactly that and no more.
+
+### What this set is not
+
+The 25 ball rooms still share one question — *the glass is being spoiled, stop it* — and the props
+are thinner than the previous plan promised: no hot pads, fans, pins or second cups in the ball
+rooms. What differs is where the ball comes from, how fast, which side, when the tap opens, where
+the cup stands, and what the line has to be. Adding the trap props back on top of the delivery
+variety is the next body of work, not another pass over the delivery.
 
 ### What did not work, and is not in the set
 

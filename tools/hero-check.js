@@ -21,7 +21,7 @@ const WAVY = [0, 1, 2, 3];
 
 function levelOf(room) {
   return {
-    id: room.id, name: room.name, tip: room.tip, ink: 900,
+    id: room.id, name: room.name, tip: room.tip, ink: 900, delay: room.delay || 0,
     faucets: (room.faucets || [room.faucet]).map((f) => ({
       x: f.x, y: f.y, rate: f.rate || 26, total: f.total || 110,
       spread: f.spread == null ? 0.55 : f.spread,

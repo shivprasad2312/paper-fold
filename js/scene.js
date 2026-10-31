@@ -362,6 +362,10 @@
         });
         b.kind = def.kind || 'heavy';
         b.ballDef = def;
+        // A ball may be thrown by the level: an initial velocity is what lets a ball
+        // arrive without a ramp. It is not driven — nothing adds force after frame
+        // one; it is a projectile, and gravity and the player's ink own it from then on.
+        if (def.vx || def.vy) Body.setVelocity(b, { x: def.vx || 0, y: def.vy || 0 });
         Composite.add(this.world, b);
         this.balls.push({ def, body: b, kind: b.kind });
       });
@@ -822,7 +826,10 @@
     start() {
       if (this.state === 'idle') {
         this.state = 'pouring';
-        this.startDelay = 0.3;
+        // A level can hold the tap shut for a beat (`delay`) so whatever is
+        // already in motion — a thrown or dropped ball — arrives first. The
+        // player still gets the usual moment to plan.
+        this.startDelay = 0.3 + (this.level.delay || 0);
       }
     }
 

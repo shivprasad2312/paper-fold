@@ -130,10 +130,12 @@ ships it only if it survives six twitchy hands and four wavy ones.
 
 Then **rooms 16–40** turn the ball on. Every one of them is a room where the glass is already being
 threatened by a loose ball before the first droplet lands, and a ball that touches the mouth spoils
-the glass outright — the room can no longer be won. The ink has to stop the ball (a bar standing on
-the ramp it rolls down), catch it (a drawn ladle), stop two at once (the queue), or do it while also
-carrying the tap's stream across the room (spout and chock). The family each room belongs to is in
-[docs/HERO-SET.md](docs/HERO-SET.md) §2a.
+the glass outright — the room can no longer be won. **No ball arrives down a slope**: eleven are
+thrown in from either side (flat, lobbed, sinking, backhanded), fourteen are tipped off the edge of
+a wooden sill, and the tap waits a beat so the ball gets there first. Your line has to stop the ball
+in the air or in its lane — a post, a slanted plate, a V, a cradle, an L canopy, or a plate hung off
+the sill — and then let the water through. `hero-audit` fails the set if slopes come back. The full
+roster is in [docs/LEVEL-PLAN-40.md](docs/LEVEL-PLAN-40.md) and [docs/HERO-SET.md](docs/HERO-SET.md).
 
 Nothing in a level is driven; a pinned bar only turns
 when water or a line hits it. Loose balls come in two weights: heavy (orange, dead) and light (teal,

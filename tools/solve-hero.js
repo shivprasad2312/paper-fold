@@ -49,6 +49,7 @@ function levelOf(room) {
     name: room.name,
     tip: room.tip,
     ink: 900,
+    delay: room.delay || 0,
     faucets: (room.faucets || [room.faucet]).map((f) => ({
       x: f.x, y: f.y, rate: f.rate || 26, total: f.total || 110,
       spread: f.spread == null ? 0.55 : f.spread,
@@ -466,6 +467,7 @@ if (EMIT) {
       L.push('      name: ' + JSON.stringify(lv.name) + ',');
       L.push('      tip: ' + JSON.stringify(lv.tip) + ',');
       L.push('      ink: ' + lv.ink + ',');
+      if (lv.delay) L.push('      delay: ' + num(lv.delay) + ',');
       if (lv.faucets.length === 1) {
         const f = lv.faucets[0];
         L.push('      faucet: { x: ' + f.x + ', y: ' + f.y + ', rate: ' + f.rate + ', total: ' + f.total + ' },');
@@ -496,7 +498,8 @@ if (EMIT) {
       }
       if (lv.balls.length) {
         L.push('      balls: [');
-        lv.balls.forEach((b) => L.push('        { x: ' + num(b.x) + ', y: ' + num(b.y) + ', r: ' + (b.r || 22) + ', kind: \'' + (b.kind || 'heavy') + '\' },'));
+        lv.balls.forEach((b) => L.push('        { x: ' + num(b.x) + ', y: ' + num(b.y) + ', r: ' + (b.r || 22) + ', kind: \'' + (b.kind || 'heavy') + '\'' +
+          (b.vx ? ', vx: ' + num(b.vx) : '') + (b.vy ? ', vy: ' + num(b.vy) : '') + ' },'));
         L.push('      ],');
       }
       if (lv.pins && lv.pins.length) {

@@ -12,6 +12,8 @@
      offset     where the cup sits relative to the tap. All 70 old rooms were
                 +200 px or more to the right; a set of rooms should not be.
      verb       one word per room, declared in tools/hero-rooms.js.
+     delivery   how the ball gets there — thrown, tipped off a sill, dropped,
+                or (the failure mode of the last set) rolled down a slope.
 
    node tools/hero-audit.js [--verbose]
    ========================================================================== */
@@ -137,6 +139,32 @@ ballRooms.forEach((r) => {
   if (idle.won) fail('room ' + r.id + ' ' + r.name + ' has a ball but wins untouched — the ball is decoration');
 });
 
+// ---- 3c. how the ball ARRIVES has to vary, not just how the stroke stops it.
+// This is the check the last set would have failed: forty rooms, four stop
+// shapes, and the ball rolling down a tilted plank in every single one. A
+// player reads the delivery first, so a set that is 90% chutes is one room
+// drawn 25 times whatever the strokes look like.
+const delivery = (lv) => {
+  const balls = lv.balls || [];
+  if (!balls.length) return 'none';
+  if (balls.some((b) => b.vx || b.vy)) return 'thrown';
+  const tilted = lv.platforms.filter((p) => Math.abs(p.angle || 0) > 0.05);
+  const restsOn = (b, p) => Math.abs(b.x - p.x) < p.w / 2 + 40 &&
+    b.y + (b.r || 22) > p.y - p.h / 2 - 46 && b.y < p.y + p.h;
+  if (balls.some((b) => tilted.some((p) => restsOn(b, p)))) return 'chute';
+  if (balls.some((b) => lv.platforms.some((p) => restsOn(b, p) && Math.abs(p.angle || 0) <= 0.05))) return 'sill';
+  return 'drop';
+};
+const deliveries = rows.map((r) => { r.delivery = delivery(HG.LEVELS.find((l) => l.id === r.id)); return r.delivery; });
+const tally = {};
+deliveries.forEach((d) => { tally[d] = (tally[d] || 0) + 1; });
+const sloped = tally.chute || 0;
+if (sloped > 6) fail(sloped + ' of ' + ballRooms.length + ' ball rooms deliver the ball down a slope — that is ' +
+  '"the same thing in every level" again (limit 6)');
+if (ballRooms.length && new Set(deliveries.filter((d) => d !== 'none')).size < 2) {
+  fail('every ball arrives the same way (' + deliveries[0] + ')');
+}
+
 // ---- 4. the ink budget has to mean something
 rows.filter((r) => r.ink > r.used * 2.2).forEach((r) =>
   fail('room ' + r.id + ' hands out ' + (r.ink / r.used).toFixed(1) + 'x the ink its own answer needs'));
@@ -152,6 +180,7 @@ if (VERBOSE) {
   console.log('distinct cup offsets     ' + offsets.size + ' of ' + rows.length);
   console.log('distinct verbs           ' + verbs.size);
   console.log('rooms needing 2+ anchors ' + lean);
+  console.log('ball deliveries          ' + JSON.stringify(tally));
 }
 
 console.log(fails ? fails + ' hero check(s) failed' : 'all hero checks pass');

@@ -78,26 +78,40 @@ It is not decoration, so it is enforced twice:
   mouth before the glass fills. `solve-hero` refuses any room that solves itself, so "the ball
   lands in the cup" is the *starting* condition of all 25 rooms.
 
-What the ink can actually do about a ball is narrow, and the whole half is built on the three things
-that survive the jitter gate:
+What the ink can actually do about a ball is narrow, and the whole half is built on it. **It is the
+delivery that varies first**, then the stop — see [LEVEL-PLAN-40.md](LEVEL-PLAN-40.md) for the room
+by room breakdown.
 
-| Family | Rooms | The ball… | The answer |
+| Delivery | Rooms | The ball… | What the line has to do |
 |---|---|---|---|
-| **chock** | 9, 10, 17, 18, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 | rolls down a static ramp or wedge whose foot overhangs the mouth | one short bar standing *on* the ramp, far enough upstream that the ball cannot jump it |
-| **trough** | 12 | rolls down the same way | a drawn **ladle** — the stroke folds into a V and catches it |
-| **spout + chock** | 13, 14, 19 | rolls in from the far side | two strokes: a **spout** off a crate that carries the tap's stream across, and the chock |
-| **two balls** | 11 | two of them, nose to tail | one chock — the front ball stops the back one |
+| **thrown** | 16–20, 22–27 | flies in from off-screen at 7–16 px/frame — flat, lobbed, sinking, or backhanded from the right | stop it in its lane or catch it under the arc, then let the pour through |
+| **sill** | 21, 28–40 | perches on the far edge of a wooden sill and tips off, falling ~60 px across | catch it in the air, beside the mouth or on the rim line |
+| **slope** | none | — | the ramp delivery is gone, and `hero-audit` fails the set if it returns |
+
+| Stop shape | Rooms | What the hand draws |
+|---|---|---|
+| post | 16, 17, 19, 22, 23, 24, 25 | a bar standing on the floor in the ball's lane |
+| slanted plate | 18, 31, 33, 39, 40 | two points, leaning across the drop line |
+| V / crook | 20, 21, 27, 30, 34 | three points, a pocket the ball drops into |
+| cradle | 28, 32, 35 | an L that catches the ball beside the mouth |
+| L canopy / bracket | 26, 29 | a post with an arm over the mouth |
+| plate hung off the sill | 36, 37, 38 | two points, anchored on the sill itself |
+
+Because the ball now arrives *before* the water, a ball room can hold its tap shut for a beat
+(`delay`): 1.6 s for thrown rooms, 2.2 s for sill rooms. The ball lands and spoils the cup if you do
+nothing; then the tap opens and the pour is the second half of the puzzle.
 
 Measured limits, all of them found the hard way:
 
-* A **vertical barrier does not stop a ball.** A free-standing stroke is a loose rigid body; the ball
-  leans on it, it topples, and the ball rolls over the top. Only a stroke that ends up *resting on
-  scenery* holds — which is why every chock in the set stands on the ramp it stops the ball on.
+* A **free-standing stroke does not stop a ball.** A stroke is a loose rigid body; a ball leaning on
+  one that touches nothing topples it. Every stop in the set rests its foot on the floor or on a
+  sill.
 * A ball cannot be **lifted** over a glass. Drawn ramps can redirect a ball that is already moving and
   can stop one dead; they cannot raise its centre of mass more than a few pixels.
 * A ball that merely **falls short** of the glass is not a ball room. It has to be dangerous at t = 0.
-* The mouth is 108 px wide and the ball is 52, so where the ball leaves its ramp decides everything:
-  the foot has to overhang the mouth *before* its centre — `cup.x − 32` for a left-hand ramp.
+* The mouth is 108 px wide and the ball is 52, so where the ball *crosses the rim line* decides
+  everything. A thrown ball must be aimed at a cup placed where its arc descends, and a tipped ball
+  falls ~60 px across from the sill edge — `edgeX ≈ cup.x + 60`.
 * A ball rolling along the **floor** cannot reach a cup that stands under the tap: the falling stream
   pushes it back. Balls arrive from above or not at all.
 
@@ -150,8 +164,8 @@ Current state:
 verify        40/40 levels solvable with their reference line
 layout        40 rooms clean, 0 pen leaks, every glass supported
 physics       all checks pass (greedy taps resized so a room is not a flood)
-hero-audit    all checks pass — 40 distinct stroke signatures, 40 verbs, every ball room lethal
-              when played untouched
+hero-audit    all checks pass — 40 distinct stroke signatures, 39 verbs, every ball room lethal
+              when played untouched, and 11 thrown / 14 sill / 0 slope deliveries
 hero-check    40/40 won; hands 4–6 of 6, wavy 3–4 of 4 on every room
 smoke         no runtime errors, unlock button and query string still work
 build         40 rooms, one self-contained html
@@ -166,12 +180,13 @@ build         40 rooms, one self-contained html
 * **Two rooms still slide their glass**: 3 Two Heights (87 px) and 1 The Pit (37 px). They win, and
   the slide is the point — the cup is supposed to settle onto the ledge you draw — but a player sees
   movement, so it is in `docs/TESTING.md` for a human look.
-* **The 25 ball rooms share one question** — *stop the ball before the glass* — and differ in the
-  ramp (plank or wedge), its material, its side, the cup's height and width, and whether the tap is
-  over the cup or has to be spouted across. That is real variety in the picture, but it is one idea
-  five ways, not twenty-five ideas. The engine narrows the space: a ball can only spoil a cup by
-  arriving from above the rim, and only a stroke resting on scenery can stop it. Any new ball verb
-  has to come out of that.
+* **The 25 ball rooms share one question** — *stop the ball before the glass*. What differs is how
+  the ball arrives (thrown from either side, flat, lobbed, sinking; or tipped off a sill at a dozen
+  heights and distances), when the tap opens, where the cup stands, and the shape of the line. The
+  ramp delivery that every ball room used to share is gone: `hero-audit` fails the set if more than
+  6 of 25 arrive down a slope. The props are still thin, though — no hot pads, fans, pins or second
+  cups in the ball rooms yet — so the next pass adds traps on top of this variety rather than
+  rebuilding the delivery again.
 * **Fans, hot plates and seesaws are still unused.** The machinery is in the engine and the level
   format; none of the current 33 rooms needs it.
 * **Cup slides**: the two pilot rooms that move their glass (3 Two Heights, 1 The Pit) still do. They

@@ -10,7 +10,9 @@
    This checks the things a proof cannot:
 
      1. nothing starts inside scenery — glass, crate or ball overlapping a
-        platform, and glass overlapping another body
+        platform, and glass overlapping another body. A ball may sit up to 6 px
+        into a sill it is perched on (that is what a perch is); every other
+        body, and any deeper overlap, fails.
      2. every glass that is meant to stand has a base under it
      3. the pen refuses ink inside every solid, at every angle (sampled grid)
      4. nothing starts outside the world
@@ -105,12 +107,19 @@ for (const lv of HG.LEVELS) {
   // force ever tries to separate them. A *dynamic* body inside scenery is a bug:
   // the solver pushes it out over the first frames and the player sees the cup
   // jump, or the wire slide.
+  // A ball perched on the edge of a sill is *seated*, not buried: it rests on
+  // the corner with a few px of the face under it, which is what makes it tip
+  // instead of balancing. Anything deeper than that is the cup-jump bug again,
+  // and a glass or a crate never gets the allowance.
+  const SEAT = 6;
   const hits = [];
   loose.forEach((L) => {
     if (!L.dynamic) return;
     scenery.forEach((S) => {
       const d = depth(L.poly, S.poly);
-      if (d > 1) hits.push(L.kind + ' ' + L.i + ' is ' + d.toFixed(1) + ' px inside a ' + S.kind);
+      if (d <= 1) return;
+      if (L.kind === 'ball' && d <= SEAT) return;
+      hits.push(L.kind + ' ' + L.i + ' is ' + d.toFixed(1) + ' px inside a ' + S.kind);
     });
   });
   for (let a = 0; a < loose.length; a++) {
