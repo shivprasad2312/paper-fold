@@ -26,7 +26,9 @@
       this.renderer = new HG.Renderer(this.canvas);
       HG.UI.init(this);
       this.bindInput();
-      this.startLevel(1, { silentScreen: true });
+      const jump = this.testMode();
+      this.showTestBadge();
+      this.startLevel(jump || 1, { silentScreen: !jump });
       this.lastTime = performance.now();
       this.running = true;
       requestAnimationFrame(this.loop.bind(this));
@@ -39,6 +41,68 @@
 
     resize() {
       this.renderer.resize();
+    },
+
+    // ------------------------------------------------------------- test mode
+    // A reviewer cannot play seventy rooms by finishing sixty-nine of them
+    // first, and a level that is only reachable by earning it is a level that
+    // never gets looked at. So the address bar is the key:
+    //
+    //   ?unlock=all     every level open, from the first paint
+    //   ?unlock=reset   back to normal progression
+    //   ?level=37       open that level straight away (works with ?unlock=all;
+    //                   without it, it still respects the saved progress)
+    //   ← → step a level · R retry · Esc back to the grid
+    //
+    // Nothing in normal play changes: with no query string the game is exactly
+    // the game.
+    testMode() {
+      let q = null;
+      try {
+        q = new URLSearchParams(global.location.search);
+      } catch (e) { return 0; }
+      if (!q) return 0;
+      const unlock = (q.get('unlock') || '').toLowerCase();
+      if (unlock === 'all' || unlock === 'dev' || unlock === 'yes') {
+        HG.save.unlocked = HG.LEVELS.length;
+        HG.save.testOpen = true;
+      } else if (unlock === 'reset' || unlock === 'off' || unlock === 'no') {
+        HG.save.unlocked = 1;
+        HG.save.testOpen = false;
+      }
+      const want = parseInt(q.get('level') || '0', 10);
+      if (want >= 1 && want <= HG.LEVELS.length) {
+        if (want <= HG.save.unlocked) return want;
+      }
+      return 0;
+    },
+
+    testLabel() {
+      return 'TEST · ' + this.levelId + '/' + HG.LEVELS.length + ' · ← → step · R retry · Esc levels';
+    },
+
+    // A reviewer has to be able to tell "open" from "earned" at a glance, so the
+    // unlock is labelled on screen and cannot be mistaken for progress.
+    showTestBadge() {
+      if (!HG.save.testOpen || this.testBadge) return;
+      const el = document.createElement('div');
+      el.id = 'test-badge';
+      el.style.cssText = [
+        'position:fixed', 'left:50%', 'transform:translateX(-50%)', 'bottom:6px',
+        'padding:3px 10px', 'border-radius:10px', 'z-index:40',
+        'font:600 11px/1.5 ui-monospace,Menlo,monospace', 'letter-spacing:.02em',
+        'color:#2d3b47', 'background:rgba(255,212,71,.92)',
+        'border:1px solid rgba(45,59,71,.35)', 'pointer-events:none', 'white-space:nowrap',
+      ].join(';');
+      el.textContent = this.testLabel();
+      document.body.appendChild(el);
+      this.testBadge = el;
+    },
+
+    // Which level a tap on "Play" should open.
+    resumeLevel() {
+      const lv = M.clamp(this.levelId || 1, 1, HG.LEVELS.length);
+      return lv;
     },
 
     // ------------------------------------------------------------- level flow
@@ -57,6 +121,7 @@
       this.pointer.world = null;
       this.acc = 0;
 
+      if (this.testBadge) this.testBadge.textContent = this.testLabel();
       this.scene.onWin = () => this.onWin();
       this.scene.onLose = () => this.onLose();
 
@@ -151,6 +216,17 @@
 
       global.addEventListener('keydown', (e) => {
         if (e.key === 'r' || e.key === 'R') { if (this.mode === 'play') this.restart(); }
+        // Reviewer keys. Stepping through seventy rooms by hand should not need
+        // a trip through the level grid every time.
+        if ((e.key === 'ArrowRight' || e.key === 'ArrowLeft') && this.mode === 'play') {
+          e.preventDefault();
+          const d = e.key === 'ArrowRight' ? 1 : -1;
+          const next = M.clamp(this.levelId + d, 1, HG.LEVELS.length);
+          if (next !== this.levelId) {
+            HG.UI.hideDialogs();
+            this.startLevel(next, { silentScreen: true });
+          }
+        }
         if (e.key === 'Escape') {
           if (this.mode === 'play') {
             HG.UI.buildLevelGrid();

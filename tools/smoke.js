@@ -179,6 +179,32 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   w.dispatchEvent(up3);
   check('tap keeps pouring while drawing again', after < before - 1);
 
+  // ---- test mode: ?unlock=all must open everything, and say so
+  {
+    const dom2 = new JSDOM(html, {
+      runScripts: 'dangerously', pretendToBeVisual: true,
+      url: 'https://example.com/?unlock=all&level=37',
+      beforeParse(window) {
+        window.HTMLCanvasElement.prototype.getContext = function (type) {
+          if (!this.__ctx) this.__ctx = createCanvas(this.width || 1280, this.height || 720).getContext(type);
+          return this.__ctx;
+        };
+        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientWidth', { get() { return 1280; } });
+        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientHeight', { get() { return 720; } });
+      },
+    });
+    await wait(600);
+    const w2 = dom2.window;
+    check('?unlock=all opens every level', w2.HG.save.unlocked === w2.HG.LEVELS.length,
+      w2.HG.save.unlocked + '/' + w2.HG.LEVELS.length);
+    check('?level=37 jumps straight there', w2.__HG.Game.levelId === 37, 'level ' + w2.__HG.Game.levelId);
+    const badge = w2.document.querySelector('#test-badge');
+    check('test mode is labelled on screen', !!badge && /TEST/.test(badge.textContent));
+    check('the badge is not written to the save', !JSON.parse(
+      w2.localStorage.getItem('happyglass.save.v1') || '{}').testOpen);
+    dom2.window.close();
+  }
+
   console.log(report.join('\n'));
   if (errors.length) {
     console.log('\nRUNTIME ERRORS:\n' + errors.join('\n'));

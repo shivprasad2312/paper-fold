@@ -14,6 +14,20 @@ Vanilla JS + [Matter.js](https://brm.io/matter-js/) physics. No frameworks, no b
 no runtime dependencies. 70 hand-tuned levels, three-star ink scoring, sound synthesised with the
 WebAudio API (no audio files), and a fully offline single-file build.
 
+### Testing all 70 rooms without earning them
+
+Add a query string to the address (works on the dev server and on the built file):
+
+| URL | What it does |
+|---|---|
+| `index.html?unlock=all` | every level open in the grid, with a yellow `TEST` badge on screen |
+| `index.html?unlock=all&level=37` | straight into level 37 |
+| `index.html?unlock=reset` | back to normal progression |
+
+During play: **← →** step a level, **R** retry, **Esc** back to the grid. The badge only appears while
+the levels are open this way, so an unlocked build can never be mistaken for real progress — and the
+flag itself is not written to storage.
+
 ```
 npm start            # http://localhost:4173
 npm run build        # dist/happy-glass.html  (one self-contained file, open it anywhere)

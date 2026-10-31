@@ -133,6 +133,9 @@
         for (const k in data.stars) if (data.stars[k] > 0) t++;
         return t;
       },
+      // Session-only: "this page was opened with the levels unlocked". Deliberately
+      // not written to storage — close the tab and the game is the game again.
+      testOpen: false,
       reset() { data = { stars: {}, unlocked: 1, sound: data.sound }; flush(); },
     };
   })();
