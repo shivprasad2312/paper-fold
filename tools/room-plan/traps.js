@@ -64,4 +64,38 @@ const CROSSWIND = {
   balls: [{ x: 320, y: 640, r: 26, kind: 'heavy' }],
 };
 
-module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND };
+// Proved: idle 0.00, answer 0.50. The tap pours onto a ramp that runs AWAY
+// from the cup, so the water's first move is the wrong one and the stroke has
+// to make the turn. Intended shape: a bent line (deflect), not a straight chute.
+const DOWNHILL = {
+  id: 27, name: 'Downhill', verb: 'deflect', intent: 'chute',
+  answer: [[640, 412], [812, 357], [984, 506]],
+  tip: 'It pours onto a slope that runs the wrong way. Make the turn.',
+  delay: 0.4,
+  faucet: { x: 700, y: 200, rate: 26, total: 115 },
+  glasses: [{ x: 980, y: 621, w: 108, h: 118, need: 0.5 }],
+  // Geometry copied from the skeleton that proved it: the floor is 2 px
+  // higher here than FLOOR above, and that 2 px is the difference between
+  // 0.50 and 0.45. Do not "tidy" this to FLOOR.
+  stage: [{ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+          { x: 640, y: 430, w: 320, h: 20, kind: 'teal', angle: -0.2 }],
+  balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// Proved: idle 0.00/0.00, answer fills 0.52 and 0.78. Two cups 240 px apart
+// with the tap in the middle: no chute can serve both, so the line has to sit
+// in the stream and let it break over the edge. 6 of 120 screened candidates
+// won, all of them beams rather than chutes.
+const TWO_WELLS = {
+  id: 21, name: 'Two Wells', verb: 'split', intent: 'beam',
+  answer: [[640, 672], [966, 506]],
+  tip: 'One stream, two cups. Give it an edge to break over.',
+  delay: 0.4,
+  faucet: { x: 820, y: 200, rate: 30, total: 170 },
+  glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 },
+            { x: 940, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [{ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }],
+  balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
+};
+
+module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND, DOWNHILL, TWO_WELLS };

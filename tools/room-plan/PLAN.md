@@ -12,16 +12,16 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 |---|------|----------|-------------------------|--------|
 | 16 | Hot Cinder | hot pad on the shelf the tap drains onto | catch water above the pad, carry it across | **proved** 0.52 |
 | 17 | Crosswind | fan across the gap | carry fast enough that the wind cannot take it | **proved** 0.50 |
-| 18 | The Moat | hot floor either side of a raised cup | deliver over the moat, land in the mouth | planned |
+| 18 | The Moat | hot floor either side of a raised cup | deliver over the moat, land in the mouth | **blocked** 0/192: carry too long |
 | 19 | Furnace Floor | hot floor directly under the tap | catch in flight, carry over | planned |
-| 20 | The Neck | two columns 70 px apart above the cup | funnel through the gap | planned |
-| 21 | Two Wells | two cups, one tap | split the stream | planned |
+| 20 | The Neck | two columns 70 px apart above the cup | funnel through the gap | **blocked** 0/264: walls overlapped the cup, retried wider and still 0 |
+| 21 | Two Wells | two cups, one tap | split the stream | **proved** 0.52/0.78 |
 | 22 | Roof Run | overhang above the cup | carry over the overhang, drop under it | planned |
 | 23 | The Sill | cup on a high narrow sill | climb: chute from a higher shelf | planned |
 | 24 | Drop Shaft | cup at the bottom of a shaft | funnel into the shaft mouth | planned |
 | 25 | The Cage | cup boxed in, open only at the top | land it vertically | planned |
-| 26 | Long Carry | tap far left, cup far right, hot floor between | span two anchors in one line | planned |
-| 27 | Downhill | a ramp running away from the cup | divert water off the ramp | planned |
+| 26 | Long Carry | tap far left, cup far right, hot floor between | span two anchors in one line | **blocked** 0/164: one straight line cannot turn |
+| 27 | Downhill | a ramp running away from the cup | divert water off the ramp | **proved** 0.50 |
 | 28 | The Pockets | three pockets, one leads to the cup | choose the pocket | planned |
 | 29 | The Wedge | cup behind a wedge | carry over the wedge | planned |
 | 30 | Twin Taps | two taps, two cups | one line serving both | planned |
@@ -49,3 +49,9 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
    between x 760–780 at y 480–520).
 5. The ball stays out of the mouth's vertical. It is scenery that punishes a
    careless stroke, not the clock the level runs on.
+6. **Copy the geometry, do not tidy it.** The first replay of Downhill filled
+   0.45 instead of 0.50 because the floor was 2 px higher in the file than in
+   the skeleton that proved it. A proved room is proved at its exact numbers.
+7. A raised cup is the hardest thing here: the mouth sits 60 px above the
+   platform it rests on, so every chute has to end above that, and the two
+   attempts at it (The Moat, The Neck) found no winning line at all.
