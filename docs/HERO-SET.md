@@ -1,8 +1,12 @@
-# The hero set — eight rooms, eight verbs, eight proofs
+# The hero set — 33 rooms, 33 verbs, 33 proofs
 
 This document replaces the seventy-room set. It says what changed, why the old set could not be
 fixed, and how every room in the new one is proved. The design grammar it follows comes from a
-teardown of a competitor's opening levels: **[COMPETITOR-GRAMMAR.md](COMPETITOR-GRAMMAR.md)**.
+teardown of a competitor's levels: **[COMPETITOR-GRAMMAR.md](COMPETITOR-GRAMMAR.md)**.
+
+The set ships in two halves. **Rooms 1–8** are the original pilot, unchanged: water only, one verb
+each. **Rooms 9–33** are the ball rooms: every one of them puts a loose ball on its way into the
+glass, and the drawing has to stop it without stealing the pour.
 
 The old set is not deleted history — it is the commit `7a5e29c` on this branch, and `tools/scenes.js`
 still holds it. It was **beatable**, which is what it had been asked for, but fifty of its seventy
@@ -36,9 +40,8 @@ Two mechanical causes, not just taste:
 
 ## 2. What the new set is
 
-Ten verbs were designed; eight are proved. Each room states its verb and the shape its answer is
-*meant* to be (`intent`), and the solver tries that family first — the set's variety is authored, not
-stumbled into.
+Each room states its verb and the shape its answer is *meant* to be (`intent`), and the solver
+proves that shape rather than whatever it stumbles on. Rooms 1–8 (the water pilot):
 
 | # | Room | Verb | The question | The stroke |
 |---|---|---|---|---|
@@ -51,14 +54,50 @@ stumbled into.
 | 7 | Cascade | cascade | the top cup fills first, then overflows | a short **shelf** that fills the top cup first |
 | 8 | Under The Ledge | overhang | the cup is *under* the shelf | a **roof** that brings the stream in low |
 
-Two further verbs were designed and **would not prove**, so they are not in the set — that is the
-honest part of this document:
+Two further water verbs were designed and **would not prove**, so they are not in the set — that is
+the honest part of this document:
 
 * **arch** (get the water over a tall wall). The wall has to be short enough to arch over and tall
   enough that the stream cannot simply fall past it; every geometry I tried either solved itself or
   had no drawable answer. Kept in `tools/hero-rooms.js` history, not shipped.
-* **deflect around rolling beads**. The balls never reached the cup — the cup filled anyway, so the
-  room had no puzzle. A prop that the water ignores is decoration, and `hero-audit` now fails it.
+* **protect a cup from its own pour**. Every version either knocked the cup over on its own or filled
+  it fine, which is no puzzle at all.
+
+### 2a. The ball rooms (9–33)
+
+The rule the user set for this half is exactly one sentence: **a ball may not end up in the glass.**
+It is not decoration, so it is enforced twice:
+
+* **In the engine.** `js/scene.js` tests each ball's circle against the glass mouth every frame. A
+  ball that so much as dips into the mouth — including one riding the water surface — sets
+  `glass.spoiled`, which cancels the fill and fails the room after 0.35 s. A cup with a ball in it
+  can never be won.
+* **In the authoring.** Every ball room is built so that, with an empty pen, the ball reaches the
+  mouth before the glass fills. `solve-hero` refuses any room that solves itself, so "the ball
+  lands in the cup" is the *starting* condition of all 25 rooms.
+
+What the ink can actually do about a ball is narrow, and the whole half is built on the three things
+that survive the jitter gate:
+
+| Family | Rooms | The ball… | The answer |
+|---|---|---|---|
+| **chock** | 9, 10, 17, 18, 20, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33 | rolls down a static ramp or wedge whose foot overhangs the mouth | one short bar standing *on* the ramp, far enough upstream that the ball cannot jump it |
+| **trough** | 12 | rolls down the same way | a drawn **ladle** — the stroke folds into a V and catches it |
+| **spout + chock** | 13, 14, 19 | rolls in from the far side | two strokes: a **spout** off a crate that carries the tap's stream across, and the chock |
+| **two balls** | 11 | two of them, nose to tail | one chock — the front ball stops the back one |
+
+Measured limits, all of them found the hard way:
+
+* A **vertical barrier does not stop a ball.** A free-standing stroke is a loose rigid body; the ball
+  leans on it, it topples, and the ball rolls over the top. Only a stroke that ends up *resting on
+  scenery* holds — which is why every chock in the set stands on the ramp it stops the ball on.
+* A ball cannot be **lifted** over a glass. Drawn ramps can redirect a ball that is already moving and
+  can stop one dead; they cannot raise its centre of mass more than a few pixels.
+* A ball that merely **falls short** of the glass is not a ball room. It has to be dangerous at t = 0.
+* The mouth is 108 px wide and the ball is 52, so where the ball leaves its ramp decides everything:
+  the foot has to overhang the mouth *before* its centre — `cup.x − 32` for a left-hand ramp.
+* A ball rolling along the **floor** cannot reach a cup that stands under the tap: the falling stream
+  pushes it back. Balls arrive from above or not at all.
 
 ---
 
@@ -106,14 +145,14 @@ audit could not:
 Current state:
 
 ```
-verify        8/8 rooms solvable with their reference line
-layout        8 rooms clean, 0 pen leaks, every glass supported
+verify        33/33 levels solvable with their reference line
+layout        33 rooms clean, 0 pen leaks, every glass supported
 physics       all checks pass (greedy taps resized so a room is not a flood)
-hero-audit    all checks pass — 8 verbs, 6 distinct cup offsets, 3 rooms that need the line
-              to bridge two or more pieces of scenery
-flaky         firm hand ±2.4 px: 8/8   light hand ±1.2 px: 8/8   replay clean: 8/8
+hero-audit    all checks pass — 33 verbs, 33 distinct pictures, 5 rooms where the line has to
+              lean on two or more pieces of scenery
+hero-check    33/33 won; hands 4–6 of 6, wavy 3–4 of 4 on every room
 smoke         no runtime errors, unlock button and query string still work
-build         8 rooms, one self-contained html
+build         33 rooms, one self-contained html
 ```
 
 ![All eight rooms](levels.png)
@@ -125,8 +164,14 @@ build         8 rooms, one self-contained html
 * **Two rooms still slide their glass**: 3 Two Heights (87 px) and 1 The Pit (37 px). They win, and
   the slide is the point — the cup is supposed to settle onto the ledge you draw — but a player sees
   movement, so it is in `docs/TESTING.md` for a human look.
-* **No room yet has a moving prop** (ball, fan, hot plate, seesaw). The machinery is in the engine and
-  in the level format; the verbs that need it are the next chapter, not this one.
-* **Eight rooms is not a game.** Six more verbs are designed (weigh, dam, protected target, two
-  streams merge, invert, stack) and each needs a solver family before it can ship — that is the next
-  body of work, and it is why this document calls the set a pilot.
+* **The 25 ball rooms share one question** — *stop the ball before the glass* — and differ in the
+  ramp (plank or wedge), its material, its side, the cup's height and width, and whether the tap is
+  over the cup or has to be spouted across. That is real variety in the picture, but it is one idea
+  five ways, not twenty-five ideas. The engine narrows the space: a ball can only spoil a cup by
+  arriving from above the rim, and only a stroke resting on scenery can stop it. Any new ball verb
+  has to come out of that.
+* **Fans, hot plates and seesaws are still unused.** The machinery is in the engine and the level
+  format; none of the current 33 rooms needs it.
+* **Cup slides**: the two pilot rooms that move their glass (3 Two Heights, 1 The Pit) still do. They
+  win, and the slide is the point, but a player sees movement — it stays in `docs/TESTING.md` for a
+  human look.

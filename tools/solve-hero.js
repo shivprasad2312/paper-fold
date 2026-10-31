@@ -286,6 +286,41 @@ function solve(room) {
   const idle = play(HG, room.id, [], { frames: 60 * 26, level: lv });
   if (idle.won) { penScene.destroy(); return { id: room.id, failed: true, reason: 'the room solves itself' }; }
 
+  const authored = room.answers || (room.answer ? [room.answer] : null);
+  if (authored) {
+    // one stroke, or several when the room needs a spout and a chock at once
+    const ctrls = authored.map((st) => controlPoints(st.map((q) => ({ x: q[0], y: q[1] }))));
+    const played = play(HG, room.id, ctrls.map((c) => asStroke(c)), { frames: 60 * 30, level: lv });
+    if (!played.won) {
+      penScene.destroy();
+      return { id: room.id, failed: true, reason: 'the authored answer does not win (' + played.state + ')' };
+    }
+    let twitch = 0;
+    for (let k = 0; k < JITTER.length; k++) {
+      const d = JITTER[k];
+      const shaky = ctrls.map((c) => poly(c.map((q, i) => [q.x + (i % 2 ? -d[0] : d[0]), q.y + d[1]]), 8));
+      if (play(HG, room.id, shaky, { frames: 60 * 30, level: lv }).won) twitch++;
+    }
+    let wave = 0;
+    for (const k of WAVY) {
+      const crooked = ctrls.map((c) => wavy(c, k));
+      if (play(HG, room.id, crooked, { frames: 60 * 30, level: lv }).won) wave++;
+    }
+    penScene.destroy();
+    if (twitch < 4 || wave < 2) {
+      return { id: room.id, failed: true,
+        reason: 'the authored answer is too fragile (hands ' + twitch + '/6, wavy ' + wave + '/4)' };
+    }
+    const L = ctrls.reduce((n, c) => n + len(c), 0);
+    lv.ink = Math.max(120, Math.round((L * 1.25) / 10) * 10);
+    const proof = play(HG, room.id, ctrls.map((c) => asStroke(c)), { frames: 60 * 30, level: lv });
+    return {
+      id: room.id, tag: room.intent || 'authored', level: lv,
+      strokes: ctrls.map((c) => c.map((q) => [q.x, q.y])),
+      ink: lv.ink, used: Math.round(L), twitch, wave, fill: proof.fills, inkSegs: proof.inkSegs,
+    };
+  }
+
   let SEEDS = {};
   try { SEEDS = require('./hero-seeds'); } catch (e) { SEEDS = {}; }
   const raw = families(lv, room);
@@ -486,8 +521,9 @@ if (EMIT) {
       head + '  const LEVELS = [\n' + rows.map((r) => one(r.level)).join('\n') + '\n  ];\n\n' + file.slice(tailFrom));
 
     const solHead = fs.readFileSync('tools/solutions.js', 'utf8').split('module.exports = {')[0];
-    const solBody = rows.map((r) => '  ' + r.id + ': [[[' +
-      r.strokes[0].map((p) => (Math.round(p[0] * 1e4) / 1e4) + ', ' + (Math.round(p[1] * 1e4) / 1e4)).join('], [') + ']]],').join('\n');
+    const pt = (p) => (Math.round(p[0] * 1e4) / 1e4) + ', ' + (Math.round(p[1] * 1e4) / 1e4);
+    const solBody = rows.map((r) => '  ' + r.id + ': [' +
+      r.strokes.map((st) => '[[' + st.map(pt).join('], [') + ']]').join(', ') + '],').join('\n');
     fs.writeFileSync('tools/solutions.js', solHead + 'module.exports = {\n' + solBody + '\n};\n');
     console.log('wrote js/levels.js and tools/solutions.js (' + rows.length + ' rooms)');
   }

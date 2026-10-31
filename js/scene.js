@@ -916,6 +916,26 @@
         if (g.satisfied) g.doneTimer = (g.doneTimer || 0) + sec;
         else g.doneTimer = Math.max(0, (g.doneTimer || 0) - sec * 0.5);
         g.done = g.doneTimer >= 0.5;
+
+        // A ball in the cup spoils it. The reference game treats this as a
+        // straight fail, and it has to be a rule rather than a convention: a
+        // ball is a solid 44 px wide, so a cup holding one cannot hold the
+        // water it promises, and no amount of pouring will fix that.
+        // The test is circle-against-mouth, not centre-inside: a ball that
+        // rides the water surface sits *above* the rim line while being
+        // unmistakably in the glass, and the old centre test called that a win.
+        g.spoiled = false;
+        if (this.balls.length) {
+          for (const bb of this.balls) {
+            const p = bb.body.position;
+            const r = (bb.body.circleRadius || 26);
+            const overMouth = Math.abs(p.x - g.cx) < g.topHalf + r * 0.2;
+            const dipsIn = p.y + r > g.top + 2 && p.y < g.bottom - 2;
+            if (overMouth && dipsIn) { g.spoiled = true; break; }
+          }
+        }
+        if (g.spoiled) { g.satisfied = false; g.doneTimer = 0; g.done = false; }
+
         if (!g.satisfied) allFull = false;
 
         // a dynamic glass can be knocked over or dropped off the level
@@ -943,6 +963,12 @@
 
       // ---- win / lose timing
       if (this.state !== 'won' && this.state !== 'lost') {
+        if (this.glasses.some((g) => g.spoiled)) {
+          this.spoilTimer = (this.spoilTimer || 0) + sec;
+          if (this.spoilTimer > 0.35) this.finish(false);
+        } else {
+          this.spoilTimer = 0;
+        }
         if (this.fell) {
           this.glasses.forEach((g) => { if (g.lost) g.lostTimer = (g.lostTimer || 0) + sec; });
           if (this.glasses.some((g) => (g.lostTimer || 0) > 0.6)) this.finish(false);

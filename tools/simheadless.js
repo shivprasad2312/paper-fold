@@ -111,6 +111,7 @@ function play(HG, id, strokes, opts) {
   }));
   const fills = scene.glasses.map((g) => ({
     fill: +(g.count / g.capacity).toFixed(3),
+    spoiled: !!g.spoiled,
     need: g.need,
     count: g.count,
     needCount: g.needCount,
@@ -136,6 +137,13 @@ function play(HG, id, strokes, opts) {
     waterLeft: scene.water.particles.length,
     live: scene.water.particles.map((p) => ({ x: Math.round(p.body.position.x), y: Math.round(p.body.position.y) })),
     removed,
+    spoiled: scene.glasses.some((g) => g.spoiled),
+    // where each ball finished — a design tool needs to know whether the ball
+    // ended up in the glass, on the wire, or out of the picture
+    balls: scene.balls.map((b) => ({
+      x: Math.round(b.body.position.x), y: Math.round(b.body.position.y),
+      vx: +b.body.velocity.x.toFixed(1), vy: +b.body.velocity.y.toFixed(1),
+    })),
     errors: err,
   };
   scene.destroy();

@@ -30,13 +30,39 @@ for (const lv of HG.LEVELS) {
   const room = ROOMS.find((r) => r.name === lv.name) || {};
   const r = play(HG, lv.id, (SOLUTIONS[lv.id] || []).map(poly), { frames: 60 * 30 });
   // ---- bearing: which solids did the settled wire touch?
+  // A solid is a box or a free-form slab (the wedge ramps), and a point counts
+  // as leaning on it if it is inside it, give or take the same 6 px the pen
+  // already allows for a stroke laid along a face.
   const solids = [];
-  lv.platforms.forEach((p) => solids.push({ x: p.x, y: p.y, w: p.w, h: p.h, a: p.angle || 0 }));
+  lv.platforms.forEach((p) => (p.poly
+    ? solids.push({ poly: p.poly })
+    : solids.push({ x: p.x, y: p.y, w: p.w, h: p.h, a: p.angle || 0 })));
   lv.crates.forEach((c) => solids.push({ x: c.x, y: c.y, w: c.w || c.size, h: c.h || c.size, a: c.angle || 0 }));
+  const inPoly = (b, q) => {
+    const xs = b.poly.map((v) => v[0]), ys = b.poly.map((v) => v[1]);
+    if (q[0] < Math.min(...xs) - 6 || q[0] > Math.max(...xs) + 6) return false;
+    if (q[1] < Math.min(...ys) - 6 || q[1] > Math.max(...ys) + 6) return false;
+    let inside = false;
+    for (let i = 0, j = b.poly.length - 1; i < b.poly.length; j = i++) {
+      const xi = b.poly[i][0], yi = b.poly[i][1], xj = b.poly[j][0], yj = b.poly[j][1];
+      if ((yi > q[1]) !== (yj > q[1]) && q[0] < ((xj - xi) * (q[1] - yi)) / (yj - yi) + xi) inside = !inside;
+    }
+    if (inside) return true;
+    // a stroke *lies on* the face, so within the pen's 6 px of an edge counts
+    for (let i = 0, j = b.poly.length - 1; i < b.poly.length; j = i++) {
+      const ax = b.poly[j][0], ay = b.poly[j][1], bx = b.poly[i][0], by = b.poly[i][1];
+      const vx = bx - ax, vy = by - ay;
+      const t = Math.max(0, Math.min(1, ((q[0] - ax) * vx + (q[1] - ay) * vy) / (vx * vx + vy * vy)));
+      const dx = q[0] - (ax + t * vx), dy = q[1] - (ay + t * vy);
+      if (dx * dx + dy * dy <= 36) return true;
+    }
+    return false;
+  };
   const touched = new Set();
   for (const s of r.inkSegs || []) {
     for (const q of [[s.x1, s.y1], [(s.x1 + s.x2) / 2, (s.y1 + s.y2) / 2], [s.x2, s.y2]]) {
       solids.forEach((b, i) => {
+        if (b.poly) { if (inPoly(b, q)) touched.add(i); return; }
         const ca = Math.cos(-b.a), sa = Math.sin(-b.a);
         const dx = q[0] - b.x, dy = q[1] - b.y;
         const lx = dx * ca - dy * sa, ly = dx * sa + dy * ca;

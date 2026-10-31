@@ -1,6 +1,6 @@
 # Testing the rooms — where the risk is
 
-Written for a human reviewer, not for the toolchain. The set is eight rooms now (see
+Written for a human reviewer, not for the toolchain. The set is 33 rooms now (see
 [HERO-SET.md](HERO-SET.md)); this file is about playing them. Every number below comes from
 `tools/report.js`, which plays each room six to nine times: the reference line, four hands that wobble ±2.4 px, one hand at
 ±1.2 px, a stroke that stops early, and a stroke that overshoots.

@@ -174,3 +174,36 @@ rewrite in chapters, one verb per chapter, keeping what already works: the physi
 the UI, the proving pipeline.
 
 What I will not do again: retune the same room, or lower a target to make a room provable.
+
+---
+
+## 9. The ball chapter — what the reference does with a loose ball, and what we shipped
+
+Read off thirteen screenshots of the reference's mobile and web builds (levels 2, 6, 12, 14, 15, 16,
+18, 19, 20, 22, 26, 28): a ball in that game is never scenery. It is a **second failure condition**
+competing with the pour. The cup can be perfectly fed and still lose.
+
+What the reference actually does with them:
+
+| Reference idea | What it teaches | What we could build |
+|---|---|---|
+| a ball sits *in* a cup or a triangular trough and has to be tipped out | the ball is a body the player can move indirectly | no — our ink cannot lift a ball, and a ball already in the mouth spoils the glass on frame one |
+| a ball rolls down a fixed slope into the cup; a drawn wall stops it | the answer is a **structure resting on the level**, not a shield in mid-air | **yes** — this is the whole chock family (17 of the 25 ball rooms) |
+| a ball bounces off an orange bumper and is redirected | deflection beats blocking | partial — a drawn ramp redirects a ball that is already moving, but a ball that lands *on* a sloped wire wedges there and stops dead |
+| two balls, one chute, one answer | one stroke can serve two bodies | **yes** — room 11, the queue |
+| a ball must be kept out while the cup fills from the far side | the ball and the water are two separate routes | **yes** — rooms 13, 14, 19 (spout + chock) |
+
+The one thing the reference does that we cannot: **decorative danger that resolves itself.** In the
+reference a ball often rolls harmlessly into a hole and the level is still about the water. In our
+engine a ball that is not dangerous at t = 0 makes the room solve itself, and `solve-hero` refuses to
+ship it. Every ball in our set is a live threat on the first frame.
+
+Numbers, for the next person:
+
+* the mouth is 108 px wide and a ball is 52 px, so a ball leaving a ramp anywhere between `cup.x − 40`
+  and `cup.x − 20` falls in; `cup.x + 0` mostly bounces off the far rim and is *not* a threat;
+* a ball set down on a slope under about 0.25 rad does not start moving — it has to be dropped onto
+  the ramp (we place it 34 px above the surface), or the ramp has to be steep;
+* a straight stroke needs roughly 90 px of length to hold a 26 px ball rolling at 3 px/frame; 70 px
+  holds on a 0.26 rad ramp but not on a 0.34 one;
+* a free-standing vertical stroke never holds — it topples and the ball rolls over it.
