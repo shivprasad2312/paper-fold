@@ -17,7 +17,7 @@
    to survive a twitchy hand and a wavy hand before it ships.
 
    node tools/solve-hero.js <id|all>     -> /tmp/hero/R<id>.json
-   node tools/solve-hero.js --emit       -> writes js/hero-levels.js
+   node tools/solve-hero.js --emit       -> writes js/levels.js + tools/solutions.js
    ========================================================================== */
 'use strict';
 const fs = require('fs');
