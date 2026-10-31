@@ -196,7 +196,10 @@ body.too-narrow .rotate-hint{display:flex;}
 
 /* Test mode — opening every level for review. Deliberately quiet, deliberately
    labelled: it must never look like part of the game. */
-.test-foot{display:flex;justify-content:center;padding-top:2px;}
+.test-foot{
+  display:flex;justify-content:center;padding:10px 0 4px;position:sticky;bottom:0;z-index:3;
+  background:linear-gradient(to top,#fff 62%,rgba(255,255,255,0));
+}
 .btn-test{
   font:600 12.5px/1 ui-monospace,Menlo,monospace;letter-spacing:.02em;color:var(--ink);
   background:#ffeaa0;border:2px dashed rgba(45,59,71,.55);border-radius:999px;
