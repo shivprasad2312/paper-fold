@@ -233,6 +233,37 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     w2.close();
   }
 
+  // ---- and it still works when the browser is holding an older script.
+  // This is not hypothetical: the first ship of the unlock button rendered in
+  // fresh HTML with stale JS behind it, and pressing it did nothing at all.
+  {
+    const src = (f) => fs.readFileSync(path.resolve(__dirname, '..', f), 'utf8');
+    const inline = (h) => h.replace(/<script src="([^"]+)"><\/script>/g, (m, f) =>
+      '<script>' + (f.startsWith('vendor/') ? src(f) : src(f)) + '</script>');
+    const page = inline(fs.readFileSync(path.resolve(__dirname, '../index.html'), 'utf8'))
+      .replace('setTestOpen(on) {', 'setTestOpenLATER(on) {');   // a stale game.js
+    const d = new JSDOM(page, {
+      runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://example.com/',
+      beforeParse(window) {
+        window.HTMLCanvasElement.prototype.getContext = function (type) {
+          if (!this.__ctx) this.__ctx = createCanvas(this.width || 1280, this.height || 720).getContext(type);
+          return this.__ctx;
+        };
+        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientWidth', { get() { return 1280; } });
+        Object.defineProperty(window.HTMLCanvasElement.prototype, 'clientHeight', { get() { return 720; } });
+      },
+    });
+    await wait(900);
+    const ws = d.window;
+    ws.document.querySelector('#unlock-all').dispatchEvent(new ws.MouseEvent('click', { bubbles: true }));
+    await wait(80);
+    const saved = JSON.parse(ws.localStorage.getItem('happyglass.save.v1') || '{}');
+    check('the unlock button still works with a stale script cache',
+      saved.unlocked >= ws.HG.LEVELS.length && saved.testOpen === true,
+      'stored unlocked ' + saved.unlocked + ', testOpen ' + saved.testOpen);
+    d.window.close();
+  }
+
   console.log(report.join('\n'));
   if (errors.length) {
     console.log('\nRUNTIME ERRORS:\n' + errors.join('\n'));

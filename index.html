@@ -166,5 +166,33 @@
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/game.js"></script>
+<script>
+/* ---------------------------------------------------------------------------
+   The unlock button must work even when the browser is holding an older copy of
+   js/ui.js — which is exactly what happened the first time this shipped: the
+   button rendered (new HTML) but nothing listened (old JS). ui.js claims the
+   button when it is fresh; if it has not claimed it within a moment, this takes
+   over, writes the unlock straight into the save and reloads.
+   --------------------------------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () {
+    if (window.__unlockBound) return;
+    var b = document.getElementById('unlock-all');
+    if (!b || b.__fallbackBound) return;
+    b.__fallbackBound = true;
+    b.addEventListener('click', function () {
+      try {
+        var k = 'happyglass.save.v1';
+        var d = JSON.parse(localStorage.getItem(k) || '{}') || {};
+        d.testOpen = !d.testOpen;
+        d.unlocked = d.testOpen ? 9999 : 1;
+        if (!d.stars) d.stars = {};
+        localStorage.setItem(k, JSON.stringify(d));
+      } catch (e) { /* storage disabled: the button cannot help */ }
+      location.reload();
+    });
+  }, 400);
+});
+</script>
 </body>
 </html>

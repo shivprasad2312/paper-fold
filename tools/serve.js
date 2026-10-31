@@ -41,9 +41,23 @@ const server = http.createServer((req, res) => {
       res.writeHead(404, { 'Content-Type': 'text/plain' }).end('not found');
       return;
     }
+    const ext = path.extname(filePath).toLowerCase();
+    // An HTML page gets its script and style URLs stamped with the edit time of
+    // each file. A cached copy of an old js/ui.js is how the unlock button once
+    // rendered with nothing behind it; a URL that changes with the file cannot
+    // go stale, on the dev server or through a preview proxy.
+    if (ext === '.html') {
+      const stamp = (name) => {
+        try { return Math.round(fs.statSync(path.join(ROOT, name)).mtimeMs); } catch (e) { return 0; }
+      };
+      data = Buffer.from(String(data).replace(/\b(src|href)="((?:js|css)\/[^"?]+)"/g,
+        (m, attr, name) => attr + '="' + name + '?v=' + stamp(name) + '"'));
+    }
     res.writeHead(200, {
-      'Content-Type': TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
-      'Cache-Control': 'no-cache',
+      'Content-Type': TYPES[ext] || 'application/octet-stream',
+      'Cache-Control': 'no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
       'Access-Control-Allow-Origin': '*',
     });
     res.end(data);

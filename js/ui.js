@@ -43,9 +43,23 @@
       const btn = HG.dom('#unlock-all');
       if (!btn) return;
       this.testBtn = btn;
+      // tells the inline fallback in index.html to stand down
+      if (typeof window !== 'undefined') window.__unlockBound = true;
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        this.game.setTestOpen(!HG.save.testOpen);
+        const g = this.game;
+        if (g && typeof g.setTestOpen === 'function') { g.setTestOpen(!HG.save.testOpen); return; }
+        // The browser is holding an older js/game.js. Do not throw on the one
+        // control that exists for the reviewer: write the save and reload.
+        try {
+          const k = 'happyglass.save.v1';
+          const d = JSON.parse(localStorage.getItem(k) || '{}') || {};
+          d.testOpen = !d.testOpen;
+          d.unlocked = d.testOpen ? 9999 : 1;
+          if (!d.stars) d.stars = {};
+          localStorage.setItem(k, JSON.stringify(d));
+        } catch (err) { /* storage disabled */ }
+        location.reload();
       });
       this.refreshTestButton();
     },
