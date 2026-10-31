@@ -1,12 +1,14 @@
-# The hero set — 33 rooms, 33 verbs, 33 proofs
+# The hero set — 40 rooms, 40 strokes, 40 proofs
 
 This document replaces the seventy-room set. It says what changed, why the old set could not be
 fixed, and how every room in the new one is proved. The design grammar it follows comes from a
 teardown of a competitor's levels: **[COMPETITOR-GRAMMAR.md](COMPETITOR-GRAMMAR.md)**.
 
-The set ships in two halves. **Rooms 1–8** are the original pilot, unchanged: water only, one verb
-each. **Rooms 9–33** are the ball rooms: every one of them puts a loose ball on its way into the
-glass, and the drawing has to stop it without stealing the pour.
+The set ships in two halves. **Rooms 1–15** have no balls: the original eight pilot rooms, plus seven
+new water rooms on assets the pilot never used (a hot pad that evaporates the pour, a narrow mouth, a
+shade over the cup, a wall, two taps, a low wall, a deep sill). **Rooms 16–40** are the ball rooms:
+every one puts a loose ball on its way into the glass, and the drawing has to stop it without
+stealing the pour. The full plan, room by room, is in **[LEVEL-PLAN-40.md](LEVEL-PLAN-40.md)**.
 
 The old set is not deleted history — it is the commit `7a5e29c` on this branch, and `tools/scenes.js`
 still holds it. It was **beatable**, which is what it had been asked for, but fifty of its seventy
@@ -145,14 +147,14 @@ audit could not:
 Current state:
 
 ```
-verify        33/33 levels solvable with their reference line
-layout        33 rooms clean, 0 pen leaks, every glass supported
+verify        40/40 levels solvable with their reference line
+layout        40 rooms clean, 0 pen leaks, every glass supported
 physics       all checks pass (greedy taps resized so a room is not a flood)
-hero-audit    all checks pass — 33 verbs, 33 distinct pictures, 5 rooms where the line has to
-              lean on two or more pieces of scenery
-hero-check    33/33 won; hands 4–6 of 6, wavy 3–4 of 4 on every room
+hero-audit    all checks pass — 40 distinct stroke signatures, 40 verbs, every ball room lethal
+              when played untouched
+hero-check    40/40 won; hands 4–6 of 6, wavy 3–4 of 4 on every room
 smoke         no runtime errors, unlock button and query string still work
-build         33 rooms, one self-contained html
+build         40 rooms, one self-contained html
 ```
 
 ![All eight rooms](levels.png)

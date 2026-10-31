@@ -110,10 +110,14 @@ rows.forEach((r) => {
   const strokes = (SOLUTIONS[r.id] || []);
   if (!strokes.length) return;
   const g = lv.glasses[0];
-  const sig = strokes.map((st) => st.map((q) => [
-    Math.round((q.x - g.x) / 10) * 10,
-    Math.round((q.y - 0) / 10) * 10,
-  ].join(','))).join('|');
+  // solutions are [[[x, y], ...]] — arrays, not {x, y} objects. (Reading q.x here
+  // made every signature NaN and reported seven "distinct" strokes for the whole
+  // set; the gate has to be tested with a room that should fail.)
+  const pick = (q) => (Array.isArray(q) ? q : [q.x, q.y]);
+  const sig = strokes.map((st) => st.map((q) => {
+    const [x, y] = pick(q);
+    return [Math.round((x - g.x) / 10) * 10, Math.round(y / 10) * 10].join(',');
+  }).join('|')).join('//');
   r.stroke = sig;
   if (strokeSigs.has(sig)) fail('room ' + r.id + ' ' + r.name + ' demands the same stroke as room ' +
     strokeSigs.get(sig) + ' (' + (strokes.length + ' stroke' + (strokes.length > 1 ? 's' : '')) + ')');

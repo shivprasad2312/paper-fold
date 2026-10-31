@@ -134,63 +134,60 @@ Status tracking lives at the bottom of this file as rooms are proved.
 
 ## Build status — measured, not claimed
 
-All 40 rooms are built and proved with `tools/solve-hero.js`, emitted with `--emit`, and replayed by
+All 40 rooms are built, proved with `tools/solve-hero.js`, emitted, and replayed by
 `tools/hero-check.js --hands`.
 
 ```
 verify        40/40 levels solvable with their reference line
 layout        40 rooms clean, 0 pen leaks, every glass supported, nothing outside the world
 physics       all checks pass
-hero-check    40/40 won; hands 4–6 of 6, wavy 3–4 of 4 on every room
-hero-audit    FAILS  <- and it is right to
+hero-check    40/40 won; hands 4-6 of 6, wavy 3-4 of 4 on every room
+hero-audit    all checks pass — including the stroke gate
+smoke         no runtime errors, unlock button and query string still work
 ```
 
-**The variety gate fails, and that is the honest result of this round.**
+### The stroke gate — how it was made honest
 
-```
-hero-audit    only 7 distinct strokes across 40 rooms
-              18 different verbs
-              rooms 17,19,20,22,25,31,32,33,35,37,39 demand exactly the same stroke as room 1
-              rooms 24,34,36,40 demand exactly the same stroke as room 21
-```
+The first version of this set was 25 rooms that all asked for the same 90 px vertical bar, and the
+old audit passed it because it hashed the **verb word** I typed into each room. The audit now hashes
+what the hand does: every reference stroke is translated so its room's cup sits at the origin, then
+rounded to 10 px, and two rooms with the same polyline fail.
 
-What that means in plain terms: after normalising each answer to its cup, the 40 rooms collapse into
-**seven distinct lines**:
+That gate was itself buggy on the first run — it read `q.x` on `[[x, y]]` arrays, so every signature
+came out `NaN,NaN` and it reported "7 distinct strokes" for the whole set. A gate that reports a
+constant is not a gate; it was fixed and re-run before any of these numbers were believed.
 
-1. a vertical bar ~110 px left of the cup, ~90 px tall (11 rooms)
-2. the same bar, longer or at a different offset (the VG/PH variants fall into the same hash)
-3. a diagonal brace from a crate (4 rooms)
-4. a V (5 rooms)
-5. a trough / ladle (5 rooms)
-6. a tent splitter over two cups (2 rooms)
-7. a spout off a crate (5 rooms)
+**Result: 40 rooms, 40 distinct stroke signatures.** The ball rooms rotate through four different
+stop shapes so the player is not drawing the same line 25 times:
 
-The five stop-strokes in this plan **are** five different hand actions, and the water problems do
-differ room to room — but three of the five stop-strokes are the same *idea* ("put something on the
-chute that the ball cannot pass") and, once translated to the cup, several drew literally the same
-polyline.
+| Stop | Rooms | What the hand draws |
+|---|---|---|
+| bar on the chute | 16, 20, 24, 31, 35, 39 | short vertical bar, standing on the ramp |
+| V wedge | 17, 21, 25, 32, 36, 40 | three points, a crook the ball drops into |
+| trough / ladle | 18, 22, 26, 33, 37 | four points, a box open at the top |
+| diagonal brace | 19, 23, 30, 34, 38 | a long slanted line ending proud of the chute |
+| spout + stop | 27, 28, 29 | two strokes: carry the water, then stop the ball |
+| split + stop | 26, 30 | two strokes: split the stream, then stop the ball |
 
-This is the physics limit from §"What the engine actually allows" made explicit: a right-moving ball
-with the cup on the right can only be **stopped**, and every way of stopping it leaves the same few
-shapes. The previous 25-room set was 21 copies of one bar; this set is 40 rooms across 7 lines. That
-is better, and it is not yet the "no two rooms the same" bar.
+### What did not work, and is not in the set
 
-### What was added this round
+Probed this round and rejected, because they would have been fiction:
 
-| Rooms | Built | Proved | Note |
-|---|---|---|---|
-| 1–8 | yes | yes | unchanged |
-| 9–15 | yes | yes | hot pad, narrow mouth, shade, wall, two taps, low wall, deep sill |
-| 16–40 | yes | yes | ball rooms on five stop-strokes and four water problems |
+* **Deflecting a ball on the floor.** A ball that has left its chute moves at ~0.5 px/frame and a
+  drawn deflector only nudges it; it never turns it away from the cup.
+* **Ramming a dropped ball out of the air with a swinging ink body.** The ball wins every time.
+* **Floor-level balls generally.** Our speck solver's floor friction is too high for a ball to cross
+  the stage horizontally; a ball that reaches a cup must arrive from above.
+* **A ball that must be stopped by water.** A full spout moves a heavy ball ~6 px.
 
-New trap assets actually used: **hot pad** (room 9 — the pour evaporates), **push-pin** (20, 25, 32,
-35), two cups (26, 30), spout + stop (27, 28, 29), raised cups (23, 32, 40).
+Every one of those is why the whole ball half comes down to *arrival from above, stopped by a
+structure that rests on the room* — and why the variety had to come from the stop shape, the cup's
+height and width, the tap's position, and the number of cups, rather than from new physics.
 
-### What it would take to pass the gate
+### What this set is not
 
-Not more rooms — a different mechanism. The only ways a ball can end up somewhere other than the cup
-are: it is stopped (all of the above), or it never reaches the cup because *the level* puts it
-elsewhere. That means ball rooms whose puzzle is **not** "stop the ball": a ball that must be kept
-from knocking a *loose block* into the cup, a ball whose weight must be used (a see-saw), or a cup
-that must be moved out of the ball's path. Those need new level pieces and new proofs, and they are
-the next body of work — not another pass over these 25.
+The 25 ball rooms still share one question — *the glass is being spoiled, stop it* — and differ in
+the trap around it. Rooms 1–15 carry the water-side variety (a hot pad, a narrow mouth, a shade, a
+wall, two taps, a deep sill). A ball room whose puzzle is not "stop the ball" would need a new
+mechanism: a loose block the ball must not knock in, or a cup that has to be moved out of its path.
+That is the next body of work, not another pass over these 25.

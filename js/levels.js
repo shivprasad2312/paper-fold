@@ -290,22 +290,19 @@
       ],
     },
     {
-      name: "The Brace",
+      name: "The Long Run",
       tip: undefined,
-      ink: 160,
+      ink: 190,
       faucet: { x: 480, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 480, y: 621, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 303, y: 461.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-      ],
-      crates: [
-        { x: 278, y: 605, w: 100, h: 190, kind: 'wood' },
+        P({ x: 285.6, y: 449.8, w: 340, h: 16, kind: 'teal', angle: 0.3 }),
       ],
       balls: [
-        { x: 298, y: 391.8, r: 26, kind: 'heavy' },
+        { x: 298, y: 385.2, r: 26, kind: 'heavy' },
       ],
     },
     {
@@ -318,10 +315,10 @@
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 723, y: 461.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
+        P({ x: 731.4, y: 469.4, w: 280, h: 16, kind: 'teal', angle: 0.22 }),
       ],
       balls: [
-        { x: 718, y: 391.8, r: 26, kind: 'heavy' },
+        { x: 718, y: 398.3, r: 26, kind: 'heavy' },
       ],
     },
     {
@@ -341,28 +338,25 @@
       ],
     },
     {
-      name: "Hooked",
+      name: "Off The Sill",
       tip: undefined,
-      ink: 150,
+      ink: 120,
       faucet: { x: 780, y: 170, rate: 26, total: 110 },
       glasses: [
-        { x: 780, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 780, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 603, y: 461.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
+        P({ x: 603, y: 400.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
       ],
       balls: [
-        { x: 598, y: 391.8, r: 26, kind: 'heavy' },
-      ],
-      pins: [
-        { x: 646, y: 344.6, r: 11 },
+        { x: 598, y: 330.8, r: 26, kind: 'heavy' },
       ],
     },
     {
       name: "The Ladle",
       tip: undefined,
-      ink: 190,
+      ink: 280,
       faucet: { x: 560, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 560, y: 621, w: 108, h: 118, need: 0.5 },
@@ -378,26 +372,23 @@
     {
       name: "Straight Face",
       tip: undefined,
-      ink: 160,
+      ink: 190,
       faucet: { x: 640, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 640, y: 621, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 463, y: 461.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-      ],
-      crates: [
-        { x: 438, y: 605, w: 100, h: 190, kind: 'wood' },
+        P({ x: 433.2, y: 457.2, w: 360, h: 16, kind: 'teal', angle: 0.24 }),
       ],
       balls: [
-        { x: 458, y: 391.8, r: 26, kind: 'heavy' },
+        { x: 458, y: 395.1, r: 26, kind: 'heavy' },
       ],
     },
     {
       name: "High Ball",
       tip: undefined,
-      ink: 190,
+      ink: 120,
       faucet: { x: 860, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 860, y: 560, w: 108, h: 118, need: 0.5 },
@@ -405,7 +396,6 @@
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
         P({ x: 684.7, y: 394.7, w: 300, h: 16, kind: 'teal', angle: 0.3 }),
-        P({ x: 860, y: 653, w: 180, h: 70, kind: 'wood' }),
       ],
       balls: [
         { x: 678, y: 324.2, r: 26, kind: 'heavy' },
@@ -414,7 +404,7 @@
     {
       name: "Short Drop",
       tip: undefined,
-      ink: 190,
+      ink: 120,
       faucet: { x: 420, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 420, y: 621, w: 108, h: 118, need: 0.5 },
@@ -430,7 +420,7 @@
     {
       name: "Pin Trick",
       tip: undefined,
-      ink: 150,
+      ink: 190,
       faucet: { x: 560, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 560, y: 580, w: 108, h: 118, need: 0.5 },
@@ -438,13 +428,9 @@
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
         P({ x: 383, y: 420.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-        P({ x: 560, y: 673, w: 180, h: 70, kind: 'wood' }),
       ],
       balls: [
         { x: 378, y: 350.8, r: 26, kind: 'heavy' },
-      ],
-      pins: [
-        { x: 426, y: 303.6, r: 11 },
       ],
     },
     {
@@ -545,129 +531,55 @@
     {
       name: "Long Chute",
       tip: undefined,
-      ink: 120,
+      ink: 130,
       faucet: { x: 640, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 640, y: 621, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 422.6, y: 458.5, w: 380, h: 16, kind: 'teal', angle: 0.22 }),
+        P({ x: 412.4, y: 458.3, w: 400, h: 16, kind: 'teal', angle: 0.21 }),
       ],
       balls: [
-        { x: 458, y: 398.3, r: 26, kind: 'heavy' },
+        { x: 458, y: 399.8, r: 26, kind: 'heavy' },
       ],
     },
     {
       name: "The Plinth",
       tip: undefined,
-      ink: 150,
+      ink: 190,
       faucet: { x: 700, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 700, y: 500, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 533, y: 358.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-        P({ x: 700, y: 601, w: 190, h: 84, kind: 'wood' }),
+        P({ x: 523.8, y: 337.5, w: 300, h: 16, kind: 'teal', angle: 0.28 }),
       ],
       balls: [
-        { x: 528, y: 288.8, r: 26, kind: 'heavy' },
-      ],
-      pins: [
-        { x: 586, y: 244.2, r: 11 },
+        { x: 518, y: 267.5, r: 26, kind: 'heavy' },
       ],
     },
     {
       name: "Hanging Low",
       tip: undefined,
-      ink: 160,
+      ink: 190,
       faucet: { x: 460, y: 170, rate: 26, total: 110 },
       glasses: [
-        { x: 460, y: 560, w: 108, h: 118, need: 0.5, hanging: true },
+        { x: 460, y: 560, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 283, y: 400.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-      ],
-      crates: [
-        { x: 258, y: 570.8, w: 100, h: 190, kind: 'wood' },
+        P({ x: 294.7, y: 396.3, w: 280, h: 16, kind: 'teal', angle: 0.31 }),
       ],
       balls: [
-        { x: 278, y: 330.8, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Hanging Ladle",
-      tip: undefined,
-      ink: 190,
-      faucet: { x: 540, y: 170, rate: 26, total: 110 },
-      glasses: [
-        { x: 540, y: 540, w: 108, h: 118, need: 0.5, hanging: true },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 365.6, y: 371.8, w: 300, h: 16, kind: 'teal', angle: 0.32 }),
-      ],
-      balls: [
-        { x: 358, y: 300.9, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Hanging Pin",
-      tip: undefined,
-      ink: 150,
-      faucet: { x: 820, y: 170, rate: 26, total: 110 },
-      glasses: [
-        { x: 820, y: 540, w: 108, h: 118, need: 0.5, hanging: true },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 653, y: 398.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
-      ],
-      balls: [
-        { x: 648, y: 328.8, r: 26, kind: 'heavy' },
-      ],
-      pins: [
-        { x: 696, y: 281.6, r: 11 },
-      ],
-    },
-    {
-      name: "Trough Run",
-      tip: undefined,
-      ink: 190,
-      faucet: { x: 760, y: 170, rate: 26, total: 110 },
-      glasses: [
-        { x: 760, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 563.7, y: 456.3, w: 340, h: 16, kind: 'teal', angle: 0.26 }),
-      ],
-      balls: [
-        { x: 578, y: 391.8, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "The Rim",
-      tip: undefined,
-      ink: 120,
-      faucet: { x: 1000, y: 170, rate: 26, total: 110 },
-      glasses: [
-        { x: 1000, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 823.8, y: 458.5, w: 300, h: 16, kind: 'teal', angle: 0.28 }),
-      ],
-      balls: [
-        { x: 818, y: 388.5, r: 26, kind: 'heavy' },
+        { x: 278, y: 322.6, r: 26, kind: 'heavy' },
       ],
     },
     {
       name: "Left Wedge",
       tip: undefined,
-      ink: 190,
+      ink: 120,
       faucet: { x: 300, y: 170, rate: 26, total: 110 },
       glasses: [
         { x: 300, y: 621, w: 108, h: 118, need: 0.5 },
@@ -681,19 +593,83 @@
       ],
     },
     {
+      name: "Hanging Pin",
+      tip: undefined,
+      ink: 120,
+      faucet: { x: 820, y: 170, rate: 26, total: 110 },
+      glasses: [
+        { x: 820, y: 540, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        P({ x: 644.3, y: 376.1, w: 300, h: 16, kind: 'teal', angle: 0.29 }),
+      ],
+      balls: [
+        { x: 638, y: 305.9, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "Trough Run",
+      tip: undefined,
+      ink: 190,
+      faucet: { x: 760, y: 170, rate: 26, total: 110 },
+      glasses: [
+        { x: 760, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        P({ x: 553.6, y: 455.5, w: 360, h: 16, kind: 'teal', angle: 0.25 }),
+      ],
+      balls: [
+        { x: 578, y: 393.4, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Rim",
+      tip: undefined,
+      ink: 190,
+      faucet: { x: 1000, y: 170, rate: 26, total: 110 },
+      glasses: [
+        { x: 1000, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        P({ x: 823.8, y: 458.5, w: 300, h: 16, kind: 'teal', angle: 0.28 }),
+      ],
+      balls: [
+        { x: 818, y: 388.5, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "Far Wedge",
+      tip: undefined,
+      ink: 140,
+      faucet: { x: 240, y: 170, rate: 26, total: 110 },
+      glasses: [
+        { x: 240, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        P({ x: 405.3, y: 457.3, w: 280, h: 16, kind: 'teal', angle: -0.31 }),
+      ],
+      balls: [
+        { x: 422, y: 383.6, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
       name: "Hanging Rim",
       tip: undefined,
       ink: 130,
       faucet: { x: 900, y: 170, rate: 26, total: 110 },
       glasses: [
-        { x: 900, y: 500, w: 108, h: 118, need: 0.5, hanging: true },
+        { x: 900, y: 540, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 731, y: 358.4, w: 300, h: 16, kind: 'teal', angle: 0.26 }),
+        P({ x: 713.8, y: 376.3, w: 320, h: 16, kind: 'teal', angle: 0.27 }),
       ],
       balls: [
-        { x: 726, y: 288.8, r: 26, kind: 'heavy' },
+        { x: 718, y: 309.2, r: 26, kind: 'heavy' },
       ],
     },
     {
@@ -707,7 +683,7 @@
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
         P({ x: 423.8, y: 437.5, w: 300, h: 16, kind: 'teal', angle: 0.28 }),
-        P({ x: 600, y: 680, w: 180, h: 40, kind: 'wood' }),
+        P({ x: 600, y: 693, w: 180, h: 70, kind: 'wood' }),
       ],
       balls: [
         { x: 418, y: 367.5, r: 26, kind: 'heavy' },
