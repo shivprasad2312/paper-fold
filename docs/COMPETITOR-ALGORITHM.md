@@ -206,3 +206,34 @@ rewrite. It would unlock roughly a third of the reference grammar (chutes, casca
 pin-hammocks) which is currently unbuildable — measured, not assumed.
 
 Everything in §6 can be built **without** that change.
+
+## 9. What a ball can actually do (round 22)
+
+Measured, not assumed. Six hazard deliveries were run through the headless sim
+with no stroke drawn at all, to see which ones are genuinely lethal:
+
+| delivery | untouched outcome |
+|---|---|
+| dropped straight into the mouth | spoils the cup |
+| dropped 40 px off-centre | spoils the cup |
+| dropped 70 px off-centre | **water wins, no hazard** |
+| rolling along the floor into the glass | **water wins, no hazard** |
+| thrown from the right / rolling off a ramp | spoils (strike rule) |
+| on a shelf 250 px away | **water wins, no hazard** |
+
+Two hard constraints follow:
+
+1. **Floor friction eats rolling balls.** A ball sliding at 12 m/s is down to
+   4.1 m/s in 0.16 s. A ball only becomes a strike if it still has more than
+   4.5 m/s at the moment it touches the glass, so a ball that has to cross
+   200 px of floor is decoration, not a hazard.
+2. **A stroke only holds if it is anchored** to terrain or a rim. Mid-air
+   strokes fall (the reference rule). And a heavy ball beats a 4 px ink line,
+   so the answer has to shed the ball's path, not fence it.
+
+The consequence for the room grammar: a ball that threatens the cup must
+arrive on a short, fast path — straight down into the mouth, off a lip within
+about 80 px of the rim, or thrown. That is why the rebuilt 16-40 set failed:
+nearly every room put its tap directly over the cup *and* its ball over the
+mouth, so the only stroke that stops the ball also catches the water. Those
+rooms are unsolvable by construction, not by tuning.
