@@ -16,6 +16,10 @@
   // only reason these are named at all is so the audit can prove what is
   // colliding with what.
   HG.CAT_INK = 0x0002;
+  // A water-only surface welded along every drawn line. Nothing else can see
+  // it (its mask is CAT_WATER alone), so the visible wire stays 4 px and the
+  // water gets a surface it can actually cling to and run along.
+  HG.CAT_WICK = 0x0010;
   HG.CAT_WATER = 0x0004;
   HG.MASK_INK = 0xffff;
   HG.MASK_WATER = 0xffff;

@@ -707,6 +707,31 @@
       for (const part of body.parts) {
         part.collisionFilter = { category: HG.CAT_INK, mask: HG.MASK_INK, group: 0 };
       }
+      // ---- the wick: the surface water actually feels
+      // A 4 px wire is something water cannot cling to — a droplet balanced on
+      // it rolls off the side in a few frames, so a line can only ever be a
+      // wall. Real water has surface tension: it wets a surface and runs down
+      // it to the low end. The wick is that surface. It is welded to the line
+      // (same transform, same angles), it is invisible, and its collision mask
+      // is CAT_WATER alone, so balls, other ink, crates and glasses cannot
+      // possibly notice it. The drawn line keeps its 4 px look.
+      const WICK_W = 15;
+      const wickParts = this.level.wet ? runs.map((r) => Bodies.rectangle(
+        (r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2, r.len + WICK_W * 0.6, WICK_W, {
+          angle: r.angle,
+          chamfer: { radius: WICK_W * 0.45 },
+          collisionFilter: { category: HG.CAT_WICK, mask: HG.CAT_WATER },
+        })) : [];
+      if (wickParts.length) {
+        const wick = Body.create({ parts: wickParts, isStatic: true, label: 'wick' });
+        wick.collisionFilter = { category: HG.CAT_WICK, mask: HG.CAT_WATER };
+        Composite.add(this.world, wick);
+        st.wick = wick;
+      }
+      // The wick is a *shadow* of the line: same shape, same place, no mass, and
+      // invisible to everything except water. It is kept glued to the stroke in
+      // physics() rather than being part of it, so the line's own mass, its
+      // friction on the ledge and every other body's behaviour are untouched.
       Composite.add(this.world, body);
       st.body = body;
       st.segs.forEach((seg) => {
@@ -1078,11 +1103,108 @@
       // contacts in both directions, so a stream genuinely leans on the line.
       for (let i = 0; i < n; i++) {
         Engine.update(this.engine, h);
+        // A droplet that lands on a drawn line must RIDE it, not bounce off a
+        // 4 px wire. Real water has surface tension: it clings to a wet surface
+        // and runs down to the low end. Without this, a droplet balanced on the
+        // rod rolls off the side within a few frames and the line can only ever
+        // be used as a wall, never as a chute — which is the one thing the
+        // reference game builds most of its levels out of.
+        if (this.level.wet) { this.syncWicks(); this.wetInk(h); }
         // a blower or a spinner can add velocity *inside* the frame, so the
         // ceiling has to be re-applied per substep, not once per frame
         clampDrops();
       }
       this.calmBodies();
+    }
+
+    // ------------------------------------------------------------- wet ink
+    // Surface tension along a drawn line.
+    //
+    // For every droplet that is touching a stroke, this does three things:
+    //   * kills the bounce (the normal component of its velocity),
+    //   * pulls it onto the line's centre so it cannot roll off the side,
+    //   * lets gravity take it along the line toward the low end.
+    // The result is that water entering a chute arrives at the chute's end
+    // instead of scattering off its sides, which is what makes routing rooms
+    // possible at all.
+    // Glue every stroke's water-surface to the stroke itself. The line is one
+    // rigid body, so this is a single position + angle copy per stroke.
+    syncWicks() {
+      for (const st of this.ink.strokes) {
+        if (!st.wick || !st.body || st.gone) continue;
+        const b = st.body;
+        if (Math.abs(st.wick.position.x - b.position.x) < 0.01 &&
+            Math.abs(st.wick.position.y - b.position.y) < 0.01 &&
+            Math.abs(st.wick.angle - b.angle) < 1e-4) continue;
+        Body.setPosition(st.wick, { x: b.position.x, y: b.position.y });
+        Body.setAngle(st.wick, b.angle);
+      }
+    }
+
+    wetInk(h) {
+      const strokes = this.ink.strokes;
+      let parts = this._wetParts;
+      if (!parts || this.ink.segments.length !== this._wetSegCount) {
+        parts = this._wetParts = [];
+        for (const st of strokes) {
+          if (!st.wick || st.gone) continue;
+          for (let i = 1; i < st.wick.parts.length; i++) parts.push(st.wick.parts[i]);
+        }
+        this._wetSegCount = this.ink.segments.length;
+      }
+      if (!parts.length) return;
+      const R = HG.Water.R;
+      const REACH = R + 7;             // how far a drop can be and still be caught
+      const ABSORB = 0.85;             // share of the incoming normal speed removed
+      const SLIDE = 1.6;               // extra push along the line, downhill
+      const dtv = h;                   // ms this substep stands for
+      for (const p of this.water.particles) {
+        const b = p.body;
+        const bx = b.position.x, by = b.position.y;
+        let hit = null;
+        for (const part of parts) {
+          const bb = part.bounds;
+          if (bx < bb.min.x - REACH || bx > bb.max.x + REACH ||
+              by < bb.min.y - REACH || by > bb.max.y + REACH) continue;
+          const a = part.angle, ca = Math.cos(a), sa = Math.sin(a);
+          const dx = bx - part.position.x, dy = by - part.position.y;
+          const lx = dx * ca + dy * sa;
+          const ly = -dx * sa + dy * ca;
+          const halfLen = part.width / 2;
+          // only the TOP face of the line catches water, and not at its very ends
+          // (a droplet has to be able to run off the end into the cup)
+          if (Math.abs(lx) > halfLen - 2) continue;
+          if (ly > -INK_W / 2 + 0.5 || ly < -INK_W / 2 - REACH) continue;
+          const d = -ly - INK_W / 2;          // height above the top face
+          if (!hit || d < hit.d) hit = { ca, sa, ly, d, lx, halfLen };
+        }
+        if (!hit) continue;
+        const v = b.velocity;
+        // normal of the top face, pointing up into the world
+        const nx = hit.sa, ny = -hit.ca;
+        const vn = v.x * nx + v.y * ny;
+        let vx = v.x, vy = v.y;
+        // 1. land dead: take the energy out of the incoming drop so it does not
+        //    bounce off the wire and scatter
+        if (vn < 0) {
+          vx -= nx * vn * ABSORB;
+          vy -= ny * vn * ABSORB;
+        }
+        // 2. run downhill along the line: the steeper the line, the faster
+        //    the surface tension carries the droplet to its low end
+        const tx = hit.ca, ty = hit.sa;
+        const steep = Math.abs(ty);
+        if (steep > 0.02) {
+          const dir = ty > 0 ? 1 : -1;
+          const along = (vx * tx + vy * ty) * dir;         // current speed downhill
+          const target = Math.min(Scene.WET_SLIDE * steep, along + Scene.WET_ACCEL * steep);
+          if (target > along) {
+            vx += tx * dir * (target - along);
+            vy += ty * dir * (target - along);
+          }
+        }
+        if (vx !== v.x || vy !== v.y) Body.setVelocity(b, { x: vx, y: vy });
+      }
     }
 
     // Numerical dust: the solver leaves a few hundredths of a pixel per step of
@@ -1137,6 +1259,11 @@
   Scene.INK_DENSITY = INK_DENSITY;   // tunable: read at endInk()
   Scene.WALL = WALL;
   Scene.INK_W = INK_W;
+  // Water-rides-ink is OFF unless a level sets `wet: true`. It changes how
+  // droplets behave on a drawn line, and the 40 proved rooms depend on the old
+  // behaviour, so it is opt-in per level rather than a global switch.
+  Scene.WET_SLIDE = 2.2;   // top speed a droplet reaches running down a line
+  Scene.WET_ACCEL = 0.25;  // how quickly it gets there
   Scene.SUBSTEPS = PHYS_SUBSTEPS;
   HG.Scene = Scene;
   HG.Glass = Glass;
