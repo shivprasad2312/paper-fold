@@ -21,7 +21,21 @@ const check = (ok, label, detail) => {
   say((ok ? 'PASS ' : 'FAIL ') + label + (detail ? '   [' + detail + ']' : ''));
 };
 
-const fresh = (id) => new HG.Scene(HG.levelById(id));
+// The audit must not borrow a shipped room for its fixture: a level is a design
+// object and it changes. This is a plain, well-understood fixture — a tap over
+// a supported glass with room to draw — and every check below starts from it.
+const FIXTURE = () => ({
+  id: 999, name: 'audit fixture', tip: '', ink: 900,
+  faucet: { x: 400, y: 160, rate: 26, total: 90, spread: 0.55 },
+  faucets: [{ x: 400, y: 160, rate: 26, total: 90, spread: 0.55 }],
+  glasses: [{ x: 880, y: 470, w: 108, h: 118, need: 0.5 }],
+  platforms: [
+    { x: 470, y: 330, w: 230, h: 14, kind: 'teal', angle: 0.1 },
+    { x: 700, y: 392, w: 190, h: 14, kind: 'teal', angle: 0.1 },
+  ],
+  crates: [], balls: [], hots: [], fans: [], spinners: [], seesaws: [], pins: [],
+});
+const fresh = () => new HG.Scene(FIXTURE());
 const drawAll = (scene, strokes) => {
   for (const st of strokes) {
     const pts = poly(st);
@@ -34,7 +48,7 @@ const drawAll = (scene, strokes) => {
 
 // ---------------------------------------------------------------- 1. world
 {
-  const sc = fresh(1);
+  const sc = fresh();
   const g = sc.engine.gravity;
   const accel = g.y * g.scale * 1000;
   say('## 1. World');
@@ -48,7 +62,7 @@ const drawAll = (scene, strokes) => {
 
 // --------------------------------------------------------------- 2. masses
 {
-  const sc = fresh(1);
+  const sc = fresh();
   drawAll(sc, [[[400, 300], [560, 300]]]);
   const stroke = sc.ink.strokes[0];
   const drop = sc.water.spawn(300, 200, 0, 0);
@@ -71,7 +85,7 @@ const drawAll = (scene, strokes) => {
 
 // ------------------------------------------------------- 3. resting contact
 {
-  const sc = fresh(1);
+  const sc = fresh();
   const glass = sc.glasses[0];
   const x0 = glass.cx, y0 = glass.cy;
   sc.startDelay = 1e9; sc.state = 'pouring';       // "pouring" but no droplets
@@ -87,7 +101,8 @@ const drawAll = (scene, strokes) => {
 // A line lying on scenery, with the tap shut, must be *perfectly* motionless.
 // Anything left moving is what a player reports as "the line is vibrating".
 {
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
   lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
@@ -130,7 +145,8 @@ const drawAll = (scene, strokes) => {
 // off or falls when it is not. These are the two failure modes a player sees.
 {
   // (a) nothing under it -> it falls out of the level
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
   lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
@@ -148,7 +164,8 @@ const drawAll = (scene, strokes) => {
 }
 {
   // (b) resting on ONE narrow ledge, the line tips off it
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.glasses = [{ x: 120, y: 660, w: 60, h: 60, need: 0.99, hanging: true }];
   lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
@@ -165,7 +182,8 @@ const drawAll = (scene, strokes) => {
 }
 {
   // (c) resting across TWO supports, it holds - and it is still a loose body
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.glasses = [{ x: 120, y: 660, w: 60, h: 60, need: 0.99, hanging: true }];
   lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
@@ -182,8 +200,12 @@ const drawAll = (scene, strokes) => {
   const y1 = st.body.position.y, a1 = st.body.angle;
   for (let i = 0; i < 120; i++) { sc.step(STEP); sc.physics(STEP); }
   const drift = st.body ? Math.hypot(st.body.position.x - 590, st.body.position.y - y1) : Infinity;
-  check(!st.body.isStatic && Math.abs(st.body.angle - a1) < 0.02, 'a line lying across two supports stays put',
-    'angle ' + (st.body.angle * 180 / Math.PI).toFixed(2) + '°, drift ' + drift.toFixed(2) + ' px, static ' + st.body.isStatic);
+  check(!!st.body && !st.body.isStatic && Math.abs(st.body.angle - a1) < 0.02,
+    'a line lying across two supports stays put',
+    st.body
+      ? 'angle ' + (st.body.angle * 180 / Math.PI).toFixed(2) + '°, drift ' + drift.toFixed(2) +
+        ' px, static ' + st.body.isStatic
+      : 'the line fell out of the world');
   sc.destroy();
 }
 
@@ -193,7 +215,9 @@ const drawAll = (scene, strokes) => {
 // off its rests — and it must happen without the line buzzing frame to frame.
 {
   const build = (water, stroke, plank) => {
-    const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+    const lv = Object.assign(FIXTURE(), {});
+    lv.ink = 900;
+  lv.ink = 900;
     lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
     lv.faucet = { x: 520, y: 190, rate: 70, total: water ? 900 : 0, spread: 0.55 };
     lv.faucets = [lv.faucet];
@@ -273,7 +297,7 @@ const drawAll = (scene, strokes) => {
 // whether the tap is delivering more water than the glass can take.
 {
   const run = (id, strokes) => {
-    const lv = JSON.parse(JSON.stringify(HG.levelById(id)));
+    const lv = id === 1 ? FIXTURE() : JSON.parse(JSON.stringify(HG.levelById(id)));
     const sc = new HG.Scene(lv);
     drawAll(sc, strokes.map((pl) => poly(pl)));
     const need = sc.glasses.reduce((a, g) => a + g.needCount, 0);
@@ -310,7 +334,7 @@ const drawAll = (scene, strokes) => {
 
 // ------------------------------------------------------------ 4. tap spawn
 {
-  const sc = fresh(1);
+  const sc = fresh();
   sc.startDelay = 0; sc.state = 'pouring';
   let first = null;
   for (let i = 0; i < 6 && !first; i++) {
@@ -363,7 +387,7 @@ const drawAll = (scene, strokes) => {
 
 // ------------------------------------------------------- 6. ink obeys gravity
 {
-  const sc = fresh(1);
+  const sc = fresh();
   // Open air. The old stroke sat at y 300 across x 400–560, which is inside
   // level 1's first plank: the wire was resting on scenery and the check was
   // measuring how far a supported line slides. 620–780 at y 250 is empty.
@@ -381,7 +405,8 @@ const drawAll = (scene, strokes) => {
 }
 
 {
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.glasses = [{ x: 150, y: 640, w: 60, h: 60, need: 0.99, hanging: true }];
   lv.faucet = { x: 330, y: 190, rate: 0, total: 0 };
   lv.faucets = [lv.faucet];
@@ -402,7 +427,7 @@ const drawAll = (scene, strokes) => {
 
 // ------------------------------------------------ 7. ink collides with glass
 {
-  const sc = fresh(1);
+  const sc = fresh();
   const glass = sc.glasses[0];
   // a stroke that is only *partly* over the rim: it must land on the glass, not
   // fall through it, and it must stay on the rim
@@ -451,7 +476,8 @@ const drawAll = (scene, strokes) => {
   // it keeps its proportions, it lands on scenery instead of sinking into it,
   // and one laid across a gap seals the gap for something as fine as water.
   say('## 7c. Loose masonry');
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.platforms = [
     { x: 560, y: 420, w: 200, h: 16, kind: 'stone', angle: 0 },
     { x: 800, y: 420, w: 200, h: 16, kind: 'stone', angle: 0 },
@@ -491,7 +517,8 @@ const drawAll = (scene, strokes) => {
 // -------------------------------------------- 8. unsupported things drop
 {
   // a glass with nothing at all under it must drop out of the level, not hover
-  const lv = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv = Object.assign(FIXTURE(), {});
+  lv.ink = 900;
   lv.platforms = [];
   lv.glasses = [{ x: 640, y: 380, w: 104, h: 118, need: 0.5, hanging: true }];
   const sc = new HG.Scene(lv);
@@ -504,7 +531,7 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 
   // the same for a loose crate
-  const lv2 = JSON.parse(JSON.stringify(HG.levelById(1)));
+  const lv2 = Object.assign(FIXTURE(), {});
   lv2.crates = [{ x: 300, y: 260, size: 80, dynamic: true }];
   const sc2 = new HG.Scene(lv2);
   const cy0 = sc2.crates[0].body.position.y;
@@ -519,7 +546,7 @@ const drawAll = (scene, strokes) => {
 {
   // a glass that has been filled must keep its water: the level reads the real
   // droplet positions, so any leak shows up as a falling fill ratio
-  const sc = fresh(1);
+  const sc = fresh();
   drawAll(sc, SOLUTIONS[1]);
   sc.start();
   let peak = 0, after = 0;

@@ -10,7 +10,11 @@ try {
   GlobalFonts.registerFromPath(path.resolve(__dirname, '../fonts/fredoka-latin-500-normal.woff2'), 'Fredoka');
 } catch (e) {}
 
-const CW = 420, CH = 236, COLS = 7, ROWS = 5;
+// The sheet sizes itself to the level count: a fixed 7x5 grid left two thirds
+// of the image empty once the set stopped being seventy rooms.
+const CW = 420, CH = 236;
+const COLS = Math.min(5, Math.max(1, HG.LEVELS.length > 25 ? 7 : Math.ceil(Math.sqrt(HG.LEVELS.length * 1.6))));
+const ROWS = Math.max(1, Math.ceil(HG.LEVELS.length / COLS));
 const sheet = createCanvas(CW * COLS, CH * ROWS);
 const sctx = sheet.getContext('2d');
 sctx.fillStyle = '#2b3440';

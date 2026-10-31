@@ -116,9 +116,15 @@ function play(HG, id, strokes, opts) {
     needCount: g.needCount,
     ok: g.satisfied,
   }));
+  // where the wire actually ended up, after it fell and settled: the audit
+  // needs this to answer "did the line lean on the room, or just hang in it?"
+  const inkSegs = scene.inkWorldSegments().map((q) => ({
+    x1: +q.x1.toFixed(1), y1: +q.y1.toFixed(1), x2: +q.x2.toFixed(1), y2: +q.y2.toFixed(1),
+  }));
   const result = {
     id,
     name: level.name,
+    inkSegs,
     state: scene.state,
     won: scene.state === 'won',
     seconds: +(frames / 60).toFixed(1),

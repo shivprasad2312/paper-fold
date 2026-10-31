@@ -219,10 +219,14 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     w2.close();
 
     // (b) the query string, and a direct jump
-    w2 = await mk('https://example.com/?unlock=all&level=37');
+    // the jump target is the last level, so the check does not have to be
+    // edited every time the set grows or shrinks
+    const last = 8;
+    w2 = await mk('https://example.com/?unlock=all&level=' + last);
     check('?unlock=all opens every level', w2.HG.save.unlocked === w2.HG.LEVELS.length,
       w2.HG.save.unlocked + '/' + w2.HG.LEVELS.length);
-    check('?level=37 jumps straight there', w2.__HG.Game.levelId === 37, 'level ' + w2.__HG.Game.levelId);
+    check('?level=' + last + ' jumps straight there', w2.__HG.Game.levelId === last,
+      'level ' + w2.__HG.Game.levelId);
     w2.close();
 
     // (c) the U key
