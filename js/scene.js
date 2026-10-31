@@ -964,6 +964,20 @@
             const overMouth = Math.abs(p.x - g.cx) < g.topHalf + r * 0.2;
             const dipsIn = p.y + r > g.top + 2 && p.y < g.bottom - 2;
             if (overMouth && dipsIn) { g.spoiled = true; break; }
+            // A heavy ball that STRIKES the glass breaks it too. Without this
+            // the only ball that can ever threaten a cup is one falling straight
+            // into its mouth, which makes every ball room the same puzzle. In
+            // the reference game a ball can arrive from the side, off a ramp or
+            // off a shelf and still end the level — the cup is a glass, not a
+            // hoop. Only a fast, heavy hit counts: a ball resting against the
+            // base (or nudged slowly by water) is not a strike.
+            if (g.strikeable !== false) {
+              const v = bb.body.velocity;
+              const sp = Math.hypot(v.x, v.y);
+              const nearX = Math.abs(p.x - g.cx) < g.topHalf + r + 4;
+              const nearY = p.y + r > g.top - 6 && p.y - r < g.bottom + 10;
+              if (sp > 4.5 && nearX && nearY) { g.spoiled = true; break; }
+            }
           }
         }
         if (g.spoiled) { g.satisfied = false; g.doneTimer = 0; g.done = false; }
