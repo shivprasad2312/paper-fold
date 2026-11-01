@@ -10,18 +10,18 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 
 | # | room | obstacle | what the stroke must do | status |
 |---|------|----------|-------------------------|--------|
-| 16 | Hot Cinder | hot pad on the shelf the tap drains onto | catch water above the pad, carry it across | **proved** 0.52 |
-| 17 | Crosswind | fan across the gap | carry fast enough that the wind cannot take it | **proved** 0.50 |
-| 18 | The Moat | hot floor either side of a raised cup | deliver over the moat, land in the mouth | **blocked** 0/192: carry too long |
-| 19 | Furnace Floor | hot floor directly under the tap | catch in flight, carry over | planned |
-| 20 | The Neck | two columns 70 px apart above the cup | funnel through the gap | **blocked** 0/264: walls overlapped the cup, retried wider and still 0 |
-| 21 | Two Wells | two cups, one tap | split the stream | **proved** 0.52/0.78 |
-| 22 | Roof Run | overhang above the cup | carry over the overhang, drop under it | planned |
-| 23 | The Sill | cup on a high narrow sill | climb: chute from a higher shelf | planned |
+| 16 | Hot Cinder | hot pad on a wide low shelf under the tap | catch above the pad, carry across | **proved** 0.50 / 164 ink |
+| 17 | Crosswind | fan across the gap | carry fast enough the wind cannot take it | **proved** 0.50 / 272 ink |
+| 18 | The Moat | hot gap splitting the floor, cup on a plinth across it | carry from the column, which is higher than the mouth | **proved** 0.50 / 340 ink |
+| 19 | Furnace Floor | hot floor directly under the tap | catch the fall on a small shelf before it lands | **proved** 0.50 / 369 ink |
+| 20 | The Neck | a wall between the pour and the cup | go over the wall and down the far side | **proved** 0.50 / idle 0.02 |
+| 21 | Two Wells | two cups, one tap | sit in the stream, let it break over the edge | **proved** 0.52/0.78 / 366 ink |
+| 22 | Roof Run | slab that ends short of the mouth | hang the line off the obstacle itself | **proved** 0.50 / 279 ink |
+| 23 | The Sill | mouth 118 px above its ledge | a near-level bridge, not a slide | **proved** 0.52 / 354 ink |
 | 24 | Drop Shaft | cup at the bottom of a shaft | funnel into the shaft mouth | planned |
-| 25 | The Cage | cup boxed in, open only at the top | land it vertically | planned |
+| 25 | The Cage | cup boxed in, open at the top, funnel lips above | get above the mouth and drop in | **proved** 0.50 / 432 ink |
 | 26 | Long Carry | tap far left, cup far right, hot floor between | span two anchors in one line | **blocked** 0/164: one straight line cannot turn |
-| 27 | Downhill | a ramp running away from the cup | divert water off the ramp | **proved** 0.50 |
+| 27 | Downhill | a ramp running away from the cup | bend the stream back | **proved** 0.50 / 408 ink |
 | 28 | The Pockets | three pockets, one leads to the cup | choose the pocket | planned |
 | 29 | The Wedge | cup behind a wedge | carry over the wedge | planned |
 | 30 | Twin Taps | two taps, two cups | one line serving both | planned |
@@ -52,6 +52,26 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 6. **Copy the geometry, do not tidy it.** The first replay of Downhill filled
    0.45 instead of 0.50 because the floor was 2 px higher in the file than in
    the skeleton that proved it. A proved room is proved at its exact numbers.
-7. A raised cup is the hardest thing here: the mouth sits 60 px above the
-   platform it rests on, so every chute has to end above that, and the two
-   attempts at it (The Moat, The Neck) found no winning line at all.
+7. **Water only runs downhill.** A raised cup needs an anchor HIGHER than its
+   mouth. The Moat failed 0/192 in batch 1 for exactly this reason: its only
+   anchor was the floor, 110 px below the mouth, so no line could ever climb.
+   Batch 2 fixed it by adding a column whose top sits above the mouth.
+8. **A cup within ~20 px of a ledge edge drinks for free.** Water sprays about
+   that far past the lip of whatever it lands on, so the cup has to sit clear
+   of every shelf edge or the room solves itself. This is what made The Neck,
+   Roof Run and The Cage win untouched before they were moved.
+9. **Ranking must prefer the designed line.** With every winner scored 100,
+   the tie-break fell through to candidate order and the search shipped a
+   blanket across the whole level instead of the intended short chute. Sorting
+   winners by ink spent picks the shape the room was built around.
+
+## Where the rebuild stands
+
+10 of 25 frames proved, all with different obstacles and different answer
+shapes: hot pad · fan · ramp · two cups · moat · furnace · wall · roof ·
+sill · cage. A structural check over the ten (comparing every room's platform
+list) confirms **no two share a structure**, and Hot Cinder was re-framed onto
+its own shelf when it turned out to be a copy of Crosswind.
+
+Remaining: 24, 26, 28-40. Their frames are listed above; each needs its own
+sweep, and the three blocked batch-1 frames were replaced rather than retuned.

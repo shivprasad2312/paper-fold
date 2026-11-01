@@ -36,15 +36,19 @@ const SHELF = { x: 520, y: 420, w: 200, h: 24, kind: 'teal' };
 const CUP = { x: 820, y: 619, w: 108, h: 118, need: 0.5 };
 
 // Proved: idle loses (0.00, hole in the route), answer fills 0.52, ball static.
+// Re-proved on its own frame so it is not a copy of Crosswind below: this shelf
+// is 260 wide and 60 px lower, and the answer is a single 164-ink chute.
 const HOT_CINDER = {
   id: 16, name: 'Hot Cinder', verb: 'carry', intent: 'chute',
-  answer: [[560, 400], [780, 520]],
+  answer: [[640, 460], [780, 560]],
   tip: 'The shelf under the tap is hot. Catch the water before it lands, then carry it across.',
   delay: 0.4,
   faucet: { x: 700, y: 200, rate: 26, total: 115 },
-  glasses: [CUP],
-  stage: [FLOOR, SHELF],
-  hots: [{ x: 520, y: 400, w: 210, h: 26 }],
+  // y 621, not the 619 of CUP above: 2 px is the whole difference here.
+  glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [{ x: 640, y: 690, w: 1300, h: 24, kind: 'teal' },
+          { x: 520, y: 480, w: 260, h: 24, kind: 'teal' }],
+  hots: [{ x: 520, y: 460, w: 270, h: 26 }],
   balls: [{ x: 300, y: 640, r: 26, kind: 'heavy' }],
 };
 
@@ -98,4 +102,116 @@ const TWO_WELLS = {
   balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
 };
 
-module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND, DOWNHILL, TWO_WELLS };
+// ---- batch 2: six more frames, none of them a rerun of the four above ----
+// Each entry keeps the exact numbers that proved; see PLAN.md rule 6.
+
+const T_FLOOR = { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' };
+
+// 18 MOAT (carry). A hot gap splits the floor and the cup sits on a plinth
+// across it. The anchor is a tall column whose top is ABOVE the mouth: water
+// only runs downhill, so a raised cup needs something higher to start from.
+// This is the fix for the frame that failed 0/192 in batch 1.
+// Proved: idle 0.00, answer 0.50 on 340 ink.
+const THE_MOAT = {
+  id: 18, name: 'The Moat', verb: 'carry', intent: 'chute',
+  answer: [[520, 360], [830, 500]],
+  tip: 'The gap is hot and the cup is up on the far side. Start from the column.',
+  delay: 0.4,
+  faucet: { x: 600, y: 200, rate: 26, total: 120 },
+  glasses: [{ x: 880, y: 569, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR,
+    { x: 300, y: 690, w: 520, h: 20, kind: 'teal' },
+    { x: 940, y: 690, w: 520, h: 20, kind: 'teal' },
+    { x: 520, y: 520, w: 40, h: 340, kind: 'wood' },
+    { x: 880, y: 640, w: 200, h: 24, kind: 'teal' } ],
+  hots: [{ x: 620, y: 682, w: 130, h: 26 }],
+  balls: [{ x: 250, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 19 FURNACE FLOOR (catch). The floor under the tap is hot: every drop that
+// lands is gone. The only rest is a small shelf beside the pour.
+// Proved: idle 0.00, answer 0.50 on 369 ink.
+const FURNACE_FLOOR = {
+  id: 19, name: 'Furnace Floor', verb: 'catch', intent: 'chute',
+  answer: [[486, 364], [810, 540]],
+  tip: 'The floor it lands on is hot. Catch it while it is still falling.',
+  delay: 0.4,
+  faucet: { x: 520, y: 200, rate: 26, total: 120 },
+  glasses: [{ x: 860, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR, { x: 440, y: 380, w: 120, h: 20, kind: 'wood' } ],
+  hots: [{ x: 520, y: 676, w: 260, h: 28 }],
+  balls: [{ x: 1080, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 20 THE NECK (cross). A wall stands between the pour and the cup, so the
+// water has to go OVER it and come down the far side. The wall also shields
+// the cup from splash — a cup within ~20 px of a ledge edge drinks for free.
+// Proved: idle 0.02, answer 0.50.
+const THE_NECK = {
+  id: 20, name: 'The Neck', verb: 'cross', intent: 'chute',
+  answer: [[824, 326], [615, 271], [406, 546]],
+  tip: 'The wall is in the way, not in the answer. Go over it.',
+  delay: 0.4,
+  faucet: { x: 800, y: 200, rate: 26, total: 120 },
+  glasses: [{ x: 450, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR,
+    { x: 620, y: 470, w: 150, h: 26, kind: 'wood' },
+    { x: 800, y: 340, w: 160, h: 22, kind: 'teal' } ],
+  balls: [{ x: 1080, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 22 ROOF RUN (overhang). The slab ends short of the mouth, so the pour sheds
+// past the cup. The slab is the only anchor at the right height, so the answer
+// hangs off the obstacle itself.
+// Proved: idle 0.00, answer 0.50 on 279 ink — the cheapest line in the set.
+const ROOF_RUN = {
+  id: 22, name: 'Roof Run', verb: 'overhang', intent: 'chute',
+  answer: [[595, 405], [836, 546]],
+  tip: 'The roof sends it past the cup. Use the roof.',
+  delay: 0.4,
+  faucet: { x: 560, y: 200, rate: 26, total: 120 },
+  glasses: [{ x: 880, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR, { x: 550, y: 420, w: 300, h: 24, kind: 'teal' } ],
+  balls: [{ x: 260, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 23 THE SILL (climb). The mouth sits 118 px above its ledge, which is higher
+// than anything the pour reaches on its own. The answer is nearly level — a
+// bridge across, not a slide down.
+// Proved: idle 0.00, answer 0.52 on 354 ink.
+const THE_SILL = {
+  id: 23, name: 'The Sill', verb: 'climb', intent: 'beam',
+  answer: [[444, 317], [796, 354]],
+  tip: 'That mouth is higher than the pour will ever reach. Level is not enough — go across.',
+  delay: 0.4,
+  faucet: { x: 600, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 840, y: 429, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR,
+    { x: 840, y: 500, w: 180, h: 24, kind: 'teal' },
+    { x: 420, y: 330, w: 160, h: 20, kind: 'wood' } ],
+  balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 25 THE CAGE (drop). The cup is boxed in with an open top. The shelf sheds
+// wide of the opening, and the funnel lips above the mouth catch what comes in
+// at an angle. Without the lips this frame tops out at 0.47 and never wins.
+// Proved: idle 0.00, answer 0.50.
+const THE_CAGE = {
+  id: 25, name: 'The Cage', verb: 'drop', intent: 'chute',
+  answer: [[1007, 401], [820, 360], [640, 520]],
+  tip: 'Boxed in, open at the top. Get it above the mouth and let it fall in.',
+  delay: 0.4,
+  faucet: { x: 980, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 640, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ T_FLOOR,
+    { x: 540, y: 600, w: 24, h: 180, kind: 'wood' },
+    { x: 740, y: 600, w: 24, h: 180, kind: 'wood' },
+    { x: 980, y: 420, w: 180, h: 22, kind: 'teal' },
+    { x: 570, y: 520, w: 84, h: 14, kind: 'wood', angle: 0.4 },
+    { x: 710, y: 520, w: 84, h: 14, kind: 'wood', angle: -0.4 } ],
+  balls: [{ x: 260, y: 640, r: 26, kind: 'heavy' }],
+};
+
+module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND, DOWNHILL, TWO_WELLS,
+  THE_MOAT, FURNACE_FLOOR, THE_NECK, ROOF_RUN, THE_SILL, THE_CAGE };
+
