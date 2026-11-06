@@ -47,9 +47,28 @@ which is why 16-40 all read as the same room moved around.
 
 The engine supports this already: a platform can be `{ poly: [[x,y],...] }`,
 built with `Bodies.fromVertices` and drawn with a gradient. **No level used it.**
-`terrain.js` now holds eight attempts and `terrain-sweep.js` solves one at a
-time. **Two proved**: The Plateau (0.50 / 240 ink) and The Valley (0.50 / 196
-ink). Six failed, each with its reason recorded in the file.
+**Wave 2 proved 6 of 6** once the lip rule was applied deliberately, after 2 of
+8 in wave 1. Eight mass rooms are now proved:
+
+| slot | room | mass shape | ink |
+|---|---|---|---|
+| 30 | The Plateau | flat-topped trapezoid | 240 |
+| 31 | The Prism | apex-up triangle | 271 |
+| 32 | The Cliff | trapezoid with a near-vertical face | 350 |
+| 33 | The Spire | tall narrow spike | 277 |
+| 34 | The Tent | two prisms making a valley | 237 |
+| 35 | The Long Shelf | one wide thick slab, open air below | 355 |
+| 36 | The Overhang | big block hanging over open space | 461 |
+| 37 | The Valley | two big walls, raised shelf between | 196 |
+
+Every one has idle 0.00 - no water reaches the cup unaided - and every one
+uses a different mass shape, which is the variation the reference levels show
+(trapezoid ramps, triangle prisms, paired blades, cup-in-a-notch).
+
+**Transcription trap, hit again:** two rooms were copied into the file as rect
+platforms when the sweep proved them as polygons. A rect is *centred* on (x,y);
+the poly masses have their *top* at y and base at y+h, so both moved 32 px and
+both stopped working. Copy the geometry verbatim, never "tidy" it.
 
 The rule that came out of it, and it decides every mass room from here:
 

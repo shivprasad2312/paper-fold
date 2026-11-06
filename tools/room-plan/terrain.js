@@ -43,7 +43,7 @@ const THE_PLATEAU = {
 // water lands, not how far it goes.
 // Proved: idle 0.00, answer 0.50 / 196 ink — the cheapest room in the set.
 const THE_VALLEY = {
-  id: 102, slot: 35, name: 'The Valley', verb: 'settle', intent: 'chute',
+  id: 102, slot: 37, name: 'The Valley', verb: 'settle', intent: 'chute',
   answer: [[446, 442], [642, 448]],
   tip: 'Two walls, one gap. The water only has to come down between them.',
   delay: 0.4,
@@ -89,4 +89,102 @@ const THE_VALLEY = {
   first time; every failure above breaks it.
 --------------------------------------------------------------------------- */
 
-module.exports = { G, BALL, FLOOR, trap, THE_PLATEAU, THE_VALLEY };
+/* ---- wave 2: six more mass SHAPES, each obeying the lip rule ------------- */
+
+// 31 THE PRISM (run). An apex-up prism; the pour lands on its right slope and
+// runs off the base-right, so the mass itself does the carrying and the stroke
+// only bridges the last gap. Proved: idle 0.00, answer 0.52 / 271 ink.
+const THE_PRISM = {
+  id: 103, slot: 31, name: 'The Prism', verb: 'run', intent: 'chute',
+  answer: [[699, 473], [970, 478]],
+  tip: 'The prism throws it sideways. Meet it on the way down.',
+  delay: 0.4,
+  faucet: { x: 700, y: 200, rate: 26, total: 130 },
+  glasses: [G(1010, 650)],
+  stage: [FLOOR,
+    { kind: 'teal', poly: [[520, 690], [860, 690], [690, 470]] },
+    { x: 1010, y: 660, w: 200, h: 40, kind: 'teal' }],
+  balls: [BALL(160)],
+};
+
+// 32 THE CLIFF (spill). A big trapezoid whose flat top ends at a near-vertical
+// face: the water walks to the edge and drops. Proved: idle 0.00, 0.50 / 350 ink.
+const THE_CLIFF = {
+  id: 104, slot: 32, name: 'The Cliff', verb: 'spill', intent: 'chute',
+  answer: [[705, 422], [860, 372], [1014, 478]],
+  tip: 'It runs to the edge and falls. Catch it as it goes over.',
+  delay: 0.4,
+  faucet: { x: 700, y: 200, rate: 26, total: 130 },
+  glasses: [G(1010, 650)],
+  stage: [FLOOR,
+    { kind: 'teal', poly: [[480, 430], [780, 430], [820, 690], [560, 690]] },
+    { x: 1010, y: 660, w: 200, h: 40, kind: 'teal' }],
+  balls: [BALL(160)],
+};
+
+// 33 THE SPIRE (divert). A tall narrow spike between the pour and the cup: it
+// splits the stream and throws it the wrong way, so the answer has to go over
+// the top. (Replaced "Two Steps", which never solved.) Proved: 0.50 / 277 ink.
+const THE_SPIRE = {
+  id: 105, slot: 33, name: 'The Spire', verb: 'divert', intent: 'chute',
+  answer: [[620, 450], [900, 560]],
+  tip: 'The spire splits it. Go over the top and down the far side.',
+  delay: 0.4,
+  faucet: { x: 620, y: 200, rate: 26, total: 130 },
+  glasses: [G(940, 650)],
+  stage: [FLOOR,
+    { kind: 'teal', poly: [[620, 690], [700, 690], [660, 430]] },
+    { x: 940, y: 660, w: 200, h: 40, kind: 'teal' }],
+  balls: [BALL(160)],
+};
+
+// 34 THE TENT (settle). Two prisms making a valley; the cup stands on a raised
+// pad inside it, so only a delivered stream can fill it.
+// Proved: idle 0.00, 0.50 / 237 ink.
+const THE_TENT = {
+  id: 106, slot: 34, name: 'The Tent', verb: 'settle', intent: 'chute',
+  answer: [[413, 487], [650, 476]],
+  tip: 'Two roofs and a valley. The cup sits in the middle of it.',
+  delay: 0.4,
+  faucet: { x: 430, y: 200, rate: 26, total: 130 },
+  glasses: [G(690, 610)],
+  stage: [FLOOR,
+    { kind: 'teal', poly: [[300, 690], [600, 690], [450, 430]] },
+    { kind: 'teal', poly: [[1080, 690], [780, 690], [930, 430]] },
+    { x: 690, y: 620, w: 220, h: 36, kind: 'teal' }],
+  balls: [BALL(160)],
+};
+
+// 35 THE LONG SHELF (carry). One wide, thick slab high up and nothing else: the
+// whole lower half of the screen is open air. Proved: idle 0.00, 0.50 / 355 ink.
+const THE_LONG_SHELF = {
+  id: 107, slot: 35, name: 'The Long Shelf', verb: 'carry', intent: 'chute',
+  answer: [[635, 412], [778, 362], [920, 508]],
+  tip: 'One shelf, a long drop. Carry it out and let it fall.',
+  delay: 0.4,
+  faucet: { x: 620, y: 200, rate: 26, total: 130 },
+  glasses: [G(960, 680)],
+  // poly, not a rect platform: a rect is centred on (x,y), this mass has its
+  // TOP at y and its base at y+h. Transcribing it as a rect moved it 32 px and
+  // the proved answer stopped working.
+  stage: [FLOOR, { kind: 'teal', poly: [[410, 420], [410, 356], [710, 356], [710, 420]] }],
+  balls: [BALL(160)],
+};
+
+// 36 THE OVERHANG (shelter). A big block hanging over open space; the cup sits
+// well out from under it, so the water has to be carried across the drop.
+// Proved: idle 0.00, 0.50 / 461 ink — the room the block actually earns.
+const THE_OVERHANG = {
+  id: 108, slot: 36, name: 'The Overhang', verb: 'shelter', intent: 'chute',
+  answer: [[905, 302], [490, 502]],
+  tip: 'The block sheds it away from the cup. Carry it across.',
+  delay: 0.4,
+  faucet: { x: 900, y: 200, rate: 26, total: 130 },
+  glasses: [G(480, 680)],
+  // poly, top at y = 400 (see the Long Shelf note above)
+  stage: [FLOOR, { kind: 'teal', poly: [[650, 400], [650, 310], [990, 310], [990, 400]] }],
+  balls: [BALL(160)],
+};
+
+module.exports = { G, BALL, FLOOR, trap, THE_PLATEAU, THE_VALLEY,
+  THE_PRISM, THE_CLIFF, THE_SPIRE, THE_TENT, THE_LONG_SHELF, THE_OVERHANG };
