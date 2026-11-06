@@ -131,3 +131,28 @@ ceiling plate and a hook, and a hanging cup no longer casts a ground shadow.
 
 Screenshots: `shots/verify/shipped-all.png` (all 40 levels with their own
 solutions), `sheet-solved-1..4.png` (the 21 trap rooms), `trap-*.png`.
+
+
+## Visual distinctness (round 23, second pass)
+
+The distinctness check until now compared each room's **platform list as
+numbers**. That is not the same question as "do these rooms look like different
+rooms", so `distinct.js` renders every room untouched and compares the pictures
+pixel by pixel (fraction of pixels differing by more than a visible step),
+alongside a 40 px geometry signature.
+
+| set | rooms | near-identical pairs (<2% of pixels differ) | spread |
+|---|---|---|---|
+| trap rooms | 21 | **0** | 2.6% - 10.3% |
+| shipped levels | 40 | **10** | 0.6% - 11.8% |
+
+The trap rooms are genuinely distinct. The shipped 40 are not: the worst pairs
+are 17 Underhand ~ 19 The Lob (0.6% of pixels differ) and 16 The Pitch ~ 27
+Sinker (0.6%), which are the same room with the ball moved. `near-duplicates.png`
+shows three of them side by side.
+
+This is the ball-delivery ladder built before the trap rebuild: 16-40 were one
+frame repeated with the tap and ball nudged, which is exactly the repetition the
+room rules forbid. Replacing 16-36 with the 21 proved trap rooms clears 9 of the
+10 pairs; what remains after that swap is 10 Narrow Neck ~ 11 The Shade, and the
+four slots 37-40 need four more proved frames because 35, 37, 38 and 40 were cut.
