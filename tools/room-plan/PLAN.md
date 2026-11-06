@@ -1,5 +1,10 @@
 # Rebuilding rooms 16–40, trap first
 
+> **Superseded for structure.** 16–40 are now big-mass rooms (see GLASS.md,
+> "Levels 16-40 are now mass rooms"). The trap vocabulary below still describes
+> the furniture, but the room silhouettes come from `terrain.js`, and the ball in
+> every room is seated scenery that must never reach the glass.
+
 Approved direction (round 22): the ball stays as scenery that must never reach
 the glass, and the difficulty lives in the **water's route**. Every room below
 is a distinct frame — a different obstacle, or the same obstacle doing a

@@ -72,6 +72,15 @@ for (const lv of HG.LEVELS) {
       });
     }
   }
+  // ---- do the masses actually matter?
+  // Counting solids the settled wire touches was a proxy, and a poor one: a mass
+  // can shape the pour without the wire ever lying on it, and a wire can lie on a
+  // mass that changes nothing. Ask the question directly — strip the masses out
+  // and play the very same answer. If it still wins, the structure was decoration.
+  const massless = JSON.parse(JSON.stringify(lv));
+  massless.platforms = massless.platforms.filter((p) => !p.poly);
+  const withoutMasses = play(HG, lv.id, (SOLUTIONS[lv.id] || []).map(poly), { frames: 60 * 24, level: massless });
+
   const g0 = lv.glasses[0];
   rows.push({
     id: lv.id, name: lv.name, verb: room.verb || '?',
@@ -81,6 +90,8 @@ for (const lv of HG.LEVELS) {
     props: lv.platforms.length + lv.crates.length + lv.balls.length,
     bearing: touched.size,
     ink: lv.ink, used: Math.round(r.inkUsed), won: r.won,
+    hasMasses: lv.platforms.some((p) => p.poly),
+    massless: withoutMasses.won, masslessFill: withoutMasses.fills[0].fill,
   });
 }
 
@@ -96,8 +107,8 @@ console.log('');
 rows.filter((r) => !r.won).forEach((r) => fail('room ' + r.id + ' ' + r.name + ' does not win with its own line'));
 
 // ---- 2. the line has to lean on the room
-rows.filter((r) => r.bearing < 1).forEach((r) =>
-  fail('room ' + r.id + ' ' + r.name + ' is solved by a line that touches nothing — the props are decoration'));
+rows.filter((r) => r.massless && r.hasMasses).forEach((r) =>
+  fail('room ' + r.id + ' ' + r.name + ' wins just as well with its masses removed — the structure is decoration'));
 const lean = rows.filter((r) => r.bearing >= 2).length;
 if (lean < 3) fail('only ' + lean + ' room(s) need the line to bridge two or more pieces');
 

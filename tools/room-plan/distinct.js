@@ -67,7 +67,10 @@ function pixelDiff(a, b) {
 function geometry(level) {
   const b = (v) => Math.round(v / 40);
   const parts = [];
-  (level.platforms || []).forEach((p) => parts.push(`P${b(p.x)},${b(p.y)},${b(p.w)},${b(p.h)},${Math.round((p.angle || 0) * 10)}`));
+  (level.platforms || []).forEach((p) => {
+    if (p.poly) parts.push('Q' + p.poly.map((q) => `${b(q[0])},${b(q[1])}`).join(';'));
+    else parts.push(`P${b(p.x)},${b(p.y)},${b(p.w)},${b(p.h)},${Math.round((p.angle || 0) * 10)}`);
+  });
   (level.crates || []).forEach((c) => parts.push(`C${b(c.x)},${b(c.y)},${b(c.w || c.size)},${b(c.h || c.size)}`));
   (level.hots || []).forEach((h) => parts.push(`H${b(h.x)},${b(h.y)},${b(h.w)},${b(h.h)}`));
   (level.fans || []).forEach((f) => parts.push(`F${b(f.x)},${b(f.y)},${b(f.w)},${b(f.h)}`));
@@ -81,9 +84,13 @@ module.exports = { fingerprint, geometry, pixelDiff };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
-  const set = args.includes('--trap') ? 'trap' : 'shipped';
+  const set = args.includes('--trap') ? 'trap' : args.includes('--terrain') ? 'terrain' : 'shipped';
   let rooms;
-  if (set === 'trap') {
+  if (set === 'terrain') {
+    const T = require('./terrain');
+    rooms = Object.keys(T).filter((k) => T[k] && T[k].slot).map((k) => T[k]).sort((a, b) => a.slot - b.slot)
+      .map((r) => ({ id: r.slot, name: r.name, level: levelOf(r) }));
+  } else if (set === 'trap') {
     const T = require('./traps');
     rooms = Object.keys(T).filter((k) => T[k] && T[k].glasses).map((k) => T[k]).sort((a, b) => a.id - b.id)
       .map((r) => ({ id: r.id, name: r.name, level: levelOf(r) }));

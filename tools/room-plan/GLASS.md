@@ -92,3 +92,73 @@ Walls delivered water to the cup with no stroke at all, i.e. free wins.
 
 Replacing 16-36 with terrain-mass rooms clears 9 of those 10 pairs; the last
 (10 Narrow Neck ~ 11 The Shade) needs one of the two re-cut.
+
+## Levels 16-40 are now mass rooms (25 of 25 proved)
+
+Every one is a big teal silhouette with the tap at a lip and the cup out and
+below it. Proved from `terrain.js`: idle 0.00, answer wins at 0.50, no free win.
+`terrain-emit.js` writes them into `js/levels.js`, `tools/hero-rooms.js` and
+`tools/solutions.js`; `terrain-splice.js` does the replacing in place, so no
+number is ever retyped.
+
+| # | room | silhouette | ink |
+|---|------|------------|-----|
+| 16 | The Keel | wide-top trapezoid, narrow footing | 448 |
+| 17 | The Anvil | hexagon, one shoulder to the cup | 437 |
+| 18 | The Wedge | right triangle, slope runs left | 266 |
+| 19 | The Ledge | block with the pour at its edge | 200 |
+| 20 | The Pillar | tall pillar with a cut cap | 282 |
+| 21 | The Chute | slab on the slant | 397 |
+| 22 | The Chock | block with one corner cut | 341 |
+| 23 | The Stack | two shelves, two heights | 368 |
+| 24 | The Crate Wall | slab with a bevel and a crate | 375 |
+| 25 | The Doorstep | two blocks, one step | 400 |
+| 26 | The Bench | wide bench, work the near end | 160 |
+| 27 | The Stump | low thick block | 222 |
+| 28 | The Bluff | tall block on the right, cup left | 320 |
+| 29 | The Cap | cap on a stem (T) | 242 |
+| 30 | The Plateau | flat-topped trapezoid | 240 |
+| 31 | The Prism | apex-up triangle | 271 |
+| 32 | The Cliff | trapezoid with a near-vertical face | 350 |
+| 33 | The Spire | tall narrow spike | 320 |
+| 34 | The Tent | two prisms, valley between | 237 |
+| 35 | The Long Shelf | wide thick slab, open air below | 355 |
+| 36 | The Overhang | block over open space, cup across | 461 |
+| 37 | The Valley | two walls, raised shelf | 196 |
+| 38 | The Buttress | right triangle, console | 408 |
+| 39 | The Step | two blocks, stepped | 241 |
+| 40 | The Island | block mid-floor, both sides open | 135 |
+
+### The three rules these 25 cost
+
+1. **Tap at the lip.** Water leaves a mass by an edge; if the pour lands in the
+   middle of the top it pools and dribbles off both sides. Keep the tap within
+   ~60 px of the lip that faces the cup.
+2. **The lip has to be steep.** A flat top with a shallow cap (9 deg) sheds
+   nothing — Tower, Pillar, Sill and Shield all failed as rectangles before they
+   were given a 40-60 deg shoulder.
+3. **The cup sits ON its plinth, not in it.** `G(x, top)` puts the cup's base at
+   `top`; with the plinth's own top 10 px higher the cup is a *dynamic* body
+   embedded in static scenery, and the solver pushes it out on frame one —
+   measured: cup centre moves 10.2 px in the first 40 frames. That is the jump
+   the player sees, and it is what `layout-audit` was failing on. Every plinth in
+   this set is flush with the cup's base.
+
+### What the sweeps missed, and why
+
+Coarse anchor sampling (5 points per edge, 16 candidates, sorted by distance to
+the tap) left eleven rooms "unsolvable" that were solvable. Dense sampling (9
+points per edge, 20 candidates) plus not moving the *floor* while moving the cup
+found them. Two harness bugs cost most of a session: a rect `{x,y,w,h}` moved
+together with the mass it was meant to sit beside, and a search that only ever
+started its stroke *on* a mass face when the winning line starts in the air
+above it.
+
+### Still open
+
+- 10 Narrow Neck ~ 11 The Shade are 1.8% apart on the render. Every other pair in
+  the set is >= 2.7% (median 10.7%). Level 11's answer depends on its crate at
+  x 520, so re-cutting that room means re-proving it.
+- Level 16's proved line is a transient chute: `inkWorldSegments()` reports no
+  settled ink for it even though the stroke is drawn, counted, and wins. Worth a
+  proper re-solve so the shot shows the line.

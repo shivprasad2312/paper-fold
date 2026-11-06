@@ -47,8 +47,8 @@
       ink: 300,
       faucet: { x: 640, y: 170, rate: 30, total: 140 },
       glasses: [
-        { x: 500, y: 631, w: 120, h: 118, need: 0.35 },
-        { x: 780, y: 631, w: 120, h: 118, need: 0.35 },
+        { x: 500, y: 631, w: 108, h: 118, need: 0.5 },
+        { x: 780, y: 631, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 700, w: 960, h: 20, kind: 'teal' }),
@@ -75,13 +75,13 @@
     {
       name: "Twin Taps",
       tip: "Two taps, one cup, and neither of them aims at it.",
-      ink: 170,
+      ink: 240,
       faucets: [
-        { x: 470, y: 170, rate: 24, total: 42 },
-        { x: 810, y: 170, rate: 24, total: 42 },
+        { x: 470, y: 170, rate: 24, total: 45 },
+        { x: 810, y: 170, rate: 24, total: 45 },
       ],
       glasses: [
-        { x: 640, y: 620, w: 104, h: 112, need: 0.55 },
+        { x: 640, y: 617, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 600, h: 20, kind: 'teal' }),
@@ -94,10 +94,10 @@
     {
       name: "The Shelf",
       tip: "The shelf under the tap steals the stream. Bend it back to the cup.",
-      ink: 260,
-      faucet: { x: 640, y: 170, rate: 28, total: 130 },
+      ink: 320,
+      faucet: { x: 640, y: 170, rate: 28, total: 150 },
       glasses: [
-        { x: 430, y: 620, w: 108, h: 118, need: 0.45 },
+        { x: 430, y: 620, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 430, y: 690, w: 300, h: 20, kind: 'teal' }),
@@ -130,8 +130,8 @@
       ink: 150,
       faucet: { x: 600, y: 170, rate: 30, total: 160 },
       glasses: [
-        { x: 600, y: 470, w: 100, h: 112, need: 0.3 },
-        { x: 810, y: 620, w: 104, h: 112, need: 0.3 },
+        { x: 600, y: 467, w: 108, h: 118, need: 0.5 },
+        { x: 810, y: 617, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 600, y: 560, w: 120, h: 60, kind: 'teal' }),
@@ -142,9 +142,9 @@
       name: "Under The Ledge",
       tip: "The cup is under the shelf, not beside it. The stream has to come in low.",
       ink: 290,
-      faucet: { x: 640, y: 170, rate: 26, total: 110 },
+      faucet: { x: 640, y: 170, rate: 26, total: 150 },
       glasses: [
-        { x: 780, y: 631, w: 108, h: 118, need: 0.45 },
+        { x: 780, y: 631, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 780, y: 700, w: 500, h: 20, kind: 'teal' }),
@@ -180,7 +180,7 @@
       ink: 180,
       faucet: { x: 640, y: 170, rate: 26, total: 110 },
       glasses: [
-        { x: 700, y: 621, w: 90, h: 118, need: 0.45 },
+        { x: 700, y: 621, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
@@ -193,7 +193,7 @@
       name: "The Shade",
       tip: undefined,
       ink: 430,
-      faucet: { x: 640, y: 170, rate: 26, total: 110 },
+      faucet: { x: 640, y: 170, rate: 26, total: 130 },
       glasses: [
         { x: 820, y: 621, w: 108, h: 118, need: 0.5 },
       ],
@@ -274,417 +274,433 @@
       ],
     },
     {
-      name: "The Pitch",
-      tip: "It comes in high and flat. A post in its lane costs less than a wall.",
+      name: "The Keel",
+      tip: "Wide at the top, narrow at the base: it sheds both ways.",
+      ink: 590,
+      faucet: { x: 640, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1010, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[520, 380], [880, 380], [790, 690], [610, 690]] },
+        P({ x: 1010, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Anvil",
+      tip: "Read the hexagon: one shoulder faces the cup.",
+      ink: 530,
+      faucet: { x: 660, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 980, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[500, 690], [480, 430], [580, 360], [700, 360], [800, 430], [780, 690]] },
+        P({ x: 980, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Wedge",
+      tip: "The slope runs the other way here. Use it.",
+      ink: 410,
+      faucet: { x: 760, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 420, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[860, 690], [860, 400], [480, 690]] },
+        P({ x: 420, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Ledge",
+      tip: "Pour at the edge and the block hands it over.",
+      ink: 250,
+      faucet: { x: 840, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1070, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[560, 690], [560, 470], [880, 470], [880, 690]] },
+        P({ x: 1070, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Pillar",
+      tip: "A narrow cap, a narrow shed. Catch it at the lip.",
+      ink: 430,
+      faucet: { x: 645, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 940, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[620, 690], [620, 380], [660, 380], [700, 470], [700, 690]] },
+        P({ x: 940, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Chute",
+      tip: "A slab on the slant. Let it run downhill.",
+      ink: 480,
+      faucet: { x: 560, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 260, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[440, 470], [440, 410], [860, 330], [860, 390]] },
+        P({ x: 260, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 1060, y: 640, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Chock",
+      tip: "One corner is cut. The cut is the exit.",
+      ink: 410,
+      faucet: { x: 660, y: 200, rate: 26, total: 165 },
+      glasses: [
+        { x: 980, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[520, 690], [520, 430], [680, 430], [780, 520], [780, 690]] },
+        P({ x: 980, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Stack",
+      tip: "High shelf to low shelf to cup. Do not skip a step.",
+      ink: 460,
+      faucet: { x: 620, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1020, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[420, 400], [420, 320], [700, 320], [700, 400]] },
+        { kind: 'teal', poly: [[620, 560], [620, 480], [860, 480], [860, 560]] },
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Crate Wall",
+      tip: "The crate is not the answer. The slab is.",
+      ink: 450,
+      faucet: { x: 690, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1000, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[600, 690], [600, 400], [760, 428], [760, 690]] },
+        P({ x: 1000, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      crates: [
+        { x: 880, y: 640, w: 64, h: 64, kind: 'wood' },
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Doorstep",
+      tip: "Two heights, one pour. Step it down.",
+      ink: 480,
+      faucet: { x: 700, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 290, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[420, 690], [420, 480], [640, 480], [640, 690]] },
+        { kind: 'teal', poly: [[620, 690], [620, 380], [860, 380], [860, 690]] },
+        P({ x: 290, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Bench",
+      tip: "The bench is wide. Work the near end.",
+      ink: 300,
+      faucet: { x: 820, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1020, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[500, 690], [500, 470], [860, 470], [860, 690]] },
+        P({ x: 1020, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Stump",
+      tip: "Pour near the edge and the block gives it up.",
+      ink: 270,
+      faucet: { x: 780, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1020, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[560, 690], [560, 470], [820, 470], [820, 690]] },
+        P({ x: 1020, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Bluff",
+      tip: "It sheds away from the glass. Go and get it.",
+      ink: 470,
+      faucet: { x: 800, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 440, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[760, 690], [760, 490], [1080, 490], [1080, 690]] },
+        P({ x: 440, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Cap",
+      tip: "A cap on a stem. The cap is the high route.",
+      ink: 300,
+      faucet: { x: 800, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1040, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[480, 420], [480, 360], [820, 360], [820, 420]] },
+        { kind: 'teal', poly: [[600, 420], [600, 690], [700, 690], [700, 420]] },
+        P({ x: 1040, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Plateau",
+      tip: "The pour lands on the plateau. Carry it off the lip.",
+      ink: 290,
+      faucet: { x: 600, y: 200, rate: 26, total: 125 },
+      glasses: [
+        { x: 900, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[370, 470], [670, 470], [710, 690], [330, 690]] },
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Prism",
+      tip: "The prism throws it sideways. Meet it on the way down.",
+      ink: 330,
+      faucet: { x: 700, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 1010, y: 591, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[520, 690], [860, 690], [690, 470]] },
+        P({ x: 1010, y: 670, w: 200, h: 40, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Cliff",
+      tip: "It runs to the edge and falls. Catch it as it goes over.",
       ink: 420,
-      delay: 1.6,
-      faucet: { x: 410, y: 210, rate: 24, total: 110 },
+      faucet: { x: 700, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 410, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 1010, y: 591, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[480, 430], [780, 430], [820, 690], [560, 690]] },
+        P({ x: 1010, y: 670, w: 200, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 150, y: 360, r: 26, kind: 'heavy', vx: 10 },
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
       ],
     },
     {
-      name: "Underhand",
-      tip: "A slow underhand throw — it drops early. Meet it where it lands, not where it is aimed.",
-      ink: 220,
-      delay: 1.6,
-      faucet: { x: 350, y: 210, rate: 24, total: 110 },
+      name: "The Spire",
+      tip: "The spire splits it. Go over the top and down the far side.",
+      ink: 390,
+      faucet: { x: 620, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 350, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 940, y: 591, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[620, 690], [700, 690], [660, 430]] },
+        P({ x: 940, y: 670, w: 200, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 150, y: 470, r: 26, kind: 'heavy', vx: 9 },
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
       ],
     },
     {
-      name: "Flat Throw",
-      tip: "Fast and level. The cup is far down its lane; put something in the lane.",
+      name: "The Tent",
+      tip: "Two roofs and a valley. The cup sits in the middle of it.",
+      ink: 290,
+      faucet: { x: 430, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 690, y: 551, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[300, 690], [600, 690], [450, 430]] },
+        { kind: 'teal', poly: [[1080, 690], [780, 690], [930, 430]] },
+        P({ x: 690, y: 629, w: 220, h: 36, kind: 'teal' }),
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Long Shelf",
+      tip: "One shelf, a long drop. Carry it out and let it fall.",
+      ink: 430,
+      faucet: { x: 620, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 960, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[410, 420], [410, 356], [710, 356], [710, 420]] },
+      ],
+      balls: [
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Overhang",
+      tip: "The block sheds it away from the cup. Carry it across.",
+      ink: 560,
+      faucet: { x: 900, y: 200, rate: 26, total: 140 },
+      glasses: [
+        { x: 480, y: 621, w: 108, h: 118, need: 0.5 },
+      ],
+      platforms: [
+        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[650, 400], [650, 310], [990, 310], [990, 400]] },
+      ],
+      balls: [
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
+      ],
+    },
+    {
+      name: "The Valley",
+      tip: "Two walls, one gap. The water only has to come down between them.",
       ink: 240,
-      delay: 1.6,
-      faucet: { x: 530, y: 210, rate: 24, total: 110 },
+      faucet: { x: 420, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 530, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 660, y: 541, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[290, 690], [290, 450], [550, 450], [550, 690]] },
+        { kind: 'teal', poly: [[770, 690], [770, 450], [1030, 450], [1030, 690]] },
+        P({ x: 660, y: 620, w: 260, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 160, y: 300, r: 26, kind: 'heavy', vx: 12 },
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
       ],
     },
     {
-      name: "The Lob",
-      tip: "It is lobbed. The arc is wide, and the cup sits under the far side of it.",
-      ink: 250,
-      delay: 1.6,
-      faucet: { x: 350, y: 210, rate: 24, total: 110 },
+      name: "The Buttress",
+      tip: "It lands on the slope and runs off the end. Take it from there.",
+      ink: 490,
+      faucet: { x: 510, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 350, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 960, y: 591, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[420, 690], [420, 430], [760, 690]] },
+        P({ x: 960, y: 670, w: 200, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 170, y: 520, r: 26, kind: 'heavy', vx: 8, vy: -4 },
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
       ],
     },
     {
-      name: "Long Shot",
-      tip: "A long throw crosses the whole room. Height beats strength here.",
-      ink: 540,
-      delay: 1.6,
-      faucet: { x: 545, y: 210, rate: 24, total: 110 },
+      name: "The Step",
+      tip: "Climb the step, then drop to the glass.",
+      ink: 290,
+      faucet: { x: 750, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 545, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 1020, y: 591, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
+        { kind: 'teal', poly: [[400, 690], [400, 520], [620, 520], [620, 690]] },
+        { kind: 'teal', poly: [[560, 690], [560, 400], [780, 400], [780, 690]] },
+        P({ x: 1020, y: 670, w: 200, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 130, y: 330, r: 26, kind: 'heavy', vx: 14 },
+        { x: 160, y: 654, r: 26, kind: 'heavy' },
       ],
     },
     {
-      name: "Low Pitch",
-      tip: "The ball pitches down off the sill. Give it a pocket to sit in.",
-      ink: 660,
-      delay: 2.2,
-      faucet: { x: 665, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 665, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 530, y: 470, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 680, y: 440, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "High Toss",
-      tip: "Tossed straight up and forgotten. It comes down somewhere specific.",
-      ink: 250,
-      delay: 1.6,
-      faucet: { x: 425, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 425, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 200, y: 560, r: 26, kind: 'heavy', vx: 10, vy: -6 },
-      ],
-    },
-    {
-      name: "Cross Fire",
-      tip: "The throw comes from the right. Learn to draw backwards.",
-      ink: 250,
-      delay: 1.6,
-      faucet: { x: 800, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 800, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 1120, y: 400, r: 26, kind: 'heavy', vx: -10 },
-      ],
-    },
-    {
-      name: "Backhand",
-      tip: "A backhand, low and flat, with the tap pouring behind you.",
-      ink: 220,
-      delay: 1.6,
-      faucet: { x: 875, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 875, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 1140, y: 470, r: 26, kind: 'heavy', vx: -11 },
-      ],
-    },
-    {
-      name: "Backhand Lob",
-      tip: "Lobbed from the right. The water starts before the ball has finished falling.",
-      ink: 250,
-      delay: 1.6,
-      faucet: { x: 860, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 860, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 1100, y: 520, r: 26, kind: 'heavy', vx: -8, vy: -4 },
-      ],
-    },
-    {
-      name: "Sidearm",
-      tip: "A hard sidearm from the right. Stop it high, then let the tap run.",
-      ink: 430,
-      delay: 1.6,
-      faucet: { x: 725, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 725, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 1160, y: 340, r: 26, kind: 'heavy', vx: -13 },
-      ],
-    },
-    {
-      name: "Sinker",
-      tip: "The sinker drops as it arrives. Flat ground work will not do.",
-      ink: 540,
-      delay: 1.6,
-      faucet: { x: 410, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 410, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-      ],
-      balls: [
-        { x: 180, y: 300, r: 26, kind: 'heavy', vx: 11, vy: 5 },
-      ],
-    },
-    {
-      name: "The Drop",
-      tip: "It tips off the sill and falls straight for the mouth. Catch it in the air.",
-      ink: 370,
-      delay: 2.2,
-      faucet: { x: 755, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 755, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 610, y: 300, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 760, y: 270, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "High Sill",
-      tip: "High sill, short drop. The ball is quicker than your line.",
-      ink: 350,
-      delay: 2.2,
-      faucet: { x: 740, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 740, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 590, y: 240, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 740, y: 210, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Low Sill",
-      tip: "A low sill, so the fall is short and the ball is on you at once.",
-      ink: 660,
-      delay: 2.2,
-      faucet: { x: 710, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 710, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 570, y: 420, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 720, y: 390, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Narrow Sill",
-      tip: "A narrow shelf sheds the ball sideways. Learn the direction first.",
-      ink: 380,
-      delay: 2.2,
-      faucet: { x: 770, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 770, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 660, y: 340, w: 200, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 780, y: 310, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Left Sill",
-      tip: "The sill reaches in from the far side. So does the ball.",
-      ink: 430,
-      delay: 2.2,
-      faucet: { x: 455, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 455, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 690, y: 320, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 540, y: 290, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Far Sill",
-      tip: "It leaves a distant sill with room to pick up speed.",
-      ink: 310,
-      delay: 2.2,
-      faucet: { x: 815, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 815, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 670, y: 380, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 820, y: 350, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Overhang",
-      tip: "The sill overhangs the cup. The ball is already past the rim when you see it.",
-      ink: 660,
-      delay: 2.2,
-      faucet: { x: 785, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 785, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 650, y: 260, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 800, y: 230, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Sill Trap",
-      tip: "The sill is set so the ball rides in against the wall. Use the wall.",
-      ink: 370,
-      delay: 2.2,
-      faucet: { x: 695, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 695, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 560, y: 360, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 710, y: 330, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Long Drop",
-      tip: "Dropped from a height, well past the cup. Deflect, do not block.",
-      ink: 200,
-      delay: 2.2,
-      faucet: { x: 800, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 800, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 570, y: 210, w: 260, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 720, y: 180, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "High Drop",
-      tip: "The highest sill in the set. You have less time than you think.",
+      name: "The Island",
+      tip: "The block splits the pour. Both sides are yours.",
       ink: 260,
-      delay: 2.2,
-      faucet: { x: 740, y: 210, rate: 24, total: 110 },
+      faucet: { x: 820, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 740, y: 621, w: 108, h: 118, need: 0.5 },
+        { x: 1000, y: 591, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 490, y: 160, w: 260, h: 16, kind: 'wood' }),
+        { kind: 'teal', poly: [[560, 690], [560, 520], [860, 520], [860, 690]] },
+        P({ x: 1000, y: 670, w: 200, h: 40, kind: 'teal' }),
       ],
       balls: [
-        { x: 640, y: 130, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Quick Drop",
-      tip: "Low and close: the ball barely falls before it reaches the mouth.",
-      ink: 230,
-      delay: 2.2,
-      faucet: { x: 830, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 830, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 720, y: 450, w: 220, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 850, y: 420, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Left Drop",
-      tip: "The sill comes in from the right this time.",
-      ink: 240,
-      delay: 2.2,
-      faucet: { x: 515, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 515, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 770, y: 330, w: 300, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 600, y: 300, r: 26, kind: 'heavy' },
-      ],
-    },
-    {
-      name: "Last Drop",
-      tip: "The last one falls, the tap opens late, and the mouth is wide open.",
-      ink: 310,
-      delay: 2.2,
-      faucet: { x: 710, y: 210, rate: 24, total: 110 },
-      glasses: [
-        { x: 710, y: 621, w: 108, h: 118, need: 0.5 },
-      ],
-      platforms: [
-        P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),
-        P({ x: 570, y: 330, w: 240, h: 16, kind: 'wood' }),
-      ],
-      balls: [
-        { x: 710, y: 300, r: 26, kind: 'heavy' },
+        { x: 160, y: 320, r: 26, kind: 'heavy' },
       ],
     },
   ];
