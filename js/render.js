@@ -606,20 +606,55 @@
       }
     }
 
+    // A cup with `hanging: true` is held up by nothing the player can see, which
+    // read as a bug: a glass floating in mid-air over its own drop shadow. Hang
+    // it from a short bracket at the top of the play area instead, so the rule
+    // ("this cup is held, it will swing") is visible before the water moves.
+    drawGlassHanger(ctx, g) {
+      if (!g.hanging) return;
+      const from = 96, to = g.top - 2;
+      if (to <= from + 8) return;
+      ctx.save();
+      // the drop shadow is wrong for something that is not standing on anything
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = 'rgba(38,48,60,0.55)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(g.x, from);
+      ctx.lineTo(g.x, to);
+      ctx.stroke();
+      // a small plate where it leaves the ceiling line
+      ctx.fillStyle = 'rgba(38,48,60,0.7)';
+      ctx.beginPath();
+      ctx.roundRect(g.x - 16, from - 7, 32, 9, 4);
+      ctx.fill();
+      // and the hook that grips the rim
+      ctx.strokeStyle = 'rgba(38,48,60,0.8)';
+      ctx.lineWidth = 3.4;
+      ctx.beginPath();
+      ctx.arc(g.x, to, 7, -Math.PI * 0.15, Math.PI * 1.15);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     drawGlassBack(ctx, g, dt) {
       const bob = Math.sin(this.t * 0.0018 + g.x) * 1.2;
       g._bob = bob;
+      this.drawGlassHanger(ctx, g);
       ctx.save();
       ctx.translate(0, bob);
 
-      // soft ground shadow
-      ctx.save();
-      ctx.globalAlpha = 0.1;
-      ctx.fillStyle = C.ink;
-      ctx.beginPath();
-      ctx.ellipse(g.x, g.bottom + 16, g.topHalf * 0.95, 9, 0, 0, HG.TAU);
-      ctx.fill();
-      ctx.restore();
+      // soft ground shadow — only for a cup that is actually standing on
+      // something. A hanging cup casting a floor shadow looked like a bug.
+      if (!g.hanging) {
+        ctx.save();
+        ctx.globalAlpha = 0.1;
+        ctx.fillStyle = C.ink;
+        ctx.beginPath();
+        ctx.ellipse(g.x, g.bottom + 16, g.topHalf * 0.95, 9, 0, 0, HG.TAU);
+        ctx.fill();
+        ctx.restore();
+      }
 
       // glass body
       this.glassPath(ctx, g, 0);

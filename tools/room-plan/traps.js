@@ -40,7 +40,7 @@ const CUP = { x: 820, y: 619, w: 108, h: 118, need: 0.5 };
 // is 260 wide and 60 px lower, and the answer is a single 164-ink chute.
 const HOT_CINDER = {
   id: 16, name: 'Hot Cinder', verb: 'carry', intent: 'chute',
-  answer: [[640, 460], [780, 560]],
+  answer: [[642, 461], [780, 510]],
   tip: 'The shelf under the tap is hot. Catch the water before it lands, then carry it across.',
   delay: 0.4,
   faucet: { x: 700, y: 200, rate: 26, total: 115 },
@@ -58,7 +58,7 @@ const HOT_CINDER = {
 // twice, which the room rules forbid.
 const CROSSWIND = {
   id: 17, name: 'Crosswind', verb: 'carry', intent: 'chute',
-  answer: [[500, 400], [760, 480]],
+  answer: [[604, 395], [778, 528]],
   tip: 'The wind takes anything that leaves the line slowly.',
   delay: 0.4,
   faucet: { x: 700, y: 200, rate: 26, total: 115 },
@@ -114,7 +114,7 @@ const T_FLOOR = { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' };
 // Proved: idle 0.00, answer 0.50 on 340 ink.
 const THE_MOAT = {
   id: 18, name: 'The Moat', verb: 'carry', intent: 'chute',
-  answer: [[520, 360], [830, 500]],
+  answer: [[538, 346], [830, 500]],
   tip: 'The gap is hot and the cup is up on the far side. Start from the column.',
   delay: 0.4,
   faucet: { x: 600, y: 200, rate: 26, total: 120 },
@@ -181,7 +181,7 @@ const ROOF_RUN = {
 // Proved: idle 0.00, answer 0.52 on 354 ink.
 const THE_SILL = {
   id: 23, name: 'The Sill', verb: 'climb', intent: 'beam',
-  answer: [[444, 317], [796, 354]],
+  answer: [[444, 309], [796, 354]],
   tip: 'That mouth is higher than the pour will ever reach. Level is not enough — go across.',
   delay: 0.4,
   faucet: { x: 600, y: 200, rate: 26, total: 125 },
@@ -236,7 +236,7 @@ const DROP_SHAFT = {
 // in the set. Proved: idle 0.00, answer 0.50.
 const LONG_CARRY = {
   id: 26, name: 'Long Carry', verb: 'carry', intent: 'beam',
-  answer: [[310, 361], [960, 528]],
+  answer: [[310, 361], [734, 451], [960, 528]],
   tip: 'Land is scarce and the floor is hot. One line, both shelves.',
   delay: 0.4, ink: 700,
   faucet: { x: 220, y: 200, rate: 26, total: 130 },
@@ -286,7 +286,7 @@ const THE_LIP = {
 // Proved: idle 0.00/0.00, answer 0.50/0.69.
 const TWIN_TAPS = {
   id: 30, name: 'Twin Taps', verb: 'split', intent: 'chute',
-  answers: [[[530, 416], [405, 366], [280, 528]], [[590, 416], [960, 546]]],
+  answers: [[[530, 416], [405, 366], [280, 528]], [[590, 416], [791, 415], [960, 546]]],
   tip: 'Two taps, two cups, one hand at a time.',
   delay: 0.4, ink: 850,
   faucets: [{ x: 560, y: 200, rate: 26, total: 110 },
@@ -356,7 +356,7 @@ const SINKHOLE = {
 // Proved: idle 0.00, answer 0.50 / 204 ink.
 const THE_NEEDLE = {
   id: 34, name: 'The Needle', verb: 'thread', intent: 'chute',
-  answer: [[840, 382], [660, 478]],
+  answer: [[840, 368], [660, 478]],
   tip: 'Thread the gap. There is no room to come in from the side.',
   delay: 0.4,
   faucet: { x: 780, y: 200, rate: 26, total: 125 },
@@ -372,7 +372,7 @@ const THE_NEEDLE = {
 // Proved: idle 0.00, answer 0.50 / 517 ink.
 const S_BEND = {
   id: 36, name: 'The S-Bend', verb: 'turn', intent: 'chute',
-  answer: [[443, 342], [940, 486]],
+  answer: [[443, 342], [694, 346], [940, 486]],
   tip: 'Two slabs, two turns. Straight will not reach.',
   delay: 0.4,
   faucet: { x: 480, y: 200, rate: 26, total: 125 },

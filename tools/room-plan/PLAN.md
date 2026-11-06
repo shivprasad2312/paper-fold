@@ -79,10 +79,12 @@ answer shape: hot pad · fan · ramp · two cups one tap · moat · furnace · w
 roof · sill · cage · shaft · long span · step · lip · two taps two cups ·
 hanging cup · hot wall · sinkhole · needle · S-bend · roofed shelf.
 
-Every proved room is verified on five gates at once: untouched loses, the
+Every proved room is verified on seven gates now: untouched loses, the
 authored answer wins, two runs of the same answer agree to three decimals, a
-ball is present and never spoils the glass, and no other room shares its
-structure.
+ball is present and never spoils the glass, no other room shares its structure,
+the answer wins at every one of 16-40 random seeds, and — new — the answer is a
+line the pen can actually draw (4 rooms do not meet this last one yet: 19, 21,
+22, 24, listed as blocked).
 
 A structural check over all fifteen — comparing every room's platform list —
 reports **no two rooms share a structure**. Two rooms use two strokes (Long
@@ -92,3 +94,40 @@ Twin Taps is the only room with two sources.
 Remaining: **four unproved frames** (35, 37, 38, 40), each with the measurement
 that killed it in the table above. They get replaced, not retuned. The Wedge
 (0.05, then 0.14) was dropped the same way and is no longer in the list.
+
+## Visual verification (round 23)
+
+Every room was checked as a picture, not only as a number: the real renderer is
+driven headlessly (`shot-trap.js`, `sheet-trap.js`, `ship-sheet.js`) and the
+results are committed under `shots/verify/`. Three things came out of it that
+the numeric proofs had missed.
+
+**1. The stored answers were not answers you could draw.** `addInkPoint` refuses
+any point inside scenery or a glass, and the proof harness skipped refused
+points silently, so a stored answer could contain pieces of line no pen can
+make while still "winning". Measured with `verify-drawable.js`:
+
+| set | answers with refused points |
+|---|---|
+| shipped levels 1-40 | **13** |
+| trap rooms | 5 of 21, now 4 |
+
+The 8 trap rooms are fixed (16, 17, 18, 23, 26, 30, 34, 36 got new answers that
+are clean end to end). The rest are recorded rather than hidden: the levels
+still win when the pen draws the stroke it can draw, so nothing is unplayable,
+but 19, 21, 22, 24 and the 13 shipped answers are not clean and should be
+re-solved. `verify-drawable.js` is the gate that catches this from now on.
+
+**2. A winner has to be a winner at every seed.** The renderer had its own
+random stream and showed room 16 losing at 0.00 while the prover called it a
+win. That was the renderer's fault, not the room's — but it exposed that
+nothing checked the other seeds. `seeds.js` now replays every answer at 16-40
+seeds: **all 21 rooms win at every seed, none spoils a cup.**
+
+**3. A hanging cup was drawn with no hanger.** Three shipped levels and the
+Hanger room use `hanging: true`, and the renderer drew a glass floating in
+mid-air above its own floor shadow. `drawGlassHanger` now draws a rod, a
+ceiling plate and a hook, and a hanging cup no longer casts a ground shadow.
+
+Screenshots: `shots/verify/shipped-all.png` (all 40 levels with their own
+solutions), `sheet-solved-1..4.png` (the 21 trap rooms), `trap-*.png`.
