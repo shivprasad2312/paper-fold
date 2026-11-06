@@ -31,11 +31,17 @@ jobs:
             sleep 1
           done
 
+      - name: Unit tests (rules, save/medals, daily, catalogue)
+        run: npm run test:unit
+
       - name: Verify (pure-Node solvability proof)
         run: npm run verify
 
       - name: Playable-route test (every level played in a real browser)
         run: URL=http://127.0.0.1:4173/ npm run test:play
+
+      - name: Regression tests (pinned bugs)
+        run: URL=http://127.0.0.1:4173/ npm run regression
 
       - name: Full browser playtest (mechanics + themes + camera)
         run: URL=http://127.0.0.1:4173/ npm run playtest

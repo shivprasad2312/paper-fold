@@ -38,8 +38,13 @@ Other commands:
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
 | `npm run verify` | prove all 50 levels + 14 daily layouts are solvable (pure Node, no browser) |
-| `npm test` | **the gate**: `verify` + `test:play` — every level proven solvable AND completable |
+| `npm test` | **the gate**: `test:unit` + `verify` + `test:play` — logic proven, levels solvable, AND every level played to completion |
+| `npm run test:unit` | unit tests for the pure core: rules (roll law, push, crumble, soft-lock, par), save/medals, daily seeding (fast, no browser) |
 | `npm run test:play` | playable-route test: plays every level + today's daily to the win panel via real keyboard input (headless) |
+| `npm run regression` | the pinned-bug tests (win-panel resurface, Fault Line sentinel spawn) |
+| `npm run stress` | rapid/repeated input stress: 120 mashed keys, 30 restarts, flow loops, hold-through-pause |
+| `npm run perf` | measured performance vs budgets: frame cost, draw calls, adaptive-quality governor, leak check |
+| `npm run validate:levels` | full level gate in one command (unit + verifier + playable bot) |
 | `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
 | `npm run autoplay` | plays all 50 levels end to end in a headless browser |
 | `npm run hooks` | install the pre-commit test gate into this clone |
@@ -49,8 +54,11 @@ browser with `CHROME_PATH`, or install Playwright/Chrome beforehand.
 
 ### Test gate — no level can ship broken
 
-A level must clear two independent bars before it is allowed:
+A change must clear three independent bars before it is allowed:
 
+* **`npm run test:unit`** (pure Node, <1 s) — the *rules* proof: the roll law,
+  push/crumble semantics, soft-lock detection, par, save/medal math, and daily
+  seeding are pinned as unit tests, so a rule can't quietly change under a fix.
 * **`npm run verify`** (pure Node, no browser) — the *logical* proof: a heightfield
   route start→key→goal exists, push/crumble/orb layouts are solvable, spawns are safe,
   no soft-locked shards.
@@ -60,6 +68,11 @@ A level must clear two independent bars before it is allowed:
   reports `won`. Hazards are off during the route drive (their solvability is the
   verifier's job), so together the two guarantee a path is there **and** hazards
   can't seal it.
+
+On top of the gate, `npm run regression` pins every fixed bug (the win-panel
+resurface, the Fault Line sentinel spawn), `npm run stress` hammers inputs, and
+`npm run perf` measures frame cost / draw calls / leaks against budgets. The full
+test taxonomy is in [`docs/testing_strategy.md`](docs/testing_strategy.md).
 
 This runs **whenever you change a level or add one**, in two places:
 
@@ -234,7 +247,25 @@ scripts/
   autoplay.mjs        full 50-level completion run in a browser
   hooks/install.mjs   installs the pre-commit test gate (npm run hooks)
   shoot.mjs / mobile-shots.mjs   screenshot helpers
+tests/
+  unit/               rules, save/medals, daily seeding, level-catalogue properties (node:test)
+  regression/         one named test per fixed bug (win-panel resurface, Fault Line spawn)
+  gameplay/stress.mjs rapid/repeated input stress
+  performance/perf.mjs frame cost, draw calls, adaptive-quality governor, leak check vs budgets
+  level_validation/   composes unit + verifier + playable bot into one command
+  browser.mjs         shared headless-Chromium bootstrap for the browser suites
+docs/
+  research.md  game_design_document.md  architecture.md  technical_decisions.md
+  agent_rules.md  algorithms.md  level_design.md  level_progression.md
+  testing_strategy.md  performance_report.md  progress.md  bug_tracker.md
 ```
+
+The design and engineering docs are the studio record for the game: the
+genre research that shaped it, the GDD, the architecture + decision log
+(ADR-001…011), the algorithms (BFS proof, hazard solver, seeded generation),
+the level design/progression, the test strategy, and the measured
+performance report. `docs/agent_rules.md` is the operating contract for
+anyone (human or agent) changing the code.
 
 Notable details:
 
