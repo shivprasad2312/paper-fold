@@ -212,6 +212,94 @@ const THE_CAGE = {
   balls: [{ x: 260, y: 640, r: 26, kind: 'heavy' }],
 };
 
+// ---- batch 3: five more frames, again with no shared structure ----
+
+// 24 DROP SHAFT (drop). The cup sits between two short walls. The deck above
+// sheds onto the floor either side of the shaft, so nothing walks in sideways:
+// it has to be dropped down the gap. Proved: idle 0.00, answer 0.50 / 284 ink.
+const DROP_SHAFT = {
+  id: 24, name: 'Drop Shaft', verb: 'drop', intent: 'chute',
+  answer: [[560, 411], [810, 546]],
+  tip: 'It only takes water from above. Get over the gap and let it fall.',
+  delay: 0.4,
+  faucet: { x: 560, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 850, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 740, y: 630, w: 24, h: 140, kind: 'wood' },
+    { x: 960, y: 630, w: 24, h: 140, kind: 'wood' },
+    { x: 560, y: 430, w: 180, h: 22, kind: 'teal' } ],
+  balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 26 LONG CARRY (carry). Two shelves and a hot floor between them. A single
+// stroke has to span both, which takes 671 of the 700 ink — the tightest room
+// in the set. Proved: idle 0.00, answer 0.50.
+const LONG_CARRY = {
+  id: 26, name: 'Long Carry', verb: 'carry', intent: 'beam',
+  answer: [[310, 361], [960, 528]],
+  tip: 'Land is scarce and the floor is hot. One line, both shelves.',
+  delay: 0.4, ink: 700,
+  faucet: { x: 220, y: 200, rate: 26, total: 130 },
+  glasses: [{ x: 1000, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 220, y: 380, w: 200, h: 22, kind: 'teal' },
+    { x: 640, y: 470, w: 180, h: 22, kind: 'teal' } ],
+  hots: [{ x: 480, y: 676, w: 520, h: 28 }],
+  balls: [{ x: 1150, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 29 THE STEP (climb). The cup stands on a step 88 px above the deck that feeds
+// it, so the line cannot simply run downhill: it stays near level and drops
+// over the step edge. Proved: idle 0.00, answer 0.52 / 302 ink.
+const THE_STEP = {
+  id: 29, name: 'The Step', verb: 'climb', intent: 'beam',
+  answer: [[561, 411], [860, 456]],
+  tip: 'The cup is up on the step. Level beats downhill here.',
+  delay: 0.4,
+  faucet: { x: 480, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 900, y: 531, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 900, y: 640, w: 300, h: 100, kind: 'teal' },
+    { x: 480, y: 430, w: 180, h: 22, kind: 'teal' } ],
+  balls: [{ x: 200, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 31 THE LIP (clear). A tall thin lip stands between the deck and the mouth. A
+// chute that runs straight at the cup hits the lip, so the line has to rise over
+// it and come back down. Proved: idle 0.00, answer 0.50 / 517 ink.
+const THE_LIP = {
+  id: 31, name: 'The Lip', verb: 'clear', intent: 'chute',
+  answer: [[299, 381], [510, 331], [720, 546]],
+  tip: 'The lip is taller than the cup. Rise over it, then come down.',
+  delay: 0.4,
+  faucet: { x: 380, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 760, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 640, y: 600, w: 26, h: 160, kind: 'wood' },
+    { x: 380, y: 400, w: 180, h: 22, kind: 'teal' } ],
+  balls: [{ x: 1080, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 30 TWIN TAPS (split). Two taps pour into the middle, two cups wait at the
+// sides, and no single line serves both — the set's second two-stroke room,
+// and the only one with two sources. Two strokes cost 731 ink of 850.
+// Proved: idle 0.00/0.00, answer 0.50/0.69.
+const TWIN_TAPS = {
+  id: 30, name: 'Twin Taps', verb: 'split', intent: 'chute',
+  answers: [[[530, 416], [405, 366], [280, 528]], [[590, 416], [960, 546]]],
+  tip: 'Two taps, two cups, one hand at a time.',
+  delay: 0.4, ink: 850,
+  faucets: [{ x: 560, y: 200, rate: 26, total: 110 },
+            { x: 720, y: 200, rate: 26, total: 110 }],
+  glasses: [{ x: 320, y: 621, w: 108, h: 118, need: 0.5 },
+            { x: 1000, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 560, y: 430, w: 150, h: 22, kind: 'teal' },
+    { x: 720, y: 430, w: 150, h: 22, kind: 'teal' } ],
+  balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
+};
+
 module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND, DOWNHILL, TWO_WELLS,
-  THE_MOAT, FURNACE_FLOOR, THE_NECK, ROOF_RUN, THE_SILL, THE_CAGE };
+  THE_MOAT, FURNACE_FLOOR, THE_NECK, ROOF_RUN, THE_SILL, THE_CAGE,
+  DROP_SHAFT, LONG_CARRY, THE_STEP, THE_LIP, TWIN_TAPS };
 

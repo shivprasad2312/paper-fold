@@ -18,14 +18,14 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 | 21 | Two Wells | two cups, one tap | sit in the stream, let it break over the edge | **proved** 0.52/0.78 / 366 ink |
 | 22 | Roof Run | slab that ends short of the mouth | hang the line off the obstacle itself | **proved** 0.50 / 279 ink |
 | 23 | The Sill | mouth 118 px above its ledge | a near-level bridge, not a slide | **proved** 0.52 / 354 ink |
-| 24 | Drop Shaft | cup at the bottom of a shaft | funnel into the shaft mouth | planned |
+| 24 | Drop Shaft | cup between two walls, open only from above | drop it down the gap | **proved** 0.50 / 284 ink |
 | 25 | The Cage | cup boxed in, open at the top, funnel lips above | get above the mouth and drop in | **proved** 0.50 / 432 ink |
-| 26 | Long Carry | tap far left, cup far right, hot floor between | span two anchors in one line | **blocked** 0/164: one straight line cannot turn |
+| 26 | Long Carry | two shelves with a hot floor between | one stroke spanning both | **proved** 0.50 / 671 of 700 ink |
 | 27 | Downhill | a ramp running away from the cup | bend the stream back | **proved** 0.50 / 408 ink |
-| 28 | The Pockets | three pockets, one leads to the cup | choose the pocket | planned |
-| 29 | The Wedge | cup behind a wedge | carry over the wedge | planned |
-| 30 | Twin Taps | two taps, two cups | one line serving both | planned |
-| 31 | The Lip | a low lip in front of the mouth | clear the lip into the mouth | planned |
+| 28 | The Wedge | cup on a plinth behind a tall wedge | carry over the wedge | **blocked** 0.14: two sweeps, still no line |
+| 29 | The Step | cup on a step 88 px above its deck | stay near level and drop over the edge | **proved** 0.52 / 302 ink |
+| 30 | Twin Taps | two taps into the middle, two cups at the sides | two strokes, one per cup | **proved** 0.50/0.69 / 731 of 850 |
+| 31 | The Lip | tall thin lip between the deck and the mouth | rise over the lip, come back down | **proved** 0.50 / 517 ink |
 | 32 | Chute Off | tap over a ramp that dumps water away | intercept before the ramp | planned |
 | 33 | Sinkhole | hot pad in the floor gap | bridge the gap | planned |
 | 34 | The Funnel | cup under two converging slabs | deliver into the funnel mouth | planned |
@@ -67,11 +67,14 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 
 ## Where the rebuild stands
 
-10 of 25 frames proved, all with different obstacles and different answer
-shapes: hot pad · fan · ramp · two cups · moat · furnace · wall · roof ·
-sill · cage. A structural check over the ten (comparing every room's platform
-list) confirms **no two share a structure**, and Hot Cinder was re-framed onto
-its own shelf when it turned out to be a copy of Crosswind.
+**15 of 25 frames proved**, each with a different obstacle and a different
+answer shape: hot pad · fan · ramp · two cups one tap · moat · furnace · wall ·
+roof · sill · cage · shaft · long span · step · lip · two taps two cups.
 
-Remaining: 24, 26, 28-40. Their frames are listed above; each needs its own
-sweep, and the three blocked batch-1 frames were replaced rather than retuned.
+A structural check over all fifteen — comparing every room's platform list —
+reports **no two rooms share a structure**. Two rooms use two strokes (Long
+Carry spans two shelves in one line; Twin Taps needs one line per cup), and
+Twin Taps is the only room with two sources.
+
+Remaining: 28, 32-40. The Wedge has now failed two designs (0.05, then 0.14)
+and gets **replaced rather than retuned**, per the room rule.
