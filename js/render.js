@@ -638,11 +638,14 @@
     }
 
     drawGlassBack(ctx, g, dt) {
-      const bob = Math.sin(this.t * 0.0018 + g.x) * 1.2;
-      g._bob = bob;
+      // No idle bob. Every glass used to be nudged +-1.2 px up and down on a
+      // sine, forever, whether it held water or not — a cup of nothing waving
+      // about reads as a bug, and the competitor's cup is rock steady until
+      // something actually hits it. The glass moves because the PHYSICS moves
+      // it; the renderer's job is to follow the body, not add motion of its own.
+      g._bob = 0;
       this.drawGlassHanger(ctx, g);
       ctx.save();
-      ctx.translate(0, bob);
 
       // soft ground shadow — only for a cup that is actually standing on
       // something. A hanging cup casting a floor shadow looked like a bug.

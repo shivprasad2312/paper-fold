@@ -33,8 +33,8 @@ const S = [
     tip: 'One stream, two cups. One stroke has to serve both.',
     faucet: { x: 640, y: 170, rate: 30, total: 140 },
     glasses: [
-      { x: 500, y: 631, w: 120, h: 118, need: 0.35 },
-      { x: 780, y: 631, w: 120, h: 118, need: 0.35 },
+      { x: 500, y: 631, w: 108, h: 118, need: 0.5 },
+      { x: 780, y: 631, w: 108, h: 118, need: 0.5 },
     ],
     stage: [{ x: 640, y: 700, w: 960, h: 20 }, { x: 640, y: 615, w: 60, h: 150 }],
   },
@@ -52,16 +52,16 @@ const S = [
     answer: [[802, 474], [692, 556]],
     tip: 'Two taps, one cup, and neither of them aims at it.',
     faucets: [{ x: 470, y: 170, rate: 24, total: 42 }, { x: 810, y: 170, rate: 24, total: 42 }],
-    glasses: [{ x: 640, y: 620, w: 104, h: 112, need: 0.55 }],
+    glasses: [{ x: 640, y: 620, w: 108, h: 118, need: 0.5 }],
     stage: [{ x: 640, y: 690, w: 600, h: 20 }],
     crates: [{ x: 420, y: 520, w: 100, h: 60 }, { x: 860, y: 520, w: 100, h: 60 }],
   },
   {
     id: 5, name: 'The Shelf', verb: 'route', intent: 'chute',
-    answer: [[605.6, 384], [690, 344], [798.4, 368]],
+    answer: [[595, 388], [390, 515]],
     tip: 'The shelf under the tap steals the stream. Bend it back to the cup.',
     faucet: { x: 640, y: 170, rate: 28, total: 130 },
-    glasses: [{ x: 430, y: 620, w: 108, h: 118, need: 0.45 }],
+    glasses: [{ x: 430, y: 620, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 430, y: 690, w: 300, h: 20 },
       { x: 720, y: 400, w: 260, h: 16 },
@@ -87,8 +87,8 @@ const S = [
     tip: 'The top cup fills first, then it overflows. The bottom cup is waiting for that.',
     faucet: { x: 600, y: 170, rate: 30, total: 160 },
     glasses: [
-      { x: 600, y: 470, w: 100, h: 112, need: 0.3 },
-      { x: 810, y: 620, w: 104, h: 112, need: 0.3 },
+      { x: 600, y: 470, w: 108, h: 118, need: 0.5 },
+      { x: 810, y: 620, w: 108, h: 118, need: 0.5 },
     ],
     stage: [
       { x: 600, y: 560, w: 120, h: 60 },
@@ -99,8 +99,8 @@ const S = [
     id: 8, name: 'Under The Ledge', verb: 'overhang', intent: 'chute',
     answer: [[982, 674], [873.5, 553], [807, 564]],
     tip: 'The cup is under the shelf, not beside it. The stream has to come in low.',
-    faucet: { x: 640, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 780, y: 631, w: 108, h: 118, need: 0.45 }],
+    faucet: { x: 640, y: 170, rate: 26, total: 140 },
+    glasses: [{ x: 780, y: 631, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 780, y: 700, w: 500, h: 20 },
       { x: 640, y: 460, w: 300, h: 18 },
@@ -132,7 +132,7 @@ const S = [
     id: 10, name: "Narrow Neck", verb: "funnel",
     answer: [[540,488],[670,548]],
     faucet: { x: 640, y: 170, rate: 26, total: 110 },
-    glasses: [{ x: 700, y: 621, w: 90, h: 118, need: 0.45 }],
+    glasses: [{ x: 700, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 640, y: 690, w: 1100, h: 20 },
     ],
