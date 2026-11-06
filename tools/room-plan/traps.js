@@ -299,7 +299,123 @@ const TWIN_TAPS = {
   balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
 };
 
+// ---- batch 4: six more frames, then four that would not prove ----
+
+// 28 THE HANGER (reach). The cup dangles instead of standing (hanging: true —
+// a primitive the hero set had never used), so it swings when water reaches it.
+// Proved: idle 0.00, answer 0.50 / 238 ink.
+const THE_HANGER = {
+  id: 28, name: 'The Hanger', verb: 'reach', intent: 'chute',
+  answer: [[506, 311], [610, 246], [714, 296]],
+  tip: 'It hangs, so it gives. Feed it from above and let it swing.',
+  delay: 0.4,
+  faucet: { x: 380, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 700, y: 371, w: 108, h: 118, need: 0.5, hanging: true }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 420, y: 330, w: 190, h: 22, kind: 'teal' } ],
+  balls: [{ x: 1080, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 32 HOT WALL (cross). The hot pad stands on its edge and acts as a WALL: water
+// pooling on the floor dies against it, so the floor route is closed. The line
+// crosses above it. Proved: idle 0.00, answer 0.50 / 262 ink.
+const HOT_WALL = {
+  id: 32, name: 'Hot Wall', verb: 'cross', intent: 'chute',
+  answer: [[600, 501], [860, 530]],
+  tip: 'The wall is hot. Never let the water reach the floor.',
+  delay: 0.4,
+  faucet: { x: 590, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 900, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 460, y: 520, w: 300, h: 22, kind: 'teal' } ],
+  hots: [{ x: 760, y: 620, w: 26, h: 80 }],
+  balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 33 SINKHOLE (bridge). A short hot gap with a small island in it. Unlike Long
+// Carry the span is short and the island is the far landing.
+// Proved: idle 0.00, answer 0.50 / 360 ink.
+const SINKHOLE = {
+  id: 33, name: 'Sinkhole', verb: 'bridge', intent: 'beam',
+  answer: [[416, 416], [571, 366], [726, 488]],
+  tip: 'Short gap, hot bottom. Bridge it, do not span the room.',
+  delay: 0.4,
+  faucet: { x: 420, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 700, y: 581, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 340, y: 690, w: 480, h: 20, kind: 'teal' },
+    { x: 1010, y: 690, w: 380, h: 20, kind: 'teal' },
+    { x: 700, y: 660, w: 200, h: 40, kind: 'teal' },
+    { x: 380, y: 430, w: 180, h: 22, kind: 'teal' } ],
+  hots: [{ x: 580, y: 676, w: 120, h: 28 }],
+  balls: [{ x: 1150, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 34 THE NEEDLE (thread). Two short columns with a gap between them, and the
+// cup at the bottom of the gap. Nothing can be drawn through a column, so the
+// line has to stop above the gap and drop the water through.
+// Proved: idle 0.00, answer 0.50 / 204 ink.
+const THE_NEEDLE = {
+  id: 34, name: 'The Needle', verb: 'thread', intent: 'chute',
+  answer: [[840, 382], [660, 478]],
+  tip: 'Thread the gap. There is no room to come in from the side.',
+  delay: 0.4,
+  faucet: { x: 780, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 640, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 900, y: 400, w: 180, h: 22, kind: 'teal' },
+    { x: 560, y: 570, w: 24, h: 220, kind: 'wood' },
+    { x: 720, y: 570, w: 24, h: 220, kind: 'wood' } ],
+  balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 36 THE S-BEND (turn). Two offset slabs so the route has to snake twice.
+// Proved: idle 0.00, answer 0.50 / 517 ink.
+const S_BEND = {
+  id: 36, name: 'The S-Bend', verb: 'turn', intent: 'chute',
+  answer: [[443, 342], [940, 486]],
+  tip: 'Two slabs, two turns. Straight will not reach.',
+  delay: 0.4,
+  faucet: { x: 480, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 980, y: 621, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 560, y: 360, w: 260, h: 20, kind: 'teal' },
+    { x: 760, y: 520, w: 260, h: 20, kind: 'teal' } ],
+  balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// 39 THE UNDERSIDE (shelter). A roof over the cup and a lip on the shelf below,
+// so water cannot arrive from above or across the shelf: the line enters the
+// gap sideways and stays under the roof the whole way.
+// Proved: idle 0.00, answer 0.50 / 272 ink.
+const THE_UNDERSIDE = {
+  id: 39, name: 'The Underside', verb: 'shelter', intent: 'chute',
+  answer: [[460, 451], [730, 485]],
+  tip: 'Roofed, and the shelf has a lip. Come in under the roof.',
+  delay: 0.4,
+  faucet: { x: 470, y: 200, rate: 26, total: 125 },
+  glasses: [{ x: 760, y: 550, w: 108, h: 118, need: 0.5 }],
+  stage: [ { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
+    { x: 760, y: 380, w: 300, h: 22, kind: 'teal' },
+    { x: 760, y: 620, w: 320, h: 22, kind: 'teal' },
+    { x: 660, y: 585, w: 20, h: 50, kind: 'wood' },
+    { x: 380, y: 470, w: 180, h: 22, kind: 'teal' } ],
+  balls: [{ x: 160, y: 640, r: 26, kind: 'heavy' }],
+};
+
+// ---- these four did NOT prove and are not shipped ----
+// 35 Updraught  : the updraught takes the last 5% no matter where the line goes
+//                 (best 0.45 of 0.50 across 90 candidates, three fan settings).
+// 37 Tipping Pt : a pivoted bar tips with the water and dumps it (best 0.17).
+//                 A moving bar also sits badly with the no-moving-bars rule.
+// 38 The Pin    : best 0.00. A line hanging from a pin is a real anchor, but the
+//                 pour lands on the pin itself and splits: no candidate caught
+//                 it, with the pin left, right or in the stream.
+// 40 Last Drop  : the well either lets floor water walk in (idle 0.50, a free
+//                 win) or keeps it out and takes none of the delivery
+//                 (best 0.40 of 0.50). There is no middle.
+
 module.exports = { FLOOR, SHELF, CUP, HOT_CINDER, CROSSWIND, DOWNHILL, TWO_WELLS,
   THE_MOAT, FURNACE_FLOOR, THE_NECK, ROOF_RUN, THE_SILL, THE_CAGE,
-  DROP_SHAFT, LONG_CARRY, THE_STEP, THE_LIP, TWIN_TAPS };
+  DROP_SHAFT, LONG_CARRY, THE_STEP, THE_LIP, TWIN_TAPS,
+  THE_HANGER, HOT_WALL, SINKHOLE, THE_NEEDLE, S_BEND, THE_UNDERSIDE };
 

@@ -22,19 +22,19 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
 | 25 | The Cage | cup boxed in, open at the top, funnel lips above | get above the mouth and drop in | **proved** 0.50 / 432 ink |
 | 26 | Long Carry | two shelves with a hot floor between | one stroke spanning both | **proved** 0.50 / 671 of 700 ink |
 | 27 | Downhill | a ramp running away from the cup | bend the stream back | **proved** 0.50 / 408 ink |
-| 28 | The Wedge | cup on a plinth behind a tall wedge | carry over the wedge | **blocked** 0.14: two sweeps, still no line |
+| 28 | The Hanger | a cup that dangles instead of standing | feed it from above, it swings | **proved** 0.50 / 238 ink |
 | 29 | The Step | cup on a step 88 px above its deck | stay near level and drop over the edge | **proved** 0.52 / 302 ink |
 | 30 | Twin Taps | two taps into the middle, two cups at the sides | two strokes, one per cup | **proved** 0.50/0.69 / 731 of 850 |
 | 31 | The Lip | tall thin lip between the deck and the mouth | rise over the lip, come back down | **proved** 0.50 / 517 ink |
-| 32 | Chute Off | tap over a ramp that dumps water away | intercept before the ramp | planned |
-| 33 | Sinkhole | hot pad in the floor gap | bridge the gap | planned |
-| 34 | The Funnel | cup under two converging slabs | deliver into the funnel mouth | planned |
-| 35 | Wind Tunnel | fan ahead of the fall | shield or angle | planned |
-| 36 | Hot Bridge | the only handy anchor has a hot pad on it | rest the line elsewhere | planned |
-| 37 | Two-Tier | cup on a shelf above the floor | lift: carry water up | planned |
-| 38 | The Pin | a push-pin mid-air | hang the line from the pin | planned |
-| 39 | The Funnel Roof | cup under a roof narrower than the mouth | shed water in from one side | planned |
-| 40 | Last Drop | long vertical drop ending in a neck | slow the water down | planned |
+| 32 | Hot Wall | hot pad stood on its edge as a wall | keep the water off the floor | **proved** 0.52 / 262 ink |
+| 33 | Sinkhole | short hot gap with an island in it | a short bridge, not a span | **proved** 0.50 / 360 ink |
+| 34 | The Needle | two short columns with a gap between | thread the gap, no sideways entry | **proved** 0.50 / 204 ink |
+| 35 | Updraught | fan on the floor blowing up | shelter the fall | **blocked** 0.45 of 0.50, 90 candidates |
+| 36 | The S-Bend | two offset slabs | snake twice | **proved** 0.50 / 517 ink |
+| 37 | Tipping Point | pivoted bar | balance it | **blocked** 0.17; a moving bar also breaks the no-moving-bars rule |
+| 38 | The Pin | push-pin as a mid-air anchor | hang the line from it | **blocked** 0.00: the pour hits the pin and splits |
+| 39 | The Underside | roof over the cup plus a lip below | come in under the roof | **proved** 0.50 / 272 ink |
+| 40 | Last Drop | deep narrow well | break the fall | **blocked** free win (idle 0.50) or 0.40, no middle |
 
 ## Rules that came out of the measurements
 
@@ -60,21 +60,35 @@ Status legend: **proved** (idle loses, answer wins, gates pass) · **planned** �
    that far past the lip of whatever it lands on, so the cup has to sit clear
    of every shelf edge or the room solves itself. This is what made The Neck,
    Roof Run and The Cage win untouched before they were moved.
-9. **Ranking must prefer the designed line.** With every winner scored 100,
+9. **Rank the sweep from the pour outwards.** Sorting candidates by length
+   first fills all 80 slots with short junk between neighbouring platforms and
+   every room reads 0.00 (ink ~126). Rank by distance from the first point to
+   the nearest tap, and use length only as a tie-break.
+10. **A stroke has to catch water, so it must start at the lip the tap pours
+   onto,** not at the deck's middle: water landing mid-deck spreads both ways
+   and half of it never touches the line.
+11. **Ranking must prefer the designed line.** With every winner scored 100,
    the tie-break fell through to candidate order and the search shipped a
    blanket across the whole level instead of the intended short chute. Sorting
    winners by ink spent picks the shape the room was built around.
 
 ## Where the rebuild stands
 
-**15 of 25 frames proved**, each with a different obstacle and a different
+**21 of 25 frames proved**, each with a different obstacle and a different
 answer shape: hot pad · fan · ramp · two cups one tap · moat · furnace · wall ·
-roof · sill · cage · shaft · long span · step · lip · two taps two cups.
+roof · sill · cage · shaft · long span · step · lip · two taps two cups ·
+hanging cup · hot wall · sinkhole · needle · S-bend · roofed shelf.
+
+Every proved room is verified on five gates at once: untouched loses, the
+authored answer wins, two runs of the same answer agree to three decimals, a
+ball is present and never spoils the glass, and no other room shares its
+structure.
 
 A structural check over all fifteen — comparing every room's platform list —
 reports **no two rooms share a structure**. Two rooms use two strokes (Long
 Carry spans two shelves in one line; Twin Taps needs one line per cup), and
 Twin Taps is the only room with two sources.
 
-Remaining: 28, 32-40. The Wedge has now failed two designs (0.05, then 0.14)
-and gets **replaced rather than retuned**, per the room rule.
+Remaining: **four unproved frames** (35, 37, 38, 40), each with the measurement
+that killed it in the table above. They get replaced, not retuned. The Wedge
+(0.05, then 0.14) was dropped the same way and is no longer in the list.
