@@ -9,9 +9,12 @@
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "verify": "node scripts/verify-levels.mjs",
+    "test": "npm run verify && npm run test:play",
+    "test:play": "node scripts/test-levels-playable.mjs",
     "playtest": "node scripts/playtest.mjs",
     "autoplay": "node scripts/autoplay.mjs",
-    "shots": "node scripts/shoot.mjs"
+    "shots": "node scripts/shoot.mjs",
+    "hooks": "node scripts/hooks/install.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

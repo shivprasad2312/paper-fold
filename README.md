@@ -38,11 +38,36 @@ Other commands:
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
 | `npm run verify` | prove all 50 levels + 14 daily layouts are solvable (pure Node, no browser) |
+| `npm test` | **the gate**: `verify` + `test:play` — every level proven solvable AND completable |
+| `npm run test:play` | playable-route test: plays every level + today's daily to the win panel via real keyboard input (headless) |
 | `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
 | `npm run autoplay` | plays all 50 levels end to end in a headless browser |
+| `npm run hooks` | install the pre-commit test gate into this clone |
 
-The two browser-based scripts drive Chromium through `puppeteer-core`; point them at a
+The browser-based scripts drive Chromium through `puppeteer-core`; point them at a
 browser with `CHROME_PATH`, or install Playwright/Chrome beforehand.
+
+### Test gate — no level can ship broken
+
+A level must clear two independent bars before it is allowed:
+
+* **`npm run verify`** (pure Node, no browser) — the *logical* proof: a heightfield
+  route start→key→goal exists, push/crumble/orb layouts are solvable, spawns are safe,
+  no soft-locked shards.
+* **`npm run test:play`** (real browser) — the *play* proof: it drives the actual
+  keyboard input path in headless Chromium, follows a BFS route, and re-plans from the
+  cube's current tile after every death. A level only passes when the game itself
+  reports `won`. Hazards are off during the route drive (their solvability is the
+  verifier's job), so together the two guarantee a path is there **and** hazards
+  can't seal it.
+
+This runs **whenever you change a level or add one**, in two places:
+
+* **Pre-commit hook** — `npm run hooks` installs a `pre-commit` that runs `npm test`
+  and blocks the commit on any failure. Emergency bypass: `KUBIK_SKIP_HOOKS=1 git commit …`.
+* **GitHub Actions** (`.github/workflows/ci.yml`) — builds the project and runs
+  `verify`, `test:play`, and `playtest` on every push and pull request, so a broken
+  level cannot land on the branch.
 
 ## Controls
 
@@ -177,11 +202,13 @@ each character is a column, and the digit is the slab's top height. `.` is the v
 }
 ```
 
-Add a level to the array, run `npm run verify`, and it is playable — the level list,
+Add a level to the array, run `npm test`, and it is playable — the level list,
 unlock logic, camera framing and HUD chips all derive from the data. The verifier
 rejects malformed data (shards/orbs/keys off-slab), spawn-overlap hazards (a sentinel
 on the start tile is the exact bug that used to ship in Fault Line) and unsolvable
-push/crumble layouts.
+push/crumble layouts; the playable-route test then plays the new level to the win
+panel in a real browser. The pre-commit hook and CI both run `npm test`, so a new
+level that has no completable route cannot be committed or merged.
 
 ## How it is built
 
@@ -201,9 +228,11 @@ src/
   style.css     UI skin — dark default + `body.light` high-key override
 scripts/
   verify-levels.mjs   solvability + soft-lock + spawn-safety proof (50 levels + 14 dailies)
+  test-levels-playable.mjs  THE gate: plays every level + daily to `won` via real keyboard input
   gen-campaign.mjs    seeded generator that PROVES levels 14–50 (rejects until solvable)
   playtest.mjs        64 scripted browser checks: mechanics + themes + camera seats
   autoplay.mjs        full 50-level completion run in a browser
+  hooks/install.mjs   installs the pre-commit test gate (npm run hooks)
   shoot.mjs / mobile-shots.mjs   screenshot helpers
 ```
 

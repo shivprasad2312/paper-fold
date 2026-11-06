@@ -1,0 +1,41 @@
+# KUBIK test gate — runs on every push and pull request, so a change (or a
+# new level) can never land with a level that has no completable route.
+name: Test gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  levels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start preview server
+        run: |
+          (npx vite preview --host 127.0.0.1 --port 4173 > /tmp/preview.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:4173/ > /dev/null && break
+            sleep 1
+          done
+
+      - name: Verify (pure-Node solvability proof)
+        run: npm run verify
+
+      - name: Playable-route test (every level played in a real browser)
+        run: URL=http://127.0.0.1:4173/ npm run test:play
+
+      - name: Full browser playtest (mechanics + themes + camera)
+        run: URL=http://127.0.0.1:4173/ npm run playtest
