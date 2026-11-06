@@ -47,11 +47,21 @@ which is why 16-40 all read as the same room moved around.
 
 The engine supports this already: a platform can be `{ poly: [[x,y],...] }`,
 built with `Bodies.fromVertices` and drawn with a gradient. **No level used it.**
-`tools/room-plan/terrain.js` holds the first six rooms in that grammar (wedge,
-plateau, funnel, long ramp, twin peaks, island) and `terrain-sweep.js` solves
-them. First pass: two of six geometry problems found (a cup sitting inside its
-own wedge; a ramp that fed the cup untouched), so this is a per-room job like
-every other batch, not a bulk fill.
+`terrain.js` now holds eight attempts and `terrain-sweep.js` solves one at a
+time. **Two proved**: The Plateau (0.50 / 240 ink) and The Valley (0.50 / 196
+ink). Six failed, each with its reason recorded in the file.
+
+The rule that came out of it, and it decides every mass room from here:
+
+> A big mass pools what lands on it. Water leaves by the nearest edge, and with
+> an off-centre pour that edge is usually the wrong one. A mass only works as a
+> level when **the tap pours at its lip**, so water leaves immediately and the
+> cup sits out and below that lip.
+
+Both proved rooms obey it. Every failure breaks it: the Mesa's pour ran off the
+shelf's left edge and died at x 27-627 while its cup stood 200 px away on the
+mass top; the Staircase pooled in its corners; the Long Slope and the Funnel
+Walls delivered water to the cup with no stroke at all, i.e. free wins.
 
 ## Visual distinctness, measured
 
