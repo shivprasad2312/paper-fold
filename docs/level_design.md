@@ -14,6 +14,7 @@ satisfy (enforced by `parseLevel` + verifier):
 - `start` / `goal`: on slabs; start not a crumble slab; start ≠ goal.
 - `shards`: exactly 3, on slabs, none on start/goal.
 - `orbs`: every path point on a slab; spawn point never on start/goal.
+- `crumble`: never on a sentinel patrol line or on a tile adjacent to one — a crumble on a crossing entry would force the player to wait for the crossing window on a slab that breaks (BUG-005). The generator enforces this; hand-authored levels are checked by the verifier.
 - `sliders`: groups of slabs; period ≥ ~1.5 s (human-readable timing).
 - `key`: only with a sealed gate (finale); on a slab, not on start/goal.
 - `wind`: diagonal unit vector only.
@@ -106,7 +107,10 @@ prover: the generator + verifier + bot run on new data every single day.
 A level is done when, all green:
 
 1. `npm run verify` — 7 checks pass (route, soft-lock, shards,
-   crumble/push survival, spawn safety, data sanity, par computable).
+   crumble/push survival, spawn safety, data sanity, par computable,
+   **timing fairness** — at least one path whose every sentinel crossing
+   has a ≥ 0.5 s window; for `gateKey` levels, start→key and key→goal
+   are proven separately (algorithms §6.1)).
 2. `npm run test:play` — the bot plays it to `won` through real input.
 3. Design review against §3/§4 (teaches ≤ 1 new mechanic; par in band;
    shards worth 1–3 rolls of risk).

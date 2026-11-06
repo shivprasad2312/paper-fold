@@ -4,16 +4,14 @@ import { Stage } from './stage.js';
 import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
 import { getDailyLevel } from './daily.js';
-import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
-const ROLL_TIME = 0.17;
 // Vivid cube colour per level, like EDGE's recolouring between stages.
 const CUBE_COLORS = [0xff5ad9, 0x5be07c, 0x5b8cff, 0xff9f3d, 0xffd14d, 0xb07cff, 0x7dffce, 0xff6a5e, 0x4fd8ff, 0xff8a4f, 0xff4f8e, 0xc8ff5e, 0xffd14d, 0xff5e3a];
 const DAILY_COLOR = 0xffd14d;
 const DROP_TIME = 0.11;
 const HALF = 0.5;
-const ORB_KILL_RADIUS = 0.62;
 const ORB_KILL_HEIGHT = 1.0;
 const WIND_PERIOD = 0.62; // seconds between breeze nudges
 

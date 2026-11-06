@@ -11,6 +11,7 @@ import {
   canStillFinish,
   solveHazards,
   spawnProblems,
+  timingProblems,
   legalNeighbours,
   key,
 } from '../src/rules.js';
@@ -56,6 +57,10 @@ function checkLevel(label, def) {
 
   // 0. spawn safety: nothing lethal or blocking may sit on the start/goal
   for (const p of spawnProblems(level)) fail(p);
+
+  // 0b. sentinel timing fairness: a start→goal route must exist where every
+  // patrol-line crossing has a safe window of at least TIMING_FLOOR
+  for (const p of timingProblems(level)) fail(`timing: ${p}`);
 
   // 1. goal reachable
   if (!reach.has(key(level.goal.x, level.goal.z))) fail('goal is unreachable');

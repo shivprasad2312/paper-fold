@@ -78,9 +78,14 @@ sliders are modelled as **absent / always-solid**. Rationale: a route
 that survives with sentinels absent and sliders always up is the *hardest
 *route question* (fewest resources to cross gaps); timing hazards add
 *waiting*, which never removes a route. So this solver proves route
-existence under the strictest static reading; timing fairness is
-separately guaranteed because hazard motion is periodic and deterministic
-(§7) and the playable bot plays the level live.
+existence under the strictest static reading.
+**Fairness of that waiting is a separate question the static solver
+does NOT answer** — a periodic hazard can leave every crossing
+window too narrow to cross at roll speed (this is exactly the L46
+"blocked corridor" bug, BUG-003). Timing fairness is proven by the
+crossing-window model in §6.1, which the verifier
+(`scripts/verify-levels.mjs`) and the live playable bot share, so a
+level that passes both has at least one *actually playable* path.
 
 ## 5. Push legality — `canPushBlock`
 
@@ -106,6 +111,62 @@ per frame.
 orb whose **spawn point** (path[0]) sits on the start or goal tile — the
 patrol may *cross* the start (that's timing play) but must never *spawn*
 there (instant-death loop). This check is what caught BUG-002.
+
+### 6.1 Crossing-window model (timing fairness) — `src/rules.js`
+
+The player crosses a patrol line by a short burst of rolls: from an
+off-line *entry* tile, over one or more *line* tiles, onto an off-line
+*exit* tile. While on a line tile the cube is at Chebyshev distance ≤ 1
+from the orb's track, so a crossing is only safe inside a **window**:
+an interval of start times in which the whole burst (every roll, at the
+real `ROLL_TIME`) keeps the cube ≥ `ORB_KILL_RADIUS` from every orb.
+
+**Candidates — `candidateCrossings(level)`:** BFS over the *line graph*
+(line tiles adjacent to line tiles) from each line tile that has an
+off-line neighbour; every simple path of ≤ `MAX_CROSS_DEPTH` (4) line
+tiles between an off-line neighbour of its start and an off-line
+neighbour of its end is a candidate `(entry, seq, exit)`. This expresses
+straight runs, L-shapes and 2-row patrol *bands* (the L12 "Fold"
+geometry: enter at the top row, thread down the middle, exit at the
+bottom).
+
+**Window — `crossingWindow(level, entry, seq, exit)`:** fine-grained
+simulation (5 ms steps, sub-stepped rolls) over one full joint period of
+the orbs; an orb counts only if its patrol is within Chebyshev 1 of some
+tile on the path (irrelevant orbs are skipped). Returns the length of
+the longest safe start-time interval, or `Infinity` when no orb
+threatens the path.
+
+**Fair — `TIMING_FLOOR = 0.5 s`:** a window is *fair* iff its length is
+≥ 0.5 s — about one roll of reaction margin. The floor exists because
+the game's roll speed (5.88 tiles/s) cannot cross a line while an orb is
+mid-approach: the window is the *only* resource, and a 0.36 s window
+(the old L46) is below human reaction at in-game scale.
+
+**Fair-crossing graph — `fairCrossingGraph(level)`:** directed graph
+over off-line tiles (plus start/goal boundary nodes when they sit on a
+line): an edge exists for every fair candidate crossing, labelled with
+its `seq`. **Key link:** when a `gateKey` level's key sits *on* a patrol
+line, fair crossings whose `seq` steps on the key tile gain
+`from → keyNode` (the seq prefix up to the key — the pickup) and
+`keyNode → to` (the seq suffix — the escape) edges, so the verifier
+requires *fair start→key* AND *fair key→goal* separately (BUG-004: a
+key behind a razor-thin crossing is as bad as a blocked goal).
+
+**The gate — `timingProblems(level)`:** BFS over the fair-crossing graph
+from the start. Failure modes reported (each fails the level):
+- goal reachable only through an unfair crossing;
+- start itself sealed (no fair escape from a start-on-line);
+- gate key unreachable through fair crossings, or no fair route from
+  the key to the goal.
+
+**Why the verifier AND the live bot use the same graph:** the static
+gate proves a fair path *exists*; the headless bot
+(`scripts/test-levels-playable.mjs`) plans over the same graph and plays
+it against the *live* hazard render, so a window the sim calls fair is
+also fair at frame rate. They fail differently (the sim is exhaustive
+in time, the bot is exhaustive in *game state*) and together close the
+"validation gap" class — a level ships only when both agree.
 
 ## 7. Determinism & seeded generation
 

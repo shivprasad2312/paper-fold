@@ -15,12 +15,17 @@ this is the map._
 | — | 50 levels (13 hand + 37 generated+proven), hold-to-roll, 4 camera seats | verify + autoplay 50/50 |
 | `e7aae2d` | All 50 levels open from the start (no gating) | playtest 64/64 + unlock test 6/6 |
 | `a19e6bd` | **Playable-route test gate**: bot plays every level on every commit (pre-commit hook + CI) | live gate run (commit blocked a deliberately broken level) |
-| this cycle | Studio docs (research, GDD, architecture, ADRs, algorithms, level design, progression), unit tests (29), regression tests (2), stress, perf suite with budgets | all green, exit 0 |
+| this cycle (a) | Studio docs (research, GDD, architecture, ADRs, algorithms, level design, progression), unit tests (29), regression tests (2), stress, perf suite with budgets | all green, exit 0 |
+| this cycle (b) | **Timing-fairness gate** (ADR-012): crossing-window model + 0.5 s floor in the verifier, generator + daily regen under the gate, live bot plays the fair-crossing graph with gap-free commit — fixes BUG-003 (L46 blocked), BUG-004 (L12 key), BUG-005 (L15 crumble entry), BUG-006 (ambiguous orb anchor), BUG-007 (illegal entry roll) | verify 8-check all green + live suite 51/51 + timing unit 8/8 |
 
 ## Current status: **GREEN**
 
-- `npm run test:unit` — 29/29 pass
-- `npm run verify` — 50 levels + 14 dailies, 7 checks each
+- `npm run test:unit` — 29/29 pass (+ `tests/unit/timing.test.mjs` 9/9 —
+  BUG-003/004/006/007 regression pins)
+- `npm run verify` — 50 levels + 14 dailies, **8 checks** each (route,
+  soft-lock, shards, crumble/push survival, spawn safety, data sanity,
+  par, **timing fairness** — every sentinel crossing ≥ 0.5 s window;
+  key levels proven start→key→goal)
 - `npm run test:play` — 51/51 playable (50 + daily), 0 page errors
 - `npm run regression` — BUG-001 + BUG-002 pinned
 - `npm run stress` — 4/4 scenarios clean
@@ -48,8 +53,10 @@ this is the map._
 
 ## Known bugs
 
-None open. History: `bug_tracker.md` (BUG-001, BUG-002 — both fixed,
-regression-pinned).
+None open. History: `bug_tracker.md` — BUG-001…BUG-007, all fixed and
+regression-pinned. BUG-003…BUG-007 came out of the player report that
+L46 was unfinishable; the fix is the timing-fairness gate (ADR-012),
+which now covers every level and future content.
 
 ## Performance issues
 
@@ -58,8 +65,9 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…011). Latest: ADR-010 (two-bar
-test gate) and ADR-011 (all levels open).
+Log: `technical_decisions.md` (ADR-001…012). Latest: ADR-010 (two-bar
+test gate), ADR-011 (all levels open), ADR-012 (timing-fairness
+gate — no sentinel crossing may ship without a ≥ 0.5 s window).
 
 ## Blockers
 

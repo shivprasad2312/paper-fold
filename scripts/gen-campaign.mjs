@@ -16,6 +16,7 @@ import {
   canStillFinish,
   solveHazards,
   spawnProblems,
+  timingProblems,
   shortestRoute,
   key,
 } from '../src/rules.js';
@@ -148,18 +149,8 @@ function generate(rand, id, b) {
     shards.push(s);
   }
 
-  // --- crumble slabs on the route (solver proves the route survives) --------
-  const wantCrumble = int(b.crumble[0], b.crumble[1]);
-  const crumble = [];
-  for (let i = 0; i < inner.length && crumble.length < wantCrumble; i++) {
-    if (rand() < 0.6) {
-      crumble.push(inner.splice(i, 1)[0]);
-      i--;
-    }
-  }
-  const crumbleSet = new Set(crumble.map(([cx, cz]) => `${cx},${cz}`));
-
-  // --- sentinels along straight runs (3+ tiles, never over crumble/start/goal)
+  // --- sentinels along straight runs (3+ tiles, never over start/goal) ------
+  const lineSet = new Set();
   const runs = [];
   for (let i = 0; i < path.length - 1; i++) {
     if (path[i][1] !== path[i + 1][1]) continue;
@@ -181,15 +172,32 @@ function generate(rand, id, b) {
       const c = path[j];
       if (`${a[0]},${a[1]}` === `${start[0]},${start[1]}` || `${c[0]},${c[1]}` === `${start[0]},${start[1]}`) continue;
       if (`${a[0]},${a[1]}` === `${goal[0]},${goal[1]}` || `${c[0]},${c[1]}` === `${goal[0]},${goal[1]}`) continue;
-      let overCrumble = false;
-      for (let t = i; t <= j; t++) if (crumbleSet.has(`${path[t][0]},${path[t][1]}`)) { overCrumble = true; break; }
-      if (overCrumble) continue;
       const speed = +(b.speed[0] + rand() * (b.speed[1] - b.speed[0])).toFixed(2);
       orbs.push({ path: [a, c], speed, ...(o > 0 ? { phase: +(rand() * 0.8).toFixed(2) } : {}) });
+      for (let t = i; t <= j; t++) lineSet.add(`${path[t][0]},${path[t][1]}`);
       usedRuns.add(ri);
       break outer;
     }
   }
+
+  // --- crumble slabs on the route (solver proves the route survives) --------
+  // NEVER on the patrol line or adjacent to it: a crumble on a crossing entry
+  // would force the player to gamble the crossing (the slab breaks while they
+  // wait for the window), and crumble on the line is decorative noise for the
+  // timing validator.
+  const wantCrumble = int(b.crumble[0], b.crumble[1]);
+  const crumble = [];
+  const crumbleCands = inner.filter(([cx, cz]) => {
+    if (lineSet.has(`${cx},${cz}`)) return false;
+    for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      if (lineSet.has(`${cx + dx},${cz + dz}`)) return false;
+    }
+    return true;
+  });
+  while (crumbleCands.length && crumble.length < wantCrumble && rand() < 0.6) {
+    crumble.push(crumbleCands.splice(Math.floor(rand() * crumbleCands.length), 1)[0]);
+  }
+  const crumbleSet = new Set(crumble.map(([cx, cz]) => `${cx},${cz}`));
 
   // --- the finale's key: an off-route deck slab ------------------------------
   let keyPos = null;
@@ -214,8 +222,24 @@ function generate(rand, id, b) {
   return def;
 }
 
+/**
+ * A candidate whose ONLY problems are sentinel timing: slow every sentinel
+ * (window width scales with period) instead of throwing away the layout —
+ * keeps the endgame's hazard density intact.
+ */
+function timingOnly(rep) {
+  return rep.problems.length > 0 && rep.problems.every((p) => p.startsWith('timing:'));
+}
+
+function tuneOrbSpeeds(def, mult) {
+  return {
+    ...def,
+    orbs: (def.orbs || []).map((o) => ({ ...o, speed: +(o.speed * mult).toFixed(2) })),
+  };
+}
+
 /** Full verifier gate — the same seven checks the hand-made levels pass. */
-function verify(def, b) {
+function verify(def, b, minOrbs = b.orbs[0]) {
   const problems = [];
   let level;
   try {
@@ -224,6 +248,7 @@ function verify(def, b) {
     return { ok: false, problems: [err.message], par: -1 };
   }
   for (const p of spawnProblems(level)) problems.push(p);
+  for (const p of timingProblems(level)) problems.push(`timing: ${p}`);
   const reach = reachable(level);
   const finish = canStillFinish(level);
   if (!reach.has(key(level.goal.x, level.goal.z))) problems.push('goal unreachable');
@@ -239,6 +264,9 @@ function verify(def, b) {
       if (!level.tiles.has(key(Math.round(x), Math.round(z)))) problems.push(`orb over void ${x},${z}`);
     }
   }
+  if ((level.orbs || []).length < minOrbs) {
+    problems.push(`too few sentinels (band wants ≥ ${minOrbs})`);
+  }
   if (level.gateKey && !reach.has(key(level.gateKey.x, level.gateKey.z))) problems.push('key unreachable');
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
@@ -252,13 +280,53 @@ for (let id = FIRST; id <= LAST; id++) {
   const rand = rng(hashSeed(`kubik-campaign-${id}`));
   let def = null;
   let report = null;
-  for (let attempt = 0; attempt < 600 && !def; attempt++) {
-    const cand = generate(rand, id, b);
-    if (!cand) continue;
-    const rep = verify(cand, b);
-    if (rep.ok) {
-      def = cand;
-      report = rep;
+  // Phased search: full band spec first, then relaxed sentinel counts, so a
+  // level is never shipped without its sentinels unless no fair layout with
+  // them exists at all.
+  const phases = [b.orbs[0], Math.max(0, Math.ceil(b.orbs[0] / 2)), 0].filter(
+    (v, i, a) => a.indexOf(v) === i,
+  );
+  for (const minOrbs of phases) {
+    if (def) break; // an earlier (stricter) phase already found a fair layout
+    let foundThisPhase = false;
+    let fallback = null; // first fair orb-free candidate of this phase
+    let sinceFallback = 0;
+    for (let attempt = 0; attempt < 300 && !def; attempt++) {
+      let cand = generate(rand, id, b);
+      if (!cand) continue;
+      let rep = verify(cand, b, minOrbs);
+      if (!rep.ok && timingOnly(rep) && (cand.orbs || []).length) {
+        for (const m of [0.9, 0.8, 0.68, 0.56, 0.45]) {
+          const tuned = tuneOrbSpeeds(cand, m);
+          const r2 = verify(tuned, b, minOrbs);
+          if (r2.ok) {
+            cand = tuned;
+            rep = r2;
+            break;
+          }
+        }
+      }
+      if (!rep.ok) continue;
+      if ((cand.orbs || []).length >= minOrbs && (cand.orbs || []).length) {
+        def = cand;
+        report = rep;
+        foundThisPhase = true;
+      } else if (!fallback) {
+        fallback = { cand, rep };
+        sinceFallback = 0;
+      } else {
+        sinceFallback++;
+        if (sinceFallback >= 30) {
+          def = fallback.cand;
+          report = fallback.rep;
+          foundThisPhase = true;
+        }
+      }
+    }
+    // the phase consumed its attempts without a layout: the level genuinely
+    // relaxes to a lower sentinel count (reported once, when it happens)
+    if (!foundThisPhase && !def && minOrbs < b.orbs[0]) {
+      console.error(`⚠ level ${id}: no fair layout with ${b.orbs[0]} sentinels — relaxed to ${minOrbs}`);
     }
   }
   if (!def) {

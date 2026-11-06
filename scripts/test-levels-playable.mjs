@@ -1,20 +1,31 @@
 // ---------------------------------------------------------------------------
-// KUBIK — playable-route test
+// KUBIK — playable-route test (LIVE hazards)
 //
 // The level contract, proven by PLAYING: for every level (and today's daily
-// challenge) there must exist at least one route that a player can actually
-// complete. The test drives the real keyboard input path in a real browser,
-// follows a BFS route, and re-plans from the cube's current tile after any
-// death/respawn. A level only passes when the game itself reports `won`.
+// challenge) there must exist at least one route a player can actually
+// complete, with every hazard RUNNING — sentinels patrol, bridges slide,
+// slabs crumble, the breeze blows. The test drives the real keyboard input
+// path in a real browser.
 //
-// Hazards are switched off during the route drive (same convention as the
-// old autoplay): this test proves the ROUTE exists through the real
-// input/render path; hazard solvability (crumble-aware routes, spawn safety,
-// push budgets) is proven separately by scripts/verify-levels.mjs. Together
-// the two guarantee: a path is there, and hazards can't seal it.
+// Planning uses the SAME fair-crossing graph the verifier uses
+// (rules.fairCrossingGraph): the route is a shortest path over off-line
+// tiles + sentinel crossings whose safe window is at least TIMING_FLOOR, so
+// the bot only ever commits to a crossing the level is proven to allow.
+// Driving then waits at each crossing until the window is actually open
+// (checked against the sentinels' REAL positions every poll), waits for
+// sliding bridges to rise, never waits on a crumbling slab, and re-plans
+// after any death/respawn or breeze displacement. A level only passes when
+// the game itself reports `won`.
+//
+// This is the live half of the gate: scripts/verify-levels.mjs proves a fair
+// route EXISTS (static windows, soft-lock proof, spawn safety); this file
+// proves the route is CATCHABLE by real play. Together: a path is there,
+// hazards can't seal it, and a player can actually take it.
 //
 //   npm run test:play            (dev server must be running, or set URL=)
 //   URL=http://localhost:4173/ npm run test:play   (against a preview build)
+//   KUBIK_PLAY_OFF=1 npm run test:play             (fast mode: hazards off —
+//                                                   route/input sanity only)
 // ---------------------------------------------------------------------------
 import { existsSync } from 'node:fs';
 
@@ -28,8 +39,29 @@ if (existsSync(`${nssDir}/libnss3.so`)) {
 const puppeteer = (await import('puppeteer-core')).default;
 const chromium = (await import('@sparticuz/chromium')).default;
 const { LEVELS } = await import('../src/levels.js');
+const { getDailyLevel } = await import('../src/daily.js');
+const {
+  parseLevel,
+  orbTable,
+  orbLineTiles,
+  orbDistAlong,
+  orbPositionFromDist,
+  fairCrossingGraph,
+  ROLL_TIME,
+  ORB_KILL_RADIUS,
+  key,
+} = await import('../src/rules.js');
 
 const URL = process.env.URL || 'http://localhost:5173/';
+const LIVE = process.env.KUBIK_PLAY_OFF !== '1';
+const ONLY = (process.env.KUBIK_LEVELS || '')
+  .split(',')
+  .map((v) => parseInt(v, 10))
+  .filter(Boolean);
+const DEBUG = process.env.KUBIK_DEBUG === '1';
+const dbg = (...a) => {
+  if (DEBUG) console.log('   ·', ...a);
+};
 
 // fail fast with a useful message instead of a puppeteer timeout
 try {
@@ -73,32 +105,392 @@ const snap = () =>
     return { x: g.cube.x, z: g.cube.z, state: g.state, hasKey: g.hasKey, idx: g.levelIndex };
   });
 
+// ---------------------------------------------------------------------------
+// Live-hazard context: built once per level from the level def.
+// ---------------------------------------------------------------------------
+function liveCtx(def) {
+  const line = new Set();
+  for (const o of def.orbs || []) for (const k of orbLineTiles(o.path)) line.add(k); // keys "x,z"
+  const sliders = new Set();
+  for (const s of def.sliders || []) for (const t of s.tiles) sliders.add(key(t[0], t[1]));
+  const crumbles = new Set((def.crumble || []).map(([x, z]) => key(x, z)));
+  const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, table: orbTable(o.path) }));
+  const keyOnLine = !!(def.key && line.has(key(def.key[0], def.key[1])));
+  return {
+    def,
+    model: parseLevel(def),
+    graph: fairCrossingGraph(parseLevel(def)),
+    line,
+    sliders,
+    crumbles,
+    orbs,
+    keyOnLine,
+  };
+}
+
+/** Cube tile + real orb positions, in one round-trip. */
+async function snapLive() {
+  return page.evaluate(() => {
+    const g = window.__kubik.game;
+    return {
+      x: g.cube.x,
+      z: g.cube.z,
+      state: g.state,
+      hasKey: g.hasKey,
+      idx: g.levelIndex,
+      orbs: g.view.orbs.map((o) => [o.holder.position.x, o.holder.position.z]),
+      // the view's own directed distance along the patrol loop — position
+      // alone is AMBIGUOUS on out-and-back patrols (two legs, one point),
+      // so the wait must anchor on this, never re-derive it from x,z
+      orbDist: g.view.orbs.map((o) => o.dist),
+    };
+  });
+}
+
+/** Keys ("x,z") of crumbled slabs — they never come back. */
+async function brokenKeys() {
+  return page.evaluate(() => {
+    const g = window.__kubik.game;
+    const out = [];
+    for (const t of g.level.tiles.values()) if (g.view.isBroken(t.x, t.z)) out.push(`${t.x},${t.z}`);
+    return out;
+  });
+}
+
 /**
- * Drive the cube through `tiles` (full route incl. start) using `moves`.
- * Pushes keep the cube on its tile, so the driver re-presses the same
- * direction until the cube actually advances.
+ * Is this full crossing safe to START now? The cube rolls entry → seq… →
+ * exit at ROLL_TIME per roll; each sentinel is predicted from its CURRENT
+ * real arc distance (dist + speed·t), so the check is exact for the whole
+ * crossing. `lead` adds a cushion: the crossing must have been safe starting
+ * `lead` seconds ago, absorbing frame/poll jitter.
  */
-async function driveRoute(tiles, moves) {
+function crossingSafe(ctx, entry, seq, exit, orbsNow, lead = 0.12) {
+  // a terminal crossing (the route ENDS on the line, e.g. at the key) has no
+  // exit roll — the path is entry → seq…
+  const path = exit ? [entry, ...seq, exit] : [entry, ...seq];
+  const rolls = path.length - 1;
+  const dur = rolls * ROLL_TIME;
+  const SUB = 12;
+  const R2 = ORB_KILL_RADIUS * ORB_KILL_RADIUS;
+  const n = Math.ceil(((dur + lead) * SUB) / ROLL_TIME);
+  for (let s = 0; s <= n; s++) {
+    const u = (s / SUB) * ROLL_TIME - lead; // game-time offset from "now"
+    let px;
+    let pz;
+    if (u < 0) {
+      px = entry.x;
+      pz = entry.z;
+    } else {
+      const i = Math.min(rolls - 1, Math.floor(u / ROLL_TIME));
+      const f = (u - i * ROLL_TIME) / ROLL_TIME;
+      px = path[i].x + (path[i + 1].x - path[i].x) * f;
+      pz = path[i].z + (path[i + 1].z - path[i].z) * f;
+    }
+    for (let oi = 0; oi < ctx.orbs.length; oi++) {
+      const o = ctx.orbs[oi];
+      const op = orbPositionFromDist(o.table, orbsNow[oi].dist + o.speed * u);
+      const dx = op.x - px;
+      const dz = op.z - pz;
+      if (dx * dx + dz * dz < R2) return false;
+    }
+  }
+  return true;
+}
+
+/** Current real arc distance of every sentinel. */
+function orbsNow(ctx, snapOrbs, snapDists) {
+  return ctx.orbs.map((o, i) => ({
+    dist: snapDists && typeof snapDists[i] === 'number'
+      ? snapDists[i]
+      : orbDistAlong(o.path, snapOrbs[i][0], snapOrbs[i][1]),
+  }));
+}
+
+const keyMap = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+const DIRV = [
+  [0, -1],
+  [0, 1],
+  [-1, 0],
+  [1, 0],
+];
+
+/**
+ * Plan a route from `cube` to `target` over the fair-crossing graph:
+ * off-line tiles + only sentinel crossings the level is proven to allow.
+ * Dijkstra in roll count; broken crumble slabs are removed.
+ * Returns { tiles, moves } or null (no fair route from here).
+ */
+function planRoute(ctx, cube, target, broken) {
+  const { model, graph } = ctx;
+  const isKeyTarget = !!(ctx.def.key && target.x === ctx.def.key[0] && target.z === ctx.def.key[1]);
+  const startK = key(cube.x, cube.z);
+  // the key node is a graph waypoint that sits on a line tile
+  const targetK = isKeyTarget && ctx.keyOnLine ? `key:${key(target.x, target.z)}` : key(target.x, target.z);
+  const dist = new Map([[startK, 0]]);
+  const prev = new Map();
+  const Q = [cube];
+  const done = new Set();
+  const hOf = (t) => model.tiles.get(key(t.x, t.z));
+  while (Q.length) {
+    Q.sort((a, b) => (dist.get(key(a.x, a.z)) ?? 1e9) - (dist.get(key(b.x, b.z)) ?? 1e9));
+    const cur = Q.shift();
+    const ck = key(cur.x, cur.z);
+    if (done.has(ck)) continue;
+    if (ck === targetK) break;
+    done.add(ck);
+    const d0 = dist.get(ck);
+    const curH = hOf(cur);
+    if (!curH) continue; // standing over void (dying) — replan will fix it
+    // normal off-line neighbours (height law + not broken)
+    for (const [dx, dz] of DIRV) {
+      const to = model.tiles.get(key(cur.x + dx, cur.z + dz));
+      if (!to || graph.line.has(key(to.x, to.z))) continue;
+      const drop = curH.h - to.h;
+      if (drop < -1 || drop > 2) continue;
+      const k2 = key(to.x, to.z);
+      if (broken.has(k2)) continue;
+      if (d0 + 1 < (dist.get(k2) ?? 1e9)) {
+        dist.set(k2, d0 + 1);
+        prev.set(k2, { k: ck, seq: null });
+        Q.push(to);
+      }
+    }
+    // fair sentinel crossings (entry → exit, seq = the line tiles crossed)
+    for (const e of graph.edges.get(ck) || []) {
+      const isKeyNode = !!e.to.isKeyNode;
+      const k2 = isKeyNode ? `key:${e.to.x},${e.to.z}` : key(e.to.x, e.to.z);
+      if (!isKeyNode && broken.has(k2)) continue;
+      if (d0 + e.seq.length + 1 < (dist.get(k2) ?? 1e9)) {
+        dist.set(k2, d0 + e.seq.length + 1);
+        prev.set(k2, { k: ck, seq: e.seq });
+        Q.push(e.to);
+      }
+    }
+  }
+  if (!dist.has(targetK)) return null;
+
+  // reconstruct: target ← … ← start, each step carries the line tiles crossed
+  const chain = [];
+  let k = targetK;
+  while (k !== startK) {
+    const p = prev.get(k);
+    chain.unshift({ k, seq: p.seq });
+    k = p.k;
+  }
+  const nodeOf = (kk) => {
+    const [x, z] = (kk.startsWith('key:') ? kk.slice(4) : kk).split(',').map(Number);
+    return { x, z };
+  };
+  const dirOf = (a, b) => {
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    if (dx === 1) return 'right';
+    if (dx === -1) return 'left';
+    if (dz === 1) return 'down';
+    return 'up';
+  };
+  const tiles = [{ x: cube.x, z: cube.z }];
+  const moves = [];
+  for (const step of chain) {
+    // a keyNode step's seq already ends ON the key tile
+    const adds = step.seq
+      ? step.k.startsWith('key:')
+        ? step.seq
+        : [...step.seq, nodeOf(step.k)]
+      : [nodeOf(step.k)];
+    for (const t of adds) {
+      moves.push(dirOf(tiles[tiles.length - 1], t));
+      tiles.push(t);
+    }
+  }
+  return { tiles, moves };
+}
+
+/**
+ * Press one roll and wait for it to ACTUALLY start first (the input sits in
+ * a queue until the next game frame pumps it — on throttled headless frames
+ * that can be ~100 ms away, and a second press in that gap double-rolls the
+ * cube off the planned route). Then wait for the anim to finish.
+ */
+async function pressRoll(move, target) {
+  // settle: any residual anim (bump/reject from a rejected roll) must clear
+  await waitFor(() => !window.__kubik.game.cube.anim || window.__kubik.game.state === 'won', 2000);
+  await page.keyboard.press(keyMap[move]);
+  await waitFor(
+    ([x, z]) => {
+      const g = window.__kubik.game;
+      return g.cube.anim || g.state === 'won' || (g.cube.x === x && g.cube.z === z);
+    },
+    [target.x, target.z],
+    3000,
+  );
+  dbg(`press ${move} → ${target.x},${target.z}: anim=${(await page.evaluate(() => window.__kubik.game.cube.anim && window.__kubik.game.cube.anim.type)) || 'none'}`);
+  await waitFor(() => !window.__kubik.game.cube.anim || window.__kubik.game.state === 'won', 8000);
+  await wait(15);
+}
+
+/**
+ * Drive the cube through `tiles` (full route incl. start) using `moves`,
+ * with live hazards:
+ *  - a sliding bridge must be UP before the cube steps onto it,
+ *  - entering the sentinel line waits for a verified safe window (checked
+ *    against the orbs' real positions, re-polled while waiting) — and once
+ *    the entry is committed the whole line run is driven as one commit:
+ *    each continuation roll is pre-queued during the previous roll so the
+ *    cube's path matches the verified simulation with no gaps (waiting
+ *    mid-line would let the sentinel sweep through the standing cube),
+ *  - the cube never waits ON a crumbling slab.
+ * Returns true (won), false (dead/stuck — caller re-plans), or 'replan'
+ * (the cube is off the planned route — e.g. pushed by the breeze).
+ */
+async function driveRouteLive(tiles, moves, ctx) {
   let stuck = 0;
   for (let r = 0; r < tiles.length - 1; ) {
-    const st = await snap();
+    const st = await snapLive();
     if (st.state === 'won') return true;
     if (st.state !== 'playing') return false;
     const target = tiles[r + 1];
-    if (st.x === target.x && st.z === target.z) { r++; stuck = 0; continue; }
-    if (st.x !== tiles[r].x || st.z !== tiles[r].z) return false; // desync
-    if (++stuck > 3) return false; // cannot advance (no pushes left, etc.)
-    const keyMap = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
-    await page.keyboard.press(keyMap[moves[r]]);
-    await waitFor(() => !window.__kubik.game.cube.anim || window.__kubik.game.state === 'won', 8000);
-    await wait(30);
+    if (st.x === target.x && st.z === target.z) {
+      r++;
+      stuck = 0;
+      continue;
+    }
+    if (st.x !== tiles[r].x || st.z !== tiles[r].z) return 'replan';
+    if (++stuck > 4) return false; // cannot advance (no pushes left, etc.)
+
+    const onLineTarget = ctx.line.has(key(target.x, target.z));
+
+    if (onLineTarget && !ctx.line.has(key(st.x, st.z))) {
+      // entering the patrol line from an off-line tile: the only place a
+      // crossing wait is safe (the cube stands clear of the line)
+      if (!ctx.crumbles.has(key(st.x, st.z))) {
+        const seq = [];
+        let i = r + 1;
+        while (i < tiles.length && ctx.line.has(key(tiles[i].x, tiles[i].z))) {
+          seq.push(tiles[i]);
+          i++;
+        }
+        const entry = tiles[r];
+        const exit = i < tiles.length ? tiles[i] : null;
+        if (!exit && seq.length === 0) return false;
+        const t0 = Date.now();
+        let safe = false;
+        while (!safe && Date.now() - t0 < 20000) {
+          const now = await snapLive();
+          if (now.state === 'won') return true;
+          if (now.state !== 'playing') return false;
+          if (now.x !== entry.x || now.z !== entry.z) return 'replan'; // breeze moved us
+          safe = crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
+          if (!safe) await wait(70);
+        }
+        dbg(
+          `crossing entry ${entry.x},${entry.z} → exit ${exit ? exit.x + ',' + exit.z : 'TERMINAL'} via ${seq.map((t) => t.x + ',' + t.z).join('|')}: ${safe ? 'safe after' : 'TIMEOUT'} ${(Date.now() - t0) / 1000}s`,
+        );
+        if (!safe) return false;
+      }
+      // commit: drive the entry roll and the whole line run without pausing
+      const out = await driveCommit(tiles, moves, r, ctx);
+      dbg(`commit returned ${JSON.stringify(out)}`);
+      if (out.desync) return 'replan';
+      if (out.won) return true;
+      if (out.dead || out.stuck) return false;
+      r = out.r;
+      continue;
+    }
+
+    // sliding bridge: wait for it to rise (never on a crumble slab)
+    if (ctx.sliders.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
+      const t0 = Date.now();
+      let up = false;
+      while (!up && Date.now() - t0 < 10000) {
+        up = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [target.x, target.z]);
+        if (!up) await wait(80);
+      }
+      if (!up) return false;
+    }
+
+    // off-line → off-line, or leaving the line (a cube standing on the line
+    // is safe by construction — the sentinel is far — so press immediately)
+    const res = await pressRoll(moves[r], target);
+    if (res === 'won') return true;
+    if (res === 'dead') return false;
   }
-  const st = await snap();
+  const st = await snapLive();
   const last = tiles[tiles.length - 1];
   return st.state === 'won' || (st.x === last.x && st.z === last.z);
 }
 
-// In-page BFS: tile list + directions from the cube's CURRENT tile to target.
+/**
+ * Commit driver: from `r` (cube on tiles[r]) drive roll after roll while the
+ * route stays on the patrol line, pre-queueing each continuation roll
+ * DURING the previous roll so the cube never pauses mid-line. Hands back to
+ * the normal loop once the route leaves the line.
+ */
+async function driveCommit(tiles, moves, r, ctx) {
+  let i = r;
+  let presses = 0;
+  let exited = false;
+  while (i < tiles.length - 1) {
+    const st = await snapLive();
+    if (st.state === 'won') return { won: true, r: i };
+    if (st.state !== 'playing') return { dead: true, r: i };
+    // catch up: a pre-queued roll may have already carried the cube several
+    // tiles ahead — find where it actually is in the remaining route
+    let j = i;
+    let found = st.x === tiles[i].x && st.z === tiles[i].z;
+    while (!found && j < tiles.length - 1) {
+      j++;
+      found = st.x === tiles[j].x && st.z === tiles[j].z;
+    }
+    if (!found) return { desync: true, r: i };
+    i = j;
+    if (i >= tiles.length - 1) return { r: i }; // route already completed
+    const next = tiles[i + 1];
+    const onLine = ctx.line.has(key(next.x, next.z));
+    if (!onLine && exited) break; // exit roll done — normal loop resumes
+    // the exit roll is driven inside the commit too: the cube must not pause
+    // on the patrol line between the last line roll and the exit roll
+    if (exited && !onLine) {
+      const res = await pressRoll(moves[i], next);
+      if (res === 'won') return { won: true, r: i };
+      i++;
+      continue;
+    }
+    const anim = await page.evaluate(() => !!window.__kubik.game.cube.anim);
+    const queued = await page.evaluate(() => window.__kubik.game.queue.length > 0);
+    if (!anim && !queued) {
+      if (++presses > 6) return { stuck: true, r: i };
+      await page.keyboard.press(keyMap[moves[i]]);
+      // top up the queue (game cap 2, consecutive same-direction deduped)
+      // with the next continuation rolls — line tiles AND the exit roll —
+      // while this one is still animating: the cube must never pause on the
+      // patrol line. A same-direction straight run can't be pre-queued past
+      // the first (game dedup); those gaps are one loop iteration each and
+      // are absorbed by the 0.5 s window floor.
+      const started = await waitFor(
+        () => window.__kubik.game.cube.anim || window.__kubik.game.state === 'won',
+        3000,
+      );
+      if (started) {
+        for (let k = i + 1; k <= i + 2; k++) {
+          if (k >= tiles.length - 1) break;
+          const qlen = await page.evaluate(() => window.__kubik.game.queue.length);
+          if (qlen >= 2) break;
+          await page.evaluate((mv) => window.__kubik.game.input(mv), moves[k]);
+        }
+      }
+    }
+    if (!(await waitFor(() => !window.__kubik.game.cube.anim || window.__kubik.game.state === 'won', 8000))) {
+      return { stuck: true, r: i };
+    }
+    if (!onLine) exited = true; // the exit roll just landed
+    await wait(10);
+  }
+  return { r: i };
+}
+
+// In-page BFS (fast mode only): tile list + directions from the cube's
+// CURRENT tile to target.
 function bfsEval(targetExpr) {
   return `(() => {
     const g = window.__kubik.game;
@@ -139,64 +531,94 @@ function bfsEval(targetExpr) {
   })`;
 }
 
+/** Hazards-off driver (KUBIK_PLAY_OFF=1 fast mode). */
+async function driveRoute(tiles, moves) {
+  let stuck = 0;
+  for (let r = 0; r < tiles.length - 1; ) {
+    const st = await snap();
+    if (st.state === 'won') return true;
+    if (st.state !== 'playing') return false;
+    const target = tiles[r + 1];
+    if (st.x === target.x && st.z === target.z) { r++; stuck = 0; continue; }
+    if (st.x !== tiles[r].x || st.z !== tiles[r].z) return false; // desync
+    if (++stuck > 3) return false; // cannot advance (no pushes left, etc.)
+    const res = await pressRoll(moves[r], target);
+    if (res === 'won') return true;
+    if (res === 'dead') return false;
+  }
+  const st = await snap();
+  const last = tiles[tiles.length - 1];
+  return st.state === 'won' || (st.x === last.x && st.z === last.z);
+}
+
 /**
  * Reach a target tile by RE-PLAYING: plan a route from the current tile,
- * drive it with real key presses, and after any death/respawn plan again
- * from wherever the cube is. Returns true once the target is reached (or
- * the level is won). Fails fast when no route exists from the current tile.
+ * drive it with real key presses, and after any death/respawn or breeze
+ * displacement plan again from wherever the cube is. Returns true once the
+ * target is reached (or the level is won).
  */
-async function reachTarget(targetExpr) {
-  for (let attempt = 0; attempt < 6; attempt++) {
+async function reachTarget(targetExpr, ctx) {
+  const target = await page.evaluate(new Function(`return (${targetExpr})`));
+  for (let attempt = 0; attempt < 8; attempt++) {
     const st = await snap();
     if (st.state === 'won') return true;
     if (st.state !== 'playing') {
       if (!(await waitFor(() => window.__kubik.game.state === 'playing', 10000))) return false;
     }
-    const route = await page.evaluate(new Function(`return (${bfsEval(targetExpr)})()`));
-    if (!route) return false; // no route from here
+    let route;
+    if (LIVE && ctx) {
+      const broken = new Set(await brokenKeys());
+      route = planRoute(ctx, st, target, broken);
+      dbg(`attempt ${attempt + 1}: at ${st.x},${st.z} → ${target.x},${target.z}: ${route ? route.moves.length + ' rolls: ' + route.tiles.map((t) => t.x + ',' + t.z).join(' ') : 'NO FAIR ROUTE'}`);
+    } else {
+      route = await page.evaluate(new Function(`return (${bfsEval(targetExpr)})()`));
+    }
+    if (!route) return false; // no fair route from here
     if (route.moves.length === 0) {
       // already standing on the target — it may still be settling
       await wait(120);
       const s2 = await snap();
       if (s2.state === 'won') return true;
-      const at = await page.evaluate(new Function(`return (${targetExpr})`));
-      if (s2.x === at.x && s2.z === at.z) return true;
+      if (s2.x === target.x && s2.z === target.z) return true;
     }
-    await driveRoute(route.tiles, route.moves);
+    const res = LIVE && ctx ? await driveRouteLive(route.tiles, route.moves, ctx) : await driveRoute(route.tiles, route.moves);
+    if (res === 'replan') continue; // the breeze moved us — plan again
+    if (res === true) return true;
   }
   const st = await snap();
-  const at = await page.evaluate(new Function(`return (${targetExpr})`));
-  return st.state === 'won' || (st.state === 'playing' && st.x === at.x && st.z === at.z);
+  return st.state === 'won' || (st.state === 'playing' && st.x === target.x && st.z === target.z);
 }
 
 /** Play one level to completion. Returns { ok, moves, note }. */
 async function playLevel(index) {
-  const setup = await page.evaluate((i) => {
+  const setup = await page.evaluate((i, off) => {
     const { game, startLevel } = window.__kubik;
     startLevel(i);
     const g = game;
-    // route-test convention: hazards off (verify-levels.mjs proves the
-    // hazards-aware solvability separately)
-    g.view.orbs.forEach((o) => (o.holder.visible = false));
-    g.view.orbs.length = 0;
-    for (const c of g.view.crumbles.values()) c.tile.crumble = false;
-    g.level.sliders.forEach((s) => (s.period = 1e9)); // bridges frozen up
-    return { name: g.def.name, hasKey: !!g.level.gateKey };
-  }, index);
+    if (off) {
+      // fast-mode convention: hazards off (route/input sanity only)
+      g.view.orbs.forEach((o) => (o.holder.visible = false));
+      g.view.orbs.length = 0;
+      for (const c of g.view.crumbles.values()) c.tile.crumble = false;
+      g.level.sliders.forEach((s) => (s.period = 1e9)); // bridges frozen up
+    }
+    return { name: g.def.name, hasKey: !!g.level.gateKey, def: g.def };
+  }, index, !LIVE);
 
   if (!(await waitFor(() => window.__kubik.game.state === 'playing', 10000))) {
     return { ok: false, moves: 0, note: 'level did not start' };
   }
 
+  const ctx = LIVE ? liveCtx(setup.def) : null;
   let moves = 0;
   if (setup.hasKey) {
-    await reachTarget('window.__kubik.game.level.gateKey');
+    await reachTarget('window.__kubik.game.level.gateKey', ctx);
     moves = await page.evaluate(() => window.__kubik.game.moves);
     const gotKey = await waitFor(() => window.__kubik.game.hasKey, 3000);
     if (!gotKey) return { ok: false, moves, note: 'key unreachable / not picked up' };
   }
 
-  const ok = await reachTarget('window.__kubik.game.level.goal');
+  const ok = await reachTarget('window.__kubik.game.level.goal', ctx);
   if (!ok) return { ok: false, moves, note: 'goal not reached' };
   const won = await waitFor(() => window.__kubik.game.state === 'won', 5000);
   const info = await snap();
@@ -206,11 +628,14 @@ async function playLevel(index) {
 }
 
 // ---------------------------------------------------------------------------
-console.log('KUBIK playable-route test — every level must be completable by real play\n');
+console.log(
+  `KUBIK playable-route test — every level must be completable by real play (${LIVE ? 'LIVE hazards' : 'fast mode, hazards off'})\n`,
+);
 let pass = 0;
 const t0 = Date.now();
 
 for (let i = 0; i < LEVELS.length; i++) {
+  if (ONLY.length && !ONLY.includes(i + 1)) continue;
   const res = await playLevel(i);
   // dismiss the win panel between levels
   await page.evaluate(() => document.getElementById('btn-next').click());
@@ -221,17 +646,23 @@ for (let i = 0; i < LEVELS.length; i++) {
   );
 }
 
-// today's daily challenge plays with the same contract
+// today's daily challenge plays with the same live contract
 await page.evaluate(() => window.__kubik.startDaily());
 await waitFor(() => window.__kubik.game.state === 'playing', 10000);
-await page.evaluate(() => {
-  const gg = window.__kubik.game;
-  gg.view.orbs.forEach((o) => (o.holder.visible = false));
-  gg.view.orbs.length = 0;
-  for (const c of gg.view.crumbles.values()) c.tile.crumble = false;
-});
-const dailyOk = await reachTarget('window.__kubik.game.level.goal')
-  && await waitFor(() => window.__kubik.game.state === 'won', 5000);
+// the page's local date is the source of truth (IST ≠ UTC on half the days)
+const dailyDate = await page.evaluate(() => window.__kubik.game.dailyDate);
+const dailyDef = getDailyLevel(dailyDate).def;
+if (!LIVE) {
+  await page.evaluate(() => {
+    const gg = window.__kubik.game;
+    gg.view.orbs.forEach((o) => (o.holder.visible = false));
+    gg.view.orbs.length = 0;
+    for (const c of gg.view.crumbles.values()) c.tile.crumble = false;
+  });
+}
+const dailyCtx = LIVE ? liveCtx(dailyDef) : null;
+const dailyOk = (await reachTarget('window.__kubik.game.level.goal', dailyCtx)) &&
+  (await waitFor(() => window.__kubik.game.state === 'won', 5000));
 if (dailyOk) pass++;
 console.log(`${dailyOk ? '✓' : '✗'} DAILY today's challenge ${dailyOk ? '' : '— not completable'}`);
 

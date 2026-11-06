@@ -135,3 +135,56 @@ an entire failure surface (unreachable-card bugs) and simplifies the
 playtest (every card must be open).
 **Trade-offs:** no enforced difficulty curve (mitigated by level-select
 ordering + act structure; curve is now a suggestion, not a wall).
+
+## ADR-012 — Timing-fairness gate: every sentinel crossing must have a ≥ 0.5 s window (2026-11-06)
+**Context:** the player reported L46 "The Wall Walks" was unfinishable —
+the moving sentinel on the only corridor left no time to cross
+(BUG-003). The verifier modelled sentinels *absent* and the live bot had
+never been run against every level, so a periodic hazard could seal the
+sole route and nothing caught it. Pre-fix, **22 of 50** campaign levels
+had at least one crossing window below 0.5 s.
+
+**Decision:** add a crossing-window model to `src/rules.js` (algorithms
+§6.1) and make it a **third bar** of the commit gate:
+- `candidateCrossings` — BFS over the line graph, depth ≤ 4: straight
+  runs, L-shapes and 2-row patrol bands (the L12 geometry) are all
+  enumerable candidates.
+- `crossingWindow` — fine-grained simulation over one joint orb period;
+  an orb counts only if its patrol is within Chebyshev 1 of the path.
+- `TIMING_FLOOR = 0.5 s` — a window is *fair* iff it is at least this
+  long (≈ one roll of reaction margin; the old L46 measured 0.36 s).
+- `fairCrossingGraph` + `timingProblems` — the verifier (check 8)
+  requires a fair path start→goal, and for `gateKey` levels proves
+  start→key and key→goal **separately** via `keyNode` graph waypoints
+  (BUG-004: L12's key sat behind a crossing the old generator could not
+  even see). Crossing candidates are additionally filtered by the roll
+  law — a burst whose entry/exit roll is a blocked climb (or a void
+  step) is not a route, even with a wide window (BUG-007: L39).
+- The generator (`gen-campaign`, `gen-daily`) retries layouts until the
+  gate is green; crumble slabs are placed **after** sentinels and never
+  on a patrol line or adjacent to one (BUG-005: L15's crumble sat on the
+  only crossing entry — waiting there was a slab-break gamble).
+- The live playable bot plans over the **same** `fairCrossingGraph` and
+  commits each line run as one gap-free burst (pre-queued continuation
+  rolls, no pause on the patrol line).
+
+**Why 0.5 s and not "any positive window":** the cube's crossing speed
+is fixed by `ROLL_TIME`; a positive but tiny window is only fair for
+frame-perfect input, which the player cannot reliably produce (EDGE's
+own reviews cite control jank — research §6). 0.5 s is the smallest
+margin a human can hold across one roll at the slowest shipped orb
+speed.
+
+**Trade-offs:**
+- verify time: 12.1 s (was <1 s) — accepted, it is the core promise of
+  "no unfinishable level"; the relevant-orb filter keeps multi-orb
+  levels cheap.
+- generated levels re-rolled under the gate (37 layouts regenerated,
+  all re-verified + spot-checked live); hand-authored L1–L13 untouched
+  (L12 passed as authored once band crossings became visible).
+- the bot is now stricter than a human: it plays the *verified* route
+  with perfect window reads, so "bot passes" is a necessary-not-sufficient
+  reading of "human can finish" — the verifier's exhaustive-in-time
+  windows are the actual fairness claim; the bot proves the game's
+  *runtime* (render clock, input queue, crumble timers) agrees with the
+  sim at frame rate.

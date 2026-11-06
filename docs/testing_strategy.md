@@ -27,19 +27,23 @@ honest gaps._
 | File | What it pins |
 |---|---|
 | `rules.test.mjs` | the roll law (drop ≤2 / climb ≤1 / void); slider 55% duty cycle + phase; `canPushBlock` (never onto goal/crumble/slider/key/block/void); shortestRoute = BFS = par; **soft-lock proof** (`reachable ∖ canStillFinish`); hazard solver push economy (nudge budget) + crumble one-way crossings; sentinel clearance; the full spawn-problem audit (orb-on-start/goal, crumble start, shard on start, orb over void); parse-time rejection of malformed data |
+| `timing.test.mjs` | the crossing-window gate (BUG-003): the exact old L46 layout is **rejected** (no fair crossing exists), the fair layout **passes**, sealed start-escape **rejected**, key-behind-razor-crossing **rejected** (BUG-004), band-threading candidate **found**, 0.5 s floor boundary, illegal-climb crossing **refused** (BUG-007) |
 | `save.test.mjs` | medal math (3 independent criteria → bronze/silver/gold), record merging (best time / most shards / fewest moves / medal only upgrades), daily bookkeeping, ghost = fastest only, **corrupted-save recovery** (garbage JSON → defaults, never throws), cam wrap-around, storage-unavailable survival, `fmtTime` |
 | `daily.test.mjs` | date-seeded determinism (same date → identical def), different dates differ, generated dailies are structurally legal + solvable + `par === shortestRoute` |
 | `levels.test.mjs` | the shipped catalogue: 50 unique ids 1..50, unique names, all parse, start≠goal, shard counts (2 teaching / 2–5 rule), **every level route + no soft-lock pockets** (property check), mechanic distribution matches the design doc (teaching order, key/lock only in L12 & L50) |
 
 ## 3. Integration / proof (`npm run verify`)
 
-`scripts/verify-levels.mjs` — the 7-check solvability proof, run over
+`scripts/verify-levels.mjs` — the 8-check solvability proof, run over
 **50 levels + 14 recent dailies** in pure Node (<1 s):
 
 1. parse (data well-formed) 2. spawn safety 3. goal reachable 4. no
    soft-lock 5. shards reachable 6. crumble/push route survives (budgeted
    state-space search) 7. hazard data sane (orb paths on slabs, key
-   reachable, wind legal).
+   reachable, wind legal) 8. **timing fairness**: a fair path must exist
+   start→goal over the `fairCrossingGraph` (every crossing window ≥ 0.5 s;
+   for `gateKey` levels, start→key and key→goal are proven separately —
+   BUG-003/BUG-004).
 
 This is the "impossible level / unreachable objective / overlapping
 objects / broken references" detector the studio charter asks for — a
@@ -49,7 +53,7 @@ solver, not a spreadsheet.
 
 | Suite | Command | Proves | When |
 |---|---|---|---|
-| **Playable-route** | `npm run test:play` | every level + today's daily is **played to `won`** through real key presses, with BFS re-planning after every death; zero page errors | **pre-commit + CI (gate)** |
+| **Playable-route** | `npm run test:play` | every level + today's daily is **played to `won`** through real key presses: the bot plans over the same `fairCrossingGraph` as the verifier, waits for the crossing window at the *off-line* entry, then commits the whole line run as one gap-free burst (queue topped with up to 2 continuation rolls, no pauses on the patrol line); the crossing wait anchors the simulation on the view's directed `orb.dist`, never on position (out-and-back patrols are ambiguous by position — BUG-006); 8 attempts per level, zero page errors | **pre-commit + CI (gate)** |
 | **Mechanics playtest** | `npm run playtest` | 64 scripted checks: win/death/push/wind/key/bridge/ghost/medal/daily/theme/camera seats/hold-to-roll/… | CI |
 | **Stress** | `npm run stress` | 120 mashed inputs, 30 restart spams on L13, win→Next ×3 flow, hold-to-roll through 4 pause/resume cycles — no state corruption, no panel ghosts, no errors | manual / on-request |
 | **Perf** | `npm run perf` | frame cost, draw calls, governor behaviour, leak check vs budgets | manual / on-request |
@@ -70,6 +74,10 @@ One named test per fixed bug (bug_tracker.md):
 - **BUG-002** `fault-line-spawn.mjs` — pure Node: the specific level that
   shipped broken + the general spawn-safety property over all 50 + 7 dailies.
 
+- **BUG-003** `tests/unit/timing.test.mjs` — the crossing-window gate as
+  unit tests: exact old-L46 layout rejected, fair layout passes, sealed
+  start-escape rejected, key-behind-razor-crossing rejected (BUG-004),
+  band-threading candidates discovered, floor boundary.
 **Rule:** a bug fix is not done until its regression test is green and
 named (agent_rules §2.7).
 
