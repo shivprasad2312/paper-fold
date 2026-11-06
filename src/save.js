@@ -1,7 +1,7 @@
 const KEY = 'kubik.save.v1';
 
 const DEFAULTS = {
-  unlocked: 1, // number of levels unlocked (1 = only the first)
+  unlocked: 1, // legacy field — all levels are open; kept for save compatibility
   best: {}, // id -> { time, shards, moves, medal }
   ghosts: {}, // id -> { time, moves, log: [{t,x,z,h}] } — the fastest win, replayed
   daily: {}, // 'YYYY-MM-DD' -> { time, shards, total, moves, par, medal }

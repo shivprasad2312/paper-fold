@@ -399,12 +399,12 @@ function renderLevelGrid() {
   });
   el.grid.appendChild(dailyCard);
 
+  // All 50 levels are open from the start (EDGE-demo style). `save.unlocked`
+  // is kept for schema compatibility but no longer gates anything.
   LEVELS.forEach((def, i) => {
-    const locked = def.id > save.unlocked;
     const best = save.best[def.id];
     const card = document.createElement('button');
-    card.className = 'level-card' + (locked ? ' locked' : '') + (def.id === save.lastLevel ? ' current' : '');
-    if (locked) card.disabled = true;
+    card.className = 'level-card' + (def.id === save.lastLevel ? ' current' : '');
     const totalShards = (def.shards || []).length;
     const got = best ? best.shards : 0;
     card.innerHTML = `
@@ -415,12 +415,10 @@ function renderLevelGrid() {
       <span class="dots">${Array.from({ length: totalShards }, (_, d) =>
         `<i class="dot${d < got ? ' on' : ''}"></i>`).join('')}</span>
     `;
-    if (!locked) {
-      card.addEventListener('click', () => {
-        audio.sfx('ui');
-        startLevel(i);
-      });
-    }
+    card.addEventListener('click', () => {
+      audio.sfx('ui');
+      startLevel(i);
+    });
     el.grid.appendChild(card);
   });
 }

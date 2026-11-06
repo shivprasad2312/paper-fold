@@ -399,8 +399,13 @@ check('escape resumes', (await state()).paused === false);
 await page.evaluate(() => window.__kubik.openLevels());
 await wait(600);
 await shot('15-levels');
-const unlocked = await page.evaluate(() => window.__kubik.save.unlocked);
-check('progress unlocks levels', unlocked >= 5, `unlocked=${unlocked}`);
+const cardStats = await page.evaluate(() => ({
+  total: document.querySelectorAll('.level-card:not(.daily-card)').length,
+  locked: document.querySelectorAll('.level-card.locked').length,
+  disabled: document.querySelectorAll('.level-card[disabled]').length,
+}));
+check('all 50 levels are open from the start', cardStats.total === 50 && cardStats.locked === 0 && cardStats.disabled === 0,
+  `cards=${cardStats.total} locked=${cardStats.locked} disabled=${cardStats.disabled}`);
 const dailyCard = await page.evaluate(() => !!document.querySelector('.daily-card'));
 check('daily card in level select', dailyCard);
 const medalInCard = await page.evaluate(() => !!document.querySelector('.level-card .medal'));

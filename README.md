@@ -142,8 +142,9 @@ Plus a **Daily Challenge**: a fresh layout generated from the date (seeded, then
 through the same solvability verifier — always solvable, never a spawn-kill), the same
 for everyone, with its own best time and medal.
 
-Progress unlocks level by level. Best times, shard counts, medals and ghost runs are
-stored in `localStorage`; there is no server and no tracking.
+All 50 levels are open from the start — pick any of them from the level select.
+Best times, shard counts, medals and ghost runs are stored in `localStorage`;
+there is no server and no tracking.
 
 ## Level format
 
