@@ -40,12 +40,12 @@ const S = [
   },
   {
     id: 3, name: 'Two Heights', verb: 'span', intent: 'ledge',
-    answer: [[510, 497], [780, 497]],
     tip: 'The blocks are not the same height. A shelf across them will not be level.',
     faucet: { x: 640, y: 170, rate: 26, total: 110 },
     glasses: [{ x: 640, y: 430, w: 108, h: 118, need: 0.5, hanging: true }],
     stage: [{ x: 240, y: 690, w: 480, h: 20 }, { x: 1040, y: 690, w: 480, h: 20 }],
     crates: [{ x: 470, y: 610, w: 120, h: 100 }, { x: 810, y: 645, w: 120, h: 130 }],
+    answer: [[510, 549], [600, 584], [680, 584], [770, 549]],
   },
   {
     id: 4, name: 'Twin Taps', verb: 'funnel', intent: 'beam',
@@ -140,7 +140,6 @@ const S = [
   },
   {
     id: 11, name: "The Shade", verb: "shade",
-    answer: [[472,486],[812,552]],
     faucet: { x: 640, y: 170, rate: 26, total: 130 },
     glasses: [{ x: 820, y: 621, w: 108, h: 118, need: 0.5 }],
     stage: [
@@ -149,6 +148,7 @@ const S = [
       { x: 960, y: 600, w: 16, h: 180, kind: 'wood' },
     ],
     crates: [{ x: 520, y: 600, w: 100, h: 180, kind: 'wood' }],
+    answer: [[472, 486], [812, 532]],
   },
   {
     id: 12, name: "Mirror Wall", verb: "mirror",
@@ -199,7 +199,6 @@ const S = [
     tip: "Wide at the top, narrow at the base: it sheds both ways.",
     faucet: { x: 640, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1010, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[520, 380], [880, 380], [790, 690], [610, 690]] },
@@ -215,7 +214,6 @@ const S = [
     tip: "Read the hexagon: one shoulder faces the cup.",
     faucet: { x: 660, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 980, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[500, 690], [480, 430], [580, 360], [700, 360], [800, 430], [780, 690]] },
@@ -231,7 +229,6 @@ const S = [
     tip: "The slope runs the other way here. Use it.",
     faucet: { x: 760, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 420, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[860, 690], [860, 400], [480, 690]] },
@@ -243,11 +240,9 @@ const S = [
   },
   {
     id: 19, name: "The Ledge", verb: "edge", intent: "chute",
-    answer: [[848,452], [1042,509]],
     tip: "Pour at the edge and the block hands it over.",
     faucet: { x: 840, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1070, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[560, 690], [560, 470], [880, 470], [880, 690]] },
@@ -256,6 +251,7 @@ const S = [
     balls: [
       { x: 160, y: 320, r: 26, kind: 'heavy' },
     ],
+    answer: [[848, 452], [1022, 489]],
   },
   {
     id: 20, name: "The Pillar", verb: "cap", intent: "chute",
@@ -263,7 +259,6 @@ const S = [
     tip: "A narrow cap, a narrow shed. Catch it at the lip.",
     faucet: { x: 645, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 940, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[620, 690], [620, 380], [660, 380], [700, 470], [700, 690]] },
@@ -279,7 +274,6 @@ const S = [
     tip: "A slab on the slant. Let it run downhill.",
     faucet: { x: 560, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 260, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[440, 470], [440, 410], [860, 330], [860, 390]] },
@@ -295,7 +289,6 @@ const S = [
     tip: "One corner is cut. The cut is the exit.",
     faucet: { x: 660, y: 200, rate: 26, total: 165 },
     glasses: [{ x: 980, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[520, 690], [520, 430], [680, 430], [780, 520], [780, 690]] },
@@ -311,7 +304,6 @@ const S = [
     tip: "High shelf to low shelf to cup. Do not skip a step.",
     faucet: { x: 620, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1020, y: 621, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[420, 400], [420, 320], [700, 320], [700, 400]] },
@@ -327,7 +319,6 @@ const S = [
     tip: "The crate is not the answer. The slab is.",
     faucet: { x: 690, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1000, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[600, 690], [600, 400], [760, 428], [760, 690]] },
@@ -342,11 +333,9 @@ const S = [
   },
   {
     id: 25, name: "The Doorstep", verb: "step", intent: "bounce",
-    answer: [[711,372], [326,480]],
     tip: "Two heights, one pour. Step it down.",
     faucet: { x: 700, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 290, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[420, 690], [420, 480], [640, 480], [640, 690]] },
@@ -356,6 +345,7 @@ const S = [
     balls: [
       { x: 160, y: 654, r: 26, kind: 'heavy' },
     ],
+    answer: [[682, 232], [522, 312], [344, 524]],
   },
   {
     id: 26, name: "The Bench", verb: "lean", intent: "chute",
@@ -363,7 +353,6 @@ const S = [
     tip: "The bench is wide. Work the near end.",
     faucet: { x: 820, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1020, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[500, 690], [500, 470], [860, 470], [860, 690]] },
@@ -379,7 +368,6 @@ const S = [
     tip: "Pour near the edge and the block gives it up.",
     faucet: { x: 780, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1020, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[560, 690], [560, 470], [820, 470], [820, 690]] },
@@ -395,7 +383,6 @@ const S = [
     tip: "It sheds away from the glass. Go and get it.",
     faucet: { x: 800, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 440, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[760, 690], [760, 490], [1080, 490], [1080, 690]] },
@@ -411,7 +398,6 @@ const S = [
     tip: "A cap on a stem. The cap is the high route.",
     faucet: { x: 800, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1040, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[480, 420], [480, 360], [820, 360], [820, 420]] },
@@ -424,11 +410,9 @@ const S = [
   },
   {
     id: 30, name: "The Plateau", verb: "cross", intent: "chute",
-    answer: [[625,462], [860,508]],
     tip: "The pour lands on the plateau. Carry it off the lip.",
     faucet: { x: 600, y: 200, rate: 26, total: 125 },
     glasses: [{ x: 900, y: 621, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[370, 470], [670, 470], [710, 690], [330, 690]] },
@@ -436,14 +420,14 @@ const S = [
     balls: [
       { x: 160, y: 654, r: 26, kind: 'heavy' },
     ],
+    answer: [[670,478], [860,530], [860,580]],
   },
   {
     id: 31, name: "The Prism", verb: "run", intent: "chute",
     answer: [[699,473], [970,478]],
     tip: "The prism throws it sideways. Meet it on the way down.",
     faucet: { x: 700, y: 200, rate: 26, total: 140 },
-    glasses: [{ x: 1010, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
+    glasses: [{ x: 1014, y: 587, w: 108, h: 118, need: 0.5 }],
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[520, 690], [860, 690], [690, 470]] },
@@ -459,7 +443,6 @@ const S = [
     tip: "It runs to the edge and falls. Catch it as it goes over.",
     faucet: { x: 700, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1010, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[480, 430], [780, 430], [820, 690], [560, 690]] },
@@ -475,7 +458,6 @@ const S = [
     tip: "The spire splits it. Go over the top and down the far side.",
     faucet: { x: 620, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 940, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[620, 690], [700, 690], [660, 430]] },
@@ -491,7 +473,6 @@ const S = [
     tip: "Two roofs and a valley. The cup sits in the middle of it.",
     faucet: { x: 430, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 690, y: 551, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[300, 690], [600, 690], [450, 430]] },
@@ -508,7 +489,6 @@ const S = [
     tip: "One shelf, a long drop. Carry it out and let it fall.",
     faucet: { x: 620, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 960, y: 621, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[410, 420], [410, 356], [710, 356], [710, 420]] },
@@ -523,7 +503,6 @@ const S = [
     tip: "The block sheds it away from the cup. Carry it across.",
     faucet: { x: 900, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 480, y: 621, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[650, 400], [650, 310], [990, 310], [990, 400]] },
@@ -538,7 +517,6 @@ const S = [
     tip: "Two walls, one gap. The water only has to come down between them.",
     faucet: { x: 420, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 660, y: 541, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[290, 690], [290, 450], [550, 450], [550, 690]] },
@@ -555,7 +533,6 @@ const S = [
     tip: "It lands on the slope and runs off the end. Take it from there.",
     faucet: { x: 510, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 960, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[420, 690], [420, 430], [760, 690]] },
@@ -571,7 +548,6 @@ const S = [
     tip: "Climb the step, then drop to the glass.",
     faucet: { x: 750, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1020, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[400, 690], [400, 520], [620, 520], [620, 690]] },
@@ -588,7 +564,6 @@ const S = [
     tip: "The block splits the pour. Both sides are yours.",
     faucet: { x: 820, y: 200, rate: 26, total: 140 },
     glasses: [{ x: 1000, y: 591, w: 108, h: 118, need: 0.5 }],
-    delay: 0.4,
     stage: [
       { x: 640, y: 690, w: 1100, h: 20, kind: 'teal' },
       { kind: 'teal', poly: [[560, 690], [560, 520], [860, 520], [860, 690]] },

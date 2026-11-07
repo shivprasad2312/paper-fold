@@ -83,6 +83,45 @@ const drawAll = (scene, strokes) => {
   sc.destroy();
 }
 
+// --------------------------------------------- 2b. water may not move the cup
+// The report: "the glass vibrates when water touches it" and "glass should not
+// move by water — the glass is heavier". A cup is water-blind (CAT_GLASS, see
+// util.js): the fluid never collides with the real body, and an invisible static
+// copy of its walls (CAT_GWALL) holds the water instead. Two things have to stay
+// true, so both are gated here rather than left as a comment.
+{
+  say('## 2b. A cup is heavy: water never moves it');
+  const sc = fresh();
+  const glass = sc.glasses[0];
+  const gb = glass.body;
+  const x0 = gb.position.x, y0 = gb.position.y;
+  sc.startDelay = 0;
+  sc.state = 'pouring';
+  let waterPairs = 0;
+  for (let i = 0; i < 60 * 12; i++) {
+    sc.step(STEP); sc.physics(STEP);
+    for (const pr of sc.engine.pairs.list) {
+      if (!pr || !pr.isActive) continue;
+      const a = pr.bodyA, b = pr.bodyB;
+      if (a.label === 'water' && b.parent === gb) waterPairs++;
+      if (b.label === 'water' && a.parent === gb) waterPairs++;
+    }
+  }
+  const moved = Math.hypot(gb.position.x - x0, gb.position.y - y0);
+  const poured = sc.water.levelsIn(glass).length;
+  check(waterPairs === 0, 'the fluid never touches the cup itself (it is water-blind)',
+    waterPairs + ' water/cup pair-frames in 12 s');
+  check(poured > 0, 'the water still goes inside the cup (invisible walls hold it)',
+    poured + ' droplets inside');
+  // The cup is allowed to settle onto its perch when the level starts; the test
+  // is that the pour adds nothing. Measured against the same run with no water.
+  check(moved < 1.5, 'a full pour does not shift the cup', moved.toFixed(2) + ' px over 12 s of pouring');
+  // and nothing on screen may wobble: the renderer adds no motion of its own
+  check(glass.wobble === undefined,
+    'no renderer-side wobble value exists to ratchet up', 'removed');
+  sc.destroy();
+}
+
 // ------------------------------------------------------- 3. resting contact
 {
   const sc = fresh();

@@ -199,3 +199,55 @@ level that is too tight to ship. The current set is stable, 4/4 on all 35.
 `node tools/design.js --write` regenerates `js/levels.js` and `tools/solutions.js`; results are
 cached per level in `/tmp/design-L<id>.json` so a set of 35 can be solved in chunks and assembled
 with `--emit`.
+
+## The cup is heavy: water never moves it
+
+Reported twice — *"the glass vibrates when water bubbles touch it"* and *"glass should not move by
+water, the glass is always heavier than water"*. Both were true, and they had different causes.
+
+**The vibration was not physics.** `drawGlassFront` slid the whole cup sideways by
+`sin(t * 0.02) * g.wobble * 1.1` — 1.1 px at 3.1 Hz — and `g.wobble` only ever went *up*: every
+droplet that touched a wall added 0.05 and nothing ever took it back down. One bubble brushing the
+rim left the cup shivering for the rest of the level, empty or not; a full pour pinned it at 1.0 in
+under a second. The value and the translation are both gone. The renderer follows the body and adds
+nothing.
+
+**The cup was genuinely light.** A droplet weighs 0.286 and the cup 126 — only 439:1 — and Matter
+resolves contacts in *both* directions, so a steady stream pressed a 5–25 px drift into the glass.
+Matter cannot express "A pushes B but B ignores A" in a single body, so the cup is now two things:
+
+* `CAT_GLASS` — the real, visible compound. Balls, ink, crates and the floor collide with it;
+  its mask has `CAT_WATER` cleared, so the fluid applies exactly **zero** force to it. Matter 0.20
+  tests the *compound's* filter for every pair, not the parts' — setting only the parts does nothing,
+  which is worth knowing before debugging this again.
+* `CAT_GWALL` — five invisible static rectangles standing in exactly the same place, visible to
+  water only. They hold the water in and take the pressure. They are rebuilt from the parts' true
+  un-rotated rectangles (their bounding boxes are 25 px wide for a 10 px leaning wall, which pinches
+  the mouth) and repositioned after every physics update, so when a ball does knock the glass over
+  the water goes with it.
+
+What the cup does still feel is the water's **weight**: each frame the droplets inside a cup apply
+one downward force at their own centre of mass. No sideways component, so it can press the cup onto
+its perch but never slide it — which is what a heavy glass full of water actually behaves like.
+
+`npm run audit` §2b now gates all of it: 0 water/cup collision pair-frames, water still inside, the
+cup shifted < 1.5 px over a 12 s pour, and no wobble value in the codebase to ratchet up.
+
+### What this broke, and how it was fixed
+
+Six rooms were proved while water was still holding their cup in place. With the cup steady, their
+old answers fill 0.15–0.47 instead of 0.50 — they were leaning on a stream to pin the glass or to
+centrifuge it under the tap until the water fell straight in:
+
+| Room | Fix |
+| --- | --- |
+| 3 Two Heights | the cup lands on the drawn wire and tips 4°; the answer is a U-cradle now (273 ink) |
+| 11 The Shade | chute end 20 px higher so the water lands inside the mouth, not on the rim |
+| 19 The Ledge | chute end re-aimed (178 ink, was 246) |
+| 25 The Doorstep | the old answer has no win left; the room solver found a `roof` shape (456 ink) |
+| 30 The Plateau | water skidded off the rim; a step-shaped chute that drops it vertically (222 ink) |
+| 31 The Prism | the cup sits 4 px right and up, where its old answer already aimed |
+
+Also fixed: `tools/hero-rooms.js` carried `delay: 0.4` on 25 rooms and **no shipped level has a
+delay at all**, so the design tool had been proving rooms against a 0.4 s later pour than the game
+plays. Room 30 did not pass its own answer until that was removed.

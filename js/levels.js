@@ -538,7 +538,7 @@
       ink: 330,
       faucet: { x: 700, y: 200, rate: 26, total: 140 },
       glasses: [
-        { x: 1010, y: 591, w: 108, h: 118, need: 0.5 },
+        { x: 1014, y: 587, w: 108, h: 118, need: 0.5 },
       ],
       platforms: [
         P({ x: 640, y: 690, w: 1100, h: 20, kind: 'teal' }),

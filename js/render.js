@@ -638,12 +638,13 @@
     }
 
     drawGlassBack(ctx, g, dt) {
-      // No idle bob. Every glass used to be nudged +-1.2 px up and down on a
-      // sine, forever, whether it held water or not — a cup of nothing waving
-      // about reads as a bug, and the competitor's cup is rock steady until
-      // something actually hits it. The glass moves because the PHYSICS moves
-      // it; the renderer's job is to follow the body, not add motion of its own.
-      g._bob = 0;
+      // No idle bob, and no reaction to water. Every glass used to be nudged
+      // +-1.2 px up and down on a sine forever, and then slid +-1.1 px sideways
+      // once droplets started brushing it (a `wobble` value that only ever went
+      // up, so a full cup shimmied at 3 Hz for the rest of the level). The glass
+      // is a heavy object: it moves because the PHYSICS moves it — a ball
+      // striking it, a drawn line propping it — and for nothing else. The
+      // renderer's job is to follow the body, not to add motion of its own.
       this.drawGlassHanger(ctx, g);
       ctx.save();
 
@@ -698,9 +699,6 @@
 
     drawGlassFront(ctx, g, dt) {
       ctx.save();
-      ctx.translate(0, g._bob || 0);
-      const wob = Math.sin(this.t * 0.02) * g.wobble * 1.1;
-      ctx.translate(wob, 0);
 
       // waterline gloss if there is water
       if (g.fillSmooth > 0.02) {

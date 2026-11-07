@@ -58,7 +58,6 @@
       this.fill = 0;
       this.fillSmooth = 0;
       this.satisfied = false;
-      this.wobble = 0;
       this.glow = 0;
       this.tipped = 0;
       this.lost = false;
@@ -435,26 +434,37 @@
 
         // one chamfered rectangle per wall, bottom and rim lip
         const parts = [];
+        // The same rectangles, recorded un-rotated, so the water-only stand-ins
+        // further down can be built at the cup's TRUE dimensions. (Their bounding
+        // boxes are not the shapes: the side walls lean by ~7 degrees, and a
+        // 10 px wall's box is 25 px wide — building the ghosts from boxes pinched
+        // the mouth and spilled water over the rim.)
+        const specs = [];
+        const put = (x, y, w, h, angle, density) => {
+          parts.push(Bodies.rectangle(x, y, w, h, { angle, density, chamfer: { radius: 3 } }));
+          specs.push({ x, y, w, h, angle });
+        };
         const wallAt = (a, b) => {
           const dx = b.x - a.x, dy = b.y - a.y;
           const len = Math.hypot(dx, dy);
-          parts.push(Bodies.rectangle((a.x + b.x) / 2, (a.y + b.y) / 2, W, len, {
-            angle: Math.atan2(-dx, dy),
-            density: 0.02,        // part-level density: it survives the compound
-            chamfer: { radius: 3 },
-          }));
+          // part-level density: it survives the compound
+          put((a.x + b.x) / 2, (a.y + b.y) / 2, W, len, Math.atan2(-dx, dy), 0.02);
         };
         wallAt(topL, botL);
         wallAt(topR, botR);
-        const foot = Bodies.rectangle(cx, g.bottom - W / 2, g.botHalf * 2 - 1, W, {
-          density: 0.1,           // weighted base = low centre of mass
-          chamfer: { radius: 3 },
-        });
-        parts.push(foot);
-        parts.push(Bodies.rectangle(topL.x + 3, g.top + 2, 12, W, { density: 0.02, chamfer: { radius: 3 } }));
-        parts.push(Bodies.rectangle(topR.x - 3, g.top + 2, 12, W, { density: 0.02, chamfer: { radius: 3 } }));
+        // weighted base = low centre of mass
+        put(cx, g.bottom - W / 2, g.botHalf * 2 - 1, W, 0, 0.1);
+        put(topL.x + 3, g.top + 2, 12, W, 0, 0.02);
+        put(topR.x - 3, g.top + 2, 12, W, 0, 0.02);
 
+        // The cup is heavy and the water is not: the fluid gets no say in where
+        // the glass is. Every part of the real body is taken out of the water's
+        // collision world here, and a static stand-in (CAT_GWALL, below) holds
+        // the fluid instead. See the note on CAT_GLASS in util.js.
         if (g.dynamic) {
+          parts.forEach((b) => {
+            b.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          });
           // --- one rigid body: it falls, tips and can rest on drawn ink
           const body = Body.create({
             parts,
@@ -471,11 +481,49 @@
           body.parts.forEach((pt) => {
             if (pt !== body) { pt.glass = g; pt.label = 'glasswall'; }
           });
+          // Matter tests the COMPOUND's own filter for every pair (0.20 does not
+          // consult the parts' filters), so this is the line that actually makes
+          // the cup water-blind. The per-part filters above are kept for the
+          // query paths that do look at parts.
+          body.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          body.parts.forEach((pt) => {
+            if (pt !== body) pt.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          });
           Composite.add(this.world, body);
           g.body = body;
           g.parts = body.parts.slice(1);
           g.localCenter = { x: cx - body.position.x, y: cy - body.position.y };
           g.syncXf();
+
+          // --- water-only stand-in walls, welded to the cup's own surface
+          // One static twin per part, in the cup's local frame (measured from
+          // the compound's centre of mass, which is what Body.setPosition moves).
+          const com = { x: body.position.x, y: body.position.y };
+          g.ghosts = specs.map((sp) => {
+            // Same surface as the cup it stands in for: glass is grippy and
+            // barely bouncy, and a stream that lands on a wall has to behave
+            // exactly as it did when it was landing on the glass itself.
+            const ghost = Bodies.rectangle(sp.x, sp.y, sp.w, sp.h, {
+              isStatic: true,
+              angle: sp.angle,
+              // same rounded rim as the real part: a sharp corner spills a
+              // droplet off the rim where the real glass would have held it
+              chamfer: { radius: 3 },
+              label: 'glasswall',
+              friction: 0.7,
+              frictionStatic: 0.9,
+              // no bounce at all off the cup's walls: the real glass gives a
+              // little under a droplet, and a rigid stand-in that bounces would
+              // flick water back out of the mouth
+              restitution: 0,
+              frictionAir: 0.008,
+              collisionFilter: { category: HG.CAT_GWALL, mask: HG.CAT_WATER },
+            });
+            ghost.glass = g;
+            ghost.ghost = true;
+            Composite.add(this.world, ghost);
+            return { body: ghost, x: sp.x - com.x, y: sp.y - com.y, a: sp.angle };
+          });
         } else {
           // --- static scenery (locked in place, cannot be pushed by water)
           parts.forEach((b) => {
@@ -937,7 +985,6 @@
         const byCount = M.clamp(ys.length / g.capacity, 0, 1.2);
         // a couple of stray droplets must never read as "full"
         const raw = Math.min(bySurface, byCount);
-        if (raw > g.fill) g.wobble = Math.min(1, g.wobble + (raw - g.fill) * 0.6);
         g.fill = raw;
         g.surfaceY = surface;
         g.fillSmooth = M.approach(g.fillSmooth, raw, 8, sec);
@@ -1081,11 +1128,13 @@
           this.water.splash(w.position.x, w.position.y + 4, 1, 1.2);
           if (HG.Sfx) HG.Sfx.plop();
         }
-        // fill the glass splash a bit
-        if (other.label === 'glasswall') {
-          const g = other.glass;
-          if (g) g.wobble = Math.min(1, g.wobble + 0.05);
-        }
+        // A droplet landing in the cup used to bump a `wobble` value here, and
+        // the renderer slid the whole glass sideways on it. Water is far lighter
+        // than the glass, so it does not move the glass — not one pixel, not
+        // even visually. The plop and the splash are the feedback; the cup stays
+        // put. (Nothing collides a water body with the cup's own walls any more
+        // either — see CAT_GLASS in util.js — so this event is the only news the
+        // glass gets from the fluid at all.)
       }
     }
 
@@ -1110,12 +1159,25 @@
           if (sp > MAXV) Body.setVelocity(b, { x: (b.velocity.x / sp) * MAXV, y: (b.velocity.y / sp) * MAXV });
         }
       };
+      this.syncGlassGhosts();
       clampDrops();
       const n = PHYS_SUBSTEPS;
+      // A cup carries the water it holds. The fluid cannot shove it (the cup is
+      // water-blind — see CAT_GLASS), but the load is real: 45 droplets weigh
+      // something, they sit near the bottom, and that weight is what keeps a cup
+      // planted on its perch instead of tipping. Without this a half-full cup
+      // balanced on a drawn line behaves like an empty one and rolls off.
+      const loads = this.glassLoads();
       const h = dt / n;
       // Water and ink are both ordinary bodies now: the engine resolves their
       // contacts in both directions, so a stream genuinely leans on the line.
       for (let i = 0; i < n; i++) {
+        // weight only, straight down at the water's own centre of mass: no
+        // sideways component, so it can press the cup onto its support but can
+        // never slide it
+        for (const L of loads) {
+          Body.applyForce(L.body, L.at, { x: 0, y: L.force * this.engine.gravity.y * this.engine.gravity.scale });
+        }
         Engine.update(this.engine, h);
         // A droplet that lands on a drawn line must RIDE it, not bounce off a
         // 4 px wire. Real water has surface tension: it clings to a wet surface
@@ -1128,7 +1190,50 @@
         // ceiling has to be re-applied per substep, not once per frame
         clampDrops();
       }
+      this.syncGlassGhosts();
       this.calmBodies();
+    }
+
+    // How much water each cup is carrying, where that load sits, and the force
+    // that weight stands for (Matter turns force into acceleration by mass, so
+    // the number to feed it is the water's mass times g).
+    glassLoads() {
+      const out = [];
+      for (const g of this.glasses) {
+        if (!g.dynamic || !g.body) continue;
+        let m = 0, sx = 0, sy = 0;
+        for (const p of this.water.particles) {
+          if (p.dead) continue;
+          const b = p.body;
+          if (!g.contains(b.position.x, b.position.y)) continue;
+          m += b.mass; sx += b.position.x * b.mass; sy += b.position.y * b.mass;
+        }
+        if (m <= 0) continue;
+        out.push({ body: g.body, at: { x: sx / m, y: sy / m }, force: m });
+      }
+      return out;
+    }
+
+    // Move each cup's water-only walls onto the cup itself. A ball can still
+    // knock a glass over, and the water inside must follow it, so this runs
+    // after every physics update — same single position+angle copy the wet-ink
+    // surface uses on its stroke.
+    syncGlassGhosts() {
+      for (const g of this.glasses) {
+        if (!g.ghosts || !g.body) continue;
+        const b = g.body;
+        const c = Math.cos(b.angle), s = Math.sin(b.angle);
+        for (const gh of g.ghosts) {
+          const gb = gh.body;
+          const x = b.position.x + gh.x * c - gh.y * s;
+          const y = b.position.y + gh.x * s + gh.y * c;
+          const a = b.angle + gh.a;
+          if (Math.abs(gb.position.x - x) < 0.02 && Math.abs(gb.position.y - y) < 0.02 &&
+              Math.abs(gb.angle - a) < 1e-3) continue;
+          Body.setPosition(gb, { x, y });
+          Body.setAngle(gb, a);
+        }
+      }
     }
 
     // ------------------------------------------------------------- wet ink

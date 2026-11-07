@@ -75,7 +75,7 @@ long-form guides (supercheats, spacewaves, yuppiy, onelinedraw, plays.org).
 | **Stars** | Stars come from **ink economy, not water saved**: the green meter is split into three blocks, every block you eat costs a star (3 / 2 / 1). | Identical 3-block meter, measured in pixels of line length against a per-level budget. |
 | **Draw rules** | You draw on the level, but not *through* scenery, glass or into no-draw zones; the stroke becomes a physical object that water flows over, and it can only hang where it is anchored to something. | Blocked inside planks, crates, the tap and inside the glass (you *may* draw right under the nozzle and just above the rim). On release every segment is tested against the scenery with a real collision query: each place it actually touches becomes an **anchor** and the wire is welded there — the drawing itself is never decorated, it stays the plain line you drew. A line that touches one thing only swings from that point; no contact at all → the whole line stays one rigid body and falls. If an anchoring support later moves away, the line comes off and drops. |
 | **Hazards** | Hot pads evaporate water, gears/spinners scatter it, some levels need multiple glasses filled at once, fans push water. | All of the above are implemented: heated pads, pinned bars (free pin joints that only turn when something hits them), tilting planks, blowers (the grey arrow box), crates and diamonds, brackets/shelves/pegs/columns, 1–2 glasses and 1–2 taps. **Nothing in a level moves on its own.** |
-| **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". |
+| **The glass itself** | The cup is not scenery: it falls, tips and can be caught with your ink. Later levels drop it, wedge it between blocks or leave it hanging over a gap. | Same. Every glass is a single **compound rigid body** with a weighted base (a splash will not knock it over, but an unsupported glass really does fall). A glass that is meant to stand starts on a small wooden ledge; a glass that is meant to hang has nothing under it and *will* drop unless your ink catches it. Knock it over and the level fails with "the glass fell over". **Water never moves the cup.** The glass is water-blind (see below) — a droplet, a stream or a full cup of water applies exactly zero force to it — and the renderer adds no motion of its own either, so a cup being poured into is rock steady to the pixel. |
 | **Retry** | Retry is free and instant; you keep trying until the water runs out. | Restart button (or `R`), plus automatic fail detection once the tap is empty and the water has settled. |
 | **Feel** | Hand-drawn look, thick dark outlines, pastel palette, paper grid, wooden HUD, bouncy UI, happy glass face. | Same art direction, drawn procedurally on a canvas (no image assets at all). |
 
@@ -177,8 +177,12 @@ checks, and what it found the last time it was run:
 | Check | Result |
 | --- | --- |
 | gravity is one global acceleration | 0.384 px/step² (≈ 1381 px/s²) |
-| a droplet cannot shove a glass | 501 : 1 mass ratio, full glass of water = 11 % of the cup |
-| a supported glass rests without jitter | 0.91 px drift over 6 s |
+| a droplet cannot shove a glass | 439 : 1 mass ratio, full glass of water = 13 % of the cup |
+| **the fluid never touches the cup at all** | 0 water/cup collision pair-frames over 12 s of pouring |
+| ...while the water still goes in | 5+ droplets inside, held by the invisible walls |
+| a full pour does not shift the cup | 0.30 px over 12 s (the same settle it does with no water) |
+| no renderer-side wobble exists to ratchet up | removed |
+| a supported glass rests without jitter | 0.29 px drift over 6 s |
 | droplets are born outside the tap collider | 3.3 px clear of the plate |
 | a droplet moves less than a rod-thickness per solver step | 3.7 px/step (14.9 px/frame ÷ 4 substeps) vs a 4 px rod |
 | no droplet can tunnel through a drawn line | 14.9 px/frame vs 18 px of rod + droplet |

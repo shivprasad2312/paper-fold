@@ -23,6 +23,21 @@
   HG.CAT_WATER = 0x0004;
   HG.MASK_INK = 0xffff;
   HG.MASK_WATER = 0xffff;
+  // The cup. A glass is heavy: a droplet weighing a few grams must never shove
+  // it, lean it over or set it shaking. Matter cannot express "A pushes B but B
+  // ignores A" in one body, so the cup is split in two:
+  //   * CAT_GLASS — the real, visible cup. Balls, ink, crates and the floor all
+  //     collide with it; water does not (MASK_GLASS has CAT_WATER cleared), so
+  //     the fluid applies exactly zero force to it.
+  //   * CAT_GWALL — invisible static walls standing in exactly the same place,
+  //     which ONLY water can see (mask is CAT_WATER alone). They hold the water
+  //     inside the cup and take the pressure instead of the cup doing it.
+  // The ghosts follow the cup every frame, so when a ball does knock the glass
+  // over the water goes with it — the containment is the cup's surface, not a
+  // frozen copy of last frame's.
+  HG.CAT_GLASS = 0x0020;
+  HG.CAT_GWALL = 0x0040;
+  HG.MASK_GLASS = 0xffff & ~HG.CAT_WATER;
 
   const M = (HG.M = {
     clamp: (v, a, b) => (v < a ? a : v > b ? b : v),
