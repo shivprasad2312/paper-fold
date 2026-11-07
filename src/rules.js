@@ -390,6 +390,80 @@ export function shortestRoute(level) {
 }
 
 /**
+ * The shortest press-path as a list of landing tiles (start … goal). Each
+ * step is one press (resolveRoll semantics, so an ice slide or spring
+ * launch is one step landing on the far tile). `path.length - 1` ===
+ * shortestRoute. Null when the goal is unreachable.
+ */
+export function shortestPath(level, start = level.start, goal = level.goal) {
+  const goalKey = key(goal.x, goal.z);
+  const startKey = key(start.x, start.z);
+  if (startKey === goalKey) return [start];
+  const prev = new Map([[startKey, null]]);
+  const queue = [start];
+  while (queue.length) {
+    const cur = queue.shift();
+    const ck = key(cur.x, cur.z);
+    for (const to of rollTargets(level, cur)) {
+      const k = key(to.x, to.z);
+      if (prev.has(k)) continue;
+      prev.set(k, ck);
+      if (k === goalKey) {
+        const path = [to];
+        let kk = ck;
+        while (kk) {
+          path.push(level.tiles.get(kk));
+          kk = prev.get(kk);
+        }
+        return path.reverse();
+      }
+      queue.push(to);
+    }
+  }
+  return null;
+}
+
+/**
+ * The mid-path rescue bench: the landing tile at the 50% press count of
+ * the shortest path, adjusted to the nearest SAFE tile along that path
+ * (safe = not on a sentinel line, not a crumble, not a shuttle dock, not
+ * ice, not a spring). On gateKey levels the key must sit on the proven
+ * path strictly before the bench — otherwise the level ships without a
+ * bench. Null when the level is too short for one to matter (≤ 4
+ * presses) or no safe tile exists.
+ */
+export function rescueTile(level) {
+  let path = shortestPath(level);
+  let keyIdx = -1;
+  if (level.gateKey) {
+    // the bench must sit PAST the key: measure the path through the key
+    // (start → key → goal), because a player 50% along that journey has
+    // necessarily picked the key up
+    const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
+    const a = keyTile ? shortestPath(level, level.start, keyTile) : null;
+    const b = keyTile ? shortestPath(level, keyTile, level.goal) : null;
+    if (!a || !b) return null;
+    path = [...a, ...b.slice(1)];
+    keyIdx = a.length - 1;
+  }
+  if (!path || path.length < 6) return null;
+  const { line } = lineRuns(level);
+  const isSafe = (t) => {
+    const k = key(t.x, t.z);
+    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring;
+  };
+  const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
+  for (let r = 0; r < mid; r++) {
+    for (const idx of [mid - r, mid + r]) {
+      if (idx <= 0 || idx >= path.length - 1) continue; // strictly inside
+      if (keyIdx >= 0 && idx <= keyIdx) continue; // bench sits past the key
+      if (isSafe(path[idx])) return path[idx];
+    }
+  }
+  return null;
+}
+
+/**
  * State-space search that models BOTH crumble timers (a crumble slab
  * disappears once you step off it) and obstacle blocks (which can be pushed,
  * spending nudges). Orbs/sentinels and sliders are treated as absent/always
@@ -1072,19 +1146,16 @@ export function fairCrossingGraph(level) {
  * crossing has a safe window of at least TIMING_FLOOR?
  * Returns a list of problem strings (empty = fair).
  */
-export function timingProblems(level) {
-  if (!level.orbs.length) return [];
-  const { line, edges, bestWindow, anyCandidate } = fairCrossingGraph(level);
-
-  const startK = key(level.start.x, level.start.z);
-  const goalK = key(level.goal.x, level.goal.z);
-
-  // fair reachability: BFS over off-line tiles + fair crossing edges.
-  // Nodes are identified by "x,z" for tiles and "key:x,z" for the key node
-  // (a graph-only waypoint that sits on a line tile).
+/**
+ * Fair reachability: BFS over off-line tiles + fair crossing edges, seeded
+ * at `from`. Returns the set of node ids reachable ("x,z" for tiles,
+ * "key:x,z" for the key node). Used by the timing gate (start → goal)
+ * and by the rescue-bench proof (bench → goal).
+ */
+export function fairReachSet(level, from, keySeed = false) {
+  const { line, edges } = fairCrossingGraph(level);
   const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
-  const fairReach = (from, keySeed = false) => {
-    const seen = new Set();
+  const seen = new Set();
     const q = [];
     const seed = (t) => {
       const k = idOf(t);
@@ -1119,9 +1190,16 @@ export function timingProblems(level) {
       }
     }
     return seen;
-  };
+}
 
-  const reach = fairReach(level.start);
+export function timingProblems(level) {
+  if (!level.orbs.length) return [];
+  const { line, edges, bestWindow, anyCandidate } = fairCrossingGraph(level);
+
+  const startK = key(level.start.x, level.start.z);
+  const goalK = key(level.goal.x, level.goal.z);
+
+  const reach = fairReachSet(level, level.start);
   if (!reach.has(goalK)) {
     // fall through to the descriptive errors below
   } else if (level.gateKey) {
@@ -1132,7 +1210,7 @@ export function timingProblems(level) {
     if (!reach.has(keyOnLine ? `key:${keyK}` : keyK)) {
       return ['gate key is only reachable through an unfair sentinel crossing'];
     }
-    if (!fairReach(level.gateKey, keyOnLine).has(goalK)) {
+    if (!fairReachSet(level, level.gateKey, keyOnLine).has(goalK)) {
       return ['goal is only reachable from the key through an unfair sentinel crossing'];
     }
     return [];

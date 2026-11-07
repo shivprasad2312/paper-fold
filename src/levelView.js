@@ -878,6 +878,13 @@ export function buildLevelView(level) {
       s.holder.position.set(s.x, level.tiles.get(s.id).h + 0.5, s.z);
       s.glow.material.opacity = 0.5;
     }
+    resetOrbs();
+  }
+
+  /** Sentinels back to their start phase — used by the mid-path rescue,
+   *  which keeps the run's shards/crumbles/blocks but gives the hazards
+   *  (and the player) a clean timing slate. */
+  function resetOrbs() {
     for (const o of orbs) {
       o.dist = (o.def.phase || 0) * o.total;
       o.holder.rotation.set(0, 0, 0);
@@ -946,6 +953,7 @@ export function buildLevelView(level) {
     setGoalLocked,
     pushBlockVisual,
     reset,
+    resetOrbs,
     dispose,
   };
 }

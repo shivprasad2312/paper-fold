@@ -127,11 +127,14 @@ prover: the generator + verifier + bot run on new data every single day.
 
 A level is done when, all green:
 
-1. `npm run verify` — 7 checks pass (route, soft-lock, shards,
+1. `npm run verify` — all checks pass (route, soft-lock, shards,
    crumble/push survival, spawn safety, data sanity, par computable,
    **timing fairness** — at least one path whose every sentinel crossing
    has a ≥ 0.5 s window; for `gateKey` levels, start→key and key→goal
-   are proven separately (algorithms §6.1)).
+   are proven separately (algorithms §6.1); **rescue bench** — if the
+   level has a mid-path second-chance tile, a timing-fair route
+   bench→goal must also exist, so the relief never strands you
+   (ADR-014)).
 2. `npm run test:play` — the bot plays it to `won` through real input.
 3. Design review against §3/§4 (teaches ≤ 1 new mechanic; par in band;
    shards worth 1–3 rolls of risk).

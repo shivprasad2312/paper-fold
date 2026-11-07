@@ -4,7 +4,7 @@ import { Stage } from './stage.js';
 import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
 import { getDailyLevel } from './daily.js';
-import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 // Vivid cube colour per level, like EDGE's recolouring between stages.
@@ -35,6 +35,11 @@ export class Game {
     this.totalShards = 0;
     this.moves = 0;
     this.par = 0;
+    this.rescuePos = null; // mid-path bench tile (or null — short/complex level)
+    this.rescueUsed = false; // one rescue per attempt
+    this.rescuedRun = false; // this attempt used one → no time/ghost recorded
+    this.rescueOffered = false;
+    this.rescueEnabled = true; // main.js syncs from the save (settings)
 
     // new mechanics
     this.blocks = new Map(); // key -> {x, z}
@@ -149,6 +154,10 @@ export class Game {
     this.stage.setFocus(this.level.start.x, this.level.start.z);
 
     this.par = Math.max(1, par != null ? par : shortestRoute(this.level));
+    this.rescuePos = rescueTile(this.level);
+    this.rescueUsed = false;
+    this.rescuedRun = false;
+    this.rescueOffered = false;
     this.maxNudges = this.level.nudge;
     this.resetRunState();
 
@@ -204,6 +213,9 @@ export class Game {
     this.view.setGoalLocked(this.gateLocked);
     this.moveLog = [{ t: 0, x: this.level.start.x, z: this.level.start.z, h: this.level.start.h }];
     this.lastDeathCause = null;
+    this.rescueUsed = false;
+    this.rescuedRun = false;
+    this.rescueOffered = false;
     if (this.ghost) this.ghost.idx = 0;
     this.view.setSteps(0);
     this.placeCubeAtStart();
@@ -415,7 +427,12 @@ export class Game {
 
     if (this.state === 'dead') {
       this.deadTimer += dt;
-      if (this.deadTimer > 1.0) this.respawn();
+      // A rescue offer stretches the 1 s instant-restart into a 6 s
+      // choice window — do nothing and the normal restart happens anyway.
+      if (this.deadTimer > (this.rescueOffered ? 6.0 : 1.0)) {
+        this.rescueOffered = false;
+        this.respawn();
+      }
     }
 
     if (this.state === 'won') {
@@ -867,8 +884,43 @@ export class Game {
     this.deadTimer = 0;
     this.queue.length = 0;
     this.lastDeathCause = cause;
+    // Mid-path second chance: died past halfway, bench exists, unused, enabled
+    this.rescueOffered = !!(
+      this.rescueEnabled && this.rescuePos && !this.rescueUsed &&
+      this.moves * 2 > this.par
+    );
     this.stage.shake(0.5);
     this.emit('death', { index: this.levelIndex, cause });
+  }
+
+  /** Accept the mid-path rescue: re-place the cube on the bench tile with
+   *  the run's commitments intact (moves, elapsed, shards, broken crumbles,
+   *  pushed blocks, key) and only the sentinels reset to their start phase.
+   *  A rescued clear wins, but its time and route are not recorded. */
+  acceptRescue() {
+    if (this.state !== 'dead' || !this.rescueOffered) return;
+    const t = this.rescuePos;
+    this.rescueOffered = false;
+    this.rescueUsed = true;
+    this.rescuedRun = true;
+    this.view.resetOrbs();
+    this.queue.length = 0;
+    this.deadTimer = 0;
+    this.cube = {
+      x: t.x,
+      z: t.z,
+      h: t.h,
+      anim: null,
+      quat: new THREE.Quaternion(),
+    };
+    this.cubeMesh.visible = true;
+    this.cubeMesh.position.set(t.x, t.h + HALF, t.z);
+    this.cubeMesh.quaternion.identity();
+    this.cubeMesh.rotation.set(0, 0, 0);
+    this.cubeMesh.scale.setScalar(0.001);
+    this.spawnScale = 0;
+    this.state = 'playing';
+    this.emit('rescue', { x: t.x, z: t.z, moves: this.moves });
   }
 
   respawn() {
@@ -892,6 +944,7 @@ export class Game {
       moves: this.moves,
       par: this.par,
       parClear: this.moves <= this.par,
+      rescued: this.rescuedRun,
       hasKey: this.hasKey,
       nudgesUsed: this.maxNudges - this.nudgeLeft,
       daily: this.dailyDate,

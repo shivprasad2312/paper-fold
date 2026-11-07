@@ -13,6 +13,8 @@ import {
   spawnProblems,
   timingProblems,
   legalNeighbours,
+  rescueTile,
+  fairReachSet,
   key,
 } from '../src/rules.js';
 
@@ -61,6 +63,14 @@ function checkLevel(label, def) {
   // 0b. sentinel timing fairness: a start→goal route must exist where every
   // patrol-line crossing has a safe window of at least TIMING_FLOOR
   for (const p of timingProblems(level)) fail(`timing: ${p}`);
+
+  // 0c. rescue bench: if the level has a mid-path second-chance tile, a
+  // timing-fair route bench→goal must exist too (the "at least one path"
+  // invariant extended to the bench — ADR-014)
+  const bench = rescueTile(level);
+  if (bench && !fairReachSet(level, bench).has(key(level.goal.x, level.goal.z))) {
+    fail(`rescue: no fair route from the bench (${bench.x},${bench.z}) to the goal`);
+  }
 
   // 1. goal reachable
   if (!reach.has(key(level.goal.x, level.goal.z))) fail('goal is unreachable');

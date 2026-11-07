@@ -255,3 +255,44 @@ the static proof (the dwell is ≥ 2.2 rolls wide, so the window exists by
 construction — the live bot still boards it against the real clock);
 the spring flight is a fixed-arc presentation (0.18 s + 0.08 s/tile),
 not a physics sim — consistent with the no-physics contract (ADR-002).
+
+## ADR-014 — Mid-path second chance (the rescue bench) (2026-11-07)
+**Context:** the player asked for relief on big levels: "if [they] get out
+after passing more than half path, give [them] one more chance directly
+from the middle of the path, instead of restarting". At 18×18 finale maps
+(~30+ presses) a late death costing a full restart is a rage-quit, and
+rage-quits in short-session puzzle games track 3+ consecutive deaths.
+
+**Decision:**
+- **The bench** is a pure function of the level (`rescueTile`): the
+  50% press of the proven shortest press-path, adjusted to the nearest
+  *safe* tile along that path — safe = not on a sentinel line, not a
+  crumble, not a shuttle dock, not ice, not a spring (a bench must be a
+  place the cube can simply *stand*). On gateKey levels the journey is
+  measured through the key (start → key → goal) and the bench must sit
+  strictly past the key — a player 50% along that journey has the key.
+  Levels ≤ 4 presses ship without a bench (a restart is instant).
+- **One rescue per attempt.** Dying with more than half the par spent
+  turns the 1 s instant restart into a 6 s choice window: resume from
+  the bench (R / Enter / tap) or do nothing and the normal restart
+  happens — the muscle memory is preserved.
+- **What a rescue keeps:** moves, elapsed time, collected shards, broken
+  crumbles, pushed blocks, the key. **What it resets:** only the
+  sentinels (to their start phase — a clean timing slate, deterministic).
+  Commitments stay real; hazards don't.
+- **Medal purity:** a rescued clear counts as a clear, but its time and
+  route are **not recorded** (no best time, no ghost). Rankings are
+  clean-run rankings; the assist-mode tier (M5) will generalise this.
+- **The fairness gate extends to the bench:** verifier check 0c proves a
+  timing-fair route bench → goal exists for every level that has one —
+  the "at least one path exists" invariant now covers the second chance
+  too. 48 of 50 shipped levels carry a bench (only the 2-press warm-ups
+  don't).
+- **The live bot accepts rescues** in its retry loop, so the flow is
+  exercised live on any level where the bot ever dies past halfway.
+
+**Trade-offs (accepted, documented):** the bench is at the 50% press of
+the *proven* path, not the player's actual route (the player's route is
+not known to the solver; the bench is a fixed, provable location — the
+Hollow-Knight-bench pattern). The settings toggle ships later with the
+assist mode (M5); the save key (`rescue`, default on) is already wired.

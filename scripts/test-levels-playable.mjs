@@ -766,9 +766,14 @@ async function reachTarget(targetExpr, ctx) {
     let st = await snap();
     if (st.state === 'won') return true;
     if (st.state !== 'playing') {
+      // a rescue offer? accept it — the bot recovers from the bench (this
+      // also exercises the rescue flow live); otherwise wait for the
+      // auto-restart
+      const offered = await page.evaluate(() => window.__kubik.game.rescueOffered);
+      if (offered) await page.evaluate(() => window.__kubik.game.acceptRescue());
       if (!(await waitFor(() => window.__kubik.game.state === 'playing', 10000))) return false;
-      // the auto-restart placed the cube at start (and wiped the death
-      // cause) — plan from the FRESH position, never the stale one
+      // the bench (or the auto-restart) placed the cube — plan from the
+      // FRESH position, never the stale one
       st = await snap();
     }
     let route;

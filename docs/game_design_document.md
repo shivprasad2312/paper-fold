@@ -144,9 +144,19 @@ No coins, no energy, no IAP, no ads (research §5).
 
 ## 9. Lives / attempts / checkpoints
 
-None — genre convention: **instant death, instant restart, full level.**
-Levels are short enough that a checkpoint would break the loop's rhythm;
-the "checkpoint" is your own memory (and the ghost).
+Base convention is the genre's: **instant death, instant restart, full
+level** — levels are short enough that a permanent checkpoint would break
+the loop's rhythm, and the "checkpoint" is your own memory (and the
+ghost).
+
+One relief valve for the big levels (ADR-014): dying after you've spent
+more than half the proven path offers a **mid-path second chance** — one
+resume from the level's bench tile (the 50% press of the proven route,
+adjusted to a safe slab). The choice window is 6 s; do nothing and the
+normal instant restart happens. A rescue keeps your moves, time, shards,
+broken slabs and blocks (only the sentinels reset), and a rescued clear
+doesn't enter the time/ghost rankings — the S-chase stays a clean-run
+chase. Levels with ≤ 4 presses have no bench (restarting is instant).
 
 ## 10. UI/UX
 

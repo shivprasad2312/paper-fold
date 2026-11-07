@@ -9,6 +9,7 @@ const canvas = $('scene');
 const game = new Game(canvas);
 const audio = new AudioEngine();
 let save = loadSave();
+game.rescueEnabled = save.rescue !== false; // mid-path second chance (ADR-014)
 
 const el = {
   hud: $('hud'),
@@ -503,7 +504,8 @@ window.addEventListener('keydown', (e) => {
   }
   if (k === 'r') {
     e.preventDefault();
-    if (game.state === 'playing' || game.state === 'dead') restartLevel();
+    if (game.state === 'dead' && game.rescueOffered) game.acceptRescue();
+    else if (game.state === 'playing' || game.state === 'dead') restartLevel();
   } else if (k === 'm') {
     toggleSound();
   } else if (k === 'escape') {
@@ -514,7 +516,8 @@ window.addEventListener('keydown', (e) => {
     }
     if (game.state === 'playing') togglePause();
   } else if (k === 'enter') {
-    if (!el.win.classList.contains('hidden')) nextLevel();
+    if (game.state === 'dead' && game.rescueOffered) game.acceptRescue();
+    else if (!el.win.classList.contains('hidden')) nextLevel();
     else if (!el.menu.classList.contains('hidden')) startLevel(Math.max(0, (save.lastLevel || 1) - 1));
   }
 });
@@ -564,7 +567,14 @@ canvas.addEventListener('pointermove', (e) => {
   handleInput(dir);
 });
 const touchEnd = (e) => {
-  if (pointerStart && e.pointerId === pointerStart.id) pointerStart = null;
+  if (pointerStart && e.pointerId === pointerStart.id) {
+    // a tap (not a swipe) during the rescue window accepts it
+    if (
+      game.state === 'dead' && game.rescueOffered &&
+      Math.hypot(e.clientX - pointerStart.x, e.clientY - pointerStart.y) < 24
+    ) game.acceptRescue();
+    pointerStart = null;
+  }
   clearHold('touch');
 };
 canvas.addEventListener('pointerup', touchEnd);
@@ -710,8 +720,17 @@ game.on('sliderFell', () => {
 game.on('death', () => {
   audio.sfx('death');
   flash('death');
-  showHint('Down you go. Try again.', 1600);
+  if (game.rescueOffered) {
+    showHint('Second chance — resume from the midpoint [R] · wait to start over', 6000);
+  } else {
+    showHint('Down you go. Try again.', 1600);
+  }
   el.timer.textContent = fmtTime(game.elapsed);
+});
+
+game.on('rescue', () => {
+  audio.sfx('gateLocked'); // small "back on track" cue
+  showHint('Back on the path — one chance left.', 2400);
 });
 
 game.on('respawn', () => {
@@ -725,24 +744,32 @@ game.on('win', (res) => {
   const medal = medalFor(res);
   const log = game.getMoveLog();
 
-  if (isDaily) {
+  // A rescued clear counts as a clear, but its time/route don't enter the
+  // rankings — medal purity (ADR-014)
+  if (res.rescued) {
+    /* no recordWin / recordDaily / recordGhost */
+  } else if (isDaily) {
     save = recordDaily(save, res.daily, res);
   } else {
     save = recordWin(save, game.def.id, res.time, res.shards, res.moves, { par: res.par, total: res.total });
   }
-  save = recordGhost(save, id, res.time, log); // next run races this one
+  if (!res.rescued) save = recordGhost(save, id, res.time, log); // next run races this one
 
   audio.sfx('win', { transpose: Math.max(0, game.levelIndex) * 2 });
   if (medal !== 'none') setTimeout(() => audio.sfx('medal', { tier: medal }), 420);
 
   el.winTitle.textContent = res.name;
-  el.winEyebrow.textContent = res.perfect && res.parClear
-    ? 'perfect par clear'
-    : res.perfect
-      ? 'perfect clear'
-      : res.parClear
-        ? 'par clear'
-        : 'level clear';
+  el.winEyebrow.textContent = res.rescued
+    ? res.parClear
+      ? 'rescued par clear'
+      : 'rescued clear'
+    : res.perfect && res.parClear
+      ? 'perfect par clear'
+      : res.perfect
+        ? 'perfect clear'
+        : res.parClear
+          ? 'par clear'
+          : 'level clear';
   el.winTime.textContent = fmtTime(res.time);
   el.winShards.textContent = `${res.shards}/${res.total}`;
   el.winSteps.textContent = res.moves === res.par ? `${res.moves} (par)` : `${res.moves} / par ${res.par}`;

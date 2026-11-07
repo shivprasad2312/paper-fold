@@ -8,6 +8,7 @@ const DEFAULTS = {
   theme: 'dark', // 'dark' void or 'light' high-key world
   cam: 0, // camera seat: 0..3 quarter turns around the level
   sound: true,
+  rescue: true, // mid-path second chance (one resume from the 50% bench per attempt)
   lastLevel: 1,
 };
 

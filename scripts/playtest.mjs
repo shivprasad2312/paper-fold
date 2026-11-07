@@ -506,6 +506,60 @@ const s21 = await state();
 check('mid-campaign level 21 loads and plays', s21.idx === 20 && s21.state === 'playing', JSON.stringify(s21.cube));
 await shot('30-level21');
 
+// ---- mid-path rescue (second chance, ADR-014) --------------------------
+await load(26); // L27 Twin Falls — par 15, bench on the proven path
+{
+  const g0 = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    g.moves = g.par; // died past the halfway mark
+    g.die('void');
+    return { offered: g.rescueOffered, bench: g.rescuePos && { x: g.rescuePos.x, z: g.rescuePos.z }, par: g.par, moves: g.moves };
+  });
+  check('rescue offered when dying past halfway', g0.offered === true && !!g0.bench, JSON.stringify(g0));
+  const g1 = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    g.acceptRescue();
+    return { state: g.state, x: g.cube.x, z: g.cube.z, moves: g.moves, used: g.rescueUsed, offered: g.rescueOffered, rescuedRun: g.rescuedRun };
+  });
+  check('accepting places the cube on the bench', g1.state === 'playing' && g1.x === g0.bench.x && g1.z === g0.bench.z, JSON.stringify(g1));
+  check('rescue keeps the run (moves intact)', g1.moves === g0.moves, `moves=${g1.moves}/${g0.par} par`);
+  check('rescue is one-shot per attempt', g1.used === true && g1.offered === false && g1.rescuedRun === true, JSON.stringify(g1));
+  const g2 = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    g.die('void');
+    return { offered: g.rescueOffered, state: g.state };
+  });
+  check('no second rescue in the same attempt', g2.offered === false, JSON.stringify(g2));
+  await page.evaluate(() => window.__kubik.restartLevel());
+  await idle();
+}
+{
+  await load(26);
+  const g3 = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    g.moves = 1; // died in the first half of the path
+    g.die('void');
+    return { offered: g.rescueOffered, moves: g.moves, par: g.par };
+  });
+  check('no rescue when dying early', g3.offered === false, JSON.stringify(g3));
+  await page.evaluate(() => window.__kubik.restartLevel());
+  await idle();
+}
+{
+  await load(26);
+  const g4 = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    g.moves = g.par;
+    g.die('void');
+    const before = g.elapsed;
+    g.acceptRescue();
+    return { state: g.state, elapsedKept: Math.abs(g.elapsed - before) < 1e-9 };
+  });
+  check('rescue keeps the timer running', g4.state === 'playing' && g4.elapsedKept, JSON.stringify(g4));
+  await page.evaluate(() => window.__kubik.restartLevel());
+  await idle();
+}
+
 console.log('\nerrors:', errors.length ? errors : 'none');
 const failed = results.filter((r) => !r.ok);
 console.log(`${results.length - failed.length}/${results.length} checks passed`);

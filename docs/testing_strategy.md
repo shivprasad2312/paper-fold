@@ -35,7 +35,7 @@ honest gaps._
 
 ## 3. Integration / proof (`npm run verify`)
 
-`scripts/verify-levels.mjs` — the 8-check solvability proof, run over
+`scripts/verify-levels.mjs` — the solvability proof, run over
 **50 levels + 14 recent dailies** in pure Node (<1 s):
 
 1. parse (data well-formed) 2. spawn safety 3. goal reachable 4. no
@@ -44,7 +44,9 @@ honest gaps._
    reachable, wind legal) 8. **timing fairness**: a fair path must exist
    start→goal over the `fairCrossingGraph` (every crossing window ≥ 0.5 s;
    for `gateKey` levels, start→key and key→goal are proven separately —
-   BUG-003/BUG-004).
+   BUG-003/BUG-004) 9. **rescue bench**: if the level has a mid-path
+   second-chance tile, a timing-fair route bench→goal must also exist
+   (ADR-014).
 
 This is the "impossible level / unreachable objective / overlapping
 objects / broken references" detector the studio charter asks for — a

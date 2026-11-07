@@ -18,17 +18,21 @@ this is the map._
 | this cycle (a) | Studio docs (research, GDD, architecture, ADRs, algorithms, level design, progression), unit tests (29), regression tests (2), stress, perf suite with budgets | all green, exit 0 |
 | this cycle (b) | **Timing-fairness gate** (ADR-012): crossing-window model + 0.5 s floor in the verifier, generator + daily regen under the gate, live bot plays the fair-crossing graph with gap-free commit — fixes BUG-003 (L46 blocked), BUG-004 (L12 key), BUG-005 (L15 crumble entry), BUG-006 (ambiguous orb anchor), BUG-007 (illegal entry roll) | verify 8-check all green + live suite 51/51 + timing unit 8/8 |
 | this cycle (c) | **EDGE-scale maps + new mechanics** (ADR-013): campaign enlarged 8×8→18×18; three new mechanics — shuttle platform loop (looping bridge between structures, dwell/ride/dwell), ice slide (one press, slides through the ice run), spring pad (launch over a void pit); "one resolved press" rule (`resolveRoll`) + shuttle ride edges in every search; view-as-clock platform, distance-based carry; generator carves mechanics into the route with sentinel corridor clearance; live bot boards rides / plays slides / rides launches; crossing-graph revisit hardening + live-bot route tripwire + stale-snap/mid-burst repairs | unit 52/52 (+14 mechanic tests) + verify 8-check all green + live suite 51/51 ×2 + gate-caught mid-launch pump fix |
+| this cycle (d) | **Mid-path second chance** (ADR-014): the rescue bench — dying past halfway offers one resume from the 50%-press safe tile of the proven route (6 s choice window, do-nothing = normal restart); keeps moves/time/shards/crumbles/blocks, resets only sentinels; rescued clears don't enter time/ghost rankings; bench is gate-proven (fair bench→goal route); live bot accepts rescues; + roadmap to ~200 levels (`docs/roadmap-200.md`) | unit 59/59 (+7 rescue tests) + verify 9-check all green + playtest 71/71 (incl. 7 rescue checks) + live suite |
 
 ## Current status: **GREEN**
 
-- `npm run test:unit` — 52/52 pass (+ `tests/unit/timing.test.mjs`
+- `npm run test:unit` — 59/59 pass (+ `tests/unit/timing.test.mjs`
   BUG-003/004/006/007 regression pins; + `tests/unit/mechanics.test.mjs`
-  13 mechanic pins — shuttle ride edges / ice resolved slide / spring
-  launch / corridor audits)
-- `npm run verify` — 50 levels + 14 dailies, **8 checks** each (route,
+  14 mechanic pins — shuttle ride edges / ice resolved slide / spring
+  launch / corridor audits / crossing revisit; + `tests/unit/rescue.test.mjs`
+  7 bench pins — path/par consistency, bench placement & safety,
+  key-aware placement, fair bench→goal)
+- `npm run verify` — 50 levels + 14 dailies, **9 checks** each (route,
   soft-lock, shards, crumble/push survival, spawn safety, data sanity,
   par, **timing fairness** — every sentinel crossing ≥ 0.5 s window;
-  key levels proven start→key→goal)
+  key levels proven start→key→goal; **rescue bench** — fair bench→goal
+  route for every level that has a second chance)
 - `npm run test:play` — 51/51 playable (50 + daily), 0 page errors —
   including the shuttle levels (bot waits for the dwell, boards, rides
   the carry) and the ice/spring levels (bot plans over resolved
@@ -43,7 +47,11 @@ this is the map._
 
 ## In progress
 
-- Nothing blocking. Docs + test infrastructure complete for v1.0.0.
+- **Scale-up to ~200 levels** (plan: `docs/roadmap-200.md`, 7
+  milestones). **M1 done — mid-path second chance (ADR-014)**: rescue
+  bench shipped and gate-proven (unit 59/59, verify 9-check, playtest
+  71/71 incl. 7 rescue checks, live bot accepts rescues). Next: M2
+  level generator + difficulty curve, then M3 content 51→200.
 
 ## Remaining (honest list — NOT done)
 
