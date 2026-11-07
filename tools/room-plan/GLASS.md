@@ -162,3 +162,11 @@ above it.
 - Level 16's proved line is a transient chute: `inkWorldSegments()` reports no
   settled ink for it even though the stroke is drawn, counted, and wins. Worth a
   proper re-solve so the shot shows the line.
+
+## Fixed since: the "long assets get shorter" report
+
+Measured and answered in `docs/ASSETS.md`. Short version: nothing resized — 1,316 solid-frames
+across the set, zero size changes, and a falling drawn stroke holds its length. The defect was in
+the drawing: every solid used one crate artwork (so one "wood asset" appeared at twelve sizes),
+and the corner radius `min(8, h/2)` cut 8 px off each end of a thin plank. Long pieces now have
+square ends and their own art; `node tools/asset-audit.js` enforces one asset, one size.

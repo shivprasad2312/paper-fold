@@ -117,7 +117,7 @@ const THE_CLIFF = {
   faucet: { x: 700, y: 200, rate: 26, total: 140 },
   glasses: [G(1010, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[480, 430], [780, 430], [820, 690], [560, 690]] },
+    { kind: 'stone', poly: [[480, 430], [780, 430], [820, 690], [560, 690]] },
     { x: 1010, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -133,7 +133,7 @@ const THE_SPIRE = {
   faucet: { x: 620, y: 200, rate: 26, total: 140 },
   glasses: [G(940, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[620, 690], [700, 690], [660, 430]] },
+    { kind: 'stone', poly: [[620, 690], [700, 690], [660, 430]] },
     { x: 940, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
@@ -197,7 +197,7 @@ const THE_BUTTRESS = {
   delay: 0.4,
   faucet: { x: 510, y: 200, rate: 26, total: 140 },
   glasses: [G(960, 650)],
-  stage: [FLOOR, { kind: 'teal', poly: [[420, 690], [420, 430], [760, 690]] },
+  stage: [FLOOR, { kind: 'stone', poly: [[420, 690], [420, 430], [760, 690]] },
     { x: 960, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
@@ -213,7 +213,7 @@ const THE_KEEL = {
   delay: 0.4,
   faucet: { x: 640, y: 200, rate: 26, total: 140 },
   glasses: [G(1010, 650)],
-  stage: [FLOOR, { kind: 'teal', poly: [[520, 380], [880, 380], [790, 690], [610, 690]] },
+  stage: [FLOOR, { kind: 'stone', poly: [[520, 380], [880, 380], [790, 690], [610, 690]] },
     { x: 1010, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -260,7 +260,7 @@ const THE_ANVIL = {
   faucet: { x: 660, y: 200, rate: 26, total: 140 },
   glasses: [G(980, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[500, 690],[480, 430],[580, 360],[700, 360],[800, 430],[780, 690]] },
+    { kind: 'metal', poly: [[500, 690],[480, 430],[580, 360],[700, 360],[800, 430],[780, 690]] },
     { x: 980, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
@@ -275,7 +275,7 @@ const THE_WEDGE = {
   faucet: { x: 760, y: 200, rate: 26, total: 140 },
   glasses: [G(420, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[860, 690],[860, 400],[480, 690]] },
+    { kind: 'wood', poly: [[860, 690],[860, 400],[480, 690]] },
     { x: 420, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -321,9 +321,9 @@ const THE_CRATE_WALL = {
   faucet: { x: 690, y: 200, rate: 26, total: 140 },
   glasses: [G(1000, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[600, 690],[600, 400],[760, 428],[760, 690]] },
+    { kind: 'wood', poly: [[600, 690],[600, 400],[760, 428],[760, 690]] },
     { x: 1000, y: 670, w: 200, h: 40, kind: 'teal' }],
-  crates: [{"x":880,"y":640,"w":64,"h":64,"kind":"wood"}],
+    crates: [{ x: 880, y: 624, w: 96, h: 96, kind: 'wood' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
 
@@ -338,7 +338,7 @@ const THE_CHUTE = {
   faucet: { x: 560, y: 200, rate: 26, total: 140 },
   glasses: [G(260, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[440, 470],[440, 410],[860, 330],[860, 390]] },
+    { kind: 'wood', poly: [[440, 470],[440, 410],[860, 330],[860, 390]] },
     { x: 260, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 1060, y: 640, r: 26, kind: 'heavy' }],
 };
@@ -368,8 +368,8 @@ const THE_DOORSTEP = {
   faucet: { x: 700, y: 200, rate: 26, total: 140 },
   glasses: [G(290, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[420, 690],[420, 480],[640, 480],[640, 690]] },
-    { kind: 'teal', poly: [[620, 690],[620, 380],[860, 380],[860, 690]] },
+    { kind: 'stone', poly: [[420, 690],[420, 480],[640, 480],[640, 690]] },
+    { kind: 'stone', poly: [[620, 690],[620, 380],[860, 380],[860, 690]] },
     { x: 290, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
@@ -384,7 +384,7 @@ const THE_STUMP = {
   faucet: { x: 780, y: 200, rate: 26, total: 140 },
   glasses: [G(1020, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[560, 690],[560, 470],[820, 470],[820, 690]] },
+    { kind: 'wood', poly: [[560, 690],[560, 470],[820, 470],[820, 690]] },
     { x: 1020, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -446,7 +446,7 @@ const THE_LEDGE = {
   faucet: { x: 840, y: 200, rate: 26, total: 140 },
   glasses: [G(1070, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[560, 690],[560, 470],[880, 470],[880, 690]] },
+    { kind: 'stone', poly: [[560, 690],[560, 470],[880, 470],[880, 690]] },
     { x: 1070, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -461,7 +461,7 @@ const THE_BENCH = {
   faucet: { x: 820, y: 200, rate: 26, total: 140 },
   glasses: [G(1020, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[500, 690],[500, 470],[860, 470],[860, 690]] },
+    { kind: 'wood', poly: [[500, 690],[500, 470],[860, 470],[860, 690]] },
     { x: 1020, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };
@@ -476,7 +476,7 @@ const THE_BLUFF = {
   faucet: { x: 800, y: 200, rate: 26, total: 140 },
   glasses: [G(440, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[760, 690],[760, 490],[1080, 490],[1080, 690]] },
+    { kind: 'stone', poly: [[760, 690],[760, 490],[1080, 490],[1080, 690]] },
     { x: 440, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 320, r: 26, kind: 'heavy' }],
 };
@@ -491,8 +491,8 @@ const THE_CAP = {
   faucet: { x: 800, y: 200, rate: 26, total: 140 },
   glasses: [G(1040, 650)],
   stage: [FLOOR,
-    { kind: 'teal', poly: [[480, 420],[480, 360],[820, 360],[820, 420]] },
-    { kind: 'teal', poly: [[600, 420],[600, 690],[700, 690],[700, 420]] },
+    { kind: 'metal', poly: [[480, 420],[480, 360],[820, 360],[820, 420]] },
+    { kind: 'metal', poly: [[600, 420],[600, 690],[700, 690],[700, 420]] },
     { x: 1040, y: 670, w: 200, h: 40, kind: 'teal' }],
   balls: [{ x: 160, y: 654, r: 26, kind: 'heavy' }],
 };

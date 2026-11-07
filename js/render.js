@@ -175,48 +175,206 @@
 
     drawPlatform(ctx, p) {
       if (p.poly) return this.drawPoly(ctx, p);
-      const d = p.def, s = this.shade(d.coaster ? (this.theme && this.theme.coast) || d.kind : d.kind);
+      const d = p.def;
+      const kind = d.coaster ? (this.theme && this.theme.coast) || d.kind : d.kind;
       ctx.save();
       ctx.translate(d.x, d.y);
       ctx.rotate(d.angle || 0);
       this.popShadow(ctx, d.w, d.h);
-      const r = Math.min(8, d.h / 2);
-      HG.roundRectPath(ctx, -d.w / 2, -d.h / 2, d.w, d.h, r);
-      const grd = ctx.createLinearGradient(0, -d.h / 2, 0, d.h / 2);
+      this.drawBody(ctx, d.w, d.h, this.styleOf(d), kind);
+      ctx.restore();
+    }
+
+    styleOf(d) {
+      if (this._assets && this._assets.styleOf) return this._assets.styleOf(d);
+      if (d && d.style) return d.style;
+      if (d && d.poly) return d.kind === 'teal' ? 'mass' : 'rock';
+      return d && d.kind === 'metal' ? 'beam' : (d && d.kind === 'stone' ? 'rock' : 'crate');
+    }
+
+    // ---- one look per real object -------------------------------------------
+    // Everything below is drawn centred on (0,0); the caller owns the transform.
+    // Two rules from the asset sheet the rooms are modelled on:
+    //   * a long piece keeps square ends — a big corner radius shortens a plank
+    //     by 2r and made thin ones read 16 px short at 18 px tall;
+    //   * grain, seams and masonry run along the LONG axis, so a 240 x 18 plank
+    //     and a 96 x 96 crate are recognisably different objects, not one shape
+    //     at two sizes.
+    drawBody(ctx, w, h, style, kind) {
+      const s = this.shade(kind);
+      const long = w >= h;
+      const thin = Math.min(w, h);
+      // radius: generous on chunky things, nearly square on long thin ones
+      const r = style === 'crate' ? Math.min(6, thin / 6)
+        : style === 'slab' ? Math.min(5, thin / 2)
+        : Math.min(3, thin / 5);
+
+      // base fill
+      HG.roundRectPath(ctx, -w / 2, -h / 2, w, h, r);
+      const grd = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
       grd.addColorStop(0, s.light);
       grd.addColorStop(0.45, s.fill);
       grd.addColorStop(1, s.dark);
       ctx.fillStyle = grd;
       ctx.fill();
-      this.outline(ctx, 3.2);
-      // plank / rivet details
+      this.outline(ctx, thin < 12 ? 2.2 : 3.2);
+
       ctx.save();
+      HG.roundRectPath(ctx, -w / 2, -h / 2, w, h, r);
       ctx.clip();
-      ctx.strokeStyle = 'rgba(45,59,71,.18)';
-      ctx.lineWidth = 2;
-      if (d.kind === 'metal') {
-        for (let x = -d.w / 2 + 18; x < d.w / 2; x += 34) {
+      ctx.lineCap = 'round';
+
+      if (style === 'plank' || style === 'bench') {
+        // grain along the length, two bolts, and a dark end-grain tick at each end
+        const n = Math.max(1, Math.round((long ? h : w) / 7) - 1);
+        ctx.strokeStyle = 'rgba(120,78,40,.30)';
+        ctx.lineWidth = 1.6;
+        for (let i = 1; i <= n; i++) {
+          const t = i / (n + 1);
           ctx.beginPath();
-          ctx.arc(x, 0, 2.6, 0, HG.TAU);
+          if (long) { const y = -h / 2 + h * t; ctx.moveTo(-w / 2 + 3, y); ctx.lineTo(w / 2 - 3, y); }
+          else { const x = -w / 2 + w * t; ctx.moveTo(x, -h / 2 + 3); ctx.lineTo(x, h / 2 - 3); }
           ctx.stroke();
         }
-      } else if (d.kind === 'wood' || d.kind === 'sand') {
-        for (let x = -d.w / 2 + 46; x < d.w / 2 - 12; x += 46) {
+        ctx.strokeStyle = 'rgba(90,58,30,.55)';
+        ctx.lineWidth = 2;
+        for (const f of [0.22, 0.78]) {
           ctx.beginPath();
-          ctx.moveTo(x, -d.h / 2 + 3);
-          ctx.lineTo(x, d.h / 2 - 3);
+          if (long) { const x = -w / 2 + w * f; ctx.moveTo(x, -h / 2 + 3); ctx.lineTo(x, h / 2 - 3); }
+          else { const y = -h / 2 + h * f; ctx.moveTo(-w / 2 + 3, y); ctx.lineTo(w / 2 - 3, y); }
           ctx.stroke();
         }
+        // bolts
+        ctx.fillStyle = 'rgba(70,45,22,.55)';
+        for (const f of [0.12, 0.88]) {
+          ctx.beginPath();
+          if (long) ctx.arc(-w / 2 + w * f, 0, Math.min(2.4, thin / 4), 0, HG.TAU);
+          else ctx.arc(0, -h / 2 + h * f, Math.min(2.4, thin / 4), 0, HG.TAU);
+          ctx.fill();
+        }
+      } else if (style === 'crate') {
+        // framed crate: border, slats and a cross brace
+        const inset = Math.min(8, Math.min(w, h) / 5);
+        ctx.strokeStyle = 'rgba(110,72,36,.45)';
+        ctx.lineWidth = 2.2;
+        HG.roundRectPath(ctx, -w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2, 3);
+        ctx.stroke();
+        ctx.lineWidth = 1.5;
+        for (let i = 1; i <= 3; i++) {
+          const x = -w / 2 + (w * i) / 4;
+          ctx.beginPath(); ctx.moveTo(x, -h / 2 + inset * 0.6); ctx.lineTo(x, h / 2 - inset * 0.6); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(120,78,40,.35)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2 + inset, -h / 2 + inset); ctx.lineTo(w / 2 - inset, h / 2 - inset);
+        ctx.moveTo(w / 2 - inset, -h / 2 + inset); ctx.lineTo(-w / 2 + inset, h / 2 - inset);
+        ctx.stroke();
+      } else if (style === 'column') {
+        // stacked planks: horizontal seams, staggered
+        const step = Math.max(22, h / 5);
+        ctx.strokeStyle = 'rgba(110,72,36,.40)';
+        ctx.lineWidth = 1.8;
+        let i = 0;
+        for (let y = -h / 2 + step; y < h / 2 - 2; y += step, i++) {
+          ctx.beginPath(); ctx.moveTo(-w / 2 + 2, y); ctx.lineTo(w / 2 - 2, y); ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(i % 2 ? -w / 2 + w * 0.35 : w / 2 - w * 0.35, y - step);
+          ctx.lineTo(i % 2 ? -w / 2 + w * 0.35 : w / 2 - w * 0.35, y);
+          ctx.stroke();
+        }
+      } else if (style === 'post') {
+        // vertical grain and capped ends
+        ctx.strokeStyle = 'rgba(110,72,36,.35)';
+        ctx.lineWidth = 1.2;
+        for (const f of [0.3, 0.7]) {
+          ctx.beginPath(); ctx.moveTo(-w / 2 + w * f, -h / 2 + 3); ctx.lineTo(-w / 2 + w * f, h / 2 - 3); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(90,58,30,.42)';
+        ctx.fillRect(-w / 2, -h / 2, w, Math.min(6, h * 0.05));
+        ctx.fillRect(-w / 2, h / 2 - Math.min(6, h * 0.05), w, Math.min(6, h * 0.05));
+      } else if (style === 'block' || style === 'rubble') {
+        // coursed masonry: staggered courses with mortar joints
+        const rows = Math.max(2, Math.round(h / 26));
+        const rowH = h / rows;
+        ctx.strokeStyle = 'rgba(70,64,54,.32)';
+        ctx.lineWidth = 1.6;
+        for (let i = 1; i < rows; i++) {
+          const y = -h / 2 + rowH * i;
+          ctx.beginPath(); ctx.moveTo(-w / 2, y); ctx.lineTo(w / 2, y); ctx.stroke();
+        }
+        for (let i = 0; i < rows; i++) {
+          const y0 = -h / 2 + rowH * i;
+          const perRow = Math.max(1, Math.round(w / 44));
+          for (let k = 1; k < perRow; k++) {
+            const x = -w / 2 + (w * k) / perRow + (i % 2 ? w / (perRow * 4) : 0);
+            if (x > w / 2 - 4) continue;
+            ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + rowH); ctx.stroke();
+          }
+        }
+      } else if (style === 'rock') {
+        // faceted stone: two facet planes and a crack
+        ctx.fillStyle = 'rgba(255,255,255,.20)';
+        ctx.beginPath();
+        ctx.moveTo(-w / 2, -h / 2); ctx.lineTo(w / 2, -h / 2); ctx.lineTo(w / 2, -h / 2 + h * 0.42); ctx.lineTo(-w / 2, -h / 2 + h * 0.30);
+        ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(70,64,54,.30)';
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.18, -h / 2); ctx.lineTo(w * 0.06, 0); ctx.lineTo(-w * 0.1, h / 2);
+        ctx.stroke();
+      } else if (style === 'beam') {
+        ctx.strokeStyle = 'rgba(45,59,71,.22)';
+        ctx.lineWidth = 2;
+        for (let x = -w / 2 + 26; x < w / 2 - 8; x += 42) {
+          ctx.beginPath(); ctx.arc(x, 0, Math.min(2.6, thin / 4), 0, HG.TAU); ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(45,59,71,.18)';
+        ctx.beginPath(); ctx.moveTo(-w / 2 + 6, 0); ctx.lineTo(w / 2 - 6, 0); ctx.stroke();
+      } else if (style === 'hay') {
+        // straw, then the two straps of a bale
+        ctx.strokeStyle = 'rgba(160,120,40,.45)';
+        ctx.lineWidth = 1.3;
+        for (let x = -w / 2 + 4; x < w / 2 - 2; x += 6) {
+          ctx.beginPath();
+          ctx.moveTo(x, -h / 2 + 4);
+          ctx.lineTo(x + ((x / 6) % 2 ? 3 : -3), h / 2 - 4);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(120,70,30,.75)';
+        ctx.lineWidth = Math.max(4, h * 0.09);
+        for (const f of [0.3, 0.7]) {
+          const x = -w / 2 + w * f;
+          ctx.beginPath(); ctx.moveTo(x, -h / 2); ctx.lineTo(x, h / 2); ctx.stroke();
+        }
+      } else if (style === 'barrel') {
+        // staves and hoops
+        ctx.strokeStyle = 'rgba(110,72,36,.35)';
+        ctx.lineWidth = 1.4;
+        for (let i = 1; i <= 5; i++) {
+          const x = -w / 2 + (w * i) / 6;
+          ctx.beginPath(); ctx.moveTo(x, -h / 2 + 4); ctx.lineTo(x, h / 2 - 4); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(70,44,20,.8)';
+        for (const f of [0.18, 0.5, 0.82]) {
+          const y = -h / 2 + h * f;
+          ctx.fillRect(-w / 2, y - h * 0.035, w, h * 0.07);
+        }
+      } else if (style === 'slab') {
+        // structural teal: a highlight along the top, nothing else
+        ctx.fillStyle = 'rgba(255,255,255,.30)';
+        ctx.fillRect(-w / 2, -h / 2 + 3, w, Math.min(4, h * 0.16));
       }
       ctx.restore();
-      // top highlight
-      ctx.beginPath();
-      ctx.moveTo(-d.w / 2 + 6, -d.h / 2 + 4);
-      ctx.lineTo(d.w / 2 - 6, -d.h / 2 + 4);
-      ctx.strokeStyle = 'rgba(255,255,255,.42)';
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.restore();
+
+      // top highlight (kept for every style: it is what makes a solid read flat)
+      if (style !== 'hay' && style !== 'barrel') {
+        ctx.beginPath();
+        ctx.moveTo(-w / 2 + Math.min(10, w * 0.08), -h / 2 + 4);
+        ctx.lineTo(w / 2 - Math.min(10, w * 0.08), -h / 2 + 4);
+        ctx.strokeStyle = 'rgba(255,255,255,.40)';
+        ctx.lineWidth = Math.min(3, thin / 6);
+        ctx.stroke();
+      }
     }
 
     // big free-form slabs (ramps, wedges, trapezoids)
@@ -245,11 +403,45 @@
       grd.addColorStop(1, s.dark);
       ctx.fillStyle = grd;
       ctx.fillRect(0, top, HG.W, bot - top);
+      // material, not just a colour: a stone mass is coursed, a wood mass is
+      // planked, a teal mass stays clean structural scenery
+      const style = this.styleOf(p.def);
+      if (style === 'rock' || p.kind === 'stone') {
+        ctx.strokeStyle = 'rgba(70,64,54,.26)';
+        ctx.lineWidth = 2;
+        const rowH = 30;
+        for (let y = top + rowH; y < bot; y += rowH) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(HG.W, y); ctx.stroke();
+        }
+      } else if (style === 'plank' || style === 'bench' || p.kind === 'wood') {
+        ctx.strokeStyle = 'rgba(110,72,36,.22)';
+        ctx.lineWidth = 2;
+        const step = 26;
+        for (let y = top + step; y < bot; y += step) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(HG.W, y); ctx.stroke();
+        }
+      } else if (p.kind === 'metal') {
+        ctx.strokeStyle = 'rgba(45,59,71,.18)';
+        ctx.lineWidth = 1.6;
+        for (let y = top + 14; y < bot; y += 14) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(HG.W, y); ctx.stroke();
+        }
+      }
       ctx.restore();
       ctx.beginPath();
       verts.forEach((v, i) => (i ? ctx.lineTo(v.x, v.y) : ctx.moveTo(v.x, v.y)));
       ctx.closePath();
       this.outline(ctx, 3.4);
+      // a light edge along the top face so a mass reads flat
+      ctx.save();
+      ctx.clip();
+      ctx.beginPath();
+      ctx.moveTo(-10, top + 5);
+      ctx.lineTo(HG.W + 10, top + 5);
+      ctx.strokeStyle = 'rgba(255,255,255,.30)';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.restore();
       ctx.restore();
     }
 
@@ -303,33 +495,13 @@
     }
 
     drawCrate(ctx, c) {
-      const d = c.def, s = this.shade(c.kind);
-      // a crate is a cube, a masonry block is a rectangle
+      const d = c.def;
       const w = d.w || d.size, h = d.h || d.size;
-      const inset = Math.min(7, Math.min(w, h) / 4);
       ctx.save();
       ctx.translate(c.body.position.x, c.body.position.y);
       if (c.body.angle) ctx.rotate(c.body.angle);
-      HG.roundRectPath(ctx, -w / 2, -h / 2, w, h, Math.min(7, Math.min(w, h) / 4));
-      const grd = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-      grd.addColorStop(0, s.light);
-      grd.addColorStop(0.5, s.fill);
-      grd.addColorStop(1, s.dark);
-      ctx.fillStyle = grd;
-      ctx.fill();
-      this.outline(ctx, 3.4);
-      HG.roundRectPath(ctx, -w / 2 + inset, -h / 2 + inset, w - inset * 2, h - inset * 2, 3);
-      ctx.strokeStyle = 'rgba(45,59,71,.3)';
-      ctx.lineWidth = 2.4;
-      ctx.stroke();
-      if (c.kind === 'wood') {
-        ctx.beginPath();
-        ctx.moveTo(-w / 2 + inset, -h / 2 + inset);
-        ctx.lineTo(w / 2 - inset, h / 2 - inset);
-        ctx.moveTo(w / 2 - inset, -h / 2 + inset);
-        ctx.lineTo(-w / 2 + inset, h / 2 - inset);
-        ctx.stroke();
-      }
+      this.popShadow(ctx, w, h);
+      this.drawBody(ctx, w, h, this.styleOf(d), c.kind);
       ctx.restore();
     }
 

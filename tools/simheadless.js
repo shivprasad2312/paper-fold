@@ -46,6 +46,7 @@ function boot() {
 
   const base = path.resolve(__dirname, '../js');
   require(path.join(base, 'util.js'));
+  require(path.join(base, 'assets.js'));
   require(path.join(base, 'levels.js'));
   require(path.join(base, 'water.js'));
   require(path.join(base, 'scene.js'));

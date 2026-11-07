@@ -46,7 +46,7 @@ const poly = (p) => '[' + p.poly.map((q) => `[${q[0]}, ${q[1]}]`).join(', ') + '
 function stageFor(r, indent, useP) {
   const out = [];
   for (const p of r.stage) {
-    if (p.poly) out.push(`${indent}{ kind: 'teal', poly: ${poly(p)} },`);
+    if (p.poly) out.push(`${indent}{ kind: '${p.kind || 'teal'}', poly: ${poly(p)} },`);
     else if (useP) out.push(`${indent}P({ x: ${num(p.x)}, y: ${num(p.y)}, w: ${num(p.w)}, h: ${num(p.h)}, kind: '${p.kind || 'teal'}' }),`);
     else out.push(`${indent}{ x: ${num(p.x)}, y: ${num(p.y)}, w: ${num(p.w)}, h: ${num(p.h)}, kind: '${p.kind || 'teal'}' },`);
   }
