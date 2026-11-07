@@ -139,7 +139,7 @@ threatens the path.
 
 **Fair — `TIMING_FLOOR = 0.5 s`:** a window is *fair* iff its length is
 ≥ 0.5 s — about one roll of reaction margin. The floor exists because
-the game's roll speed (5.88 tiles/s) cannot cross a line while an orb is
+the game's roll speed (4.12 tiles/s at the player-directed 0.243 s roll) cannot cross a line while an orb is
 mid-approach: the window is the *only* resource, and a 0.36 s window
 (the old L46) is below human reaction at in-game scale.
 
@@ -197,7 +197,7 @@ queue (deduping repeats) instead of dropping the press — a fast player's
 O(1) — the 4-seat camera is a *permutation* of input, never a new rule.
 **Animation scheduler:** exactly one `cube.anim` at a time
 (`{type, t, dur, …}`); `tick(dt)` advances `t`; `t ≥ dur` →
-`finishMove`. Durations are constants (roll 0.17 s, push 0.22 s, hop
+`finishMove`. Durations are constants (roll 0.243 s, push 0.22 s, hop
 0.24 s, wind period 0.62 s). Easing is a `sin(π·t)`-shaped curve for
 rolls/hops (fast start, soft landing). This is *not* physics — it's a
 deterministic presentation clock that logic ignores (logic commits the

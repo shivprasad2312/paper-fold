@@ -353,7 +353,7 @@ export function spawnProblems(level) {
 // ---------------------------------------------------------------------------
 
 /** One roll takes this long — the law the crossing simulation must respect. */
-export const ROLL_TIME = 0.17;
+export const ROLL_TIME = 0.243; // player-directed 2026-11-07: 30% slower cube (0.17 → 0.243 s ≈ 5.88 → 4.12 tiles/s)
 /** Horizontal kill radius of a sentinel — the law of the game's collision. */
 export const ORB_KILL_RADIUS = 0.62;
 /**

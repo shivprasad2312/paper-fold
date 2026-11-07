@@ -86,7 +86,7 @@ and the unit tests possible.
 - `doMove` — telekinesis push (block slide, nudge−1) → roll check →
   death/wall/roll; wind nudges on their 0.62 s clock;
 - animation scheduler — one `cube.anim` object at a time; `tick(dt)`
-  advances it (roll 0.17 s, push 0.22 s, hop 0.24 s); events emitted
+  advances it (roll 0.243 s, push 0.22 s, hop 0.24 s); events emitted
   (`move`, `push`, `roll`, `shard`, `death`, `win`, `bump`, `key`) so the
   UI and audio react without the game knowing they exist;
 - ghost capture — appends `(t, x, z, …)` samples to a log for `save.js`.
@@ -148,7 +148,7 @@ keydown → main.js (screen dir) → game.input (quadrant remap, queue)
 → doMove → checkRoll (rules.js) → legal
 → cube.anim = {type:'roll', …} → emit('roll')
 → audio SFX · HUD moves++
-→ tick(dt) advances anim (0.17 s)
+→ tick(dt) advances anim (0.243 s)
 → finishMove: new tile → emit('move') → shard? gate? crumble-leave?
 ```
 

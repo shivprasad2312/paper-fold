@@ -13,7 +13,7 @@ direct DOM. three.js is the only library that earns its bundle size.
 
 ## ADR-002 — Discrete tile-grid movement, NOT a physics engine
 **Decision:** the world is a `Map<"x,z", tile>` heightfield; a roll is a
-legal-move check + fixed 0.17 s animation. No gravity integrator, no AABB
+legal-move check + fixed-duration animation (0.243 s roll — see the ADR-012 postscript; 0.17 s at decision time). No gravity integrator, no AABB
 solver, no continuous collision detection.
 **Why (decisive):** (1) **fairness** — the genre's #1 player value is "I
 died because I failed, not because of precision" (research §3); discrete
@@ -21,7 +21,7 @@ moves make every death a graph-theoretic fact; (2) **provability** — the
 same `checkRoll` powers the verifier that *proves* solvability, soft-lock
 freedom, and par; a physics sim can't be proven, only sampled; (3)
 **performance** — zero per-frame physics, deterministic on any device;
-(4) **feel is recoverable** — the 0.17 s eased roll + bump-back + wind hop
+(4) **feel is recoverable** — the 0.243 s eased roll + bump-back + wind hop
 read as physical while being 100% deterministic.
 **Trade-offs accepted:** no free-rolling off an edge at an angle (the roll
 is always 90° — by design, it's the game's grammar); no stacking of
@@ -174,6 +174,12 @@ frame-perfect input, which the player cannot reliably produce (EDGE's
 own reviews cite control jank — research §6). 0.5 s is the smallest
 margin a human can hold across one roll at the slowest shipped orb
 speed.
+
+**Postscript (2026-11-07):** the player directed a 30% cube speed
+reduction (`ROLL_TIME` 0.17 → 0.243 s). Slower bursts are wider in time,
+so the gate re-scored every crossing; exactly one level (L37) lost its
+fair window and was re-rolled by the generator — proof the gate tracks
+the constant, not a frozen level set.
 
 **Trade-offs:**
 - verify time: 12.1 s (was <1 s) — accepted, it is the core promise of

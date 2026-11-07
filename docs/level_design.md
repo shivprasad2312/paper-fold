@@ -28,7 +28,7 @@ satisfy (enforced by `parseLevel` + verifier):
 |---|---|---|
 | Max drop | 2 | Falling is the core threat; 2 lets you "jump" two slabs without it feeling like a fall. 3+ reads as a cliff, 1 makes height meaningless. |
 | Max climb | 1 | Asymmetry (fall 2 / climb 1) makes heightfields *directional* — you can be led downhill and stopped going up. Symmetric movement would make every level a flat maze. |
-| Roll time | 0.17 s | Fast enough for flow, slow enough to read the next tile; the genre's physicality lives in this single constant. |
+| Roll time | 0.243 s (30% slower than the original 0.17 s, player-directed 2026-11-07) | Slow enough to read the next tile comfortably; crossing windows are re-proven by the timing gate at this speed (L37 re-rolled). |
 | Crumble | break on leave | One-way commitment without any "timer to memorize" — the hazard is the route itself. |
 | Sentinel period | ≥ ~2 s per loop | Readable patrol; never strobe-fast (eye-strain finding, research §6). |
 | Wind period | 0.62 s | A nudge every ~4 rolls at typical pace — a drift you plan around, not a force you fight. |

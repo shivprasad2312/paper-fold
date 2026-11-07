@@ -96,7 +96,7 @@ hook and CI use them directly — no duplicated logic).
 | **Visual correctness** (does it *look* right) | headless SwiftShader can't judge art; screenshot gate in `docs/` (dark + light + mobile), reviewed at content time |
 | **Audio** | synthesized output is untested (no audio device in headless); correctness = code review + manual check; volume/latency not asserted |
 | **Real touch hardware** | pointer events are exercised via puppeteer; physical thumbs / gesture edge cases need a device pass before store release |
-| **Feel** (does the 0.17 s roll feel right) | human judgment; the constant is pinned in code + docs so any change is deliberate and re-testable |
+| **Feel** (does the 0.243 s roll feel right) | human judgment; the constant is pinned in code + docs so any change is deliberate and re-testable |
 | **Real-GPU perf** | the harness is pessimistic by design; a device pass before release validates the upper bound |
 
 ## 8. When everything runs

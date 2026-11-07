@@ -112,7 +112,7 @@ export const CAMPAIGN = [
             2
           ]
         ],
-        "speed": 1.02
+        "speed": 1.27
       }
     ]
   },
@@ -163,7 +163,7 @@ export const CAMPAIGN = [
             2
           ]
         ],
-        "speed": 1.03
+        "speed": 1.36
       }
     ]
   },
@@ -220,7 +220,7 @@ export const CAMPAIGN = [
             5
           ]
         ],
-        "speed": 1.01
+        "speed": 1.34
       }
     ]
   },
@@ -277,7 +277,7 @@ export const CAMPAIGN = [
             4
           ]
         ],
-        "speed": 0.99
+        "speed": 1.31
       }
     ]
   },
@@ -328,7 +328,7 @@ export const CAMPAIGN = [
             3
           ]
         ],
-        "speed": 1.05
+        "speed": 1.24
       }
     ]
   },
@@ -380,7 +380,7 @@ export const CAMPAIGN = [
             5
           ]
         ],
-        "speed": 1.06
+        "speed": 1.25
       }
     ]
   },
@@ -542,7 +542,7 @@ export const CAMPAIGN = [
             1
           ]
         ],
-        "speed": 0.95
+        "speed": 1.36
       }
     ]
   },
@@ -766,7 +766,7 @@ export const CAMPAIGN = [
             2
           ]
         ],
-        "speed": 1.01
+        "speed": 1.33
       }
     ]
   },
@@ -823,7 +823,7 @@ export const CAMPAIGN = [
             2
           ]
         ],
-        "speed": 1.1
+        "speed": 1.34
       }
     ]
   },
@@ -953,7 +953,7 @@ export const CAMPAIGN = [
             3
           ]
         ],
-        "speed": 0.97
+        "speed": 1.18
       }
     ]
   },
@@ -1083,7 +1083,7 @@ export const CAMPAIGN = [
             3
           ]
         ],
-        "speed": 1.07
+        "speed": 1.26
       }
     ]
   },
@@ -1398,7 +1398,7 @@ export const CAMPAIGN = [
             6
           ]
         ],
-        "speed": 1.46
+        "speed": 1.24
       }
     ]
   },
@@ -1456,7 +1456,7 @@ export const CAMPAIGN = [
             5
           ]
         ],
-        "speed": 0.98
+        "speed": 1.22
       }
     ]
   },
@@ -1782,7 +1782,7 @@ export const CAMPAIGN = [
             6
           ]
         ],
-        "speed": 0.94
+        "speed": 1.17
       }
     ]
   },
@@ -2034,7 +2034,7 @@ export const CAMPAIGN = [
             4
           ]
         ],
-        "speed": 0.98
+        "speed": 1.22
       }
     ]
   },
@@ -2166,7 +2166,7 @@ export const CAMPAIGN = [
             9
           ]
         ],
-        "speed": 1.12
+        "speed": 1.36
       }
     ]
   },
@@ -2240,7 +2240,7 @@ export const CAMPAIGN = [
             6
           ]
         ],
-        "speed": 1.05
+        "speed": 1.31
       }
     ],
     "key": [

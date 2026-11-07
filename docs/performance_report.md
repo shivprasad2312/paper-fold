@@ -33,7 +33,7 @@ non-zero exit on breach.
    per-frame work is camera matrix, orb/slider/cube transforms, and HUD
    updates *on events* (the minimap redraws on moves, not per frame).
 3. **Discrete movement** (ADR-002) — zero physics integration per frame;
-   a roll is a 0.17 s animation on a cached temp vector. No per-frame
+   a roll is a 0.243 s animation on a cached temp vector. No per-frame
    allocations in the hot path.
 4. **Adaptive quality governor** (`Game._loop`) — samples frame deltas;
    below 42 fps it sheds shadows (quality 2), then bloom + pixel-ratio cap

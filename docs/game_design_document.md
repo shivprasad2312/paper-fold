@@ -83,7 +83,7 @@ the locked-gate finale — walking into the sealed gate refuses the roll
 
 Deliberately **not** a physics engine. The world is a discrete tile grid
 (`Map<"x,z", tile>`); a roll is a legal-move check (`checkRoll`) plus a
-fixed-duration 0.17 s animation. Blocks are tile-anchored objects moved in
+fixed-duration 0.243 s animation. Blocks are tile-anchored objects moved in
 whole tiles. Sentinels move along tile loops with continuous interpolation
 but deterministic timing (period/phase), so a given sentinel is at a given
 place at a given time — a run is reproducible given inputs.
@@ -93,8 +93,9 @@ Consequences: (a) no tunneling, no precision-dependent deaths; (b) every
 (c) the animation layer is pure presentation — it can't desync the logic,
 and the playable-route test drives *real input* against it to prove that.
 
-Fixed durations: roll 0.17 s, push 0.22 s, wind hop 0.24 s, wind period
-0.62 s, locked-gate bounce 0.17 s × 1.35.
+Fixed durations: roll 0.243 s (30% slower, player-directed 2026-11-07),
+push 0.22 s, wind hop 0.24 s, wind period 0.62 s, locked-gate bounce
+0.243 s × 1.35.
 
 ## 7. Scoring & rewards
 
