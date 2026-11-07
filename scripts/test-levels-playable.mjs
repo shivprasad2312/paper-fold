@@ -47,6 +47,8 @@ const {
   orbDistAlong,
   orbPositionFromDist,
   fairCrossingGraph,
+  resolveRoll,
+  shuttleRide,
   ROLL_TIME,
   ORB_KILL_RADIUS,
   key,
@@ -116,14 +118,16 @@ function liveCtx(def) {
   const crumbles = new Set((def.crumble || []).map(([x, z]) => key(x, z)));
   const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, table: orbTable(o.path) }));
   const keyOnLine = !!(def.key && line.has(key(def.key[0], def.key[1])));
+  const model = parseLevel(def);
   return {
     def,
-    model: parseLevel(def),
-    graph: fairCrossingGraph(parseLevel(def)),
+    model,
+    graph: fairCrossingGraph(model),
     line,
     sliders,
     crumbles,
     orbs,
+    docks: model.shuttleDocks,
     keyOnLine,
   };
 }
@@ -138,6 +142,7 @@ async function snapLive() {
       state: g.state,
       hasKey: g.hasKey,
       idx: g.levelIndex,
+      anim: !!g.cube.anim,
       orbs: g.view.orbs.map((o) => [o.holder.position.x, o.holder.position.z]),
       // the view's own directed distance along the patrol loop — position
       // alone is AMBIGUOUS on out-and-back patrols (two legs, one point),
@@ -164,7 +169,7 @@ async function brokenKeys() {
  * crossing. `lead` adds a cushion: the crossing must have been safe starting
  * `lead` seconds ago, absorbing frame/poll jitter.
  */
-function crossingSafe(ctx, entry, seq, exit, orbsNow, lead = 0.12) {
+function crossingSafe(ctx, entry, seq, exit, orbsNow, lead = 0.22) {
   // a terminal crossing (the route ENDS on the line, e.g. at the key) has no
   // exit roll — the path is entry → seq…
   const path = exit ? [entry, ...seq, exit] : [entry, ...seq];
@@ -213,6 +218,12 @@ const DIRV = [
   [-1, 0],
   [1, 0],
 ];
+const MOVE_V = {
+  up: { dx: 0, dz: -1 },
+  down: { dx: 0, dz: 1 },
+  left: { dx: -1, dz: 0 },
+  right: { dx: 1, dz: 0 },
+};
 
 /**
  * Plan a route from `cube` to `target` over the fair-crossing graph:
@@ -222,6 +233,35 @@ const DIRV = [
  */
 function planRoute(ctx, cube, target, broken) {
   const { model, graph } = ctx;
+  // tripwire: a planned route may only reference real, non-line tiles
+  // (line tiles appear only inside a crossing step's seq)
+  const validateRoute = (r) => {
+    if (!r) return r;
+    // A press is legal iff resolveRoll (one press = one resolved landing,
+    // ice/spring included) lands exactly on the next route tile — this is
+    // the same primitive the game executes, so a valid route is a route
+    // the game can actually play.
+    const bad = [];
+    for (let i = 0; i < r.tiles.length; i++) {
+      const t = r.tiles[i];
+      if (!model.tiles.get(key(t.x, t.z))) bad.push(`tile ${t.x},${t.z} not in model`);
+      if (i > 0 && r.moves[i - 1] !== 'ride') {
+        const a = r.tiles[i - 1];
+        const at = model.tiles.get(key(a.x, a.z));
+        if (!at) continue;
+        const d = MOVE_V[r.moves[i - 1]];
+        const land = d ? resolveRoll(model, at, d) : null;
+        if (!land || land.x !== t.x || land.z !== t.z) {
+          bad.push(`press ${r.moves[i - 1]} from ${a.x},${a.z} lands ${land ? land.x + ',' + land.z : 'NOWHERE'}, route says ${t.x},${t.z}`);
+        }
+      }
+    }
+    if (bad.length) {
+      dbg(`PLAN TRIPWIRE (def id=${ctx.def.id}, line=${[...ctx.line].join('|')}): ${bad.join('; ')} | route=${r.tiles.map((x) => x.x + ',' + x.z).join(' ')} | moves=${r.moves.join(' ')}`);
+      return null;
+    }
+    return r;
+  };
   const isKeyTarget = !!(ctx.def.key && target.x === ctx.def.key[0] && target.z === ctx.def.key[1]);
   const startK = key(cube.x, cube.z);
   // the key node is a graph waypoint that sits on a line tile
@@ -241,18 +281,34 @@ function planRoute(ctx, cube, target, broken) {
     const d0 = dist.get(ck);
     const curH = hOf(cur);
     if (!curH) continue; // standing over void (dying) — replan will fix it
-    // normal off-line neighbours (height law + not broken)
+    // resolved off-line neighbours: ONE press may carry the cube several
+    // tiles (an ice slide or a spring launch) — the route lands on the
+    // resolved tile. Landing on the sentinel line is refused: the generator
+    // keeps mechanic corridors clear of patrols, so a fair level never needs
+    // to slide into one.
     for (const [dx, dz] of DIRV) {
-      const to = model.tiles.get(key(cur.x + dx, cur.z + dz));
-      if (!to || graph.line.has(key(to.x, to.z))) continue;
-      const drop = curH.h - to.h;
-      if (drop < -1 || drop > 2) continue;
+      const to = resolveRoll(model, cur, { dx, dz });
+      if (!to) continue;
+      if (graph.line.has(key(to.x, to.z))) continue;
       const k2 = key(to.x, to.z);
       if (broken.has(k2)) continue;
       if (d0 + 1 < (dist.get(k2) ?? 1e9)) {
         dist.set(k2, d0 + 1);
         prev.set(k2, { k: ck, seq: null });
         Q.push(to);
+      }
+    }
+    // riding a shuttle: standing on a dock, the platform (when it dwells)
+    // carries the cube to the far dock — one action, no press
+    if (curH && curH.shuttle) {
+      const rideTo = shuttleRide(model, cur);
+      if (rideTo) {
+        const k2 = key(rideTo.x, rideTo.z);
+        if (!broken.has(k2) && d0 + 1 < (dist.get(k2) ?? 1e9)) {
+          dist.set(k2, d0 + 1);
+          prev.set(k2, { k: ck, seq: 'RIDE' });
+          Q.push(rideTo);
+        }
       }
     }
     // fair sentinel crossings (entry → exit, seq = the line tiles crossed)
@@ -284,14 +340,19 @@ function planRoute(ctx, cube, target, broken) {
   const dirOf = (a, b) => {
     const dx = b.x - a.x;
     const dz = b.z - a.z;
-    if (dx === 1) return 'right';
-    if (dx === -1) return 'left';
-    if (dz === 1) return 'down';
+    if (dx > 0) return 'right';
+    if (dx < 0) return 'left';
+    if (dz > 0) return 'down';
     return 'up';
   };
   const tiles = [{ x: cube.x, z: cube.z }];
   const moves = [];
   for (const step of chain) {
+    if (step.seq === 'RIDE') {
+      tiles.push(nodeOf(step.k));
+      moves.push('ride');
+      continue;
+    }
     // a keyNode step's seq already ends ON the key tile
     const adds = step.seq
       ? step.k.startsWith('key:')
@@ -303,7 +364,7 @@ function planRoute(ctx, cube, target, broken) {
       tiles.push(t);
     }
   }
-  return { tiles, moves };
+  return validateRoute({ tiles, moves });
 }
 
 /**
@@ -375,7 +436,7 @@ async function driveRouteLive(tiles, moves, ctx) {
         if (!exit && seq.length === 0) return false;
         const t0 = Date.now();
         let safe = false;
-        while (!safe && Date.now() - t0 < 20000) {
+        while (!safe && Date.now() - t0 < 30000) {
           const now = await snapLive();
           if (now.state === 'won') return true;
           if (now.state !== 'playing') return false;
@@ -407,6 +468,59 @@ async function driveRouteLive(tiles, moves, ctx) {
         if (!up) await wait(80);
       }
       if (!up) return false;
+    }
+
+    // shuttle RIDE: the cube stands on a dock; the platform dwells, takes
+    // it, and carries it to the far dock. Phase 1: wait for the drive to
+    // finish (the platform dwells at the far dock — generous timeout: under
+    // heavy headless throttling game time can crawl). Phase 2: wait for the
+    // cube to settle on the dock (the game snaps it within a frame).
+    if (moves[r] === 'ride') {
+      const t0 = Date.now();
+      let arrived = false;
+      while (!arrived && Date.now() - t0 < 40000) {
+        const st2 = await page.evaluate(
+          ([tx, tz]) => {
+            const g = window.__kubik.game;
+            const p = g.level.shuttles.length ? g.view.shuttlePos(0) : null;
+            const dwellFar = !!(
+              p && p.docked && p.x === tx && p.z === tz
+            );
+            return { s: g.state, dwellFar };
+          },
+          [target.x, target.z],
+        );
+        if (st2.s === 'won') return true;
+        if (st2.s !== 'playing') return false;
+        if (st2.dwellFar) break;
+        await wait(80);
+      }
+      let carried = false;
+      while (!carried && Date.now() - t0 < 50000) {
+        const now = await snapLive();
+        if (now.state === 'won') return true;
+        if (now.state !== 'playing') return false;
+        carried = now.x === target.x && now.z === target.z;
+        if (!carried) await wait(80);
+      }
+      dbg(`ride to ${target.x},${target.z}: ${carried ? 'carried' : 'TIMEOUT'} ${(Date.now() - t0) / 1000}s`);
+      if (!carried) return false;
+      r++;
+      continue;
+    }
+
+    // boarding a shuttle dock: the platform must be dwelling there first
+    if (ctx.docks.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
+      const t0 = Date.now();
+      let docked = false;
+      while (!docked && Date.now() - t0 < 10000) {
+        docked = await page.evaluate(
+          ([x, z]) => window.__kubik.game.view.shuttleDocked(x, z),
+          [target.x, target.z],
+        );
+        if (!docked) await wait(80);
+      }
+      if (!docked) return false;
     }
 
     // off-line → off-line, or leaving the line (a cube standing on the line
@@ -442,12 +556,26 @@ async function driveCommit(tiles, moves, r, ctx) {
       j++;
       found = st.x === tiles[j].x && st.z === tiles[j].z;
     }
-    if (!found) return { desync: true, r: i };
+    if (!found) {
+      const dbgPos = await page.evaluate(() => {
+        const g = window.__kubik.game;
+        return { x: g.cube.x, z: g.cube.z, s: g.state, death: g.lastDeathCause };
+      });
+      dbg(`COMMIT DESYNC at i=${i}: cube=${JSON.stringify(dbgPos)} route=${tiles.slice(i, i + 6).map((t) => t.x + ',' + t.z).join(' ')}`);
+      return { desync: true, r: i };
+    }
     i = j;
     if (i >= tiles.length - 1) return { r: i }; // route already completed
     const next = tiles[i + 1];
     const onLine = ctx.line.has(key(next.x, next.z));
     if (!onLine && exited) break; // exit roll done — normal loop resumes
+    // a shuttle-dock boarding must wait for the platform dwell — the main
+    // loop owns that wait; the commit must never press (or pre-queue) the
+    // roll into a dock the platform is not standing on
+    {
+      const nt = ctx.model.tiles.get(key(next.x, next.z));
+      if (nt && nt.shuttle) break;
+    }
     // the exit roll is driven inside the commit too: the cube must not pause
     // on the patrol line between the last line roll and the exit roll
     if (exited && !onLine) {
@@ -474,6 +602,9 @@ async function driveCommit(tiles, moves, r, ctx) {
       if (started) {
         for (let k = i + 1; k <= i + 2; k++) {
           if (k >= tiles.length - 1) break;
+          if (moves[k] === 'ride') continue; // rides need no press
+          const tk = ctx.model.tiles.get(key(tiles[k + 1].x, tiles[k + 1].z));
+          if (tk && tk.shuttle) continue; // a dock boarding waits for the dwell
           const qlen = await page.evaluate(() => window.__kubik.game.queue.length);
           if (qlen >= 2) break;
           await page.evaluate((mv) => window.__kubik.game.input(mv), moves[k]);
@@ -481,7 +612,20 @@ async function driveCommit(tiles, moves, r, ctx) {
       }
     }
     if (!(await waitFor(() => !window.__kubik.game.cube.anim || window.__kubik.game.state === 'won', 8000))) {
-      return { stuck: true, r: i };
+      // Under heavy throttling a legitimate roll can outlive the 8 s settle
+      // wait. The cube may be mid-line: abandoning it here forces a re-plan
+      // from a stale mid-burst position. The roll will finish — wait for the
+      // anim to clear (bounded) and let the loop re-press the continuation.
+      const t0 = Date.now();
+      let cleared = false;
+      while (!cleared && Date.now() - t0 < 30000) {
+        const st2 = await snapLive();
+        if (st2.state === 'won') return { won: true, r: i };
+        if (st2.state !== 'playing') return { dead: true, r: i };
+        if (!st2.anim) break;
+        await wait(80);
+      }
+      dbg(`commit settle extended at ${st.x},${st.z} (onLine=${ctx.line.has(key(st.x, st.z))})`);
     }
     if (!onLine) exited = true; // the exit roll just landed
     await wait(10);
@@ -496,6 +640,41 @@ function bfsEval(targetExpr) {
     const g = window.__kubik.game;
     const target = ${targetExpr};
     const dirs = [['up',0,-1],['down',0,1],['left',-1,0],['right',1,0]];
+    // one press from a tile in direction (dx,dz): a roll, then the
+    // ice-slide / spring-launch follow-through — mirrors rules.resolveRoll
+    const resolve = (from, dx, dz) => {
+      const step = (p) => {
+        const to = g.level.tiles.get(\`\${p.x + dx},\${p.z + dz}\`);
+        if (!to) return null;
+        const drop = p.h - to.h;
+        if (drop < -1 || drop > 2) return null;
+        return to;
+      };
+      const launch = (fromPad) => {
+        let px = fromPad.x, pz = fromPad.z;
+        for (let k2 = 1; k2 <= 3; k2++) {
+          const c = g.level.tiles.get(\`\${px + dx},\${pz + dz}\`);
+          px += dx; pz += dz;
+          if (!c) continue;
+          const dh = c.h - fromPad.h;
+          if (dh > 3 || dh < -3) return null;
+          return c;
+        }
+        return null;
+      };
+      let t = from.spring ? launch(from) : step(from);
+      if (!t) return null;
+      if (t.spring) {
+        t = launch(t);
+        if (!t) return null;
+      }
+      while (t.ice) {
+        const n = step(t);
+        if (!n) break;
+        t = n;
+      }
+      return t;
+    };
     const q = [g.level.tiles.get(\`\${g.cube.x},\${g.cube.z}\`)];
     const seen = new Map();
     seen.set(\`\${g.cube.x},\${g.cube.z}\`, null);
@@ -504,14 +683,24 @@ function bfsEval(targetExpr) {
       const cur = q.shift();
       if (cur.x === target.x && cur.z === target.z) { found = true; break; }
       for (const [dname, dx, dz] of dirs) {
-        const to = g.level.tiles.get(\`\${cur.x + dx},\${cur.z + dz}\`);
+        const to = resolve(cur, dx, dz);
         if (!to) continue;
-        const drop = cur.h - to.h;
-        if (drop < -1 || drop > 2) continue; // fall at most 2, climb at most 1
         const k = \`\${to.x},\${to.z}\`;
         if (seen.has(k)) continue;
         seen.set(k, { from: \`\${cur.x},\${cur.z}\`, dir: dname });
         q.push(to);
+      }
+      if (cur.shuttle) {
+        // ride to the far dock
+        const sh = g.level.shuttles[cur.shuttleId];
+        const onA = cur.x === sh.a[0] && cur.z === sh.a[1];
+        const [rx, rz] = onA ? sh.b : sh.a;
+        const rt = g.level.tiles.get(\`\${rx},\${rz}\`);
+        const rk = \`\${rt.x},\${rt.z}\`;
+        if (!seen.has(rk)) {
+          seen.set(rk, { from: \`\${cur.x},\${cur.z}\`, dir: 'ride' });
+          q.push(rt);
+        }
       }
     }
     if (!found) return null;
@@ -542,6 +731,20 @@ async function driveRoute(tiles, moves) {
     if (st.x === target.x && st.z === target.z) { r++; stuck = 0; continue; }
     if (st.x !== tiles[r].x || st.z !== tiles[r].z) return false; // desync
     if (++stuck > 3) return false; // cannot advance (no pushes left, etc.)
+    if (moves[r] === 'ride') {
+      const t0 = Date.now();
+      let carried = false;
+      while (!carried && Date.now() - t0 < 16000) {
+        const s2 = await snap();
+        if (s2.state === 'won') return true;
+        if (s2.state !== 'playing') return false;
+        carried = s2.x === target.x && s2.z === target.z;
+        if (!carried) await wait(80);
+      }
+      if (!carried) return false;
+      r++;
+      continue;
+    }
     const res = await pressRoll(moves[r], target);
     if (res === 'won') return true;
     if (res === 'dead') return false;
@@ -560,16 +763,20 @@ async function driveRoute(tiles, moves) {
 async function reachTarget(targetExpr, ctx) {
   const target = await page.evaluate(new Function(`return (${targetExpr})`));
   for (let attempt = 0; attempt < 8; attempt++) {
-    const st = await snap();
+    let st = await snap();
     if (st.state === 'won') return true;
     if (st.state !== 'playing') {
       if (!(await waitFor(() => window.__kubik.game.state === 'playing', 10000))) return false;
+      // the auto-restart placed the cube at start (and wiped the death
+      // cause) — plan from the FRESH position, never the stale one
+      st = await snap();
     }
     let route;
     if (LIVE && ctx) {
       const broken = new Set(await brokenKeys());
       route = planRoute(ctx, st, target, broken);
-      dbg(`attempt ${attempt + 1}: at ${st.x},${st.z} → ${target.x},${target.z}: ${route ? route.moves.length + ' rolls: ' + route.tiles.map((t) => t.x + ',' + t.z).join(' ') : 'NO FAIR ROUTE'}`);
+      const dc = await page.evaluate(() => window.__kubik.game.lastDeathCause);
+      dbg(`attempt ${attempt + 1}: at ${st.x},${st.z} → ${target.x},${target.z} (lastDeath=${dc}): ${route ? route.moves.length + ' rolls: ' + route.tiles.map((t) => t.x + ',' + t.z).join(' ') : 'NO FAIR ROUTE'}`);
     } else {
       route = await page.evaluate(new Function(`return (${bfsEval(targetExpr)})()`));
     }

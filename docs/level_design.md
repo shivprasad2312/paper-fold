@@ -16,6 +16,19 @@ satisfy (enforced by `parseLevel` + verifier):
 - `orbs`: every path point on a slab; spawn point never on start/goal.
 - `crumble`: never on a sentinel patrol line or on a tile adjacent to one — a crumble on a crossing entry would force the player to wait for the crossing window on a slab that breaks (BUG-005). The generator enforces this; hand-authored levels are checked by the verifier.
 - `sliders`: groups of slabs; period ≥ ~1.5 s (human-readable timing).
+- `shuttles`: `[{a: [x,z], b: [x,z], wait}]` — a straight track of gap 2–5;
+  the gap interior and the docks are void in the map (the parser
+  solidifies the docks as `shuttle` tiles); the two structure ends may
+  differ by ≤ 2 heights (the platform flies at the rounded average, so
+  boarding and alighting are single legal rolls); the platform is solid on
+  a dock only while it dwells there (view clock, ADR-013).
+- `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
+  same direction while it keeps landing on ice (one press, `resolveRoll`
+  models the whole slide); never on a sentinel's clearance.
+- `springs`: `[[x,z]]` — a pad that launches a press up to 3 tiles in the
+  direction of travel (over void, landing on the first slab within ±3
+  height; nothing in range = a fall); the flight corridor keeps sentinel
+  clearance.
 - `key`: only with a sealed gate (finale); on a slab, not on start/goal.
 - `wind`: diagonal unit vector only.
 - `nudge` ≥ number of blocks that *must* move for any route (solver
@@ -33,7 +46,10 @@ satisfy (enforced by `parseLevel` + verifier):
 | Sentinel period | ≥ ~2 s per loop | Readable patrol; never strobe-fast (eye-strain finding, research §6). |
 | Wind period | 0.62 s | A nudge every ~4 rolls at typical pace — a drift you plan around, not a force you fight. |
 | Shards | 2–5 (2 teaching / 3 most / 4 campaign / 5 pre-boss) | Risk/reward budget: each is ~1–3 rolls off-route; collecting every one ≈ a meaningful time cost = the perfect flag. |
-| Level size | hand 7×3 → 11×10, campaign ≤ 12×12 | Teaching levels tiny; finale largest. Size ≈ difficulty budget. |
+| Level size | hand 7×3 → 11×10, campaign 8×8 → 18×18 | Teaching levels tiny; the finale is EDGE-scale. Size ≈ difficulty budget (campaign enlarged 2026-11-07). |
+| Shuttle dwell | 2.0 s per dock, travel 0.8 s per gap tile | ~8 s full loop: readable at 4.12 tiles/s, tight enough that "board before it leaves" is a real reflex (dwell ≥ ~2.2 rolls, proven by the verifier). |
+| Ice slide | 1 press, stops at first non-ice / illegal step | Momentum without a timer: the whole slide is one graph edge, so fairness is provable. |
+| Spring launch | ≤ 3 tiles, landing slab within ±3 height | A fixed, readable hop — never "how high do I go?" |
 
 ## 3. Hand levels (1–13) — the teaching spine
 
@@ -63,21 +79,26 @@ route economy).
 ## 4. Campaign (14–50) — generated, proven, structured
 
 `gen-campaign.mjs` seeds per level id, proposes, and **rejects until the
-verifier proves** the layout (ADR-004). Five acts, each with a mechanic
-budget:
+verifier proves** the layout (ADR-004). Five acts, EDGE-scale maps
+(8×8 → 18×18), each with a mechanic budget — the new mechanics
+introduce gradually (ice → spring → shuttle):
 
-| Act | Levels | Theme | Budget (what it may use) |
-|---|---|---|---|
-| Descent | 14–19 | falling, long drops | heightfield + crumble |
-| Glass Meadow | 20–27 | open slabs, sentinels | + orbs, wind |
-| Lattice | 28–35 | grid work, weave | + blocks/nudge, multi-mechanic combos |
-| Crucible | 36–43 | dense, tight | all mechanics, small size, tight par |
-| Spire | 44–50 | ascent to finale | all + sliders; **50: 12×12 with key & sealed gate** |
+| Act | Levels | Map | Par | Budget (what it may use) |
+|---|---|---|---|---|
+| Descent | 14–19 | 8×8 | 9–16 | heightfield, crumble, orb, **ice** |
+| Glass Meadow | 20–27 | 10×10 | 11–19 | + **spring pits** |
+| Lattice | 28–35 | 12×12 | 13–23 | + **shuttles**, multi-mechanic combos |
+| Crucible | 36–43 | 14×14 | 16–28 | all mechanics, denser crumble |
+| Spire | 44–50 | 16×16 → 18×18 | 19–36 | all; **50: 18×18 with key & sealed gate and a double-shuttle ride** |
 
 Generator guarantees: unique layouts (seeded, no repeats), shard
-placement on-route-or-near (1–3 rolls off), par in the act's band, and
-full 7-check proof. Re-running the generator is a *content release*, not a
-code change — see `agent_rules.md §3`.
+placement on-route-or-near (1–3 rolls off), par in the act's band, full
+8-check proof, and mechanic fairness — the generator carves the mechanic
+*into* the route (the pit/dock is the only way across), keeps every
+sentinel line one tile clear of mechanic corridors, and the verifier
+re-proves the ride/slide/launch as single graph edges. Re-running the
+generator is a *content release*, not a code change — see
+`agent_rules.md §3`.
 
 ## 5. Daily challenge
 

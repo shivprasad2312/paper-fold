@@ -249,6 +249,8 @@ export class Game {
     if (this.view.isBroken(x, z)) return null;
     // A sliding bridge only holds while it is up — the view is the clock.
     if (this.level.sliderTiles.has(key(x, z)) && !this.view.sliderUp(x, z)) return null;
+    // A shuttle dock only holds while its platform dwells there.
+    if (t.shuttle && !this.view.shuttleDocked(x, z)) return null;
     return t;
   }
 
@@ -290,6 +292,12 @@ export class Game {
         startPos: this.cubeMesh.position.clone(),
       };
       this.emit('bump');
+      return;
+    }
+
+    // a spring pad: this press launches over the next slabs instead of rolling
+    if (from.spring) {
+      this.launchOrFall(d);
       return;
     }
 
@@ -387,6 +395,7 @@ export class Game {
 
     this.updateCube(dt, time);
     this.view.update(dt, time, this.cubeMesh.position);
+    this.updateShuttleCarry(time);
 
     // camera follows the cube gently
     this.stage.setFocus(this.cubeMesh.position.x, this.cubeMesh.position.z);
@@ -452,14 +461,28 @@ export class Game {
           a.toY = a.target.h + HALF;
           mesh.position.set(a.target.x, a.fromY, a.target.z);
         } else {
-          this.finishMove(a.target, a);
+          this.finishMove(a.target, a, a.free === true);
         }
       }
     } else if (a.type === 'drop') {
       a.t = Math.min(1, a.t + dt / a.dur);
       const p = a.t * a.t;
       mesh.position.set(a.target.x, a.fromY + (a.toY - a.fromY) * p, a.target.z);
-      if (a.t >= 1) this.finishMove(a.target, a);
+      if (a.t >= 1) this.finishMove(a.target, a, a.free === true);
+    } else if (a.type === 'launch') {
+      // a spring flight: an arcing hop in the press direction
+      a.t = Math.min(1, a.t + dt / a.dur);
+      const e = easeInOut(a.t);
+      const y = a.from.h + HALF + (a.target.h - a.from.h) * e + Math.sin(e * Math.PI) * 0.45;
+      mesh.position.set(a.from.x + (a.target.x - a.from.x) * e, y, a.from.z + (a.target.z - a.from.z) * e);
+      mesh.rotation.z = 0;
+      if (a.t >= 1) {
+        this.cube.x = a.target.x;
+        this.cube.z = a.target.z;
+        this.cube.h = a.target.h;
+        mesh.quaternion.copy(this.cube.quat);
+        this.finishMove(a.target, a, false);
+      }
     } else if (a.type === 'bump') {
       a.t = Math.min(1, a.t + dt / a.dur);
       const k = Math.sin(a.t * Math.PI) * 0.14;
@@ -519,13 +542,102 @@ export class Game {
     }
   }
 
-  finishMove(target, rollAnim = null) {
+  /** Where does a spring launched from `from` tile in direction d land,
+   *  flying over void up to 3 tiles (height change up to 3)? */
+  springLanding(from, d) {
+    let px = from.x;
+    let pz = from.z;
+    for (let k = 1; k <= 3; k++) {
+      const cand = this.tileAt(px + d.dx, pz + d.dz);
+      px += d.dx;
+      pz += d.dz;
+      if (!cand) continue;
+      if (this.view.isBroken(cand.x, cand.z)) continue; // a crater is not a floor
+      const dh = cand.h - from.h;
+      if (dh > 3 || dh < -3) return null;
+      return cand;
+    }
+    return null;
+  }
+
+  /** A press that should fire the spring (from the cube's current tile). */
+  launchOrFall(d) {
+    const from = this.cube;
+    const land = this.springLanding(from, d);
+    if (!land) {
+      this.cube.anim = {
+        type: 'fall',
+        t: 0,
+        dx: d.dx,
+        dz: d.dz,
+        startPos: this.cubeMesh.position.clone(),
+        fromQuat: this.cubeMesh.quaternion.clone(),
+        spin: new THREE.Vector3(d.dz, 0, -d.dx),
+      };
+      this.emit('fall');
+      return;
+    }
+    const dist = Math.abs(land.x - from.x) + Math.abs(land.z - from.z);
+    this.cube.anim = {
+      type: 'launch',
+      t: 0,
+      dur: 0.18 + 0.08 * dist,
+      from: { x: from.x, z: from.z, h: from.h },
+      target: land,
+      dx: d.dx,
+      dz: d.dz,
+    };
+  }
+
+  /**
+   * ICE / SPRING follow-through: the same press carries the cube on.
+   * Called from finishMove on every landing; starts at most one animation.
+   */
+  autoContinue(target, rollAnim) {
+    if (this.state !== 'playing') return;
+    if (!rollAnim || rollAnim.dx === undefined) return;
+    const d = { dx: rollAnim.dx, dz: rollAnim.dz };
+    if (target.spring) {
+      this.launchOrFall(d);
+      return;
+    }
+    if (target.ice) {
+      const next = this.tileAt(target.x + d.dx, target.z + d.dz);
+      if (next && checkRoll(this.level, target, next).ok) {
+        const axis = new THREE.Vector3(d.dz, 0, -d.dx).normalize();
+        const pivot = new THREE.Vector3(target.x + d.dx * HALF, target.h, target.z + d.dz * HALF);
+        const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
+        this.cube.anim = {
+          type: 'roll',
+          t: 0,
+          dur: ROLL_TIME,
+          axis,
+          pivot,
+          startPos,
+          fromQuat: this.cubeMesh.quaternion.clone(),
+          dx: d.dx,
+          dz: d.dz,
+          target: next,
+          drop: Math.max(0, target.h - next.h),
+          fromX: target.x,
+          fromZ: target.z,
+          fromH: target.h,
+          free: true, // the slide is the same press
+        };
+      }
+      // otherwise the slide simply stops here
+    }
+  }
+
+  finishMove(target, rollAnim = null, free = false) {
     this.cube.anim = null;
     this.cubeMesh.position.set(target.x, target.h + HALF, target.z);
     this.cube.quat.copy(this.cubeMesh.quaternion);
 
-    this.moves++;
-    this.view.setSteps(this.moves);
+    if (!free) {
+      this.moves++;
+      this.view.setSteps(this.moves);
+    }
 
     // The gate: sealed until the key shard is in your pocket.
     if (target.x === this.level.goal.x && target.z === this.level.goal.z && this.gateLocked) {
@@ -563,7 +675,11 @@ export class Game {
       this.win();
       return;
     }
-    this.pumpQueue();
+    this.autoContinue(target, rollAnim);
+    // A queued press only applies once the auto-continue chain (ice slide /
+    // spring launch) has fully settled — pumping mid-launch would fire the
+    // press from the spring pad itself and drop the cube in the pit.
+    if (!this.cube.anim) this.pumpQueue();
   }
 
   /** A breeze nudge: moves a tile without counting as a step. */
@@ -584,6 +700,51 @@ export class Game {
     if (this.queue.length && this.state === 'playing') {
       const next = this.queue.shift();
       this.doMove(next);
+    }
+  }
+
+  /**
+   * Shuttle carry: a cube at rest on the moving platform rides it across;
+   * a cube left on a dock the platform is leaving falls with the gap.
+   * When a drive ends, the cube snaps onto the dock it arrived at.
+   */
+  updateShuttleCarry(time) {
+    if (this.state !== 'playing' || this.cube.anim) return;
+    for (let i = 0; i < this.level.shuttles.length; i++) {
+      const sh = this.level.shuttles[i];
+      const p = this.view.shuttlePos(i);
+      const atA = this.cube.x === sh.a[0] && this.cube.z === sh.a[1];
+      const atB = this.cube.x === sh.b[0] && this.cube.z === sh.b[1];
+      const rx = Math.round(p.x);
+      const rz = Math.round(p.z);
+      if (p.moving) {
+        // GRAB: the cube stands on a dock while the platform drives — it
+        // boards immediately. TRACK: the cube's mesh rides the platform
+        // (distance-based, never tile-based: at low frame rates the
+        // platform's rounded tile jumps a tile per frame).
+        const onPlatform =
+          Math.abs(this.cubeMesh.position.x - p.x) < 0.9 &&
+          Math.abs(this.cubeMesh.position.z - p.z) < 0.9;
+        if (atA || atB || onPlatform) {
+          this.cube.x = rx;
+          this.cube.z = rz;
+          this.cube.h = sh.h;
+          this.cubeMesh.position.set(p.x, sh.h + HALF, p.z);
+        }
+      } else if (p.docked) {
+        // a drive just ended: settle the cube onto the dock
+        const [dx, dz] = p.docked === 'a' ? sh.a : sh.b;
+        if (
+          Math.abs(this.cubeMesh.position.x - dx) < 1 &&
+          Math.abs(this.cubeMesh.position.z - dz) < 1
+        ) {
+          this.cube.x = dx;
+          this.cube.z = dz;
+          this.cube.h = sh.h;
+          this.cubeMesh.position.set(dx, sh.h + HALF, dz);
+          this.checkPickups();
+        }
+      }
     }
   }
 

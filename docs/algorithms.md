@@ -29,6 +29,39 @@ lookup. Chosen over a physics sim because the law must be *the same
 function* the verifier uses (ADR-005) — a simulator can be queried, a law
 can be *proved with*.
 
+### 2.1 The resolved-press model — `resolveRoll` (2026-11-07 mechanics)
+
+Ice slides and spring launches make a single press land *more than one
+tile away*. Instead of simulating the follow-through in every search, the
+rules core answers it once, exactly:
+
+```
+resolveRoll(level, from, d)  =  the single tile one press from `from` in
+  direction `d` ends on, after all automatic follow-through:
+    - the first roll (must pass `checkRoll`)
+    - if that tile is ice, keep stepping in `d` while each next step is a
+      legal roll onto another ice tile   (the slide)
+    - if `from` (or the slide's landing) is a spring, launch up to 3
+      tiles in `d`, landing on the first slab within ±3 height, flying
+      over void; no slab in range → `null` (a fall)
+    - a spring landing on ice continues the slide (the combo)
+```
+Every search that expands moves — `legalNeighbours`, `shortestRoute`,
+`reachable`, `canStillFinish`, `solveHazards` — uses `resolveRoll` as the
+move primitive, so a slide or launch is **one edge with one press of par**,
+never a sub-simulation. Fairness stays provable because the edge is the
+same object the verifier expands.
+
+### 2.2 The shuttle ride edge
+
+A shuttle is not tile geometry — its platform is a presentation-clock
+object (ADR-009/013). In the *static* proof the ride is an explicit,
+bidirectional, unit-cost **edge between the two dock tiles** (`shuttleRide`),
+so the soft-lock and route proofs see the gap as crossed. The verifier
+bounds the other direction: the dwell is ≥ 2.2 rolls wide, so the window
+the ride needs exists *by construction*; the live bot still boards the
+platform against the real clock to prove the runtime agrees.
+
 ## 3. Reachability & soft-lock proof — BFS / reverse-BFS
 
 - `reachable(level)`: standard BFS from start over `legalNeighbours`.

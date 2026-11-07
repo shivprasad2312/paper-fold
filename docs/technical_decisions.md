@@ -194,3 +194,64 @@ the constant, not a frozen level set.
   windows are the actual fairness claim; the bot proves the game's
   *runtime* (render clock, input queue, crumble timers) agrees with the
   sim at frame rate.
+
+## ADR-013 — One resolved press, platform-as-clock: the 2026-11-07 mechanic set
+**Context:** the player asked for (a) EDGE-scale maps (the campaign top
+out at 12×12) and (b) a platform that "moves from one structure to
+another in a loop… acting as a bridge", plus "some other new features".
+The heightfield has one tile per (x,z), so a vertical lift/elevator is
+impossible (no floor to exist *below*); the shuttle was designed as a
+horizontal looping platform between two structures, and two cheap,
+provable mechanics rounded the set: **ice** (a press onto ice keeps
+sliding in the same direction) and **spring** (a press on/onto a pad
+launches up to 3 tiles over void).
+
+**Decision:**
+- **One press = one resolved landing.** `resolveRoll(level, from, d)`
+  returns the tile a single press lands on, *after* all automatic
+  follow-through (ice slide, spring launch, and their composition). The
+  solver, the soft-lock proof, the route planner and the playable bot
+  all expand moves through this one function (plus an explicit
+  dock↔dock **ride edge** for shuttles), so a multi-tile follow-through
+  is one graph edge with one press of par — fairness stays provable.
+- **The view is the shuttle clock** (ADR-009 extended):
+  `levelView.shuttlePos(i)` / `shuttleDocked(x,z)` are pure functions of
+  the shared render clock (dwell 2.0 s / dock, travel 0.8 s / gap tile,
+  loop forever). `game.isSolid` solidifies a dock only while its
+  platform dwells; `updateShuttleCarry` is the only carrier: a settled
+  cube on the driving platform is grabbed (dock-side, frame-rate
+  independent) and tracked by **mesh distance**, never by the
+  platform's rounded tile — at low frame rates the rounded tile jumps a
+  tile per frame and the tile-based version killed carried cubes
+  (caught by the live gate, 2026-11-07).
+- **The generator carves the mechanic into the route** (the pit/dock is
+  *the* crossing — no detour box left solid), keeps every sentinel line
+  one tile clear of mechanic corridors (spawns rejected otherwise), and
+  the verifier re-checks corridor clearance, ride edges, dwell ≥ 2.2
+  rolls, and spring/ice landings in the static proof.
+- **Gameplay fix found by the gate:** a queued input pumped mid-spring-
+  launch fired the press *from the pad* and dropped the cube in the
+  pit. `finishMove` now defers `pumpQueue` until the auto-continue chain
+  has fully settled (`if (!this.cube.anim) this.pumpQueue()`).
+
+- **Crossing-graph hardening (found while stabilising the live gate):**
+  `candidateCrossings`' line-walk BFS could emit self-revisiting candidate
+  paths (e.g. `…3,5→2,5→3,5→4,5…`), which produced duplicate and
+  back-and-forth crossing edges. They were mostly harmless (higher cost,
+  so Dijkstra avoided them) but a revising seq reconstructs to a
+  multi-tile "press" — a desync in the making. The BFS now refuses to
+  revisit a line tile within one candidate. In the same pass the live
+  bot's planner gained a route tripwire (every planned press must be a
+  legal `resolveRoll` landing) and two load-related repairs: the retry
+  loop re-snaps after a death auto-restart (it used to plan from the
+  stale pre-restart position), and a commit no longer abandons the cube
+  mid-burst when a roll outlives its settle wait under throttling.
+
+**Trade-offs (accepted, documented):** dailies intentionally stay
+classic-mechanic (the daily generator is a separate, smaller pipeline —
+new mechanics there would re-open the daily proof surface for little
+player-visible value); the shuttle's ride is treated as timing-free in
+the static proof (the dwell is ≥ 2.2 rolls wide, so the window exists by
+construction — the live bot still boards it against the real clock);
+the spring flight is a fixed-arc presentation (0.18 s + 0.08 s/tile),
+not a physics sim — consistent with the no-physics contract (ADR-002).

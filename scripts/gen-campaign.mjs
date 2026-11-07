@@ -19,6 +19,7 @@ import {
   timingProblems,
   shortestRoute,
   key,
+  ROLL_TIME,
 } from '../src/rules.js';
 import { writeFileSync } from 'node:fs';
 
@@ -57,12 +58,14 @@ const NAMES = [
 
 // band: difficulty knobs per stretch of the campaign
 function band(id) {
-  if (id <= 19) return { W: 7, H: 7, hMin: 1, hMax: 2, crumble: [0, 1], orbs: [0, 1], speed: [1.2, 1.7], shards: [2, 3], par: [7, 14], fill: [1, 2] };
-  if (id <= 27) return { W: 8, H: 8, hMin: 1, hMax: 3, crumble: [1, 2], orbs: [1, 1], speed: [1.4, 1.9], shards: [3, 3], par: [9, 17], fill: [2, 3] };
-  if (id <= 35) return { W: 9, H: 9, hMin: 1, hMax: 3, crumble: [1, 2], orbs: [1, 2], speed: [1.5, 2.1], shards: [3, 4], par: [11, 19], fill: [2, 4] };
-  if (id <= 43) return { W: 10, H: 10, hMin: 1, hMax: 3, crumble: [2, 2], orbs: [1, 2], speed: [1.6, 2.2], shards: [3, 4], par: [13, 21], fill: [3, 4] };
-  if (id <= 49) return { W: 11, H: 11, hMin: 1, hMax: 3, crumble: [2, 3], orbs: [2, 2], speed: [1.7, 2.3], shards: [4, 4], par: [15, 24], fill: [3, 5] };
-  return { W: 12, H: 12, hMin: 1, hMax: 3, crumble: [3, 3], orbs: [2, 2], speed: [1.8, 2.4], shards: [4, 4], par: [17, 27], fill: [4, 6], key: true };
+  // EDGE-scale maps: 8 → 18 tiles across. New mechanics introduce
+  // gradually: ice (band 1), spring pits (band 2), shuttles (band 3+).
+  if (id <= 19) return { W: 8, H: 8, hMin: 1, hMax: 2, crumble: [0, 1], orbs: [0, 1], speed: [1.2, 1.7], shards: [2, 3], par: [9, 16], fill: [2, 3], mech: ['ice'] };
+  if (id <= 27) return { W: 10, H: 10, hMin: 1, hMax: 3, crumble: [1, 2], orbs: [1, 1], speed: [1.4, 1.9], shards: [3, 3], par: [11, 19], fill: [3, 5], mech: ['ice', 'spring'] };
+  if (id <= 35) return { W: 12, H: 12, hMin: 1, hMax: 3, crumble: [1, 2], orbs: [1, 2], speed: [1.5, 2.1], shards: [3, 4], par: [13, 23], fill: [4, 6], mech: ['ice', 'spring', 'shuttle'] };
+  if (id <= 43) return { W: 14, H: 14, hMin: 1, hMax: 3, crumble: [2, 2], orbs: [1, 2], speed: [1.6, 2.2], shards: [3, 4], par: [16, 28], fill: [5, 8], mech: ['ice', 'spring', 'shuttle'] };
+  if (id <= 49) return { W: 16, H: 16, hMin: 1, hMax: 3, crumble: [2, 3], orbs: [2, 2], speed: [1.7, 2.3], shards: [4, 4], par: [19, 32], fill: [6, 10], mech: ['ice', 'spring', 'shuttle'] };
+  return { W: 18, H: 18, hMin: 1, hMax: 3, crumble: [3, 3], orbs: [2, 2], speed: [1.8, 2.4], shards: [4, 4], par: [22, 36], fill: [8, 12], key: true, mech: ['ice', 'spring', 'shuttle'] };
 }
 function hintFor(id) {
   if (id <= 19) return 'Keep moving — the fall does the thinking';
@@ -101,9 +104,12 @@ function generate(rand, id, b) {
   addTile(x, z, h);
   const goalZ = int(0, 1);
   while (z > goalZ) {
-    const side = int(0, 2);
+    // hold one direction across the row's side steps: long straight runs are
+    // the campaign's backbone (sentinel lines, shuttles, springs, ice)
+    const side = int(0, 3);
+    const d0 = pick([-1, 1]);
     for (let s = 0; s < side && z > goalZ; s++) {
-      const d = pick([-1, 1]);
+      const d = rand() < 0.8 ? d0 : -d0;
       const nx = x + d;
       if (nx < 0 || nx > b.W - 1) continue;
       const k = `${nx},${z}`;
@@ -141,8 +147,164 @@ function generate(rand, id, b) {
     fillSlabs.push([nx, pz]);
   }
 
-  // --- shards on the route (never start/goal) -------------------------------
-  const inner = path.slice(1, -1);
+  // --- carve the new mechanics into the walk --------------------------------
+  // A mechanic replaces solid route tiles with a hazard (void pit, dock,
+  // spring) so the only way across is the mechanic itself. `carved` marks
+  // tiles that are no longer solid; `mechSet` is every tile a sentinel must
+  // keep its clearance from.
+  const carved = new Set();
+  const mechSet = new Set();
+  const markMech = (x, z) => mechSet.add(`${x},${z}`);
+  const clearTile = (x, z) => {
+    map[z][x] = 0;
+    tiles.delete(`${x},${z}`);
+  };
+  const shuttles = [];
+  const springs = [];
+  const ice = [];
+
+  // straight runs of ≥3 SOLID, consecutive walk tiles — indices into `path`
+  const k = (i) => `${path[i][0]},${path[i][1]}`;
+  const solidRuns = () => {
+    const out = [];
+    let i = 0;
+    while (i < path.length) {
+      if (carved.has(k(i))) {
+        i++;
+        continue;
+      }
+      let j = i;
+      while (j + 1 < path.length && !carved.has(k(j + 1))) j++;
+      // solid consecutive block path[i..j]
+      for (let a = i; a + 2 <= j; a++) {
+        if (path[a][1] !== path[a + 1][1]) continue;
+        const dx = path[a + 1][0] - path[a][0];
+        if (dx === 0) continue;
+        let b = a;
+        while (b + 1 <= j && path[b + 1][1] === path[b][1] && path[b + 1][0] - path[b][0] === dx) b++;
+        if (b - a + 1 >= 3) out.push([a, b]);
+        a = b - 1;
+      }
+      i = j + 1;
+    }
+    return out;
+  };
+
+  // SHUTTLE: take a straight run, hollow the first gap tiles into two docks
+  // with a void between, and let a platform loop the gap forever. P (before
+  // dock a) and Q (after dock b) are the structure ends: the platform flies
+  // at the rounded average of their heights (board/alight are single rolls).
+  // The whole crossing box is cleared of side slabs — no detour around.
+  const tryShuttle = () => {
+    const runs = solidRuns().filter(([i, j]) => i >= 2);
+    if (!runs.length) return false;
+    for (let attempt = 0; attempt < 60; attempt++) {
+      const [i, j] = runs[Math.floor(rand() * runs.length)];
+      for (const gap of rand() < 0.5 ? [2, 3] : [3, 2]) {
+        // the run must carry the whole crossing: dockB on the run, and the
+        // alight tile Q on it too (the platform drives in a straight line)
+        if (j < i + gap + 1) continue;
+        const Q = path[i + gap + 1];
+        if (!Q) continue;
+        const P = path[i - 1];
+        const dH = Math.abs(map[P[1]][P[0]] - map[Q[1]][Q[0]]);
+        if (dH > 2) continue;
+        const dockA = path[i];
+        const dockB = path[i + gap];
+        // clear the crossing span (docks + gap): it becomes void, and the
+        // platform is the only way across
+        for (let t = i; t <= i + gap; t++) {
+          const [cx, cz] = path[t];
+          clearTile(cx, cz);
+          carved.add(k(t));
+          markMech(cx, cz);
+        }
+        // remove non-walk side slabs beside the crossing so there is no
+        // detour around the gap (the walk itself is never touched)
+        for (let gx = dockA[0]; gx <= dockB[0]; gx++) {
+          for (const dz of [-1, 1]) {
+            const gz = dockA[1] + dz;
+            if (gz < 0 || gz > b.H - 1) continue;
+            if (pathSet.has(`${gx},${gz}`)) continue; // never break the walk
+            if (tiles.has(`${gx},${gz}`)) clearTile(gx, gz);
+          }
+        }
+        shuttles.push({ a: [dockA[0], dockA[1]], b: [dockB[0], dockB[1]], wait: 2.0 });
+        return true;
+      }
+    }
+    return false;
+  };
+
+  // SPRING PIT: on a straight run S-A-L, hollow out A and put a spring pad
+  // on S: the only way across the pit is the launch.
+  const trySpring = () => {
+    const cands = solidRuns().map(([i, j]) => i).filter((i) => {
+      const S = path[i];
+      const A = path[i + 1];
+      const L = path[i + 2];
+      if (!L || i < 1 || i + 2 > path.length - 2) return false;
+      if (k(i) === `${start[0]},${start[1]}`) return false;
+      if (k(i + 2) === `${goal[0]},${goal[1]}`) return false;
+      for (const dz of [-1, 1]) {
+        const az = A[1] + dz;
+        if (az < 0 || az > b.H - 1) continue;
+        const side = `${A[0]},${az}`;
+        if (tiles.has(side) && !pathSet.has(side)) return false; // detour around the pit
+      }
+      return true;
+    });
+    if (!cands.length) return false;
+    const i = cands[Math.floor(rand() * cands.length)];
+    const S = path[i];
+    const A = path[i + 1];
+    const L = path[i + 2];
+    for (const dz of [-1, 1]) {
+      const az = A[1] + dz;
+      if (az < 0 || az > b.H - 1) continue;
+      const side = `${A[0]},${az}`;
+      if (tiles.has(side) && !pathSet.has(side)) clearTile(A[0], az);
+    }
+    clearTile(A[0], A[1]);
+    carved.add(`${A[0]},${A[1]}`);
+    markMech(S[0], S[1]);
+    markMech(A[0], A[1]);
+    markMech(L[0], L[1]);
+    springs.push([S[0], S[1]]);
+    return true;
+  };
+
+  // ICE: an ice tile on the route; a roll onto it carries the cube one more
+  // tile in the same press (the slide stops at the first non-ice slab).
+  const tryIce = () => {
+    const cands = solidRuns().map(([i, j]) => i).filter((i) => {
+      const I = path[i];
+      const N = path[i + 1];
+      if (!N || i < 1 || i + 1 > path.length - 2) return false;
+      if (k(i) === `${start[0]},${start[1]}`) return false;
+      if (k(i + 1) === `${goal[0]},${goal[1]}`) return false;
+      return Math.abs(map[N[1]][N[0]] - map[I[1]][I[0]]) <= 1;
+    });
+    if (!cands.length) return false;
+    const i = cands[Math.floor(rand() * cands.length)];
+    const I = path[i];
+    const N = path[i + 1];
+    ice.push([I[0], I[1]]);
+    markMech(I[0], I[1]);
+    markMech(N[0], N[1]);
+    return true;
+  };
+
+  const has = (m) => (b.mech || []).includes(m);
+  if (has('shuttle') && rand() < 0.7) tryShuttle();
+  if (has('shuttle') && id === 50 && rand() < 0.6) tryShuttle(); // the finale rides twice
+  if (has('spring') && rand() < 0.5) trySpring();
+  if (has('spring') && b.W >= 16 && rand() < 0.3) trySpring();
+  if (has('ice') && rand() < 0.6) tryIce();
+  if (has('ice') && b.W >= 12 && rand() < 0.35) tryIce();
+
+  // --- shards on the route (never start/goal, never on a carved tile) -------
+  const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
   for (let i = 0; i < Math.min(b.shards[1], inner.length); i++) {
     const s = inner.splice(Math.floor(rand() * inner.length), 1)[0];
@@ -150,15 +312,33 @@ function generate(rand, id, b) {
   }
 
   // --- sentinels along straight runs (3+ tiles, never over start/goal) ------
+  // runs are taken over the SOLID walk: a patrol line never crosses a carved
+  // pit, a dock, or the clearance of an ice/spring mechanic
   const lineSet = new Set();
   const runs = [];
-  for (let i = 0; i < path.length - 1; i++) {
-    if (path[i][1] !== path[i + 1][1]) continue;
-    const dx = Math.sign(path[i + 1][0] - path[i][0]);
-    if (dx === 0) continue;
-    let j = i;
-    while (j + 1 < path.length && path[j + 1][1] === path[j][1] && path[j + 1][0] - path[j][0] === dx) j++;
-    if (j - i + 1 >= 3) runs.push([i, j]);
+  {
+    const solid = [];
+    path.forEach(([x, z], i) => {
+      if (!carved.has(`${x},${z}`)) solid.push(i);
+    });
+    for (let a = 0; a < solid.length - 1; a++) {
+      const i = solid[a];
+      const j = solid[a + 1];
+      if (j - i !== 1) continue; // not consecutive in the walk
+      if (path[i][1] !== path[j][1]) continue;
+      const dx = Math.sign(path[j][0] - path[i][0]);
+      if (dx === 0) continue;
+      let k = a;
+      while (
+        k + 1 < solid.length &&
+        solid[k + 1] - solid[k] === 1 &&
+        path[solid[k + 1]][1] === path[solid[k]][1] &&
+        path[solid[k + 1]][0] - path[solid[k]][0] === dx
+      ) {
+        k++;
+      }
+      if (k - a + 1 >= 3) runs.push([i, solid[k]]);
+    }
   }
   runs.sort((a, c) => (c[1] - c[0]) - (a[1] - a[0]));
   const orbs = [];
@@ -170,6 +350,20 @@ function generate(rand, id, b) {
       const [i, j] = runs[ri];
       const a = path[i];
       const c = path[j];
+      // a patrol line must keep its clearance off every new mechanic
+      let nearMech = false;
+      for (let t = i; t <= j && !nearMech; t++) {
+        const [tx, tz] = path[t];
+        for (let ox = -1; ox <= 1 && !nearMech; ox++) {
+          for (let oz = -1; oz <= 1; oz++) {
+            if (mechSet.has(`${tx + ox},${tz + oz}`)) {
+              nearMech = true;
+              break;
+            }
+          }
+        }
+      }
+      if (nearMech) continue;
       if (`${a[0]},${a[1]}` === `${start[0]},${start[1]}` || `${c[0]},${c[1]}` === `${start[0]},${start[1]}`) continue;
       if (`${a[0]},${a[1]}` === `${goal[0]},${goal[1]}` || `${c[0]},${c[1]}` === `${goal[0]},${goal[1]}`) continue;
       const speed = +(b.speed[0] + rand() * (b.speed[1] - b.speed[0])).toFixed(2);
@@ -189,8 +383,10 @@ function generate(rand, id, b) {
   const crumble = [];
   const crumbleCands = inner.filter(([cx, cz]) => {
     if (lineSet.has(`${cx},${cz}`)) return false;
+    if (mechSet.has(`${cx},${cz}`)) return false;
     for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
       if (lineSet.has(`${cx + dx},${cz + dz}`)) return false;
+      if (mechSet.has(`${cx + dx},${cz + dz}`)) return false;
     }
     return true;
   });
@@ -202,7 +398,9 @@ function generate(rand, id, b) {
   // --- the finale's key: an off-route deck slab ------------------------------
   let keyPos = null;
   if (b.key) {
-    const candidates = fillSlabs.filter(([fx, fz]) => !crumbleSet.has(`${fx},${fz}`) && !pathSet.has(`${fx},${fz}`));
+    const candidates = fillSlabs.filter(
+      ([fx, fz]) => tiles.has(`${fx},${fz}`) && !crumbleSet.has(`${fx},${fz}`) && !pathSet.has(`${fx},${fz}`),
+    );
     if (candidates.length) keyPos = pick(candidates);
   }
 
@@ -219,6 +417,9 @@ function generate(rand, id, b) {
   if (crumble.length) def.crumble = crumble;
   if (orbs.length) def.orbs = orbs;
   if (keyPos) def.key = keyPos;
+  if (shuttles.length) def.shuttles = shuttles;
+  if (springs.length) def.springs = springs;
+  if (ice.length) def.ice = ice;
   return def;
 }
 
@@ -268,6 +469,9 @@ function verify(def, b, minOrbs = b.orbs[0]) {
     problems.push(`too few sentinels (band wants ≥ ${minOrbs})`);
   }
   if (level.gateKey && !reach.has(key(level.gateKey.x, level.gateKey.z))) problems.push('key unreachable');
+  for (const sh of level.shuttles) {
+    if (sh.wait < ROLL_TIME * 2.2) problems.push('shuttle dwell too short to board');
+  }
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
   return { ok: problems.length === 0, problems, par };

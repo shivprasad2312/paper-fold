@@ -69,6 +69,9 @@ planned, it doesn't ship.
 | **Sentinel (orb)** | cube patrolling a fixed loop (path, speed, phase); touching it = death; it passes *through* nothing | timing hazard; telegraphed, periodic, deterministic |
 | **Block + telekinesis** | dark cube; you have N nudge charges; pushing a block slides it one tile and costs a charge | planning resource; "is there enough push left?" |
 | **Rising bridge (slider)** | group of slabs that rise/sink on a fixed period/phase; solid only while up | timing + path (L13 boss, finale) |
+| **Shuttle (platform loop)** | a lone platform dwells ~2 s on each of two dock tiles, drives across the void gap between two structures, dwells, returns — forever. The docks are solid only while the platform stands on them; a settled cube on the moving platform is carried across | long-gap traversal; "board before it leaves" reflex on a fair, readable loop (campaign band 3+) |
+| **Ice slab** | a roll onto ice keeps the cube sliding one tile per step in the same direction until the first non-ice slab or an illegal step — one press, several tiles | momentum / route compression; the slide is one press in par (campaign from band 1) |
+| **Spring pad** | a press on (or onto) a spring launches the cube up to 3 tiles in the direction of travel, flying over void, landing on the first slab within height ±3; no slab in range = a fall | pit-hopping with a fixed, readable launch (campaign from band 2) |
 | **Key & sealed gate** | gate is locked until the key slab is visited (finale) | objective sequencing |
 | **Wind** | diagonal breeze that nudges the cube a tile every ~0.62 s (soft hop, no roll count) | drift management; can't be "pushed back" |
 | **Shards** | 2–5 per level, on slabs; collected passively | risk-reward (off-route pickups), medal input — teaching levels 1–2 carry 2, most levels 3–4, the pre-boss L12/L13 carry 5 |
@@ -93,9 +96,20 @@ Consequences: (a) no tunneling, no precision-dependent deaths; (b) every
 (c) the animation layer is pure presentation — it can't desync the logic,
 and the playable-route test drives *real input* against it to prove that.
 
+The new mechanics follow the same rule. A press has exactly one *resolved*
+landing (`resolveRoll`): the roll, plus any ice-slide / spring-launch
+follow-through. The solver, the route planner and the playable bot all use
+that one function, so "one press, several tiles" is one edge in the graph,
+never a physics simulation. The shuttle is the slider pattern taken to the
+extreme (ADR-013): the level view is the clock, the platform position is a
+pure function of shared time, the game asks `shuttlePos()` /
+`shuttleDocked()` instead of trusting stored state, and the "ride" is an
+explicit edge between the two docks in every search.
+
 Fixed durations: roll 0.243 s (30% slower, player-directed 2026-11-07),
 push 0.22 s, wind hop 0.24 s, wind period 0.62 s, locked-gate bounce
-0.243 s × 1.35.
+0.243 s × 1.35, spring flight 0.18 s + 0.08 s per tile, shuttle dwell
+2.0 s per dock, shuttle travel 0.8 s per gap tile.
 
 ## 7. Scoring & rewards
 

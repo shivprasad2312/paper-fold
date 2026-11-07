@@ -111,6 +111,7 @@ export function buildLevelView(level) {
 
   for (const tile of level.tiles.values()) {
     if (tile.crumble) continue;
+    if (tile.shuttle) continue; // a shuttle dock — the platform is solid, not the map
     const g = slabGeometry(tile.h, TOP, SIDE, BOTTOM);
     g.translate(tile.x, 0, tile.z);
     staticGeos.push(g);
@@ -134,6 +135,78 @@ export function buildLevelView(level) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     group.add(mesh);
+  }
+
+  // ---- ice / spring overlays + shuttle ghost docks ------------------------
+  {
+    const iceMat = new THREE.MeshStandardMaterial({
+      color: 0xbfe8ff, emissive: 0x3f8fc4, emissiveIntensity: 0.6,
+      transparent: true, opacity: 0.68, roughness: 0.08, metalness: 0.3,
+    });
+    const springMat = new THREE.MeshStandardMaterial({
+      color: 0xff9a3d, emissive: 0xff5a00, emissiveIntensity: 0.55, roughness: 0.4,
+    });
+    const ghostMat = new THREE.LineBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.75 });
+    for (const tile of level.tiles.values()) {
+      if (tile.ice || tile.spring) {
+        const g = new THREE.BoxGeometry(0.94, 0.045, 0.94);
+        g.translate(tile.x, tile.h + 0.025, tile.z);
+        const m = new THREE.Mesh(g, tile.ice ? iceMat : springMat);
+        m.receiveShadow = true;
+        group.add(m);
+        if (tile.spring) {
+          const arrow = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.26, 4), springMat);
+          arrow.position.set(tile.x, tile.h + 0.22, tile.z);
+          group.add(arrow);
+        }
+      }
+      if (tile.shuttle) {
+        const y = tile.h + 0.03;
+        const r = 0.47;
+        const pts = [
+          new THREE.Vector3(tile.x - r, y, tile.z - r),
+          new THREE.Vector3(tile.x + r, y, tile.z - r),
+          new THREE.Vector3(tile.x + r, y, tile.z + r),
+          new THREE.Vector3(tile.x - r, y, tile.z + r),
+          new THREE.Vector3(tile.x - r, y, tile.z - r),
+        ];
+        group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ghostMat));
+      }
+    }
+  }
+
+  // ---- shuttle platforms: moving bridges on a fixed loop ------------------
+  const shuttleRecs = [];
+  if (level.shuttles.length) {
+    const platMat = new THREE.MeshStandardMaterial({
+      color: 0x8a63ff, emissive: 0x4a2f9f, emissiveIntensity: 0.45,
+      roughness: 0.3, metalness: 0.25,
+    });
+    const platRim = new THREE.LineBasicMaterial({ color: 0xb79aff, transparent: true, opacity: 0.9 });
+    level.shuttles.forEach((sh, i) => {
+      const g = new THREE.BoxGeometry(0.98, THICK, 0.98);
+      const mesh = new THREE.Mesh(g, platMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      const y = sh.h + 0.02;
+      const r = 0.49;
+      const rim = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-r, y, -r), new THREE.Vector3(r, y, -r),
+        new THREE.Vector3(r, y, r), new THREE.Vector3(-r, y, r),
+        new THREE.Vector3(-r, y, -r),
+      ]);
+      mesh.add(new THREE.Line(rim, platRim));
+      shuttleRecs.push({ sh, mesh, i });
+    });
+  }
+  function shuttleF(i) {
+    const sh = level.shuttles[i];
+    const t = ((clock.t % sh.cycle) + sh.cycle) % sh.cycle;
+    if (t < sh.wait) return 0;
+    if (t < sh.wait + sh.travel) return (t - sh.wait) / sh.travel;
+    if (t < 2 * sh.wait + sh.travel) return 1;
+    return 1 - (t - (2 * sh.wait + sh.travel)) / sh.travel;
   }
 
   // ---- step counter: a floating glowing number, EDGE-style ---------------
@@ -521,6 +594,17 @@ export function buildLevelView(level) {
   function update(dt, time, cubePos) {
     clock.t = time;
 
+    // shuttle platforms drive their fixed loop
+    for (const rec of shuttleRecs) {
+      const sh = rec.sh;
+      const f = shuttleF(rec.i);
+      rec.mesh.position.set(
+        sh.a[0] + (sh.b[0] - sh.a[0]) * f,
+        sh.h - THICK / 2,
+        sh.a[1] + (sh.b[1] - sh.a[1]) * f,
+      );
+    }
+
     // step counter pop
     if (counterPulse > 0) {
       counterPulse = Math.max(0, counterPulse - dt * 4);
@@ -690,6 +774,27 @@ export function buildLevelView(level) {
   }
 
   /** Is the sliding bridge at (x, z) currently up? Shares the render clock. */
+  function shuttlePos(i) {
+    const sh = level.shuttles[i];
+    const f = shuttleF(i);
+    return {
+      x: sh.a[0] + (sh.b[0] - sh.a[0]) * f,
+      z: sh.a[1] + (sh.b[1] - sh.a[1]) * f,
+      f,
+      moving: f > 0 && f < 1,
+      docked: f === 0 ? 'a' : f === 1 ? 'b' : null,
+    };
+  }
+
+  function shuttleDocked(x, z) {
+    for (let i = 0; i < level.shuttles.length; i++) {
+      const sh = level.shuttles[i];
+      if (sh.a[0] === x && sh.a[1] === z) return shuttleF(i) === 0;
+      if (sh.b[0] === x && sh.b[1] === z) return shuttleF(i) === 1;
+    }
+    return false;
+  }
+
   function sliderUp(x, z) {
     for (const s of sliders) {
       if (s.tile.x === x && s.tile.z === z) {
@@ -834,6 +939,8 @@ export function buildLevelView(level) {
     breakAt,
     isBroken,
     sliderUp,
+    shuttlePos,
+    shuttleDocked,
     collectShard,
     collectGateKey,
     setGoalLocked,

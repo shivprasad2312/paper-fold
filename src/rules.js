@@ -72,6 +72,83 @@ export function parseLevel(def) {
     return { tileSet, period: g.period || 3.2, phase: g.phase || 0 };
   });
 
+  // ---- shuttle platforms (moving bridges between structures) ---------------
+  // A shuttle dwells `wait` seconds on each dock tile (a/b — void in the map,
+  // solidified by the platform), drives across the gap, dwells, and returns.
+  // The dock tiles are added to `tiles` so route/solver logic sees them; the
+  // view renders the moving platform and is the clock for solidness.
+  const shuttles = (def.shuttles || []).map((sh, i) => {
+    const [ax, az] = sh.a;
+    const [bx, bz] = sh.b;
+    const dx = Math.sign(bx - ax);
+    const dz = Math.sign(bz - az);
+    const straight = (dx !== 0) === (dz === 0);
+    const gap = Math.abs(bx - ax) + Math.abs(bz - az);
+    if (!straight) throw new Error(`[${def.name}] shuttle ${i} must drive in a straight line`);
+    if (gap < 2 || gap > 5) throw new Error(`[${def.name}] shuttle ${i} gap must be 2-5 tiles`);
+    // the gap interior must be pure void — the platform flies through it
+    let gx = ax + dx;
+    let gz = az + dz;
+    while (gx !== bx || gz !== bz) {
+      if (tiles.has(key(gx, gz))) throw new Error(`[${def.name}] shuttle ${i} track crosses a slab at ${gx},${gz}`);
+      gx += dx;
+      gz += dz;
+    }
+    // each dock needs at least one solid neighbour — the tile the player
+    // stands on to board (the walk may meet the dock from any side)
+    const neighbour = (x, z) =>
+      [
+        tiles.get(key(x - 1, z)),
+        tiles.get(key(x + 1, z)),
+        tiles.get(key(x, z - 1)),
+        tiles.get(key(x, z + 1)),
+      ].find(Boolean);
+    const endA = neighbour(ax, az);
+    const endB = neighbour(bx, bz);
+    if (!endA) throw new Error(`[${def.name}] shuttle ${i} dock a has no boarding tile`);
+    if (!endB) throw new Error(`[${def.name}] shuttle ${i} dock b has no boarding tile`);
+    const ends = [endA.h, endB.h];
+    // the platform flies at the rounded average of the two ends: boarding
+    // and alighting are then single legal rolls (climb/drop at most 1)
+    if (Math.abs(ends[0] - ends[1]) > 2) throw new Error(`[${def.name}] shuttle ${i} end structures differ by more than 2`);
+    const h = Math.round((ends[0] + ends[1]) / 2);
+    if (Math.abs(h - ends[0]) > 1 || Math.abs(h - ends[1]) > 1) {
+      throw new Error(`[${def.name}] shuttle ${i} dock height unreachable from a structure`);
+    }
+    for (const [x, z] of [[ax, az], [bx, bz]]) {
+      if (tiles.has(key(x, z))) throw new Error(`[${def.name}] shuttle dock ${x},${z} is not void`);
+      tiles.set(key(x, z), { x, z, h, crumble: false, shuttle: true, shuttleId: i });
+    }
+    const travel = +(gap * 0.8).toFixed(2); // seconds for the drive across
+    const wait = sh.wait || 2;
+    return { a: [ax, az], b: [bx, bz], dx, dz, gap, h, wait, travel, cycle: 2 * wait + 2 * travel, id: i };
+  });
+  const shuttleDocks = new Set(
+    shuttles.flatMap((sh) => [key(sh.a[0], sh.a[1]), key(sh.b[0], sh.b[1])]),
+  );
+
+  // ---- ice slabs: a roll onto ice keeps sliding one tile per step ----------
+  const iceTiles = new Set();
+  for (const [x, z] of def.ice || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] ice ${x},${z} is not a slab`);
+    if (t.shuttle) throw new Error(`[${def.name}] ice on a shuttle dock`);
+    t.ice = true;
+    iceTiles.add(key(x, z));
+  }
+
+  // ---- spring pads: a roll onto a spring launches up to 3 tiles in the -----
+  // direction of travel, flying over void, landing on the first slab it finds
+  // (height change up to 3). One press, one landing.
+  const springTiles = new Set();
+  for (const [x, z] of def.springs || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] spring ${x},${z} is not a slab`);
+    if (t.shuttle) throw new Error(`[${def.name}] spring on a shuttle dock`);
+    t.spring = true;
+    springTiles.add(key(x, z));
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
@@ -97,10 +174,81 @@ export function parseLevel(def) {
     blockTiles,
     sliders,
     sliderTiles,
+    shuttles,
+    shuttleDocks,
+    iceTiles,
+    springTiles,
     gateKey,
     wind,
     nudge,
   };
+}
+
+/** The other dock of the shuttle whose platform stands on `tile` (or null). */
+export function shuttleRide(level, tile) {
+  if (!tile || !tile.shuttle) return null;
+  const sh = level.shuttles[tile.shuttleId];
+  if (!sh) return null;
+  const onA = tile.x === sh.a[0] && tile.z === sh.a[1];
+  const [ox, oz] = onA ? sh.b : sh.a;
+  return level.tiles.get(key(ox, oz)) || null;
+}
+
+/**
+ * Where does ONE press in direction d land the cube, after all automatic
+ * follow-through:
+ *  - a normal roll (roll law),
+ *  - ICE: keeps sliding in the same direction while it lands on more ice,
+ *  - SPRING: launches up to 3 tiles in the direction of travel, flying over
+ *    void, landing on the first slab (height change up to 3); a failed
+ *    launch (no slab within 3) is a fall — null.
+ * Returns the final tile, or null when the press is illegal / lethal.
+ * (Shuttle docks are plain tiles here: riding the platform is a separate,
+ * explicit transition — see `shuttleRide`.)
+ */
+/** A spring launch from `pos` in direction d: fly over void up to 3 tiles,
+ *  land on the first slab (height change up to 3). Null = a fall. */
+function springLaunch(level, pos, d) {
+  let px = pos.x;
+  let pz = pos.z;
+  for (let k = 1; k <= 3; k++) {
+    const cand = level.tiles.get(key(px + d.dx, pz + d.dz));
+    px += d.dx;
+    pz += d.dz;
+    if (!cand) continue; // flew over void (or off the level)
+    const dh = cand.h - pos.h;
+    if (dh > 3 || dh < -3) return null; // wall too tall / drop too deep
+    return cand;
+  }
+  return null;
+}
+
+export function resolveRoll(level, from, d) {
+  const step = (pos) => {
+    const to = level.tiles.get(key(pos.x + d.dx, pos.z + d.dz));
+    return to && checkRoll(level, pos, to).ok ? to : null;
+  };
+  let t;
+  if (from.spring) {
+    // the press STARTS on a spring: it launches instead of rolling
+    t = springLaunch(level, from, d);
+    if (!t) return null;
+  } else {
+    t = step(from);
+    if (!t) return null;
+    if (t.spring) {
+      // the press landed on a spring: it fires immediately
+      t = springLaunch(level, t, d);
+      if (!t) return null;
+    }
+  }
+  // ice slide: continue in the same direction while riding ice
+  while (t.ice) {
+    const n = step(t);
+    if (!n) break;
+    t = n;
+  }
+  return t;
 }
 
 /**
@@ -161,7 +309,8 @@ export function reachable(level) {
   const queue = [level.start];
   while (queue.length) {
     const cur = queue.shift();
-    for (const { to } of legalNeighbours(level, cur)) {
+    const targets = rollTargets(level, cur);
+    for (const to of targets) {
       const k = key(to.x, to.z);
       if (!seen.has(k)) {
         seen.add(k);
@@ -173,6 +322,22 @@ export function reachable(level) {
 }
 
 /**
+ * All tiles a single player action can move the cube to from `cur`:
+ * the four resolved rolls (ice slides / spring launches included) plus,
+ * when standing on a shuttle dock, the ride to the far dock.
+ */
+export function rollTargets(level, cur) {
+  const out = [];
+  for (const [name, d] of Object.entries(DIRS)) {
+    const to = resolveRoll(level, cur, d);
+    if (to) out.push(to);
+  }
+  const ride = shuttleRide(level, cur);
+  if (ride) out.push(ride);
+  return out;
+}
+
+/**
  * Tiles from which the goal can still be reached (reverse walk).
  * Any reachable tile that is NOT in this set is a soft-lock: the player can
  * get there and never finish. We require zero of those.
@@ -180,7 +345,7 @@ export function reachable(level) {
 export function canStillFinish(level) {
   const prev = new Map();
   for (const tile of level.tiles.values()) {
-    for (const { to } of legalNeighbours(level, tile)) {
+    for (const to of rollTargets(level, tile)) {
       if (!prev.has(key(to.x, to.z))) prev.set(key(to.x, to.z), []);
       prev.get(key(to.x, to.z)).push(tile);
     }
@@ -213,7 +378,7 @@ export function shortestRoute(level) {
   while (queue.length) {
     const cur = queue.shift();
     const d = dist.get(key(cur.x, cur.z));
-    for (const { to } of legalNeighbours(level, cur)) {
+    for (const to of rollTargets(level, cur)) {
       const k = key(to.x, to.z);
       if (dist.has(k)) continue;
       dist.set(k, d + 1);
@@ -243,6 +408,15 @@ export function solveHazards(level) {
     if (++guard > 400000) return { ok: false, capped: true };
     const [tile, broken, blocks, left] = queue.shift();
     if (tile.x === level.goal.x && tile.z === level.goal.z) return { ok: true };
+    // riding the shuttle: one action, no roll law (the platform carries you)
+    const ride = shuttleRide(level, tile);
+    if (ride) {
+      const sig = `${key(ride.x, ride.z)}|${blockSig(blocks)}|${left}|`;
+      if (!seen.has(sig)) {
+        seen.add(sig);
+        queue.push([ride, broken, blocks, left]);
+      }
+    }
     for (const [name, d] of Object.entries(DIRS)) {
       const tx = tile.x + d.dx;
       const tz = tile.z + d.dz;
@@ -262,12 +436,14 @@ export function solveHazards(level) {
         continue;
       }
 
-      const to = level.tiles.get(bk);
+      // resolve the press: ice slides / spring launches may carry the cube
+      // several tiles in the same action
+      const to = resolveRoll(level, tile, d);
       if (!to) continue;
-      if (!checkRoll(level, tile, to).ok) continue;
-      if (broken.has(bk)) continue;
+      const tk = key(to.x, to.z);
+      if (broken.has(tk)) continue;
       const nextBroken = tile.crumble ? new Set([...broken, key(tile.x, tile.z)]) : broken;
-      const sig = `${bk}|${blockSig(blocks)}|${left}|`;
+      const sig = `${tk}|${blockSig(blocks)}|${left}|`;
       if (seen.has(sig)) continue;
       seen.add(sig);
       queue.push([to, nextBroken, blocks, left]);
@@ -329,6 +505,85 @@ export function spawnProblems(level) {
   if (level.gateKey) {
     const k = key(level.gateKey.x, level.gateKey.z);
     if (k === startK || k === goalK) probs.push('key on start/goal tile');
+  }
+  // shuttle docks: the platform is the only thing solid there — nothing
+  // static may depend on it or be depended on by it
+  for (const [x, z] of level.shuttleDocks) {
+    if (x === startK.split(',')[0] && z === startK.split(',')[1]) probs.push('shuttle dock on the start tile');
+    if (x === level.start.x && z === level.start.z) probs.push('shuttle dock on the start tile');
+    if (x === level.goal.x && z === level.goal.z) probs.push('shuttle dock on the goal tile');
+    for (const s of level.shards) if (s.x === x && s.z === z) probs.push(`shard on a shuttle dock ${x},${z}`);
+    if (level.iceTiles.has(key(x, z))) probs.push(`ice on a shuttle dock ${x},${z}`);
+    if (level.springTiles.has(key(x, z))) probs.push(`spring on a shuttle dock ${x},${z}`);
+    for (const orb of level.orbs) {
+      if (orb.path.some(([px, pz]) => px === x && pz === z)) {
+        probs.push(`orb patrols a shuttle dock ${x},${z}`);
+      }
+    }
+  }
+  // an ice slide must not skate through a sentinel's clearance — check the
+  // ice tile itself (the cube rests there a beat) and every tile the slide
+  // carries it through
+  for (const ik of level.iceTiles) {
+    const [ix, iz] = ik.split(',').map(Number);
+    for (const [name, d] of Object.entries(DIRS)) {
+      let px = ix;
+      let pz = iz;
+      let guard = 0;
+      for (;;) {
+        for (const orb of level.orbs) {
+          for (const [ox, oz] of orb.path) {
+            if (Math.max(Math.abs(ox - px), Math.abs(oz - pz)) <= 1) {
+              probs.push(`ice at ${ik} slides through sentinel clearance`);
+            }
+          }
+        }
+        if (guard++ >= 6) break;
+        const t = level.tiles.get(key(px + d.dx, pz + d.dz));
+        if (!t || !t.ice) break;
+        px += d.dx;
+        pz += d.dz;
+      }
+    }
+  }
+  // a shuttle's transit corridor flies at dock height: a sentinel one tile
+  // away could kill a rider mid-drive
+  for (const sh of level.shuttles) {
+    let gx = sh.a[0] + sh.dx;
+    let gz = sh.a[1] + sh.dz;
+    while (gx !== sh.b[0] || gz !== sh.b[1]) {
+      for (const orb of level.orbs) {
+        for (const [ox, oz] of orb.path) {
+          if (Math.max(Math.abs(ox - gx), Math.abs(oz - gz)) <= 1) {
+            probs.push(`shuttle drive passes within sentinel clearance`);
+          }
+        }
+      }
+      gx += sh.dx;
+      gz += sh.dz;
+    }
+  }
+  // a spring launch must not fly through or land near a sentinel: the flight
+  // stays under the kill height, so a patrol in the corridor is a mid-air kill
+  for (const sk of level.springTiles) {
+    const [sx, sz] = sk.split(',').map(Number);
+    for (const [name, d] of Object.entries(DIRS)) {
+      let px = sx;
+      let pz = sz;
+      for (let k = 1; k <= 3; k++) {
+        px += d.dx;
+        pz += d.dz;
+        const t = level.tiles.get(key(px, pz));
+        for (const orb of level.orbs) {
+          for (const [ox, oz] of orb.path) {
+            if (Math.max(Math.abs(ox - px), Math.abs(oz - pz)) <= 1) {
+              probs.push(`spring at ${sk} can launch into sentinel clearance`);
+            }
+          }
+        }
+        if (t) break; // lands here
+      }
+    }
   }
   return probs;
 }
@@ -630,6 +885,10 @@ export function candidateCrossings(level) {
       }
       if (path.length < MAX_CROSS_DEPTH) {
         for (const nx of lineNbrs(last)) {
+          // never revisit a line tile: a back-and-forth "crossing" is not a
+          // crossing (it produced self-revising seqs whose reconstruction
+          // could emit multi-tile presses as single rolls)
+          if (path.some((t) => t.x === nx.x && t.z === nx.z)) continue;
           const np = [...path, nx];
           const id = np.map((t) => key(t.x, t.z)).join('|');
           if (seenPaths.has(id)) continue;
@@ -700,7 +959,9 @@ export function fairCrossingGraph(level) {
     const offLineNbrs = (t) =>
       DIRS_OBJ.flatMap(([dx, dz]) => {
         const nt = level.tiles.get(key(t.x + dx, t.z + dz));
-        return nt && !line.has(key(nt.x, nt.z)) ? [nt] : [];
+        // shuttle docks are only solid while their platform dwells — they
+        // cannot anchor a timed crossing
+        return nt && !line.has(key(nt.x, nt.z)) && !nt.shuttle ? [nt] : [];
       });
 
     // BUG-007: a crossing is only usable if every roll of the burst obeys

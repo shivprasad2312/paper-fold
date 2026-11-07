@@ -2,9 +2,10 @@
 
 A minimalist **cube-rolling puzzle game** that runs in the browser. Roll a glowing cube
 across floating geometric platforms, collect shards, dodge sentinels and cracked slabs,
-push dark cubes out of your way, time the sliding bridges, ride the wind and find your
-way down to the gate — **50 levels** long, from a three-tile warm-up to the sealed
-Summit.
+push dark cubes out of your way, time the sliding bridges, board the shuttles, surf the
+ice, spring over the pits, ride the wind and find your way down to the gate —
+**50 levels** long, from a three-tile warm-up to the sealed Summit, on maps that grow
+from a sliver to an 18-tile EDGE-scale plateau.
 
 Built from scratch as an homage to Mobigame's classic **EDGE** — original code, art,
 level design and a fully procedural soundtrack. No assets are borrowed from the original
@@ -165,13 +166,13 @@ Levels **14–50** are a generated campaign — the same "random, then prove it"
 the daily uses, scaled up (see [How it is built](#how-it-is-built)). Difficulty ramps in
 five acts:
 
-| # | act | what changes |
-| --- | --- | --- |
-| 14–19 | The Descent | small maps, gentle heights, first crumble slabs |
-| 20–27 | Glass Meadow | bigger maps, full height range, sentinels join |
-| 28–35 | The Lattice | double hazards, more shards, longer routes |
-| 36–43 | The Crucible | two sentinels, dense crumble fields |
-| 44–50 | The Spire | the largest maps, **level 50 adds the sealed gate + key** |
+| # | act | map | what changes |
+| --- | --- | --- | --- |
+| 14–19 | The Descent | 8×8 | gentle heights, first crumble slabs, **ice slabs** |
+| 20–27 | Glass Meadow | 10×10 | full height range, sentinels, **spring pits** |
+| 28–35 | The Lattice | 12×12 | double hazards, **shuttle platforms** bridge the gaps |
+| 36–43 | The Crucible | 14×14 | two sentinels, dense crumble, every mechanic |
+| 44–50 | The Spire | 16–18×18 | the largest maps, **level 50 adds the sealed gate + key on an 18×18 plateau** |
 
 Every generated level is rejected until the full verifier proves it — same guarantees as
 the hand-made ones: solvable, zero soft-locks, no spawn-kills.
@@ -210,6 +211,9 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // crumble: [[x, z]],      // cracked slabs
   // orbs: [{ path, speed }],// sentinels
   // sliders: [{ tiles, period, phase }], // rising/sinking bridge groups
+  // shuttles: [{ a: [x,z], b: [x,z] }],  // looping platform that ferries across the gap
+  // ice: [[x, z]],           // slabs that keep a rolling cube sliding
+  // springs: [[x, z]],       // pads that launch a roll over a void pit
   // key: [x, z],            // unlocks the sealed gate
   // wind: { x: -1, z: -1 }, // diagonal breeze
 }

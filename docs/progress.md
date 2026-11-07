@@ -17,16 +17,22 @@ this is the map._
 | `a19e6bd` | **Playable-route test gate**: bot plays every level on every commit (pre-commit hook + CI) | live gate run (commit blocked a deliberately broken level) |
 | this cycle (a) | Studio docs (research, GDD, architecture, ADRs, algorithms, level design, progression), unit tests (29), regression tests (2), stress, perf suite with budgets | all green, exit 0 |
 | this cycle (b) | **Timing-fairness gate** (ADR-012): crossing-window model + 0.5 s floor in the verifier, generator + daily regen under the gate, live bot plays the fair-crossing graph with gap-free commit — fixes BUG-003 (L46 blocked), BUG-004 (L12 key), BUG-005 (L15 crumble entry), BUG-006 (ambiguous orb anchor), BUG-007 (illegal entry roll) | verify 8-check all green + live suite 51/51 + timing unit 8/8 |
+| this cycle (c) | **EDGE-scale maps + new mechanics** (ADR-013): campaign enlarged 8×8→18×18; three new mechanics — shuttle platform loop (looping bridge between structures, dwell/ride/dwell), ice slide (one press, slides through the ice run), spring pad (launch over a void pit); "one resolved press" rule (`resolveRoll`) + shuttle ride edges in every search; view-as-clock platform, distance-based carry; generator carves mechanics into the route with sentinel corridor clearance; live bot boards rides / plays slides / rides launches; crossing-graph revisit hardening + live-bot route tripwire + stale-snap/mid-burst repairs | unit 52/52 (+14 mechanic tests) + verify 8-check all green + live suite 51/51 ×2 + gate-caught mid-launch pump fix |
 
 ## Current status: **GREEN**
 
-- `npm run test:unit` — 29/29 pass (+ `tests/unit/timing.test.mjs` 9/9 —
-  BUG-003/004/006/007 regression pins)
+- `npm run test:unit` — 52/52 pass (+ `tests/unit/timing.test.mjs`
+  BUG-003/004/006/007 regression pins; + `tests/unit/mechanics.test.mjs`
+  13 mechanic pins — shuttle ride edges / ice resolved slide / spring
+  launch / corridor audits)
 - `npm run verify` — 50 levels + 14 dailies, **8 checks** each (route,
   soft-lock, shards, crumble/push survival, spawn safety, data sanity,
   par, **timing fairness** — every sentinel crossing ≥ 0.5 s window;
   key levels proven start→key→goal)
-- `npm run test:play` — 51/51 playable (50 + daily), 0 page errors
+- `npm run test:play` — 51/51 playable (50 + daily), 0 page errors —
+  including the shuttle levels (bot waits for the dwell, boards, rides
+  the carry) and the ice/spring levels (bot plans over resolved
+  landings)
 - `npm run regression` — BUG-001 + BUG-002 pinned
 - `npm run stress` — 4/4 scenarios clean
 - `npm run perf` — within budgets (0.5 ms p50 frame cost, 22–31 draw

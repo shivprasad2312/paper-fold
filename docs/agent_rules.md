@@ -75,6 +75,9 @@ session's memory.
   blocks: [[x, z]], nudge: N,           // telekinesis
   orbs: [{ path: [[x, z], ...], speed, phase? }],  // sentinels
   sliders: [{ tiles: [[x, z]], period, phase }],   // bridges
+  shuttles: [{ a: [x, z], b: [x, z], wait? }],     // looping platform (gap 2–5, straight)
+  ice: [[x, z]],                        // slabs that keep a rolling cube sliding
+  springs: [[x, z]],                    // pads that launch a roll over void (≤3)
   key: [x, z],                          // sealed gate (finale only)
   wind: { x: ±1, z: ±1 },               // diagonal breeze
 }
