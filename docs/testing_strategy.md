@@ -56,15 +56,17 @@ solver, not a spreadsheet.
 
 | Suite | Command | Proves | When |
 |---|---|---|---|
-| **Playable-route** | `npm run test:play` | every level + today's daily is **played to `won`** through real key presses: the bot plans over the same `fairCrossingGraph` as the verifier **plus the mechanic edges** — resolved ice/spring landings are single edges (`resolveRoll`), a shuttle ride is a wait-and-board edge (the bot waits for the platform dwell, boards, and lets the carry run — the ride is two-phase: platform dwell at the far dock, then cube settle); waits for the crossing window at the *off-line* entry, then commits the whole line run as one gap-free burst (queue topped with up to 2 continuation rolls, no pauses on the patrol line, and never pre-queues a roll into a shuttle dock); the crossing wait anchors the simulation on the view's directed `orb.dist`, never on position (out-and-back patrols are ambiguous by position — BUG-006); 8 attempts per level, zero page errors | **pre-commit + CI (gate)** |
+| **Playable-route** | `npm run test:play` | the selected levels (+ today's daily) are **played to `won`** through real key presses: the bot plans over the same `fairCrossingGraph` as the verifier **plus the mechanic edges** — resolved ice/spring landings are single edges (`resolveRoll`), a shuttle ride is a wait-and-board edge (the bot waits for the platform dwell, boards, and lets the carry run — the ride is two-phase: platform dwell at the far dock, then cube settle); waits for the crossing window at the *off-line* entry — the wait runs the commit's press-schedule BAND (ADR-018: the whole path polyline between the earliest and the human-slow press schedules, ± the mesh arc slack, must clear every sentinel — the same model the verifier's window gate runs), then commits the whole line run as one gap-free burst (queue topped with up to 2 continuation rolls, no pauses on the patrol line, and never pre-queues a roll into a shuttle dock or onto a dipping slider bridge — a slider-bound roll waits for the bridge to rise, same rule as the main loop, and never waits on a crumble slab); the commit's anim waits bail on ANY non-playing state so a death surfaces to the attempt loop before the game's 1 s respawn window elapses (a swallowed death desyncs the commit from a stale position — L13, 2026-11-09); the crossing wait anchors the simulation on the view's directed `orb.dist`, never on position (out-and-back patrols are ambiguous by position — BUG-006); 8 attempts per level, zero page errors. At 200 levels the selection is **stratified** (ADR-015): `scripts/live-gate.mjs` plays the **changed levels** (diffed content files) plus a **rotating 50-level quarter** — state in the git-ignored `.kubik-rotation.json`, advanced only on a green run, so every level is live-played at least once per four commits and immediately when its content changes. `npm run test:play:all` plays all 200 (the nightly job) | **pre-commit + CI (gate)** |
 | **Mechanics playtest** | `npm run playtest` | 64 scripted checks: win/death/push/wind/key/bridge/ghost/medal/daily/theme/camera seats/hold-to-roll/… | CI |
 | **Stress** | `npm run stress` | 120 mashed inputs, 30 restart spams on L13, win→Next ×3 flow, hold-to-roll through 4 pause/resume cycles — no state corruption, no panel ghosts, no errors | manual / on-request |
 | **Perf** | `npm run perf` | frame cost, draw calls, governor behaviour, leak check vs budgets | manual / on-request |
 
 The playable-route suite is the one wired into the gate (with the
-verifier): it is fast enough (~4 min) and its failure modes are exactly
-the shipped-defect classes from research §6 (dead levels, crash-on-level,
-janky interactions).
+verifier): the stratified selection stays ~10 min (50-level quarter +
+changed levels), its failure modes are exactly the shipped-defect classes
+from research §6 (dead levels, crash-on-level, janky interactions), and
+the nightly full run (`.github/workflows/nightly-full-play.yml`, all 200,
+~30–45 min) is the backstop for anything the rotation has not reached.
 
 ## 5. Regression (`tests/regression/`, `npm run regression`)
 
@@ -75,7 +77,7 @@ One named test per fixed bug (bug_tracker.md):
   window — the original repro — Replay after the panel, Next) and watches
   2 s each for a resurface.
 - **BUG-002** `fault-line-spawn.mjs` — pure Node: the specific level that
-  shipped broken + the general spawn-safety property over all 50 + 7 dailies.
+  shipped broken + the general spawn-safety property over all 200 + 7 dailies.
 
 - **BUG-003** `tests/unit/timing.test.mjs` — the crossing-window gate as
   unit tests: exact old-L46 layout rejected, fair layout passes, sealed
@@ -106,8 +108,9 @@ hook and CI use them directly — no duplicated logic).
 
 | Event | Tests |
 |---|---|
-| `git commit` (pre-commit hook) | unit + verify + **playable-route** (the gate) |
-| push / PR (CI) | unit + verify + playable-route + full playtest |
+| `git commit` (pre-commit hook) | unit + verify + **live gate** (changed + rotating 50) |
+| push / PR (CI) | unit + verify + live gate (changed + rotating 50) + full playtest |
+| nightly (02:00 UTC, `nightly-full-play.yml`) | verify (all 200) + **playable-route ALL 200** |
 | content work (new level / mechanic) | + `validate:levels`, `regression`, screenshot review |
 | performance work | `perf` (budgets enforced) |
 | pre-release | + device pass (touch + audio + real GPU), store checklist |

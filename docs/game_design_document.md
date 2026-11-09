@@ -162,8 +162,12 @@ chase. Levels with ≤ 4 presses have no bench (restarting is instant).
 
 - **Menu**: title, Play (current level), Levels, Daily, theme, mute, camera
   seat. No more than two taps to a rolling cube.
-- **Level select**: wall of 50 cards — index, name, best medal, best time;
-  daily card pinned. All cards active.
+- **Level select (act map)**: the 200 levels grouped into 10 acts — each
+  act is a station header (progress ring + act name + tag + cleared count)
+  over its 20 level cards (index, name, best medal, best time, shard dots);
+  the daily card is pinned at the top. All cards active from the start
+  (ADR-011, ADR-015). The flat 50-card wall could not scale to 200 and gave
+  the campaign no structure.
 - **In-level HUD**: top — level name + timer + moves/par + shards; bottom —
   mechanic chips (what this level uses), hint; minimap (top-right) shows
   geometry, you, shards, gate, sentinels.

@@ -85,12 +85,23 @@ test('gateKey levels: the bench sits strictly PAST the key on the journey', () =
     const level = levelOf(id);
     assert.ok(level.gateKey, `L${id} has a key`);
     const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
-    const path = [...shortestPath(level, level.start, keyTile), ...shortestPath(level, keyTile, level.goal).slice(1)];
+    // the journey is start → key → goal with the goal tile BLOCKED on the
+    // first leg (the gate is sealed until the key — game.js gateLocked),
+    // exactly the path rescueTile measures
+    const goalK = key(level.goal.x, level.goal.z);
+    const path = [
+      ...shortestPath(level, level.start, keyTile, new Set([goalK])),
+      ...shortestPath(level, keyTile, level.goal).slice(1),
+    ];
     const rt = rescueTile(level);
     assert.ok(rt, `L${id}: bench exists`);
     const keyIdx = path.findIndex((t) => key(t.x, t.z) === key(level.gateKey.x, level.gateKey.z));
-    const rtIdx = path.findIndex((t) => key(t.x, t.z) === key(rt.x, rt.z));
-    assert.ok(rtIdx > keyIdx, `L${id}: bench (${rtIdx}) is past the key (${keyIdx})`);
+    // the route may revisit the bench tile (key detour that loops back), so
+    // the bench must be reachable at some occurrence strictly PAST the key
+    const rtIdxs = path
+      .map((t, i) => (key(t.x, t.z) === key(rt.x, rt.z) ? i : -1))
+      .filter((i) => i >= 0);
+    assert.ok(Math.max(...rtIdxs) > keyIdx, `L${id}: bench (${rtIdxs}) is past the key (${keyIdx})`);
   }
 });
 

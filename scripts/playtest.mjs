@@ -3,6 +3,8 @@
 import puppeteer from 'puppeteer-core';
 import chromium from '@sparticuz/chromium';
 import { mkdirSync } from 'node:fs';
+import { LEVELS } from '../src/levels.js';
+import { ACTS } from '../src/acts.js';
 
 const URL = process.env.URL || 'http://localhost:5173/';
 const OUT = process.env.OUT || 'shots';
@@ -404,7 +406,7 @@ const cardStats = await page.evaluate(() => ({
   locked: document.querySelectorAll('.level-card.locked').length,
   disabled: document.querySelectorAll('.level-card[disabled]').length,
 }));
-check('all 50 levels are open from the start', cardStats.total === 50 && cardStats.locked === 0 && cardStats.disabled === 0,
+check('all levels are open from the start', cardStats.total === LEVELS.length && cardStats.locked === 0 && cardStats.disabled === 0,
   `cards=${cardStats.total} locked=${cardStats.locked} disabled=${cardStats.disabled}`);
 const dailyCard = await page.evaluate(() => !!document.querySelector('.daily-card'));
 check('daily card in level select', dailyCard);
@@ -558,6 +560,70 @@ await load(26); // L27 Twin Falls — par 15, bench on the proven path
   check('rescue keeps the timer running', g4.state === 'playing' && g4.elapsedKept, JSON.stringify(g4));
   await page.evaluate(() => window.__kubik.restartLevel());
   await idle();
+}
+
+// ---- campaign 2 (51–200): the act map + generated 18×18 levels -----------
+// Skipped while the catalogue is still being generated (campaign2.js holds
+// a partial set mid-run); the gate runs this once the full 200 is shipped.
+if (LEVELS.length >= 200) {
+  await page.evaluate(() => window.__kubik.openLevels());
+  await wait(300);
+  const acts = await page.evaluate(
+    () => document.querySelectorAll('.act-header').length,
+  );
+  check('act map shows all 10 acts', acts === ACTS.length, `acts=${acts}`);
+  const cards = await page.evaluate(
+    () => document.querySelectorAll('.level-card:not(.daily-card)').length,
+  );
+  check('act map shows 200 level cards', cards === 200, `cards=${cards}`);
+  const rings = await page.evaluate(
+    () => document.querySelectorAll('.act-ring-fg').length,
+  );
+  check('act progress rings render', rings === ACTS.length, `rings=${rings}`);
+
+  const bossIdx = LEVELS.findIndex((d) => d.id === 60);
+  await load(bossIdx);
+  let b = await state();
+  check('act-3 boss (60, 18×18) loads playing', b.state === 'playing', JSON.stringify(b));
+  const bBefore = b.cube;
+  // the boss track is mirrored per seed — pick the first LEGAL direction
+  // from the level's own tile map (a provable start always has one)
+  const dir = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    const { x, z, h } = g.cube;
+    const t = (dx, dz) => g.level.tiles.get(`${x + dx},${z + dz}`);
+    const ok = (n) => n && n.h - h <= 1 && h - n.h <= 2;
+    if (ok(t(0, -1))) return 'ArrowUp';
+    if (ok(t(-1, 0))) return 'ArrowLeft';
+    if (ok(t(1, 0))) return 'ArrowRight';
+    if (ok(t(0, 1))) return 'ArrowDown';
+    return null;
+  });
+  let moved = false;
+  if (dir) {
+    await press(dir);
+    b = await state();
+    moved = b.state === 'playing' && (b.cube.x !== bBefore.x || b.cube.z !== bBefore.z || b.cube.h !== bBefore.h);
+  }
+  check(
+    'boss level takes a roll',
+    moved,
+    `${JSON.stringify(bBefore)} -> ${JSON.stringify(b.cube)} via ${dir} (${b.state})`,
+  );
+
+  const finIdx = LEVELS.findIndex((d) => d.id === 200);
+  await load(finIdx);
+  const fin = await page.evaluate(() => {
+    const g = window.__kubik.game;
+    return { state: g.state, hasKey: g.hasKey, locked: g.gateLocked, par: g.par };
+  });
+  check(
+    'finale (200) loads sealed',
+    fin.state === 'playing' && fin.hasKey === false && fin.locked === true,
+    JSON.stringify(fin),
+  );
+} else {
+  console.log(`· campaign-2 checks skipped (catalogue ${LEVELS.length}/200 — generation in flight)`);
 }
 
 console.log('\nerrors:', errors.length ? errors : 'none');

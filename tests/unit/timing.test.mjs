@@ -63,8 +63,13 @@ const L46_BLOCKED = {
 
 /**
  * The L46 the timing gate now ships: the sentinel guards a 1-tile crossing
- * near the goal — the window opens ~0.8 s every patrol, which a player can
- * catch. (Layout from the regenerated campaign; kept here as the "after".)
+ * near the goal — the window opens ~0.74 s every patrol under the
+ * press-schedule BAND model (the cube's possible positions between the
+ * fastest and the slowest plausible commit both clear the sentinel,
+ * ADR-018), which a player can catch. (Layout from the regenerated
+ * campaign; kept here as the "after". Speed chosen so the window clears
+ * the 0.5 s floor with margin under the band — the cramped 2-tile patrol
+ * leaves little margin, so the sentinel is slow.)
  */
 const L46_FAIR = {
   id: 46,
@@ -86,7 +91,7 @@ const L46_FAIR = {
   goal: [8, 0],
   shards: [[8, 1], [0, 7], [7, 1], [1, 6]],
   crumble: [[1, 8], [1, 7], [2, 6]],
-  orbs: [{ path: [[6, 1], [8, 1]], speed: 1.35 }],
+  orbs: [{ path: [[6, 1], [8, 1]], speed: 0.5 }],
 };
 
 /** Off-line tiles reachable from `from` without crossing the patrol line. */

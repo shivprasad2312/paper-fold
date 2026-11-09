@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "KUBIK — a minimalist cube-rolling puzzle game for the browser",
+  "description": "KUBIK \u2014 a minimalist cube-rolling puzzle game for the browser",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
@@ -11,7 +11,7 @@
     "verify": "node scripts/verify-levels.mjs",
     "test": "npm run test:unit && npm run verify && npm run test:play",
     "test:unit": "node --test tests/unit/*.test.mjs",
-    "test:play": "node scripts/test-levels-playable.mjs",
+    "test:play": "node scripts/live-gate.mjs",
     "regression": "node tests/regression/fault-line-spawn.mjs && node tests/regression/win-panel-resurface.mjs",
     "stress": "node tests/gameplay/stress.mjs",
     "perf": "node tests/performance/perf.mjs",
@@ -19,7 +19,9 @@
     "playtest": "node scripts/playtest.mjs",
     "autoplay": "node scripts/autoplay.mjs",
     "shots": "node scripts/shoot.mjs",
-    "hooks": "node scripts/hooks/install.mjs"
+    "hooks": "node scripts/hooks/install.mjs",
+    "test:play:all": "node scripts/test-levels-playable.mjs",
+    "test:full": "npm run test:unit && npm run verify && URL=$KUBIK_URL npm run test:play:all"
   },
   "dependencies": {
     "three": "^0.186.1"

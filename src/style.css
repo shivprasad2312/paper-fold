@@ -2,6 +2,7 @@
   --bg: #05070f;
   --ink: #e8f2ff;
   --dim: #8fa3c4;
+  --ink-dim: #8fa3c4;
   --cyan: #5ce1ff;
   --blue: #4d7dff;
   --magenta: #ff5ad9;
@@ -349,6 +350,64 @@ kbd {
   gap: 10px;
 }
 
+/* Act map: a full-width station header above each act's level cards */
+.act-header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  border: 1px solid hsla(var(--act-hue), 60%, 60%, 0.28);
+  background: linear-gradient(120deg, hsla(var(--act-hue), 55%, 45%, 0.16), rgba(10, 16, 28, 0.5) 70%);
+}
+.act-header:first-child { margin-top: 0; }
+.act-ring { width: 40px; height: 40px; flex: none; transform: rotate(-90deg); }
+.act-ring circle { fill: none; stroke-width: 3.5; }
+.act-ring-bg { stroke: rgba(255, 255, 255, 0.1); }
+.act-ring-fg {
+  stroke: hsl(var(--act-hue), 85%, 65%);
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px hsla(var(--act-hue), 85%, 65%, 0.7));
+  transition: stroke-dashoffset 0.4s ease;
+}
+.act-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.act-no {
+  font-size: 10px;
+  letter-spacing: 0.3em;
+  font-weight: 700;
+  color: hsl(var(--act-hue), 80%, 72%);
+}
+.act-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.act-tag {
+  font-size: 11px;
+  color: var(--ink-dim);
+  font-style: italic;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.act-count {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-dim);
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(10, 16, 28, 0.5);
+}
+
 .level-card {
   position: relative;
   aspect-ratio: 1;
@@ -670,6 +729,7 @@ body.light {
   --bg: #e9edf4;
   --ink: #131a26;
   --dim: #5c6a82;
+  --ink-dim: #5c6a82;
   --panel: rgba(255, 255, 255, 0.85);
   --line: rgba(40, 60, 100, 0.16);
   background: radial-gradient(120% 90% at 50% -10%, #ffffff 0%, #eef2f9 45%, #dde5f0 72%);

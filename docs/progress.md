@@ -50,8 +50,25 @@ this is the map._
 - **Scale-up to ~200 levels** (plan: `docs/roadmap-200.md`, 7
   milestones). **M1 done — mid-path second chance (ADR-014)**: rescue
   bench shipped and gate-proven (unit 59/59, verify 9-check, playtest
-  71/71 incl. 7 rescue checks, live bot accepts rescues). Next: M2
-  level generator + difficulty curve, then M3 content 51→200.
+  71/71 incl. 7 rescue checks, live bot accepts rescues).
+- **M2 done — the 200-level skeleton (ADR-015, 016, 017, 018, 019;
+  closed 2026-11-09)**: 10 acts × 20 in `src/acts.js`; 24-archetype
+  library (`scripts/archetypes.mjs`); shared hazard stage
+  (`scripts/hazards.mjs`) with the sentinel refuge law — 14–50 and
+  51–200 generated through the full 9-check verifier (par band,
+  min-orb band, bench fairness, key-aware sealed-goal model,
+  **press-schedule-band timing fairness** — the cube's band of
+  possible positions under the fastest and slowest plausible commit
+  must clear every sentinel) + uniqueness + curation (ADR-019: the
+  long-route archetypes are capped below par floor 19 — dropped from
+  the act 3–9 pools); act-map level select; stratified live gate
+  (`scripts/live-gate.mjs`: changed + rotating 50 per commit, full 200
+  nightly in CI). Final live gate 2026-11-09: **201/201 playable**
+  (200 campaign + daily, ~102 min, zero page errors) after the band
+  model's corner-tile + arc-slack correction (ADR-018 calibration:
+  L179 "The Pincer" proved the chord band cut corner tiles; all 200 +
+  14 dailies re-verified clean, no slots regenerated). Next: M3
+  (the mechanic set, per act).
 
 ## Remaining (honest list — NOT done)
 
@@ -79,9 +96,14 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…012). Latest: ADR-010 (two-bar
-test gate), ADR-011 (all levels open), ADR-012 (timing-fairness
-gate — no sentinel crossing may ship without a ≥ 0.5 s window).
+Log: `technical_decisions.md` (ADR-001…019). Latest: ADR-014
+(mid-path second chance — the rescue bench), ADR-015 (the 200-level
+campaign: archetype library + shared hazard stage + stratified live
+gate), ADR-016 (the crossing models run the game's real easeInOut
+trajectory), ADR-017 (the sealed goal: impassable until the key),
+ADR-018 (the press-schedule BAND — no single press rhythm may be the
+only one that can catch a window), ADR-019 (the long-route archetypes
+are capped below par floor 19 — the act 3–9 pools are corrected).
 
 ## Blockers
 

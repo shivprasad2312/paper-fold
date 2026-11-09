@@ -164,11 +164,31 @@ geometry: enter at the top row, thread down the middle, exit at the
 bottom).
 
 **Window — `crossingWindow(level, entry, seq, exit)`:** fine-grained
-simulation (5 ms steps, sub-stepped rolls) over one full joint period of
-the orbs; an orb counts only if its patrol is within Chebyshev 1 of some
-tile on the path (irrelevant orbs are skipped). Returns the length of
-the longest safe start-time interval, or `Infinity` when no orb
-threatens the path.
+simulation (sub-stepped rolls) over one full joint period of the orbs; an
+orb counts only if its patrol is within Chebyshev 1 of some tile on the
+path (irrelevant orbs are skipped). Returns the length of the longest
+safe start-time interval, or `Infinity` when no orb threatens the path.
+**The crossing cube is simulated with the game's real `easeInOut` roll
+curve (ADR-016)** — not a linear lerp between tiles. A linear cube
+underestimates how long it dwells near each tile centre (inside the 0.62
+kill radius), so it advertised windows the real eased cube dies in; the
+verifier and the live bot now share the same eased trajectory. **And
+the window must survive the commit's press-schedule BAND (ADR-018):**
+a live commit does not run on one timeline — the bot's pre-queued
+continuations make it FAST (one roll can start the instant the previous
+one ends; `COMMIT_FAST_PRESS/LOOP = 0.0/0.0 s`), while throttled loops
+and a human's swipe rhythm make it SLOW (a fresh swipe after every
+roll; `COMMIT_SLOW_PRESS/LOOP = 0.35/0.40 s`). `commitSchedules`
+returns both bounds (the fast side runs the game's real pre-queue state
+machine: the game queue dedupes same-direction entries and holds at
+most 2); the cube at any moment may be ANYWHERE on the PATH POLYLINE
+between the slow and the fast progress positions — corner tiles
+included, not just a straight chord — with both ends extended by
+`ARC_SLACK = 0.12` tiles for the mesh's pivot-arc lead/lag
+(`commitBandProgress`/`commitBandDistR2`), and a start is safe only if
+every sentinel is clear of that whole polyline at every substep. A
+window that only one specific press rhythm could catch is a
+pixel-timing trap and is rejected.
 
 **Fair — `TIMING_FLOOR = 0.5 s`:** a window is *fair* iff its length is
 ≥ 0.5 s — about one roll of reaction margin. The floor exists because

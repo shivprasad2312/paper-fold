@@ -304,7 +304,7 @@ export function canPushBlock(level, x, z, dx, dz) {
 }
 
 /** Every tile reachable from the start, ignoring crumble timers and orbs. */
-export function reachable(level) {
+export function reachable(level, blocked = null) {
   const seen = new Set([key(level.start.x, level.start.z)]);
   const queue = [level.start];
   while (queue.length) {
@@ -312,6 +312,7 @@ export function reachable(level) {
     const targets = rollTargets(level, cur);
     for (const to of targets) {
       const k = key(to.x, to.z);
+      if (blocked && blocked.has(k)) continue; // e.g. the sealed goal
       if (!seen.has(k)) {
         seen.add(k);
         queue.push(to);
@@ -368,13 +369,33 @@ export function canStillFinish(level) {
 /**
  * Shortest number of rolls from start to goal (BFS over legal moves).
  * Used as the level's "par" — clearing in exactly this many rolls is a par run.
+ *
+ * Key-aware: on gateKey levels a sealed gate is impassable before the key is
+ * in your pocket (the game rejects any roll onto it), so the player's minimum
+ * for the full start→goal journey is the shortest start→key→goal, not the
+ * bare start→goal (which may cut straight through the sealed goal tile).
  */
-export function shortestRoute(level) {
-  const goalKey = key(level.goal.x, level.goal.z);
-  const startKey = key(level.start.x, level.start.z);
+export function shortestRoute(level, start = level.start, goal = level.goal) {
+  const isFullJourney =
+    level.gateKey &&
+    start.x === level.start.x && start.z === level.start.z &&
+    goal.x === level.goal.x && goal.z === level.goal.z;
+  if (isFullJourney) {
+    const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
+    if (keyTile) {
+      const a = bfsRolls(level, start, keyTile);
+      const b = bfsRolls(level, keyTile, goal);
+      return a < 0 || b < 0 ? -1 : a + b;
+    }
+  }
+  return bfsRolls(level, start, goal);
+}
+function bfsRolls(level, start, goal) {
+  const goalKey = key(goal.x, goal.z);
+  const startKey = key(start.x, start.z);
   if (startKey === goalKey) return 0;
   const dist = new Map([[startKey, 0]]);
-  const queue = [level.start];
+  const queue = [start];
   while (queue.length) {
     const cur = queue.shift();
     const d = dist.get(key(cur.x, cur.z));
@@ -395,7 +416,22 @@ export function shortestRoute(level) {
  * launch is one step landing on the far tile). `path.length - 1` ===
  * shortestRoute. Null when the goal is unreachable.
  */
-export function shortestPath(level, start = level.start, goal = level.goal) {
+export function shortestPath(level, start = level.start, goal = level.goal, blocked = null) {
+  // key-aware for the full journey (mirrors shortestRoute): on gateKey
+  // levels the player must collect the key before the sealed gate opens, so
+  // the journey is start → key → goal
+  const isFullJourney =
+    level.gateKey && blocked == null &&
+    start.x === level.start.x && start.z === level.start.z &&
+    goal.x === level.goal.x && goal.z === level.goal.z;
+  if (isFullJourney) {
+    const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
+    if (keyTile) {
+      const a = shortestPath(level, start, keyTile, new Set([key(level.goal.x, level.goal.z)]));
+      const b = shortestPath(level, keyTile, goal);
+      if (a && b) return [...a, ...b.slice(1)];
+    }
+  }
   const goalKey = key(goal.x, goal.z);
   const startKey = key(start.x, start.z);
   if (startKey === goalKey) return [start];
@@ -407,6 +443,7 @@ export function shortestPath(level, start = level.start, goal = level.goal) {
     for (const to of rollTargets(level, cur)) {
       const k = key(to.x, to.z);
       if (prev.has(k)) continue;
+      if (blocked && blocked.has(k) && k !== goalKey) continue; // sealed gate
       prev.set(k, ck);
       if (k === goalKey) {
         const path = [to];
@@ -440,7 +477,10 @@ export function rescueTile(level) {
     // (start → key → goal), because a player 50% along that journey has
     // necessarily picked the key up
     const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
-    const a = keyTile ? shortestPath(level, level.start, keyTile) : null;
+    // sealed gate: the start→key leg may not pass through the goal tile
+    const a = keyTile
+      ? shortestPath(level, level.start, keyTile, new Set([key(level.goal.x, level.goal.z)]))
+      : null;
     const b = keyTile ? shortestPath(level, keyTile, level.goal) : null;
     if (!a || !b) return null;
     path = [...a, ...b.slice(1)];
@@ -690,6 +730,188 @@ export const ORB_KILL_RADIUS = 0.62;
  * cannot reliably catch the gap (it reads as a trap, not a challenge).
  */
 export const TIMING_FLOOR = 0.5;
+/**
+ * A live commit does not run on one ideal timeline — its press schedule
+ * varies with load (bot loop latency, a human's reaction), and the game's
+ * queue rules make the fast and the slow cases DIFFERENT, not the same
+ * schedule shifted. `commitSchedules` returns both bounds; the true
+ * schedule always lies between them, so a crossing is proven safe only if
+ * the whole band of possible cube positions clears every sentinel at
+ * every substep (L7 "Weave", 2026-11-08: the single-trajectory model
+ * assumed a re-press gap before EVERY continuation roll, but the commit
+ * pre-queues one continuation during the previous roll — the real cube
+ * reached the patrol line ~0.25 s EARLIER than the model had it and died
+ * on a substep the model never covered; L60 "Below the Cloudline": the
+ * opposite edge, where throttled loops make the real cube LATER — both
+ * edges are real deaths).
+ *
+ * Fast bound (driveCommit, ADR-018): roll 0 is pressed; every press
+ * pre-queues the next roll during the animation (the game queue dedupes
+ * same-direction entries and holds at most 2), so the next roll starts
+ * the instant the previous one ends — unless that roll's own pre-queue
+ * came from a roll that was itself pre-queued (not pressed), and the
+ * direction repeats, in which case one bot loop (poll + re-press) is
+ * required. Slow bound: no pre-queue credit at all — every continuation
+ * roll is a fresh reaction/loop.
+ */
+/**
+ * Fast bound: the bot's warm-loop minimum — one poll + two evaluates +
+ * press + a frame before the first roll starts, and the same for a
+ * re-press loop. Slow bound: a (somewhat slow) human's commit — decision
+ * to first swipe, then a swipe rhythm after each roll (a human has no
+ * queue to ride: every continuation is a fresh swipe).
+ */
+/**
+ * Arc slack, in TILES: the cube mesh traces a pivot arc during a roll, so
+ * its x/z progress along the roll axis LEADS or LAGS the linear chord
+ * (progress = a.t) by at most this much (measured over the eased 90°
+ * pivot: max ≈ 0.119, rounded up to 0.12). The sentinel kill test runs on
+ * the MESH position, so the band must extend ARC_SLACK past both progress
+ * bounds (2026-11-09 forensics, L7/L179).
+ */
+export const ARC_SLACK = 0.12;
+
+/**
+ * Fast bound — the EARLIEST the committed path can be covered, measured in
+ * seconds of GAME time after the safety poll:
+ *  - the press executes SYNCHRONOUSLY (roll creation in the same frame as
+ *    the poll — forensics 2026-11-09, L7: old 0.06 was ~4× the real delay);
+ *  - a pre-queued roll starts on the frame AFTER the previous roll
+ *    finishes (one pump frame), and a re-pressed roll needs a full bot
+ *    loop — both ≥ 0, so the earliest schedule chains rolls back-to-back;
+ *  - the bot's re-press gap can run a hair under a clamped frame in game
+ *    time (fast throttling), so no positive loop slack may be assumed —
+ *    any residual is covered by ARC_SLACK on the fast edge.
+ * Soundness: for every real press pattern the true logical progress
+ * p(u) ≤ fastProgress(u), so the fast edge never sits behind the cube.
+ *
+ * Slow bound: a (somewhat slow) human's commit — reaction to the first
+ * swipe, then a swipe rhythm after each roll (a human has no queue to
+ * ride: every continuation is a fresh swipe).
+ */
+export const COMMIT_FAST_PRESS = 0.0;
+export const COMMIT_FAST_LOOP = 0.0;
+export const COMMIT_SLOW_PRESS = 0.35;
+export const COMMIT_SLOW_LOOP = 0.4;
+
+/**
+ * Start times of the K rolls for the fast and slow bounds. dirs[k] is the
+ * direction of roll k ('up'/'down'/'left'/'right'). Fast: roll 0 starts
+ * COMMIT_FAST_PRESS after the safety poll; a roll starts the moment the
+ * previous one ends when it was pre-queued by a PRESS (its own, or the
+ * press two rolls back covering two slots), otherwise it waits one
+ * COMMIT_FAST_LOOP for the bot to re-press. Slow: every roll after the
+ * first waits COMMIT_SLOW_LOOP.
+ */
+export function commitSchedules(dirs) {
+  const fast = [COMMIT_FAST_PRESS];
+  const slow = [COMMIT_SLOW_PRESS];
+  const pressed = [true];
+  for (let k = 1; k < dirs.length; k++) {
+    const prequeued =
+      pressed[k - 1] || (k >= 2 && pressed[k - 2] && dirs[k] !== dirs[k - 1]);
+    pressed[k] = !prequeued;
+    fast[k] = fast[k - 1] + ROLL_TIME + (prequeued ? 0 : COMMIT_FAST_LOOP);
+    slow[k] = slow[k - 1] + ROLL_TIME + COMMIT_SLOW_LOOP;
+  }
+  return { fast, slow };
+}
+
+/** Cube position on `path` at progress p (tiles along the path, 0..N). */
+export function bandPos(path, p) {
+  if (p <= 0) return { x: path[0].x, z: path[0].z };
+  const n = path.length - 1;
+  if (p >= n) {
+    const e = path[n];
+    return { x: e.x, z: e.z };
+  }
+  const i = Math.floor(p);
+  const f = p - i;
+  return {
+    x: path[i].x + (path[i + 1].x - path[i].x) * f,
+    z: path[i].z + (path[i + 1].z - path[i].z) * f,
+  };
+}
+
+/** Progress (tiles along the path) at real time u for one schedule. */
+export function bandProgress(path, sched, u) {
+  let p = 0;
+  for (let k = 0; k < sched.length; k++) {
+    if (u >= sched[k] + ROLL_TIME) {
+      p = k + 1;
+      continue;
+    }
+    if (u > sched[k]) return k + (u - sched[k]) / ROLL_TIME;
+    return p; // resting before this roll starts (or before the first press)
+  }
+  return path.length - 1;
+}
+
+/**
+ * The cube's possible PROGRESS range (tiles along `path`) at real time u
+ * since the safety poll. The true logical progress always lies between
+ * `slowProgress(u)` and `fastProgress(u)` (fast = earliest schedule, see
+ * the constants above); the mesh additionally sits up to ARC_SLACK ahead
+ * of / behind its logical progress (pivot-arc lead and lag), so both
+ * bounds are extended by ARC_SLACK and clamped to the path.
+ */
+export function commitBandProgress(path, sched, u) {
+  const n = path.length - 1;
+  const clamp = (p) => (p < 0 ? 0 : p > n ? n : p);
+  return {
+    a: clamp(bandProgress(path, sched.slow, u) - ARC_SLACK),
+    b: clamp(bandProgress(path, sched.fast, u) + ARC_SLACK),
+  };
+}
+
+/**
+ * The cube's possible positions at real time u since the safety poll:
+ * the band's two endpoints (identical when the bounds agree).
+ */
+export function commitBand(path, sched, u) {
+  const { a, b } = commitBandProgress(path, sched, u);
+  return { a: bandPos(path, a), b: bandPos(path, b) };
+}
+
+/**
+ * Squared distance from (px, pz) to the PATH POLYLINE between the band's
+ * progress bounds. The cube can sit on any tile-center-to-tile-center
+ * segment in between — including the CORNER tiles a straight chord between
+ * the endpoints would cut across (forensics 2026-11-09, L179 "The Pincer":
+ * fast edge already on the third roll, slow edge still on the first — the
+ * chord passed 0.31 tiles past the corner tile the real cube sat on, so a
+ * sentinel inside its kill radius of that corner was reported safe and
+ * killed the cube).
+ */
+export function commitBandDistR2(path, sched, u, px, pz) {
+  const { a, b } = commitBandProgress(path, sched, u);
+  const pts = [bandPos(path, a)];
+  for (let i = Math.floor(a) + 1; i < Math.ceil(b); i++) {
+    pts.push({ x: path[i].x, z: path[i].z });
+  }
+  const end = bandPos(path, b);
+  const last = pts[pts.length - 1];
+  if (last.x !== end.x || last.z !== end.z) pts.push(end);
+  if (pts.length === 1) return pointSegDistR2(px, pz, pts[0].x, pts[0].z, pts[0].x, pts[0].z);
+  let min = Infinity;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const d2 = pointSegDistR2(px, pz, pts[i].x, pts[i].z, pts[i + 1].x, pts[i + 1].z);
+    if (d2 < min) min = d2;
+  }
+  return min;
+}
+
+/** Squared distance from (px,pz) to the segment (ax,az)–(bx,bz). */
+export function pointSegDistR2(px, pz, ax, az, bx, bz) {
+  const abx = bx - ax;
+  const abz = bz - az;
+  const l2 = abx * abx + abz * abz;
+  let f = l2 > 1e-9 ? ((px - ax) * abx + (pz - az) * abz) / l2 : 0;
+  f = Math.max(0, Math.min(1, f));
+  const dx = px - (ax + abx * f);
+  const dz = pz - (az + abz * f);
+  return dx * dx + dz * dz;
+}
 
 /** Closed-loop length of a sentinel path, in tiles. */
 export function orbPathLength(path) {
@@ -867,21 +1089,28 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
   const rolls = path.length - 1;
   const R2 = ORB_KILL_RADIUS * ORB_KILL_RADIUS;
 
+  // The commit's press-schedule BAND: the true schedule (pre-queued
+  // continuations, bot-loop re-presses, a human's reaction) always lies
+  // between the fast and the slow bounds, so the whole band of possible
+  // cube positions must clear every sentinel at every substep — a window
+  // that only one specific schedule could catch is a pixel-timing trap
+  // (ADR-018).
+  const dirs = [];
+  for (let k = 0; k < rolls; k++) {
+    const a = path[k];
+    const b = path[k + 1];
+    dirs.push(b.z < a.z ? 'up' : b.z > a.z ? 'down' : b.x < a.x ? 'left' : 'right');
+  }
+  const sched = commitSchedules(dirs);
   const safeStart = (t0) => {
-    const n = rolls * TIMING_SUBSTEPS;
+    const end = sched.slow[sched.slow.length - 1] + ROLL_TIME + 0.18;
+    const n = Math.ceil((end * TIMING_SUBSTEPS) / ROLL_TIME);
     for (let s = 0; s <= n; s++) {
-      const tau = (s / TIMING_SUBSTEPS) * ROLL_TIME;
-      const i = Math.min(rolls - 1, Math.floor(tau / ROLL_TIME));
-      const f = (tau - i * ROLL_TIME) / ROLL_TIME;
-      const px = path[i].x + (path[i + 1].x - path[i].x) * f;
-      const pz = path[i].z + (path[i + 1].z - path[i].z) * f;
-      const t = t0 + tau;
+      const t = t0 + (s / TIMING_SUBSTEPS) * ROLL_TIME;
       for (let oi = 0; oi < orbs.length; oi++) {
         const o = orbs[oi];
         const op = orbPositionT(tables[oi], o.speed, o.phase, t);
-        const dx = op.x - px;
-        const dz = op.z - pz;
-        if (dx * dx + dz * dz < R2) return false;
+        if (commitBandDistR2(path, sched, t - t0, op.x, op.z) < R2) return false;
       }
     }
     return true;
@@ -1015,7 +1244,19 @@ const DIRS_OBJ = [[0, -1], [0, 1], [-1, 0], [1, 0]];
  * verifier runs BFS over it, and the live playable bot plans its drives
  * over it, so the gate and the play contract can never disagree.
  */
+// The crossing-graph build is the expensive part of the timing model, and a
+// single verify() calls it 2–3× for the same (immutable, parsed) level —
+// cache it per level object. Levels are never mutated after parseLevel, so
+// this is a pure memo.
+const _graphCache = new WeakMap();
 export function fairCrossingGraph(level) {
+  const hit = _graphCache.get(level);
+  if (hit) return hit;
+  const r = buildCrossingGraph(level);
+  _graphCache.set(level, r);
+  return r;
+}
+function buildCrossingGraph(level) {
   const { line, runs } = lineRuns(level);
   const edges = new Map(); // "x,z" -> [{ to: {x,z}, seq: [{x,z}...] }]
   let bestWindow = 0;
@@ -1152,11 +1393,13 @@ export function fairCrossingGraph(level) {
  * "key:x,z" for the key node). Used by the timing gate (start → goal)
  * and by the rescue-bench proof (bench → goal).
  */
-export function fairReachSet(level, from, keySeed = false) {
+export function fairReachSet(level, from, keySeed = false, blocked = null) {
   const { line, edges } = fairCrossingGraph(level);
   const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
+  const isBlocked = (tk) => blocked && !tk.startsWith('key:') && blocked.has(tk);
   const seen = new Set();
     const q = [];
+    let qi = 0; // index pointer (q.shift() is O(n²) on long queues)
     const seed = (t) => {
       const k = idOf(t);
       if (!seen.has(k)) {
@@ -1168,12 +1411,12 @@ export function fairReachSet(level, from, keySeed = false) {
     if (!from.isKeyNode && line.has(key(from.x, from.z))) {
       // a start (or the key) sitting on the line seeds only through fair
       // escape edges
-      for (const e of edges.get(entryK) || []) seed(e.to);
+      for (const e of edges.get(entryK) || []) if (!isBlocked(idOf(e.to))) seed(e.to);
     } else {
       seed(from);
     }
-    while (q.length) {
-      const ct = q.shift();
+    while (qi < q.length) {
+      const ct = q[qi++];
       const targets = new Set((edges.get(idOf(ct)) || []).map((e) => idOf(e.to)));
       if (!ct.isKeyNode) {
         for (const [dx, dz] of DIRS_OBJ) {
@@ -1183,7 +1426,7 @@ export function fairReachSet(level, from, keySeed = false) {
         }
       }
       for (const tk of targets) {
-        if (seen.has(tk)) continue;
+        if (seen.has(tk) || isBlocked(tk)) continue;
         seen.add(tk);
         const [tx, tz] = (tk.startsWith('key:') ? tk.slice(4) : tk).split(',').map(Number);
         q.push(tk.startsWith('key:') ? { x: tx, z: tz, isKeyNode: true } : { x: tx, z: tz });
@@ -1207,8 +1450,13 @@ export function timingProblems(level) {
     // be reachable after picking it up (fair route from the key)
     const keyK = key(level.gateKey.x, level.gateKey.z);
     const keyOnLine = line.has(keyK);
-    if (!reach.has(keyOnLine ? `key:${keyK}` : keyK)) {
-      return ['gate key is only reachable through an unfair sentinel crossing'];
+    // A sealed gate is IMPASSABLE before the key is picked up — the game
+    // rejects any roll onto it. The start→key route may not pass through
+    // the goal tile; a route that only exists by cutting the sealed gate
+    // is a route no player can play.
+    const reachSealed = fairReachSet(level, level.start, false, new Set([goalK]));
+    if (!reachSealed.has(keyOnLine ? `key:${keyK}` : keyK)) {
+      return ['gate key is only reachable through the sealed goal or an unfair sentinel crossing'];
     }
     if (!fairReachSet(level, level.gateKey, keyOnLine).has(goalK)) {
       return ['goal is only reachable from the key through an unfair sentinel crossing'];

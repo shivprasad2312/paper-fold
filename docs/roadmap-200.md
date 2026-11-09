@@ -54,7 +54,17 @@ live suite green. Toggle defers to M5's assist mode (save key wired now).
   main wiring, save setting, verifier check 9, unit tests, playtest
   entry, ADR-014, GDD §9 update.
 
-## Milestone 2 — The 200-level skeleton
+## Milestone 2 — The 200-level skeleton  (done 2026-11-09 — ADR-015)
+
+Status: 10 acts × 20 defined in `src/acts.js`; 24-archetype library
+(`scripts/archetypes.mjs`); shared hazard stage (`scripts/hazards.mjs`)
+with the sentinel-refuge law (14–50 re-pointed at it and regenerated);
+`gen-campaign2.mjs` proves 51–200 through the full verifier + uniqueness
++ curation; act-map level select; stratified live gate (changed +
+rotating 50 per commit, full 200 nightly). Final gate 2026-11-09:
+all 200 + 14 dailies verified clean and **201/201 live-played**
+(~102 min, zero page errors) after the band model's corner-tile +
+arc-slack correction (ADR-018 calibration).
 
 - **10 acts × 20 levels** (act = map size + mechanic budget + theme +
   one boss level at the end).
@@ -65,17 +75,18 @@ live suite green. Toggle defers to M5's assist mode (save key wired now).
   bridge, spiral, lattice, split-and-merge, ring, key detour, shuttle
   span, ice river, spring field, wind canyon, gauntlet, bridge chain,
   boss arena, … the generator picks archetype + parameters from the
-  difficulty budget. (Today it has ~6 effective archetypes — repetition
-  shows around level 60; this is the real scaling risk.)
+  difficulty budget. (Delivered: 24 named builders; each act owns a
+  pool of them and the picker never repeats the last two in an act.)
 - **Uniqueness check**: shape signatures, reject near-duplicates.
 - **Curation pass**: candidates score on route efficiency, fair
   branch choices, hazard variety; top candidates hand-played for act
   intros/bosses.
 - **Level select**: flat list → act map (stations + progress rings).
+  ✅ delivered in `main.js` (act cards, 20 slots, per-act hue).
 - **Names/hints at scale**: themed pools per act + hint templates.
 - **Gate stratification**: unit + verifier (pure Node, ~1 min) on every
   commit; live bot = changed levels + rotating 50 per commit; full 200
-  nightly CI.
+  nightly CI. ✅ delivered: `scripts/live-gate.mjs` + `nightly-full-play.yml`.
 
 ## Milestone 3 — Wave-1 mechanics (cheap, provable, high variety)
 

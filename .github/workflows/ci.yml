@@ -1,5 +1,9 @@
 # KUBIK test gate — runs on every push and pull request, so a change (or a
 # new level) can never land with a level that has no completable route.
+#
+# At 200 levels the live suite is stratified (ADR-015): the push gate plays
+# the CHANGED levels plus a rotating 50-level quarter (~10 min); the FULL
+# 200 runs in the nightly workflow (nightly-full-play.yml).
 name: Test gate
 
 on:
@@ -11,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - uses: actions/setup-node@v4
         with:
@@ -37,8 +43,8 @@ jobs:
       - name: Verify (pure-Node solvability proof)
         run: npm run verify
 
-      - name: Playable-route test (every level played in a real browser)
-        run: URL=http://127.0.0.1:4173/ npm run test:play
+      - name: Live-play gate (changed levels + rotating 50)
+        run: URL=http://127.0.0.1:4173/ KUBIK_CHANGED_REF=HEAD~1..HEAD npm run test:play
 
       - name: Regression tests (pinned bugs)
         run: URL=http://127.0.0.1:4173/ npm run regression

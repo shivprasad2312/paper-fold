@@ -1,0 +1,44 @@
+# KUBIK nightly full-play — the backstop of the stratified gate (ADR-015, M2).
+#
+# Every commit plays the CHANGED levels plus a rotating 50-level quarter;
+# this job plays ALL 200 levels in a real browser, daily at 02:00 UTC and
+# on demand, so anything the rotation has not yet reached is still checked
+# at least once a day.
+name: Nightly full play
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  full-play:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Start preview server
+        run: |
+          (npx vite preview --host 127.0.0.1 --port 4173 > /tmp/preview.log 2>&1 &)
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:4173/ > /dev/null && break
+            sleep 1
+          done
+
+      - name: Verify (pure-Node solvability proof, all 200)
+        run: npm run verify
+
+      - name: Play ALL 200 levels in a real browser
+        run: URL=http://127.0.0.1:4173/ npm run test:play:all

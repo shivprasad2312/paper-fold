@@ -1,5 +1,6 @@
 import { Game } from './game.js';
 import { LEVELS } from './levels.js';
+import { ACTS } from './acts.js';
 import { AudioEngine } from './audio.js';
 import { loadSave, writeSave, recordWin, recordGhost, recordDaily, medalFor, fmtTime } from './save.js';
 
@@ -400,28 +401,59 @@ function renderLevelGrid() {
   });
   el.grid.appendChild(dailyCard);
 
-  // All 50 levels are open from the start (EDGE-demo style). `save.unlocked`
-  // is kept for schema compatibility but no longer gates anything.
-  LEVELS.forEach((def, i) => {
-    const best = save.best[def.id];
-    const card = document.createElement('button');
-    card.className = 'level-card' + (def.id === save.lastLevel ? ' current' : '');
-    const totalShards = (def.shards || []).length;
-    const got = best ? best.shards : 0;
-    card.innerHTML = `
-      <span class="num">${String(def.id).padStart(2, '0')}</span>
-      ${medalBadge(best?.medal)}
-      ${best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
-      <span class="lname">${def.name}</span>
-      <span class="dots">${Array.from({ length: totalShards }, (_, d) =>
-        `<i class="dot${d < got ? ' on' : ''}"></i>`).join('')}</span>
+  // All 200 levels are open from the start (EDGE-demo style), grouped into
+  // the 10 campaign acts — the act map: a station header with a progress
+  // ring, then the act's level cards. `save.unlocked` is kept for schema
+  // compatibility but no longer gates anything.
+  const byId = new Map(LEVELS.map((def, i) => [def.id, i]));
+  for (const act of ACTS) {
+    const defs = LEVELS.filter((d) => d.id >= act.start && d.id <= act.end);
+    if (!defs.length) continue;
+    const cleared = defs.filter((d) => save.best[d.id]).length;
+    const pct = defs.length ? cleared / defs.length : 0;
+
+    const C = 2 * Math.PI * 15.5;
+    const header = document.createElement('div');
+    header.className = 'act-header';
+    header.style.setProperty('--act-hue', act.hue);
+    header.innerHTML = `
+      <svg class="act-ring" viewBox="0 0 36 36" aria-hidden="true">
+        <circle class="act-ring-bg" cx="18" cy="18" r="15.5"></circle>
+        <circle class="act-ring-fg" cx="18" cy="18" r="15.5"
+          stroke-dasharray="${C.toFixed(1)}"
+          stroke-dashoffset="${(C * (1 - pct)).toFixed(1)}"></circle>
+      </svg>
+      <div class="act-meta">
+        <span class="act-no">ACT ${act.id}</span>
+        <span class="act-name">${act.name}</span>
+        <span class="act-tag">${act.tag}</span>
+      </div>
+      <span class="act-count">${cleared}/${defs.length}</span>
     `;
-    card.addEventListener('click', () => {
-      audio.sfx('ui');
-      startLevel(i);
-    });
-    el.grid.appendChild(card);
-  });
+    el.grid.appendChild(header);
+
+    for (const def of defs) {
+      const i = byId.get(def.id);
+      const best = save.best[def.id];
+      const card = document.createElement('button');
+      card.className = 'level-card' + (def.id === save.lastLevel ? ' current' : '');
+      const totalShards = (def.shards || []).length;
+      const got = best ? best.shards : 0;
+      card.innerHTML = `
+        <span class="num">${String(def.id).padStart(2, '0')}</span>
+        ${medalBadge(best?.medal)}
+        ${best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
+        <span class="lname">${def.name}</span>
+        <span class="dots">${Array.from({ length: totalShards }, (_, d) =>
+          `<i class="dot${d < got ? ' on' : ''}"></i>`).join('')}</span>
+      `;
+      card.addEventListener('click', () => {
+        audio.sfx('ui');
+        startLevel(i);
+      });
+      el.grid.appendChild(card);
+    }
+  }
 }
 
 function pauseGame() {
