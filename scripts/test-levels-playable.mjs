@@ -435,7 +435,16 @@ async function driveRouteLive(tiles, moves, ctx) {
       stuck = 0;
       continue;
     }
-    if (st.x !== tiles[r].x || st.z !== tiles[r].z) return 'replan';
+    // a RIDE is exempt from the position gate: the platform may already be
+    // carrying the cube (it departs the dock the moment the roll on board
+    // settles), so the cube can be mid-track — neither on tiles[r] nor yet
+    // on the target. The ride branch below owns the whole transit; gating
+    // here replanned from a mid-track position that is not a tile at all
+    // (L196 "The Ascent Complete": NO FAIR ROUTE from 16,10, a shuttle
+    // track midpoint, 2026-11-13).
+    if (st.x !== tiles[r].x || st.z !== tiles[r].z) {
+      if (moves[r] !== 'ride') return 'replan';
+    }
     if (++stuck > 4) return false; // cannot advance (no pushes left, etc.)
 
     const onLineTarget = ctx.line.has(key(target.x, target.z));
@@ -706,6 +715,7 @@ function bfsEval(targetExpr) {
         if (!to) return null;
         const drop = p.h - to.h;
         if (drop < -1 || drop > 2) return null;
+        if (p.shuttle && to.shuttle) return null; // no dock-to-dock rolls (mirrors rules.resolveRoll)
         return to;
       };
       const launch = (fromPad) => {
@@ -730,6 +740,7 @@ function bfsEval(targetExpr) {
         const n = step(t);
         if (!n) break;
         t = n;
+        if (t.spring) { t = launch(t); break; } // a slide landing on a pad fires it (game autoContinue)
       }
       return t;
     };
@@ -843,6 +854,23 @@ async function reachTarget(targetExpr, ctx) {
     } else {
       route = await page.evaluate(new Function(`return (${bfsEval(targetExpr)})()`));
     }
+    if (!route && LIVE && ctx) {
+      // the cube may be caught mid-mechanism (a shuttle carrying it between
+      // docks, a slide still settling): its position is then not a tile and
+      // the planner rightly finds nothing. Wait for it to settle onto a
+      // real tile and plan again before declaring the level unplayable
+      // (L196, 2026-11-13).
+      for (let w = 0; w < 40 && !route; w++) {
+        await wait(300);
+        const s3 = await snap();
+        if (s3.state === 'won') return true;
+        if (s3.state !== 'playing') break;
+        if (!ctx.model.tiles.has(key(s3.x, s3.z))) continue;
+        const broken2 = new Set(await brokenKeys());
+        route = planRoute(ctx, s3, target, broken2, !s3.hasKey);
+        if (route) dbg(`attempt ${attempt + 1}: re-planned after settling at ${s3.x},${s3.z}: ${route.moves.length} rolls`);
+      }
+    }
     if (!route) return false; // no fair route from here
     if (route.moves.length === 0) {
       // already standing on the target — it may still be settling
@@ -936,7 +964,11 @@ const dailyOk = (await reachTarget('window.__kubik.game.level.goal', dailyCtx)) 
 if (dailyOk) pass++;
 console.log(`${dailyOk ? '✓' : '✗'} DAILY today's challenge ${dailyOk ? '' : '— not completable'}`);
 
-const total = LEVELS.length + 1;
+// total = the requested set (KUBIK_LEVELS), not the whole catalogue —
+// otherwise every stratified (subset) run exits red no matter what it
+// passes, and the pre-commit gate blocks every commit. M2.5, 2026-11-13
+// (the 14–50 gate passed 38/38 yet exited 1).
+const total = (ONLY.length ? ONLY.length : LEVELS.length) + 1;
 const secs = ((Date.now() - t0) / 1000).toFixed(0);
 console.log(`\n${pass}/${total} playable (${secs}s) · page errors: ${errors.length ? errors.length : 'none'}`);
 if (errors.length) console.log('errors:', errors.slice(0, 5));

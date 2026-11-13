@@ -51,6 +51,9 @@ if (FIRST !== 14 || LAST !== 50) {
   console.error('gen-campaign writes src/campaign.js in full: run with 14 50 (or no args)');
   process.exit(1);
 }
+// the output file IS this range — a partial run would truncate the shipped
+// campaign, so only the full 14–50 span is allowed
+
 // exactly 37 names, one per level 14–50 (the last is the finale)
 const NAMES = [
   'The Descent', 'Stone Hills', 'Tumbledown', 'The Stair', 'Undercut', // 14-18
@@ -62,6 +65,21 @@ const NAMES = [
   'The Apex', 'The Longest Night', 'The Last Stair', 'The Threshold', 'The Broken Crown', // 44-48
   'The Final Approach', 'Summit: The Broken Spire', // 49-50
 ];
+
+// The approved mechanic INTRO schedule (2a836df, the EDGE-scale set):
+// first spring L25; shuttles at L28 / L34 / L36 / L42 (L42 also a spring —
+// the old 'The Undertow' carried ice+spring+shuttle); the finale L50 rides
+// twice (forced 1 + the 0.6 extra above). Restored 2026-11-12 (M2.5): the
+// M2 regeneration re-pointed this band at the hazard stage and dropped the
+// mechanic content (22 ice / 4 shuttles / 6 springs → 0).
+const INTRO_MECH = {
+  25: { spring: 1 },
+  28: { shuttle: 1 },
+  34: { shuttle: 1 },
+  36: { shuttle: 1 },
+  42: { shuttle: 1, spring: 1 },
+  50: { shuttle: 1 },
+};
 
 // band: difficulty knobs per stretch of the campaign
 function band(id) {
@@ -157,10 +175,19 @@ function generate(rand, id, b) {
   // --- dress the walk with the SHARED hazard stage (ADR-015) ---------------
   // mechanics carved into straight runs, shards, sentinels (+ refuge slabs),
   // crumble, key — the exact placement law every archetype uses.
+  // Mechanic probabilities (M2.5): ice is common from band 1 (the old
+  // hand-made schedule had 21 of 37 levels iced); springs are occasional;
+  // SHUTTLES STAY RARE — the approved schedule (2a836df) placed exactly
+  // four: L28, L34, L36, L42 (+ the double-shuttle finale L50). Those
+  // intro points are FORCED below; best-effort shuttle carving is low so a
+  // shuttle still reads as a set piece.
   const mech = { ice: 0, spring: 0, shuttle: 0 };
   if ((b.mech || []).includes('ice')) mech.ice = b.W >= 12 ? 0.95 : 0.6;
-  if ((b.mech || []).includes('spring')) mech.spring = b.W >= 16 ? 0.8 : 0.5;
-  if ((b.mech || []).includes('shuttle')) mech.shuttle = 0.7;
+  if ((b.mech || []).includes('spring')) mech.spring = b.W >= 16 ? 0.6 : 0.5;
+  if ((b.mech || []).includes('shuttle')) mech.shuttle = 0.2;
+  const opts = {};
+  if (INTRO_MECH[id]) opts.force = INTRO_MECH[id];
+  if (id === 50) opts.extra = { shuttle: 0.6 }; // the finale rides twice
   const def = applyHazards(
     { W: b.W, H: b.H, map, path, start, goal },
     {
@@ -176,7 +203,7 @@ function generate(rand, id, b) {
       mech,
     },
     rand,
-    id === 50 ? { extra: { shuttle: 0.6 } } : {}, // the finale rides twice
+    opts,
   );
   if (!def) return null;
   return {

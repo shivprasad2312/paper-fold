@@ -3,6 +3,7 @@ import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.j
 import { Stage } from './stage.js';
 import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
+import { ACTS } from './acts.js';
 import { getDailyLevel } from './daily.js';
 import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
@@ -137,12 +138,21 @@ export class Game {
     this.def = def;
     this.dailyDate = daily;
 
+    // per-act palette (M2.5): the act's hue tints the world and the slabs.
+    // The daily challenge plays in the neutral world.
+    const act =
+      !daily && typeof def.id === 'number'
+        ? ACTS.find((a) => def.id >= a.start && def.id <= a.end)
+        : null;
+    this.actHue = act ? act.hue : null;
+
     if (this.view) {
       this.stage.scene.remove(this.view.group);
       this.view.dispose();
     }
-    this.view = buildLevelView(this.level);
+    this.view = buildLevelView(this.level, this.actHue);
     this.stage.scene.add(this.view.group);
+    this.stage.setTheme(this.stage.theme, this.actHue);
 
     // recolor the cube for this level
     const c = typeof def.id === 'number' ? CUBE_COLORS[(def.id - 1) % CUBE_COLORS.length] : DAILY_COLOR;

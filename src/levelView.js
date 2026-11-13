@@ -81,7 +81,7 @@ function rimLines(x, z, h, thick, scale = 1) {
   return { bright, dim };
 }
 
-export function buildLevelView(level) {
+export function buildLevelView(level, actHue = null) {
   const group = new THREE.Group();
   const staticGeos = [];
   const brightSegs = [];
@@ -108,6 +108,15 @@ export function buildLevelView(level) {
     metalness: 0.0,
     flatShading: true,
   });
+  // per-act palette (M2.5): a whisper of the act's hue over the slab
+  // vertex colors (which carry the elevation shading). material.color
+  // multiplies into vertex colors, so one pale tint recolors the whole
+  // level while the steps stay readable.
+  if (actHue != null) {
+    const actTint = new THREE.Color().setHSL(actHue / 360, 0.35, 0.5).lerp(new THREE.Color(0xffffff), 0.72);
+    slabMat.color.copy(actTint);
+    crumbleMat.color.copy(actTint);
+  }
 
   for (const tile of level.tiles.values()) {
     if (tile.crumble) continue;

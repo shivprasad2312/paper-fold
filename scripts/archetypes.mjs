@@ -14,6 +14,10 @@
 // made repetition show around level 60 — this is the fix.
 // ---------------------------------------------------------------------------
 
+// script-side only: the gauntlet's par gate re-checks the route's shortest
+// length against the act band (scripts are never bundled into the game)
+import { parseLevel, shortestRoute } from '../src/rules.js';
+
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const range = (a, b) => {
   const out = [];
@@ -625,7 +629,27 @@ export function gauntlet(rand, b) {
     path.push([x0, z]);
   }
   sideFill(rand, W, H, map, path, int(rand, 2, 4));
-  return finish(W, H, map, path);
+  // M2.5 (fixed 2026-11-12): the start (x0,H-1) and goal (x0,1) share
+  // column x0. If sideFill fills the gap rows between the two column
+  // segments, the cube rolls straight up and the shortest route collapses
+  // to par ~16 (41/60 measured walks at par 16–20 against a band floor of
+  // 24) — which starved undertow levels at verify. Clear the gap so the
+  // route must take the spiral detour (par ~39, in-band). Clearing happens
+  // AFTER sideFill and only touches non-route tiles, so the per-attempt
+  // rand draw count is unchanged (a par-gate that returned null earlier
+  // skipped the hazard stage's rand draws and re-aligned every downstream
+  // carve — it fixed one level while breaking another).
+  for (let z = ma + 1; z <= mb - 1; z++) map[z][x0] = 0;
+  const layout = finish(W, H, map, path);
+  if (!layout) return null;
+  // safety net: reject the rare off-band walk (one walk of rand per attempt,
+  // the stable pattern `finish()` already uses); verify re-checks post-carve.
+  if (b.par) {
+    const level = parseLevel({ ...layout, id: 0, name: '', hint: '' });
+    const par = shortestRoute(level);
+    if (par < b.par[0] || par > b.par[1]) return null;
+  }
+  return layout;
 }
 
 // 14. BRIDGE-CHAIN — two columns linked at the top, with floating bridge

@@ -36,7 +36,16 @@ import { writeFileSync } from 'node:fs';
 
 const FIRST = Number(process.argv[2]) || 51;
 const LAST = Number(process.argv[3]) || 200;
-const MAX_ATTEMPTS = Number(process.env.KUBIK_MAX_ATTEMPTS) || 220;
+// 450 (220 → 300 → 450, 2026-11-13): each model correction (roll-law
+// 300 (was 220, 2026-11-13): the corrected fair-route model (roll-law
+// fair-reach, carve candidate source, slide-lands-on-spring) rejects more
+// candidates than M2's, so sparse slots' winners sit deeper in the stream.
+// Sparse ACTS can raise it via the gen band's `attempts` field (act 10:
+// 450 — its vault slot needs >300 under the final model); a global bump
+// would make every gauntlet pay for one sparse slot. Under the fast timing
+// model a full-budget level costs ~30–45 s, so the caps bound worst case
+// without slowing the run.
+const MAX_ATTEMPTS = Number(process.env.KUBIK_MAX_ATTEMPTS) || 300;
 
 function hashSeed(str) {
   let h = 0x811c9dc5;
@@ -91,13 +100,13 @@ function budget(id) {
 }
 
 /** The archetype a level should try first + its carve-forcing. */
-function pickArchetype(id, act, recent) {
+function pickArchetype(id, act, recent, forcedArch) {
   const g = act.gen;
   if (isActEnd(id)) return { arch: 'boss-arena', force: {} };
   // rotate through the act's pool, never repeating the last two
   const pool = g.arch.filter((a) => !recent.includes(a));
   const list = pool.length ? pool : g.arch;
-  const arch = list[(id * 7 + act.id * 3) % list.length];
+  const arch = forcedArch || list[(id * 7 + act.id * 3) % list.length];
   const force = {};
   if (arch === 'shuttle-span') force.shuttle = 1;
   if (arch === 'spring-field') {
@@ -162,8 +171,14 @@ function verify(def, b, minOrbs) {
   return { ok: problems.length === 0, problems, par };
 }
 
+/** Fairness-only failures: sentinel-timing windows and the bench route are
+ *  both a function of patrol speed, so the speed-tuning ladder may rescue
+ *  both. (M2.5, 2026-11-12: the bench gate was missing from this trigger,
+ *  so a candidate whose ONLY fairness problem was the bench route never got
+ *  slowed down — L82 died there 17/26 times.) */
 function timingOnly(rep) {
-  return rep.problems.length > 0 && rep.problems.every((p) => p.startsWith('timing:'));
+  return rep.problems.length > 0 && rep.problems.every((p) =>
+    p.startsWith('timing:') || p.startsWith('no fair route'));
 }
 function tuneOrbSpeeds(def, mult) {
   return {
@@ -210,6 +225,34 @@ function isUnique(def, seenSigs, recentTileSets) {
   return { sig: h, ts };
 }
 
+/**
+ * Mirror a PROVEN level def about the 'x' (east-west) or 'z' (north-south)
+ * axis — the M2.5 orientation rotation (acts.js `flip`). Every move rule is
+ * mirror-symmetric (climb 1 / drop 2, patrols, spring/ice resolves, shuttle
+ * docks, the sealed goal), so the verifier's proof carries over unchanged;
+ * the file-level verifier (scripts/verify-levels.mjs) re-proves it anyway.
+ */
+function mirrorDef(def, axis) {
+  const H = def.map.length;
+  const W = def.map[0].length;
+  const T = ([x, z]) => (axis === 'x' ? [W - 1 - x, z] : [x, H - 1 - z]);
+  const mirrorPts = (pts) => pts.map(([x, z]) => T([x, z]));
+  const out = {
+    ...def,
+    map: axis === 'z' ? [...def.map].reverse() : def.map.map((row) => [...row].reverse().join('')),
+    start: T(def.start),
+    goal: T(def.goal),
+  };
+  if (def.shards) out.shards = mirrorPts(def.shards);
+  if (def.crumble) out.crumble = mirrorPts(def.crumble);
+  if (def.orbs) out.orbs = def.orbs.map((o) => ({ ...o, path: mirrorPts(o.path) }));
+  if (def.shuttles) out.shuttles = def.shuttles.map((s) => ({ ...s, a: T(s.a), b: T(s.b) }));
+  if (def.springs) out.springs = mirrorPts(def.springs);
+  if (def.ice) out.ice = mirrorPts(def.ice);
+  if (def.key) out.key = T(def.key);
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // seed the uniqueness set with the shipped levels (1–50)
 const seenSigs = new Set();
@@ -226,8 +269,13 @@ const nameQueue = {};
 for (const act of ACTS) {
   if (!act.gen) continue;
   nameQueue[act.id] = [...act.gen.names];
-  // a partial run starts mid-act: the earlier levels already took their names
-  const drop = Math.max(0, Math.min(nameQueue[act.id].length, FIRST - act.gen.start));
+  // a partial run starts mid-act: the earlier levels already took their
+  // names. The act's generated range starts at max(act.start, 51) — acts
+  // 3's first ten levels (41–50) live in campaign.js with their own NAMES
+  // list, so act 3's pool only covers 51–60. (The previous
+  // `FIRST - act.gen.start` was NaN — act.gen has no start — which
+  // silently skipped the slice and reused already-consumed names.)
+  const drop = Math.max(0, Math.min(nameQueue[act.id].length, FIRST - Math.max(act.start, 51)));
   if (drop) nameQueue[act.id] = nameQueue[act.id].slice(drop);
 }
 
@@ -240,7 +288,7 @@ for (let id = FIRST; id <= LAST; id++) {
   let { arch, force } = pickArchetype(id, act, archRecent[act.id] || []);
   if (process.env.KUBIK_FORCE_ARCH) {
     const [fId, fArch] = process.env.KUBIK_FORCE_ARCH.split('=');
-    if (Number(fId) === id) arch = fArch;
+    if (Number(fId) === id) ({ arch, force } = pickArchetype(id, act, archRecent[act.id] || [], fArch));
   }
 
   // key archetypes are key levels, guaranteed
@@ -248,68 +296,97 @@ for (let id = FIRST; id <= LAST; id++) {
   if (arch === 'key-detour' || arch === 'vault') bEff = { ...b, keyP: 1 };
   // spring-field: never also a shuttle
   if (force.noShuttle) bEff = { ...bEff, mech: { ...bEff.mech, shuttle: 0 } };
+  // gauntlet/undertow (the same long spiral under two names): forced
+  // mechanics on it are already dense, and the act's 2–3 patrols on top
+  // starve sentinel-timing fairness (L82: 29/220 candidates reached the
+  // expensive checks and every one failed a timing or bench-fairness gate;
+  // L101 the same with forced ice only). Relax the sentinel FLOOR for the
+  // archetype — the identity mechanics stay forced. M2.5, 2026-11-12.
+  if (arch === 'undertow' || arch === 'gauntlet') bEff = { ...bEff, orbs: [0, 1] };
+  // the act's IDENTITY mechanics (acts.js `force` — e.g. the ice act, the
+  // shuttle act) merge under the archetype's own force; the archetype wins
+  // a conflict. Must be wrapped as { force } — applyHazards' opts shape
+  // (fixed 2026-11-12: passing the force object bare made opts.force
+  // undefined, so no forced carve ever happened and the mechanic acts
+  // silently shipped mechanic-free).
+  const allForce = { ...(act.gen.force || {}), ...force };
+  // per-act attempt budget (acts.js gen band `attempts`); the act's slot
+  // density sets it — see the MAX_ATTEMPTS note above.
+  const slotBudget = (act.gen && act.gen.attempts) || MAX_ATTEMPTS;
 
   let def = null;
   let report = null;
+  // best: proven AND unique; bestAny: proven but NOT unique. The rolling
+  // 40-level uniqueness window can starve a level when the earlier levels
+  // of the act settle on candidates that resemble every good candidate
+  // here, so the END-OF-ATTEMPTS settle may relax to bestAny — with a
+  // warning (the file-level gate does not enforce cross-level similarity).
   let best = null;
-  const phases = [b.orbs[0], Math.max(0, Math.ceil(b.orbs[0] / 2)), 0].filter(
-    (v, i, a) => a.indexOf(v) === i,
-  );
-  for (const minOrbs of phases) {
-    if (def) break;
-    let foundThisPhase = false;
-    for (let attempt = 0; attempt < MAX_ATTEMPTS && !def; attempt++) {
-      const layout = ARCHETYPES[arch](rand, bEff);
-      if (!layout) continue;
-      let cand = applyHazards(layout, bEff, rand, force);
-      if (!cand) continue;
-      cand = { ...cand, id, name: '', hint: act.gen.hint };
-      let rep = verify(cand, bEff, minOrbs);
-      if (process.env.KUBIK_PROBE && rep && !rep.ok && attempt < 4 && minOrbs === 0) {
-        console.error(`  probe L${id} attempt ${attempt}: orbs=${(cand.orbs||[]).length} ${JSON.stringify((rep.problems||[]).slice(0,3))}`);
-      }
-      if (!rep.ok && timingOnly(rep) && (cand.orbs || []).length) {
-        for (const m of [0.9, 0.8, 0.68, 0.56, 0.45]) {
-          const tuned = tuneOrbSpeeds(cand, m);
-          const r2 = verify(tuned, bEff, minOrbs);
-          if (r2.ok) {
-            cand = tuned;
-            rep = r2;
-            break;
-          }
+  let bestAny = null;
+  // Single-pass candidate loop (M2.5, fixed 2026-11-12): the old 3-phase
+  // loop re-ran the same rand stream under orb budgets [orbs0, ceil/2, 0],
+  // so an early "proven but low-orb" candidate was verified only under the
+  // STRICT budget and could never pass — the relaxed phases saw only later
+  // (and worse) candidates. L82 had exactly 4 proven candidates in 660
+  // attempts, all orbs=0, all in the phase-3 window, so it failed at 220
+  // attempts yet passed at 60. Now: verify once with minOrbs=0 and PREFER
+  // full-orb candidates explicitly (rank = orb count, then score).
+  const wantOrbs = bEff.orbs[0];
+  const rankOf = (c, s) => (c.orbs || []).length * 100000 + s;
+  for (let attempt = 0; attempt < slotBudget && !def; attempt++) {
+    const layout = ARCHETYPES[arch](rand, bEff);
+    if (!layout) continue;
+    let cand = applyHazards(layout, bEff, rand, { force: allForce });
+    if (!cand) continue;
+    cand = { ...cand, id, name: '', hint: act.gen.hint };
+    let rep = verify(cand, bEff, 0);
+    if (process.env.KUBIK_PROBE && rep && !rep.ok && attempt < 4) {
+      console.error(`  probe L${id} attempt ${attempt}: orbs=${(cand.orbs||[]).length} ${JSON.stringify((rep.problems||[]).slice(0,3))}`);
+    }
+    if (!rep.ok && timingOnly(rep) && (cand.orbs || []).length) {
+      for (const m of [0.9, 0.8, 0.68, 0.56, 0.45]) {
+        const tuned = tuneOrbSpeeds(cand, m);
+        const r2 = verify(tuned, bEff, 0);
+        if (r2.ok) {
+          cand = tuned;
+          rep = r2;
+          break;
         }
       }
-      if (!rep.ok) continue;
-      const uniq = isUnique(cand, seenSigs, recentTileSets);
-      if (!uniq) continue;
-      const s = score(cand, rep.par, bEff);
-      if (!best || s > best.s) best = { cand, rep, s, uniq };
-      // take the first candidate that satisfies the orb budget and scores well
-      if ((cand.orbs || []).length >= minOrbs && (cand.orbs || []).length && (minOrbs > 0 || attempt > 24)) {
-        def = best.cand;
-        report = best.rep;
-        seenSigs.add(best.uniq.sig);
-        recentTileSets.push(best.uniq.ts);
-        allTileSets.push(best.uniq.ts);
-        foundThisPhase = true;
-        break;
-      }
-      if (!def && best && attempt >= MAX_ATTEMPTS - 40) {
-        // end of attempts: settle for the best proven candidate
-        def = best.cand;
-        report = best.rep;
-        seenSigs.add(best.uniq.sig);
-        recentTileSets.push(best.uniq.ts);
-        allTileSets.push(best.uniq.ts);
-        foundThisPhase = true;
-      }
     }
-    if (!foundThisPhase && !def && minOrbs < b.orbs[0]) {
-      console.error(`⚠ level ${id} (${arch}): relaxed sentinels to ${minOrbs}`);
+    if (!rep.ok) continue;
+    const uniq = isUnique(cand, seenSigs, recentTileSets);
+    const s = score(cand, rep.par, bEff);
+    const o = (cand.orbs || []).length;
+    if (uniq && (!best || rankOf(cand, s) > rankOf(best.cand, best.s))) best = { cand, rep, s, uniq };
+    if (!bestAny || rankOf(cand, s) > rankOf(bestAny.cand, bestAny.s)) bestAny = { cand, rep, s, uniq };
+    // full orb budget met: take the best after a short exploration window
+    if (best && (best.cand.orbs || []).length >= wantOrbs && attempt >= 24) {
+      def = best.cand;
+      report = best.rep;
+      seenSigs.add(best.uniq.sig);
+      recentTileSets.push(best.uniq.ts);
+      allTileSets.push(best.uniq.ts);
+      break;
+    }
+    // end of attempts: settle for the best proven candidate
+    if ((best || bestAny) && attempt >= slotBudget - 40) {
+      const pick = best || bestAny;
+      if (!best) console.error(`⚠ level ${id} (${arch}): uniqueness exhausted — settled non-unique`);
+      if ((pick.cand.orbs || []).length < wantOrbs) {
+        console.error(`⚠ level ${id} (${arch}): relaxed sentinels to ${(pick.cand.orbs || []).length}`);
+      }
+      def = pick.cand;
+      report = pick.rep;
+      if (pick.uniq) {
+        seenSigs.add(pick.uniq.sig);
+        recentTileSets.push(pick.uniq.ts);
+        allTileSets.push(pick.uniq.ts);
+      }
     }
   }
   if (!def) {
-    console.error(`✗ level ${id} (${arch}): no candidate passed ${MAX_ATTEMPTS} attempts`);
+    console.error(`✗ level ${id} (${arch}): no candidate passed ${slotBudget} attempts`);
     process.exit(1);
   }
 
@@ -319,6 +396,9 @@ for (let id = FIRST; id <= LAST; id++) {
     console.error(`✗ level ${id}: act ${act.id} name pool exhausted`);
     process.exit(1);
   }
+
+  // orientation rotation (M2.5): mirror the proven level per act budget
+  if (act.gen.flip) def = mirrorDef(def, act.gen.flip);
 
   // remember the archetype (rotation window: last 2 in this act)
   archRecent[act.id] = [...(archRecent[act.id] || []), arch].slice(-2);

@@ -5,3 +5,4 @@ shots/
 *.log
 .kubik-rotation.json
 .commitmsg
+.build-nss.sh

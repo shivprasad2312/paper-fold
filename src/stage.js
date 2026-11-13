@@ -100,19 +100,33 @@ export class Stage {
     this.setTheme('dark');
   }
 
-  /** Swap the world: 'dark' void or 'light' high-key. Instant, no rebuilds. */
-  setTheme(name) {
+  /** Swap the world: 'dark' void or 'light' high-key. Instant, no rebuilds.
+   *  `hue` (M2.5 per-act palette): when given, the ambient colors are
+   *  lerped toward the act's hue — subtle by design, so elevation steps,
+   *  patrol lines and the goal stay readable in every act. */
+  setTheme(name, hue = null) {
     const t = THEMES[name] || THEMES.dark;
     this.theme = name;
-    this.renderer.setClearColor(t.background, 1);
-    this.scene.background.set(t.background);
+    const dark = name !== 'light';
+    const act = hue == null ? null : new THREE.Color().setHSL(hue / 360, 0.55, dark ? 0.16 : 0.82);
+    const sunAct = hue == null ? null : new THREE.Color().setHSL(hue / 360, 0.45, 0.72);
+    const mix = hue == null ? 0 : dark ? 0.32 : 0.18;
+    const tint = (base) => {
+      const c = new THREE.Color(base);
+      if (act) c.lerp(act, mix);
+      return c;
+    };
+    this.renderer.setClearColor(tint(t.background), 1);
+    this.scene.background.copy(tint(t.background));
     const { hemi, key, fill } = this.ambientLights;
-    hemi.color.set(t.hemiSky);
-    hemi.groundColor.set(t.hemiGround);
+    hemi.color.copy(tint(t.hemiSky));
+    hemi.groundColor.copy(tint(t.hemiGround));
     hemi.intensity = t.hemiIntensity;
-    key.color.set(t.sunColor);
+    const sun = new THREE.Color(t.sunColor);
+    if (sunAct) sun.lerp(sunAct, dark ? 0.18 : 0.12);
+    key.color.copy(sun);
     key.intensity = t.sunIntensity;
-    fill.color.set(t.fillColor);
+    fill.color.copy(tint(t.fillColor));
     fill.intensity = t.fillIntensity;
     this.renderer.toneMappingExposure = t.exposure;
     this.bloom.strength = t.bloomStrength;

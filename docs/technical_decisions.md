@@ -390,6 +390,224 @@ neighbours changed may wait up to ~4 commits for a full-window bot pass
 always includes the level itself); regeneration is a content change, so a
 re-run is a deliberate, reviewed diff — not a silent rebuild.
 
+**Postscript — M2.5 variety pass: the mechanic blackout and its fixes
+(2026-11-12).** The M2 regeneration shipped 200 levels with **zero
+shuttles and springs, and ice only where an act probability was exactly
+1.0** — a silent feature removal of the EDGE-scale mechanic set (pre-M2
+14–50 had 21 ice / 6 spring / 4 shuttle levels). A chain of independent
+defects conspired, each verified with per-attempt traces before fixing:
+
+1. **The carve gate swallowed best-effort mechanics.** The hazard stage's
+   carve loop broke on `p < 1` *before rolling the probability*, so a
+   mechanic with probability < 1 never carved — deterministic 300/300
+   gate-breaks at probability 0.95. The law is now: the **forced quota is
+   always attempted** (up to 4 tries; a failed forced carve rejects the
+   candidate) and **extras decay geometrically** (`p·0.5^(n−forced)`), so a
+   level gets its identity mechanic plus at most a whisper more.
+2. **The force envelope was wrong in the 51–200 call.** `gen-campaign2`
+   passed the force object bare where `applyHazards` expects an
+   `{force}` envelope — traced as `force={}` at the carve stage for every
+   level. Now merged explicitly: the act's identity force (the ice act,
+   the shuttle act) under the archetype's own force.
+3. **The 3-phase orb loop could not relax.** It re-ran the *same* candidate
+   stream under budgets [orbs0, ceil/2, 0], so an early "proven but
+   low-orb" candidate was only ever verified under the strict budget, and
+   the relaxed phases saw worse candidates (L82: 4 proven candidates in
+   660 attempts, all in the last phase's window — the level failed at 220
+   attempts yet passed at 60). The loop is now **single-pass**: verify
+   once at minOrbs=0, rank by (orb count, then curation score), settle on
+   the best proven candidate — unique, or non-unique with a logged warning
+   when the rolling 40-level uniqueness window has starved the level.
+4. **The gauntlet's shortcut starved its own par.** The start and goal
+   share the spiral's outer column; when sideFill doesn't fill the gap
+   rows between the two column segments, the shortest route runs straight
+   up the start column — 41/60 measured walks at par 16–20 against a band
+   floor of 24 (L92: 0/220 proven). The archetype now **clears those gap
+   rows by construction** (deterministic, no rand — an internal resample
+   loop consumed a variable amount of the per-level rand stream and
+   shifted every downstream carve, fixing one level while breaking the
+   next) so the route takes the spiral detour (par ~36–44); a par-gate
+   backstop rejects the rare over-long walk, and verify re-checks
+   post-carve drift.
+5. **The refuge slab re-solidified hollowed mechanic spans.** The slab
+   placer filled any void neighbour of a ≥5-tile run that passed the
+   dead-end test — without consulting the mechanic set. A shuttle span
+   clearing removes the side slabs on purpose, so a dock tile has zero
+   solid neighbours, passes the dead-end test, and gets refilled:
+   `parseLevel` then throws "shuttle dock is not void" and rejects the
+   whole candidate (L82: every shuttle candidate, 0/220). Slab placement
+   now skips mechanic-marked tiles.
+6. **Mechanic carves at run-start corners fired along the approach, not
+   the run.** The spring launch and the ice slide both continue in the
+   direction of travel, but the carves validated only the S-A-L geometry.
+   At a spiral corner the approach comes around the turn, so the launch
+   flew along the turn — 10 rows into the gauntlet's void gap (a fall on
+   every press; `shortestRoute` -1, no route at all) — and a corner ice
+   slide overshot onto a side slab and sealed the level. `trySpring` and
+   `tryIce` now require a collinear approach, so both entry directions
+   stay on the run.
+7. **A long spiral plus patrols is structurally timing-unfair.**
+   undertow (forced ice + spring on the gauntlet) under the act's 2–3
+   sentinels: 29/220 candidates reached the expensive checks and every
+   one failed sentinel-timing or bench fairness, and the 0.45× speed
+   ladder could not rescue any. The sentinel band relaxes to `[0,1]` for
+   this archetype (its identity mechanics stay forced — a level that is
+   a gauntlet of mechanics rather than of patrols is the point). The
+   speed-ladder trigger also now covers bench-fairness failures —
+   previously only `timing:`-prefixed problems qualified, so a candidate
+   whose sole fairness failure was the bench route never got slowed.
+8. **Act-4 pool narrowing + the diagnostic lie.** L82's uniqueness
+   window starved when acts 4's pool settled 51–81 on candidates that
+   resembled every later candidate (dropping `crossroads` and `lattice`
+   from the pool unblocked it; the `bestAny` settle is the fallback).
+   And the `KUBIK_FORCE_ARCH` diagnostic swapped the arch **without its
+   force**, so an "undertow passes" test silently ran the alias with
+   `force:{}` — the override now re-derives the force through
+   `pickArchetype`, and no level change was accepted on an override run
+   that wasn't force-identical to the natural selection.
+9. **`spawnProblems` mis-parsed dock coordinates.** The shuttle-dock
+   audit loop destructured each `"x,z"` KEY STRING of `shuttleDocks`
+   into `[x, z]` — i.e. took its first two CHARACTERS — so dock
+   `"15,14"` was audited as tile (1,5) and false-flagged "ice on a
+   shuttle dock 1,5"; the start/goal comparisons mixed strings and
+   numbers and could never fire. It now parses the keys, and the dead
+   string comparisons were replaced with real ones.
+10. **The fair-route model could not cross mechanic spans.**
+    `fairReachSet` (the bench-fairness check and the start→goal
+    timing check both ride on it) expanded one adjacent tile at a time,
+    so a hollowed spring pit or shuttle span with no solid detour —
+    the gauntlet spirals, where the span IS the only crossing — made the
+    level look unreachable and the gate rejected it (false negative,
+    verified with a mechanics-aware BFS before the change). The model
+    now adds the mechanic transitions (`mechanicTargets`: shuttle ride,
+    spring launches) on top of the plain adjacency. They can never
+    introduce an unfair crossing: the radius-1 sentinel exclusion keeps
+    every patrol-line tile a full tile away from every mechanic tile,
+    so a ride or launch cannot land on or touch a line. This is a step
+    in the ADR-016 direction (the timing model mirrors the real cube).
+11. **The carve candidates were sampled at the wrong positions.**
+    `trySpring`/`tryIce` drew candidates from `solidRuns()` starts, but
+    a spring carves the tile AFTER the pad and an ice tile rides in the
+    run direction — and the approach-collinearity filter (fix 4) rejects
+    exactly the run-start corners, where the approach arrives around a
+    turn. On layouts whose runs are entered perpendicularly (L102
+    spring-field) the two exclusions removed every candidate, so the
+    FORCED mechanic silently failed all 220 attempts (`nullLayout=0,
+    nullCand=220` — the layout was fine, the candidate source was not).
+    Both now iterate the path for mid-run positions where P–S–A (or
+    P–I–N) is a straight line, i.e. the positions where the launch/slide
+    actually flies over the pit or along the run.
+12. **`fairReachSet` ignored the roll law — a false POSITIVE the other
+    checks all share.** The fair-reach set expanded by naive four-neighbour
+    adjacency (any solid neighbour), so a +2 climb counted as reachable.
+    L20 "Glass Meadow" (regenerated in the M2.5 pass) shipped with the
+    start's only legal roll landing on the sentinel line: every start→goal
+    route crosses the patrol, and every multi-tile crossing there has a
+    0.00 s window (the cube's roll cadence cannot beat the orb's
+    0.57 s/tile in either direction — only the single-tile crossing at
+    (2,7) is fair, at 0.70 s, and it is unreachable without crossing
+    first). The naive set "climbed" +2 off the line, declared the goal
+    fair-reachable, and `timingProblems` returned clean; the live bot's
+    planner — which mirrors `resolveRoll` — had no route and the level
+    failed the gate. The set now expands by `rollTargets` (the game's own
+    one-press transitions: roll law + ice carry + spring fire + shuttle
+    ride), which also subsumes the separate `mechanicTargets` loop.
+    Corrected model surveyed across all 200 + dailies: L20 was the only
+    rejection — both ranges were regenerated under it.
+13. **The stratified live gate could never go green on a subset.**
+    `test-levels-playable.mjs` computed `total = LEVELS.length + 1`
+    (always 201) even when `KUBIK_LEVELS` restricted the run to a
+    subset, so every stratified run — the per-commit "changed +
+    rotating 50" tier of ADR-015 — exited 1 no matter what it passed,
+    and the pre-commit gate would have blocked every commit. The 14–50
+    gate passed 38/38 with zero page errors and still exited red.
+    `total` now counts the requested set. The full-catalogue runs
+    (nightly, first commit) are unchanged.
+14. **`crossingWindow` paid a full fine scan for a floor decision.**
+    The scan tracked the longest safe start-time span across the whole
+    horizon, but the edge decision only needs "≥ `TIMING_FLOOR`". The
+    fine pass now stops once the run clears the floor, so an above-floor
+    window is settled at the coarse pass's first crossing. L87: 196/206
+    candidates were above floor — 15.5 s → ~0.5 s per crossing graph,
+    ~3 s per gauntlet candidate. The reported `bestWindow` clamps to
+    the floor in that case; the failure message it feeds still says
+    what it means (a fair window exists but no route reaches it), and
+    every below-floor window — the ones that decide failures — is still
+    computed exactly. Verdicts verified identical on the shipped
+    gauntlets (L82/87/92/101/115/119).
+15. **The attempt cap rose 220 → 300, and act 10 got a per-act 450.**
+    The model corrections (fix 12 roll-law fair-reach, fix 11 carve
+    candidate source, fix 16 slide-lands-on-spring) each reject more
+    candidates, pushing sparse slots' winners deeper in the stream.
+    L199 "The Long Way Up" (vault, act 10 — par band 34–50) is the
+    sparsest slot in the campaign: 220/220 rejected under the corrected
+    fair-reach model (mostly soft-locks/crumble sealing in the goal
+    row), passed at ≤300 (par 36, 2 sentinels, key), and the spring
+    fix then removed that ≤300 winner (it was one of the seven
+    slide-to-pad levels) so the final model needs ≤450 (par 39, 3
+    sentinels, key). The vault archetype is not unbuildable at the band
+    (the M2-era L199 at par 39 still verifies under the corrected
+    model); the passing candidates are simply sparse in that slot's
+    layout space. A global 450 cap was tried first and rejected: it
+    made every gauntlet (expensive crossing graphs) pay for one sparse
+    slot. Instead the gen band carries an optional `attempts` field
+    (acts.js — the same per-act data that sets par/orbs/crumble), and
+    act 10 sets 450; the generator uses `act.gen.attempts || 300`.
+    Worst case stays ~30–45 s per level under the fast timing model
+    (fix 14).
+16. **An ice slide landing on a spring pad fires the spring — the model
+    did not.** `resolveRoll` fired a spring when a press's direct step
+    landed on a pad, but the ice-slide follow-through loop stopped the
+    cube on the pad. The game's `autoContinue` launches on ANY landing,
+    slides included, so L68 "The Lost Stair" shipped with its only
+    route crossing an ice run that ends on a pad aimed at the void: the
+    verifier saw a safe landing, the live bot launched the cube into the
+    void on every attempt (3/3 deaths, "goal not reached"), and the full
+    200-level live run caught it. The slide loop now resolves the launch
+    (same landing law; a launch with no landing is a fall, `null`, the
+    same convention as a roll into the void), and the bot's fast-mode
+    inline mirror got the same line. A survey found slide-to-pad
+    geometry in 7 levels (52/68/105/131/164/178/199); only the two whose
+    launch is fatal (68, 199) fail the corrected verifier — 51–200 was
+    regenerated under it.
+17. **Dock-to-dock rolls do not exist.** `resolveRoll` treated shuttle
+    dock tiles as ordinary slabs, so a route could step from one
+    shuttle's dock onto an adjacent dock of a different shuttle. In real
+    play that step needs the second platform docked there in the same
+    instant the first platform's dwell ends — a phase coincidence.
+    L196 "The Ascent Complete" shipped two shuttles with adjacent docks
+    (16,9 / 16,8) and identical cycles (wait 2 s, travel 1.6 s), so the
+    transfer window never opened: the cube was carried back, stepped
+    into the void, and the full live run failed the level while the
+    verifier stayed green. `resolveRoll`'s step now refuses
+    dock→dock moves (a cube on a platform rides — `shuttleRide` — or
+    steps onto a slab), and the bot's fast-mode planner mirror got the
+    same line. Only L196 in the whole catalogue relied on the phantom
+    step; its slot was regenerated (shuttle-span, par 38).
+18. **The bot replanned from mid-shuttle positions.** Two harness fixes
+    from the same L196 investigation: (a) the drive loop's position
+    gate returned 'replan' the moment a departing platform carried the
+    cube off the dock tile — before the ride branch could own the
+    transit — and the planner then reported NO FAIR ROUTE from a
+    mid-track position that is not a tile; rides are now exempt from
+    the gate. (b) When planning finds no route, the bot now waits for
+    the cube to settle onto a real tile (mid-slide, mid-ride) and
+    plans again before declaring a level unplayable.
+
+**Restoration + identity.** 14–50 carry the approved mechanic INTRO
+schedule as *forced* levels (`INTRO_MECH`: first spring L25; shuttles
+L28/34/36/42; the double-shuttle finale L50) over best-effort probabilities
+tuned so a shuttle still reads as a set piece (0.2). Acts 6 and 7 force
+their identity mechanic on every level (`force: {ice: 1}` / `{shuttle: 1}`
+in `src/acts.js`). Two further M2.5 variety layers ride the same gate: a
+per-act **orientation rotation** (acts.js `flip`, mirrored after the proof
+— every rule is mirror-symmetric and the file-level verifier re-proves)
+and a per-act **light palette** (stage + slab tint from the act's `hue`,
+subtle by design so patrol lines and elevation stay readable). The
+sentinel exclusion stays **radius-1** around mechanics: shrinking it to
+same-run-only let patrols sit beside forced launches and took the forced
+shuttle+spring level from proven to 0/600.
+
 ## ADR-016 — The timing model must mirror the real (eased) cube, and a burst ends at the crossing (2026-11-07)
 **Context:** after the 200-level regeneration, the live playable bot died on
 gate-fair levels (L19/L31/L36 class) even though the 9-check verifier

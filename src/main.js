@@ -65,7 +65,7 @@ const SUN_ICON =
 function applyTheme(t) {
   save.theme = t;
   document.body.classList.toggle('light', t === 'light');
-  game.stage.setTheme(t);
+  game.stage.setTheme(t, game.actHue ?? null); // keep the act's palette
   el.btnTheme.innerHTML = t === 'light' ? SUN_ICON : MOON_ICON;
   el.btnThemeMenu.textContent = `Theme: ${t === 'light' ? 'Light' : 'Dark'}`;
   writeSave(save);

@@ -69,6 +69,33 @@ this is the map._
   L179 "The Pincer" proved the chord band cut corner tiles; all 200 +
   14 dailies re-verified clean, no slots regenerated). Next: M3
   (the mechanic set, per act).
+- **M2.5 in progress — the variety pass (user "proceed" 2026-11-12)**:
+  EDGE-scale mechanics re-injected campaign-wide — the fair-route
+  rescue model now spans mechanic gaps (`mechanicTargets` extends
+  `fairReachSet` with shuttle rides + spring launches, so a
+  bench→goal route crossing a shuttle/spring span is judged fair), and
+  the hazard carve candidates are sampled at the real carve position
+  (mid-straight-run) instead of solid-run starts — the run-start
+  corners were exactly what the approach-collinearity filter exists to
+  exclude (L82 gauntlet / L102 spring-field: zero candidates → forced
+  mechanics silently failed); `fairReachSet` now expands by the game's
+  own one-press transitions instead of naive adjacency (it had blessed
+  L20 "Glass Meadow", whose only legal first roll lands on the sentinel
+  line — a false positive caught by the live bot's planner); an ice
+  slide landing on a spring pad now fires the pad in the model (the
+  game's autoContinue launches on any landing — L68 "The Lost Stair"
+  shipped with its only route sliding into a pad aimed at the void,
+  caught by the full 200-level live run); dock-to-dock shuttle steps
+  are refused by the model (L196's two shuttles had identical cycles,
+  so the adjacent-dock transfer window never opened in real play);
+  per-act orientation rotation; per-act palettes. 14–50 and 51–200
+  were fully regenerated under the final model and re-gated before
+  commit: verify (all 200 levels + 14 dailies), unit 60/60, and the
+  live bot at 201/201 playable with zero page errors — the run that
+  caught the spring-slide and dock-to-dock model holes above is now
+  part of the standing nightly gate (ADR-015).
+  Remaining M2.5 scope: the experience-diversity curation gate, the
+  M3 wave-1 mechanics, and bosses as set pieces (M3).
 
 ## Remaining (honest list — NOT done)
 

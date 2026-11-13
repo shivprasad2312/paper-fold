@@ -91,6 +91,16 @@ export function applyHazards(layout, b, rand, opts = {}) {
       const [i, j] = runs[Math.floor(rand() * runs.length)];
       for (const gap of rand() < 0.5 ? [2, 3] : [3, 2]) {
         if (j < i + gap + 1) continue;
+        // never hollow a tile another mechanic already claimed: the dock
+        // must be plain void floor, and the earlier carve's list would keep
+        // pointing at it ("ice on a shuttle dock" — L101, M2.5 2026-11-12:
+        // ice marks mechSet but not carved, so solidRuns() still offered
+        // those tiles to the shuttle).
+        let mechInSpan = false;
+        for (let t = i; t <= i + gap && !mechInSpan; t++) {
+          if (mechSet.has(`${path[t][0]},${path[t][1]}`)) mechInSpan = true;
+        }
+        if (mechInSpan) continue;
         const Q = path[i + gap + 1];
         if (!Q) continue;
         const P = path[i - 1];
@@ -123,21 +133,38 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // SPRING PIT: on a straight run S-A-L, hollow out A and put a spring pad
   // on S: the only way across the pit is the launch.
   const trySpring = () => {
-    const cands = solidRuns().map(([i]) => i).filter((i) => {
+    // Candidate pads: any position where P-S-A-L run in a straight line.
+    // (NOT solidRuns() starts — those are exactly the run-start corners
+    // where the approach wraps around the turn; M2.5 L102 (spring-field,
+    // runs entered perpendicularly) then had ZERO candidates and every
+    // forced spring failed the candidate. M2.5, fixed 2026-11-12.)
+    const cands = [];
+    for (let i = 1; i + 2 <= path.length - 2; i++) {
+      if (carved.has(k(i)) || carved.has(k(i + 1)) || carved.has(k(i + 2))) continue;
       const S = path[i];
       const A = path[i + 1];
       const L = path[i + 2];
-      if (!L || i < 1 || i + 2 > path.length - 2) return false;
-      if (k(i) === `${start[0]},${start[1]}`) return false;
-      if (k(i + 2) === `${goal[0]},${goal[1]}`) return false;
+      const P = path[i - 1];
+      if (!P || carved.has(k(i - 1))) continue;
+      if (k(i) === `${start[0]},${start[1]}`) continue;
+      if (k(i + 2) === `${goal[0]},${goal[1]}`) continue;
+      // The launch fires in the direction of TRAVEL — the approach — so the
+      // approach must continue straight into S->A. A run-start corner would
+      // launch along the turn instead: M2.5 L82 (gauntlet) had the pad at a
+      // corner of the spiral and every press launched 10 rows into the void
+      // gap (fall on every pass, par -1). Mid-run the approach IS the run
+      // direction, so the launch flies over the pit to the landing.
+      if (S[0] - P[0] !== A[0] - S[0] || S[1] - P[1] !== A[1] - S[1]) continue;
+      let badSide = false;
       for (const dz of [-1, 1]) {
         const az = A[1] + dz;
         if (az < 0 || az > H - 1) continue;
         const side = `${A[0]},${az}`;
-        if (tiles.has(side) && !pathSet.has(side)) return false;
+        if (tiles.has(side) && !pathSet.has(side)) { badSide = true; break; }
       }
-      return true;
-    });
+      if (badSide) continue;
+      cands.push(i);
+    }
     if (!cands.length) return false;
     const i = cands[Math.floor(rand() * cands.length)];
     const S = path[i];
@@ -160,14 +187,30 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // ICE: an ice tile on the route; a roll onto it carries the cube one more
   // tile in the same press (the slide stops at the first non-ice slab).
   const tryIce = () => {
-    const cands = solidRuns().map(([i]) => i).filter((i) => {
+    // Candidate tiles: any mid-run position where P-I-N run in a straight
+    // line (same candidate source as trySpring — solidRuns() starts would
+    // be exactly the corners the collinearity check exists to exclude).
+    // M2.5, fixed 2026-11-12 (L102: spring-field's perpendicular run
+    // entries left the run-start-only source with no ice candidates).
+    const cands = [];
+    for (let i = 1; i + 1 <= path.length - 2; i++) {
+      if (carved.has(k(i)) || carved.has(k(i + 1))) continue;
       const I = path[i];
       const N = path[i + 1];
-      if (!N || i < 1 || i + 1 > path.length - 2) return false;
-      if (k(i) === `${start[0]},${start[1]}`) return false;
-      if (k(i + 1) === `${goal[0]},${goal[1]}`) return false;
-      return Math.abs(map[N[1]][N[0]] - map[I[1]][I[0]]) <= 1;
-    });
+      const P = path[i - 1];
+      if (!P || carved.has(k(i - 1))) continue;
+      if (k(i) === `${start[0]},${start[1]}`) continue;
+      if (k(i + 1) === `${goal[0]},${goal[1]}`) continue;
+      // The slide carries one extra tile in the direction of TRAVEL. At a
+      // run-start corner the approach comes around the turn, so a slide
+      // entering from the run side is fine but one entering from the turn
+      // shoots off the run (M2.5 L82: ice at a spiral corner slid the cube
+      // onto a side slab and sealed the rest of the level). Require the
+      // approach to be collinear so both entry directions stay on the run.
+      if (I[0] - P[0] !== N[0] - I[0] || I[1] - P[1] !== N[1] - I[1]) continue;
+      if (Math.abs(map[N[1]][N[0]] - map[I[1]][I[0]]) > 1) continue;
+      cands.push(i);
+    }
     if (!cands.length) return false;
     const i = cands[Math.floor(rand() * cands.length)];
     const I = path[i];
@@ -197,12 +240,23 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['spring', force.spring || 0, (b.mech || {}).spring || 0],
     ['ice', Math.max(force.ice || 0, (layout.forceIce || []).length), (b.mech || {}).ice || 0],
   ];
+  // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
+  // quota (n < forced) is always attempted — a forced mechanic that cannot
+  // be carved fails the candidate (return null below). Extra carves beyond
+  // the quota are probabilistic, up to 4 total, with the probability
+  // HALVING per extra tile (a level with one ice slab reads as a detail;
+  // four changes the character — the old hand schedule ran I1–I2). The
+  // previous gate broke on `p < 1` BEFORE rolling, so best-effort carves
+  // never happened at any probability < 1 — the whole 14–200 campaign
+  // shipped with effectively no ice/springs/shuttles.
   const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length };
   for (const [m, forced, p] of carvePlan) {
     let n = got[m];
     for (let t = 0; t < 4; t++) {
-      if (n >= forced && p >= 1 && n === forced) break; // keep exact when forced
-      if (n >= forced && (p < 1 || rand() >= p)) break;
+      if (n >= forced) {
+        const pExtra = p * Math.pow(0.5, n - forced);
+        if (pExtra <= 0 || rand() >= pExtra) break;
+      }
       const ok = m === 'shuttle' ? tryShuttle() : m === 'spring' ? trySpring() : tryIce();
       if (!ok) break;
       n++;
@@ -275,11 +329,18 @@ export function applyHazards(layout, b, rand, opts = {}) {
       const horiz = t + 1 <= j && path[t][1] === path[t + 1][1];
       const sides = horiz ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
       for (const [dx, dz] of sides) {
-        const nx = x + dx;
-        const nz = z + dz;
-        if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
-        if (map[nz][nx] !== 0) continue;
-        let otherSolid = 0;
+      const nx = x + dx;
+      const nz = z + dz;
+      if (nx < 0 || nz < 0 || nx >= W || nz >= H) continue;
+      if (map[nz][nx] !== 0) continue;
+      // a hollowed mechanic span (shuttle dock, spring pit) is a void by
+      // design — filling it re-solidifies the dock and parseLevel rejects
+      // the whole level ("shuttle dock is not void"). M2.5, 2026-11-12:
+      // this was what starved the forced shuttle+spring undertow levels
+      // (L82 0/220): the span clearing removes the side slabs, so a dock
+      // tile has zero solid neighbours and passed the dead-end test.
+      if (mechSet.has(`${nx},${nz}`)) continue;
+      let otherSolid = 0;
         for (const [ax, az] of [[nx - 1, nz], [nx + 1, nz], [nx, nz - 1], [nx, nz + 1]]) {
           if (ax < 0 || az < 0 || ax >= W || az >= H) continue;
           if (ax === x && az === z) continue;
@@ -301,19 +362,25 @@ export function applyHazards(layout, b, rand, opts = {}) {
       const [i, j] = runs[ri];
       const a = path[i];
       const c = path[j];
-      let nearMech = false;
-      for (let t = i; t <= j && !nearMech; t++) {
-        const [tx, tz] = path[t];
-        for (let ox = -1; ox <= 1 && !nearMech; ox++) {
-          for (let oz = -1; oz <= 1; oz++) {
-            if (mechSet.has(`${tx + ox},${tz + oz}`)) {
-              nearMech = true;
-              break;
-            }
+    // A sentinel cannot patrol within a tile of a mechanic: the sweep
+    // would ride the spring pad / ice slide / shuttle dock, and the
+    // timing model has no safe-window notion for a patrol that shares
+    // space with a launch. (M2.5, 2026-11-12: shrinking this to same-run
+    // only let sentinels sit adjacent to forced mechanics and L42 — the
+    // forced shuttle+spring — went 0/600 proven; radius-1 it stays.)
+    let nearMech = false;
+    for (let t = i; t <= j && !nearMech; t++) {
+      const [tx, tz] = path[t];
+      for (let ox = -1; ox <= 1 && !nearMech; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          if (mechSet.has(`${tx + ox},${tz + oz}`)) {
+            nearMech = true;
+            break;
           }
         }
       }
-      if (nearMech) continue;
+    }
+    if (nearMech) continue;
       if (`${a[0]},${a[1]}` === `${start[0]},${start[1]}` || `${c[0]},${c[1]}` === `${start[0]},${start[1]}`) continue;
       if (`${a[0]},${a[1]}` === `${goal[0]},${goal[1]}` || `${c[0]},${c[1]}` === `${goal[0]},${goal[1]}`) continue;
       const speed = +(b.speed[0] + rand() * (b.speed[1] - b.speed[0])).toFixed(2);

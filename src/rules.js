@@ -226,7 +226,18 @@ function springLaunch(level, pos, d) {
 export function resolveRoll(level, from, d) {
   const step = (pos) => {
     const to = level.tiles.get(key(pos.x + d.dx, pos.z + d.dz));
-    return to && checkRoll(level, pos, to).ok ? to : null;
+    if (!to || !checkRoll(level, pos, to).ok) return null;
+    // Dock-to-dock rolls do not exist in real play: a cube standing on a
+    // shuttle platform can only RIDE to the far dock (shuttleRide) or step
+    // onto a slab. Stepping onto another dock tile needs THAT platform
+    // docked there at the same instant — for a different shuttle that is a
+    // phase coincidence the static model cannot promise. L196 shipped two
+    // shuttles with adjacent docks (16,9 / 16,8) and identical cycles, so
+    // the transfer window never opened in real play and the level was
+    // unplayable; the model, treating dock tiles as ordinary slabs, had
+    // blessed it. Fixed 2026-11-13 (caught by the live gate).
+    if (pos.shuttle && to.shuttle) return null;
+    return to;
   };
   let t;
   if (from.spring) {
@@ -247,8 +258,44 @@ export function resolveRoll(level, from, d) {
     const n = step(t);
     if (!n) break;
     t = n;
+    if (t.spring) {
+      // A slide landing on a spring FIRES it — the game's autoContinue
+      // launches on ANY landing, slides included. The old model let the
+      // slide stop on the pad, which blessed L68 "The Lost Stair": the
+      // only route crossed an ice run that ended on a spring pad aimed
+      // at the void, so every real play launched the cube into the void
+      // while the verifier saw a safe landing. The launch's own landing
+      // law applies; a launch with no landing is a fall (null, the same
+      // convention as a roll into the void). M2.5, fixed 2026-11-13
+      // (caught by the live gate).
+      t = springLaunch(level, t, d);
+      break;
+    }
   }
   return t;
+}
+
+/**
+ * Where can the cube END UP from `tile` via a mechanic transition — the
+ * shuttle ride and the spring launches (ice carries are plain rolls and
+ * need no special edge). Used by the fair-reach model, which otherwise
+ * expands one adjacent tile at a time and cannot cross a hollowed pit or
+ * span. (M2.5, 2026-11-12: the gauntlet spirals make such spans the ONLY
+ * route crossing, so bench/timing checks rejected levels the game plays
+ * fine — a false negative, verified with a mechanics-aware BFS.)
+ */
+export function mechanicTargets(level, tile) {
+  const out = [];
+  if (!tile) return out;
+  const ride = shuttleRide(level, tile);
+  if (ride) out.push(ride);
+  if (tile.spring) {
+    for (const d of Object.values(DIRS)) {
+      const to = springLaunch(level, tile, d);
+      if (to) out.push(to);
+    }
+  }
+  return out;
 }
 
 /**
@@ -621,9 +668,14 @@ export function spawnProblems(level) {
     if (k === startK || k === goalK) probs.push('key on start/goal tile');
   }
   // shuttle docks: the platform is the only thing solid there — nothing
-  // static may depend on it or be depended on by it
-  for (const [x, z] of level.shuttleDocks) {
-    if (x === startK.split(',')[0] && z === startK.split(',')[1]) probs.push('shuttle dock on the start tile');
+  // static may depend on it or be depended on by it. (shuttleDocks is a Set
+  // of "x,z" KEY STRINGS — M2.5, fixed 2026-11-12: the old loop destructured
+  // each string into [x, z], i.e. took its first two CHARACTERS, so dock
+  // "15,14" was checked as tile (1,5) and false-flagged "ice on a shuttle
+  // dock 1,5"; the start/goal comparisons also mixed strings and numbers and
+  // could never fire.)
+  for (const dock of level.shuttleDocks) {
+    const [x, z] = dock.split(',').map(Number);
     if (x === level.start.x && z === level.start.z) probs.push('shuttle dock on the start tile');
     if (x === level.goal.x && z === level.goal.z) probs.push('shuttle dock on the goal tile');
     for (const s of level.shards) if (s.x === x && s.z === z) probs.push(`shard on a shuttle dock ${x},${z}`);
@@ -1116,14 +1168,24 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
     return true;
   };
 
-  const scan = (step) => {
+  const scan = (step, stopAt = null) => {
     let best = 0;
     let run = 0;
     let prev = null;
     for (let t0 = 0; t0 < HORIZON; t0 += step) {
       if (safeStart(t0)) {
         run = prev === null || t0 - prev > step * 1.5 ? step : run + step;
-        if (run > best) best = run;
+        if (run > best) {
+          best = run;
+          // The edge decision only needs "≥ floor": once the run clears it,
+          // the exact maximum adds nothing the gate uses (the reported
+          // bestWindow in a failure message is then clamped to the floor —
+          // the failure still says a fair window exists but is unreachable,
+          // which is what the message means). L87: 196/206 candidates were
+          // above floor, each paying the full fine scan for a decision this
+          // line settles. M2.5, 2026-11-13 (15.5 s → ~0.5 s per graph).
+          if (stopAt !== null && best >= stopAt) return best;
+        }
       } else {
         run = 0;
       }
@@ -1134,7 +1196,7 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
 
   const coarse = scan(0.02);
   if (coarse + 0.06 < floor) return coarse; // hopeless — skip the fine pass
-  return scan(0.005); // the fine scan is authoritative (coarse can bridge narrow gaps)
+  return scan(0.005, floor); // authoritative for the decision; clamps at floor
 }
 
 /**
@@ -1419,9 +1481,21 @@ export function fairReachSet(level, from, keySeed = false, blocked = null) {
       const ct = q[qi++];
       const targets = new Set((edges.get(idOf(ct)) || []).map((e) => idOf(e.to)));
       if (!ct.isKeyNode) {
-        for (const [dx, dz] of DIRS_OBJ) {
-          const to = level.tiles.get(key(ct.x + dx, ct.z + dz));
-          if (!to || line.has(key(to.x, to.z))) continue; // off-line neighbours only
+        // The game's own transitions — one press = one resolved landing
+        // (roll law enforced, ice carry, spring fire, shuttle ride all
+        // included). Naive four-neighbour adjacency called a +2 climb
+        // "reachable", which blessed levels whose only fair route the cube
+        // physically cannot play (M2.5 L20 "Glass Meadow": the start's
+        // only legal roll lands on the patrol line; the naive set climbed
+        // +2 off the line and declared the goal fair-reachable — the live
+        // bot's planner, which mirrors resolveRoll, had no route). Every
+        // transition is mechanic-aware by construction (ADR-016 doctrine),
+        // and mechanic landings never touch a patrol line (the radius-1
+        // sentinel exclusion), so no extra edges are needed. M2.5,
+        // 2026-11-13 (false positive found by the live gate).
+        const tile = level.tiles.get(key(ct.x, ct.z)) || ct;
+        for (const to of rollTargets(level, tile)) {
+          if (line.has(key(to.x, to.z))) continue; // off-line landings only
           targets.add(key(to.x, to.z));
         }
       }
@@ -1429,7 +1503,7 @@ export function fairReachSet(level, from, keySeed = false, blocked = null) {
         if (seen.has(tk) || isBlocked(tk)) continue;
         seen.add(tk);
         const [tx, tz] = (tk.startsWith('key:') ? tk.slice(4) : tk).split(',').map(Number);
-        q.push(tk.startsWith('key:') ? { x: tx, z: tz, isKeyNode: true } : { x: tx, z: tz });
+        q.push(tk.startsWith('key:') ? { x: tx, z: tz, isKeyNode: true } : (level.tiles.get(tk) || { x: tx, z: tz }));
       }
     }
     return seen;

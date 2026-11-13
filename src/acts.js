@@ -30,6 +30,10 @@ export const ACTS = [
       W: 16, par: [19, 34], orbs: [1, 2], crumble: [1, 3], speed: [1.6, 2.2],
       shards: [4, 4], fill: [4, 8], keyP: 0.1,
       mech: { ice: 0.6, spring: 0.5, shuttle: 0.5 },
+      // orientation rotation (M2.5 variety pass): the act plays as a
+      // DESCENT — start at the top of the frame, goal at the bottom
+      // (mirrored after the proof; all rules are mirror-symmetric)
+      flip: 'z',
       // no switchback, staircase or long-drop (ADR-019): at this act's
       // par band [19,34] the long-route archetypes are unbuildable under
       // the press-schedule band — their short variants miss the par band
@@ -53,6 +57,9 @@ export const ACTS = [
       W: 16, par: [22, 38], orbs: [1, 3], crumble: [1, 3], speed: [1.6, 2.3],
       shards: [4, 4], fill: [4, 8], keyP: 0.1,
       mech: { ice: 0.6, spring: 0.6, shuttle: 0.6 },
+      // orientation rotation (M2.5): the act plays RIGHT → LEFT — the
+      // start sits on the east edge (mirrored after the proof)
+      flip: 'x',
       // no long-route archetypes (ADR-019): on this act's W16 maps with
       // par floor 22 the switchback, staircase, long-drop and canyon
       // are unbuildable under the press-schedule band (probed at L61,
@@ -76,6 +83,9 @@ export const ACTS = [
       W: 18, par: [24, 40], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.3],
       shards: [4, 4], fill: [4, 8], keyP: 0.12,
       mech: { ice: 0.6, spring: 0.6, shuttle: 0.6 },
+      // orientation rotation (M2.5): the act plays as a descent — start
+      // at the top of the frame (mirrored after the proof)
+      flip: 'z',
       // no long-route archetypes (ADR-019): switchback/canyon/long-drop
       // cap at par ~23 on W18 — below this act's floor of 24 (probed
       // at L81, 2026-11-09)
@@ -96,7 +106,11 @@ export const ACTS = [
     gen: {
       W: 18, par: [26, 42], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.3],
       shards: [4, 4], fill: [4, 8], keyP: 0.12,
-      mech: { ice: 1.0, spring: 0.5, shuttle: 0.5 }, // the ice act: ice always
+      // the ice act: every level gets at least one ice tile (force), extra
+      // carves are probabilistic (M2.5: identity mechanics are forced, not
+      // left to best-effort luck)
+      force: { ice: 1 },
+      mech: { ice: 0.6, spring: 0.5, shuttle: 0.5 },
       // no long-route archetypes (ADR-019): switchback/long-drop/canyon
       // cap at par ~23 — below this act's floor of 26 (probed 2026-11-09)
       arch: ['ice-river', 'undertow', 'spring-field', 'twin-falls', 'lattice', 'gauntlet'],
@@ -116,7 +130,14 @@ export const ACTS = [
     gen: {
       W: 18, par: [28, 44], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.3],
       shards: [4, 4], fill: [4, 8], keyP: 0.15,
-      mech: { ice: 0.4, spring: 0.4, shuttle: 1.0 }, // the shuttle act: always a ride
+      // the shuttle act: every level carries a ride (M2.5). A slot whose
+      // geometry never admits a shuttle carve fails the act — that is the
+      // act's identity, so it is not relaxed.
+      force: { shuttle: 1 },
+      mech: { ice: 0.4, spring: 0.4, shuttle: 0.5 },
+      // orientation rotation (M2.5): the act plays RIGHT → LEFT — the
+      // crossing runs westbound (mirrored after the proof)
+      flip: 'x',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 28
       arch: ['shuttle-span', 'undertow', 'twin-bridge', 'bridge-chain', 'ring', 'aperture'],
       names: [
@@ -136,6 +157,9 @@ export const ACTS = [
       W: 18, par: [30, 46], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.45, // the key act: gates everywhere
       mech: { ice: 0.5, spring: 0.5, shuttle: 0.6 },
+      // orientation rotation (M2.5): the act plays as a descent — start
+      // at the top of the frame (mirrored after the proof)
+      flip: 'z',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 30
       arch: ['key-detour', 'vault', 'shuttle-span', 'gauntlet', 'twin-falls', 'meridian', 'aperture'],
       names: [
@@ -155,6 +179,9 @@ export const ACTS = [
       W: 18, par: [32, 48], orbs: [2, 3], crumble: [2, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.3,
       mech: { ice: 0.6, spring: 0.6, shuttle: 0.7 },
+      // orientation rotation (M2.5): the act plays RIGHT → LEFT (mirrored
+      // after the proof)
+      flip: 'x',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 32
       arch: ['gauntlet', 'undertow', 'twin-falls', 'shuttle-span', 'aperture', 'meridian'],
       names: [
@@ -173,6 +200,11 @@ export const ACTS = [
     gen: {
       W: 18, par: [34, 50], orbs: [2, 3], crumble: [3, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.35,
+      // sparse band: the finale's long par + dense crumble means fewer
+      // candidates prove (the vault slot in particular needs >300 attempts
+      // under the final model — par 39, 3 sentinels, key, at ≤450). The
+      // generator reads this as the attempt budget for the act's slots.
+      attempts: 450,
       mech: { ice: 0.7, spring: 0.7, shuttle: 0.8 },
       arch: ['undertow', 'twin-falls', 'shuttle-span', 'gauntlet', 'vault', 'ring', 'meridian'],
       names: [
