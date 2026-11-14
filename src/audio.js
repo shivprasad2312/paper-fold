@@ -371,6 +371,12 @@ export class AudioEngine {
         this.blip(t + 0.09, 1568, 2093, 0.16, 'triangle', 0.16);
         this.blip(t + 0.2, 2093, 2637, 0.2, 'sine', 0.1);
         break;
+      case 'freeze':
+        // the freeze shard: an icy descending shimmer as the patrols lock up
+        [0, 5, 9, 14].forEach((semi, i) => {
+          this.blip(t + i * 0.07, mtof(88 - semi), mtof(81 - semi), 0.34, 'sine', 0.07);
+        });
+        break;
       case 'gateLocked':
         // the sealed gate refuses: a dull double knock
         this.noiseHit(t, 0.05, 220, 1, 0.16);

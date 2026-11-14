@@ -5,7 +5,7 @@ import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
 import { getDailyLevel } from './daily.js';
-import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 // Vivid cube colour per level, like EDGE's recolouring between stages.
@@ -26,6 +26,7 @@ export class Game {
     this.state = 'idle'; // idle | playing | dead | won
     this.paused = false;
     this.elapsed = 0;
+    this.freezeLeft = 0; // seconds of sentinel freeze remaining (M3 wave-1)
     this.levelIndex = 0;
     this.level = null;
     this.view = null;
@@ -210,6 +211,7 @@ export class Game {
     this.view.reset();
     this.totalShards = this.level.shards.length;
     this.shardsCollected = 0;
+    this.freezeLeft = 0;
     this.elapsed = 0;
     this.moves = 0;
     this.queue.length = 0;
@@ -427,6 +429,11 @@ export class Game {
     this.cubeGlow.scale.setScalar(pulse);
 
     if (this.state === 'playing') {
+      // the freeze burns in real seconds, anims and all
+      if (this.freezeLeft > 0) {
+        this.freezeLeft = Math.max(0, this.freezeLeft - dt);
+        if (this.freezeLeft === 0) this.view.setFrozen(false);
+      }
       this.checkPickups();
       this.checkOrbs();
       this.checkBrokenGround();
@@ -823,6 +830,22 @@ export class Game {
       }
     }
 
+    // freeze shards: every sentinel locks up for FREEZE_TIME
+    for (const f of this.view.freezes || []) {
+      if (f.collected) continue;
+      const p = this.cubeMesh.position;
+      const dx = p.x - f.holder.position.x;
+      const dz = p.z - f.holder.position.z;
+      const dy = p.y - f.holder.position.y;
+      if (dx * dx + dz * dz < 0.42 && Math.abs(dy) < 0.9) {
+        this.view.collectFreeze(f);
+        this.freezeLeft = FREEZE_TIME; // re-grabbing refreshes the freeze
+        this.view.setFrozen(true);
+        this.stage.shake(0.08);
+        this.emit('freeze', { left: FREEZE_TIME });
+      }
+    }
+
     // the gate key: a bigger, more important pickup
     const gk = this.level.gateKey;
     if (gk && !this.hasKey) {
@@ -840,6 +863,7 @@ export class Game {
   }
 
   checkOrbs() {
+    if (this.freezeLeft > 0) return; // frozen sentinels are inert (M3 wave-1)
     const p = this.cubeMesh.position;
     for (const o of this.view.orbs) {
       const dx = p.x - o.holder.position.x;
@@ -949,6 +973,8 @@ export class Game {
     this.rescueOffered = false;
     this.rescueUsed = true;
     this.rescuedRun = true;
+    this.freezeLeft = 0;
+    this.view.setFrozen(false);
     this.view.resetOrbs();
     this.queue.length = 0;
     this.deadTimer = 0;

@@ -237,6 +237,27 @@ export function parseLevel(def) {
     timedTiles.add(key(x, z));
   }
 
+  // ---- freeze shards (M3 wave-1): landing on one freezes every
+  // sentinel for FREEZE_TIME. A consumable pickup on a plain slab —
+  // never stacked on another mechanic, a shard, a block, or the key.
+  const freezeTiles = new Set();
+  const freezes = [];
+  for (const [x, z] of def.freeze || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] freeze shard ${x},${z} is not a slab`);
+    if (t.shuttle || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.plate || t.door) {
+      throw new Error(`[${def.name}] freeze shard on another mechanic at ${x},${z}`);
+    }
+    if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] freeze shard on the start tile`);
+    if (x === goalTile.x && z === goalTile.z) throw new Error(`[${def.name}] freeze shard on the goal tile`);
+    if (blockTiles.has(key(x, z))) throw new Error(`[${def.name}] freeze shard under a block at ${x},${z}`);
+    if (shards.some((s) => s.x === x && s.z === z)) throw new Error(`[${def.name}] freeze shard stacked on a shard at ${x},${z}`);
+    if (def.key && def.key[0] === x && def.key[1] === z) throw new Error(`[${def.name}] freeze shard on the key`);
+    t.freeze = true;
+    freezeTiles.add(key(x, z));
+    freezes.push({ x, z });
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
@@ -270,6 +291,8 @@ export function parseLevel(def) {
     conveyorTiles,
     doors,
     timedTiles,
+    freezes,
+    freezeTiles,
     gateKey,
     wind,
     nudge,
@@ -952,6 +975,18 @@ export const ORB_KILL_RADIUS = 0.62;
  * cannot reliably catch the gap (it reads as a trap, not a challenge).
  */
 export const TIMING_FLOOR = 0.5;
+
+/**
+ * Sentinel-freeze shard (M3 wave-1): landing on one freezes every
+ * sentinel for FREEZE_TIME real seconds. The fairness model counts the
+ * freeze in PRESSES, not seconds: a freeze-assisted crossing is fair
+ * when (presses from the pickup to the crossing entry) + (the burst)
+ * fits FREEZE_PRESS_BUDGET — at hurried cadence (≤ ~0.35 s/press,
+ * against the 0.243 s roll floor) 8 presses ≈ 2.8 s, inside the 3.2 s
+ * freeze with the exit margin to spare.
+ */
+export const FREEZE_TIME = 3.2;
+export const FREEZE_PRESS_BUDGET = 8;
 /**
  * A live commit does not run on one ideal timeline — its press schedule
  * varies with load (bot loop latency, a human's reaction), and the game's
@@ -1494,11 +1529,13 @@ function buildCrossingGraph(level) {
   let bestWindow = 0;
   let anyCandidate = false;
   if (line.size) {
-    const addEdge = (from, to, seq) => {
+    const addEdge = (from, to, seq, freeze = false) => {
       const k = key(from.x, from.z);
       if (!edges.has(k)) edges.set(k, []);
-      edges.get(k).push({ to, seq });
+      edges.get(k).push({ to, seq, freeze });
     };
+    // crossings the natural window rejects but a freeze might save
+    const unfairCrossings = [];
     const note = (w) => {
       anyCandidate = true;
       if (w > bestWindow) bestWindow = w;
@@ -1541,11 +1578,16 @@ function buildCrossingGraph(level) {
 
     for (const c of candidateCrossings(level)) {
       const wFwd = crossingWindow(level, c.entry, c.seq, c.exit);
-      const wRev = crossingWindow(level, c.exit, [...c.seq].reverse(), c.entry);
+      const revSeq = [...c.seq].reverse();
+      const wRev = crossingWindow(level, c.exit, revSeq, c.entry);
       note(wFwd);
       note(wRev);
-      if (wFwd >= TIMING_FLOOR && seqLegal(c.entry, c.seq, c.exit)) addEdge(c.entry, c.exit, c.seq);
-      if (wRev >= TIMING_FLOOR && seqLegal(c.exit, [...c.seq].reverse(), c.entry)) addEdge(c.exit, c.entry, [...c.seq].reverse());
+      const fwdLegal = seqLegal(c.entry, c.seq, c.exit);
+      const revLegal = seqLegal(c.exit, revSeq, c.entry);
+      if (wFwd >= TIMING_FLOOR && fwdLegal) addEdge(c.entry, c.exit, c.seq);
+      else if (fwdLegal) unfairCrossings.push({ entry: c.entry, exit: c.exit, seq: c.seq });
+      if (wRev >= TIMING_FLOOR && revLegal) addEdge(c.exit, c.entry, revSeq);
+      else if (revLegal) unfairCrossings.push({ entry: c.exit, exit: c.entry, seq: revSeq });
     }
 
     // a START on the line: the first roll(s) must slip out while the orb is far
@@ -1612,6 +1654,86 @@ function buildCrossingGraph(level) {
         if (!edges.has(nodeK)) edges.set(nodeK, []);
         if (!edges.get(nodeK).some((x) => x.to === e.to && x.seq === outSeq)) {
           edges.get(nodeK).push({ to: e.to, seq: outSeq });
+        }
+      }
+    }
+
+    // FREEZE-ASSISTED CROSSINGS (M3 wave-1): a burst the natural window
+    // rejects is still fair when the player can freeze the patrol first:
+    // a freeze pickup reachable through crossings already proven fair,
+    // with (pickup → entry presses) + (burst presses) inside
+    // FREEZE_PRESS_BUDGET. Fixpoint: each freeze crossing unlocked may
+    // make another pickup reachable. Press distances run on plain
+    // resolved presses in the "frozen world" (patrol-line tiles are
+    // walkable while frozen; shuttle rides are excluded — a ride's real
+    // seconds would burn the freeze away).
+    if (level.freezeTiles && level.freezeTiles.size && unfairCrossings.length) {
+      const pickupTiles = [...level.freezeTiles].map((k) => level.tiles.get(k)).filter(Boolean);
+      const pressDistFrom = (from) => {
+        const dist = new Map([[key(from.x, from.z), 0]]);
+        const q = [from];
+        while (q.length) {
+          const cur = q.shift();
+          const d0 = dist.get(key(cur.x, cur.z));
+          for (const d of Object.values(DIRS)) {
+            const to = resolveRoll(level, cur, d);
+            if (!to) continue;
+            const k2 = key(to.x, to.z);
+            if (!dist.has(k2)) {
+              dist.set(k2, d0 + 1);
+              q.push(to);
+            }
+          }
+        }
+        return dist;
+      };
+      const distMaps = pickupTiles.map((p) => pressDistFrom(p));
+      const reachableFromStart = () => {
+        const seen = new Set();
+        const q = [];
+        const seed = (t) => {
+          const k2 = key(t.x, t.z);
+          if (!seen.has(k2)) {
+            seen.add(k2);
+            q.push(level.tiles.get(k2) || t);
+          }
+        };
+        if (line.has(key(level.start.x, level.start.z))) {
+          for (const e of edges.get(key(level.start.x, level.start.z)) || []) {
+            if (!e.to.isKeyNode) seed(e.to);
+          }
+        } else {
+          seed(level.start);
+        }
+        while (q.length) {
+          const ct = q.shift();
+          const tile = level.tiles.get(key(ct.x, ct.z)) || ct;
+          for (const to of rollTargets(level, tile)) {
+            if (!line.has(key(to.x, to.z))) seed(to);
+          }
+          for (const e of edges.get(key(ct.x, ct.z)) || []) {
+            if (!e.to.isKeyNode) seed(e.to);
+          }
+        }
+        return seen;
+      };
+      const pending = new Set(unfairCrossings);
+      let changed = true;
+      while (changed && pending.size) {
+        changed = false;
+        const reach = reachableFromStart();
+        for (const c of [...pending]) {
+          for (let pi = 0; pi < pickupTiles.length; pi++) {
+            const pk = key(pickupTiles[pi].x, pickupTiles[pi].z);
+            if (!reach.has(pk)) continue;
+            const d = distMaps[pi].get(key(c.entry.x, c.entry.z));
+            if (d !== undefined && d + c.seq.length + 1 <= FREEZE_PRESS_BUDGET) {
+              addEdge(c.entry, c.exit, c.seq, true);
+              pending.delete(c);
+              changed = true;
+              break;
+            }
+          }
         }
       }
     }

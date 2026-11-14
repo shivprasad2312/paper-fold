@@ -603,6 +603,38 @@ export function buildLevelView(level, actHue = null) {
     return { ...s, holder, mesh, glow, phase: i * 1.7, collected: false, anim: 0 };
   });
 
+  // ---- freeze shards (M3 wave-1): icy octahedra that lock the patrols ----
+  const freezeMat = new THREE.MeshStandardMaterial({
+    color: 0x9feaff,
+    emissive: new THREE.Color(0x3fa8c4),
+    emissiveIntensity: 0.85,
+    roughness: 0.2,
+    metalness: 0.1,
+  });
+  const freezeGeo = new THREE.OctahedronGeometry(0.23);
+  const freezes = (level.freezes || []).map((s, i) => {
+    const tile = level.tiles.get(key(s.x, s.z));
+    const holder = new THREE.Group();
+    const mesh = new THREE.Mesh(freezeGeo, freezeMat);
+    mesh.castShadow = true;
+    holder.add(mesh);
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTexture(),
+        color: 0x9feaff,
+        transparent: true,
+        opacity: 0.55,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    glow.scale.setScalar(0.8);
+    holder.add(glow);
+    holder.position.set(s.x, tile.h + 0.5, s.z);
+    group.add(holder);
+    return { ...s, holder, mesh, glow, phase: i * 2.1, collected: false, anim: 0 };
+  });
+
   // ---- sentinels: dark patrol cubes with a glowing face ---------------------
   const bodyMat = new THREE.MeshStandardMaterial({ color: 0x2f333d, roughness: 0.5, metalness: 0.35 });
   const eyeMat = new THREE.MeshStandardMaterial({
@@ -764,6 +796,25 @@ export function buildLevelView(level, actHue = null) {
       s.glow.material.opacity = 0.4 + Math.sin(time * 3 + s.phase) * 0.12;
     }
 
+    // freeze shards: slow icy tumble, breathing glow
+    for (const s of freezes) {
+      if (s.collected) {
+        s.anim += dt * 3.2;
+        const k = Math.min(1, s.anim);
+        s.holder.scale.setScalar(1 + k * 1.8);
+        s.holder.position.y += dt * 2.2;
+        s.mesh.rotation.y += dt * 12;
+        s.glow.material.opacity = Math.max(0, 0.85 * (1 - k));
+        s.holder.visible = k < 1;
+        continue;
+      }
+      s.mesh.rotation.y += dt * 1.1;
+      s.mesh.rotation.x += dt * 0.5;
+      const tile = tileAt(s.x, s.z);
+      s.holder.position.y = tile.h + 0.52 + Math.sin(time * 1.6 + s.phase) * 0.07;
+      s.glow.material.opacity = 0.45 + Math.sin(time * 2.4 + s.phase) * 0.15;
+    }
+
     // goal pad
     ring.rotation.z += dt * 0.9;
     ring.scale.setScalar(1 + Math.sin(time * 2.4) * 0.06);
@@ -833,9 +884,9 @@ export function buildLevelView(level, actHue = null) {
       }
     }
 
-    // sentinels: patrol, face their heading
+    // sentinels: patrol, face their heading (frozen patrols hold still)
     for (const o of orbs) {
-      o.dist = (o.dist + o.def.speed * dt) % o.total;
+      if (!orbsFrozen) o.dist = (o.dist + o.def.speed * dt) % o.total;
       let seg = o.segs[o.segs.length - 1];
       for (const s of o.segs) {
         if (o.dist >= s.start && o.dist < s.start + s.len) {
@@ -988,6 +1039,24 @@ export function buildLevelView(level, actHue = null) {
     shard.anim = 0;
   }
 
+  function collectFreeze(f) {
+    f.collected = true;
+    f.anim = 0;
+  }
+
+  // Frozen sentinels: patrol clocks stop (update skips dist), eyes and
+  // glows go arctic. Materials are shared across orbs, so one switch
+  // recolors the whole patrol.
+  let orbsFrozen = false;
+  function setFrozen(f) {
+    orbsFrozen = f;
+    eyeMat.emissive.setHex(f ? 0x7fe8ff : 0xff2e6a);
+    eyeMat.emissiveIntensity = f ? 1.1 : 2.4;
+    bodyMat.emissive.setHex(f ? 0x2a7ea6 : 0x000000);
+    bodyMat.emissiveIntensity = f ? 0.5 : 1;
+    for (const o of orbs) o.glow.material.color.setHex(f ? 0x7fe8ff : 0xff3f74);
+  }
+
   function collectGateKey() {
     if (keyItem && !keyItem.collected) {
       keyItem.collected = true;
@@ -1066,6 +1135,15 @@ export function buildLevelView(level, actHue = null) {
       s.holder.position.set(s.x, level.tiles.get(s.id).h + 0.5, s.z);
       s.glow.material.opacity = 0.5;
     }
+    for (const s of freezes) {
+      s.collected = false;
+      s.anim = 0;
+      s.holder.visible = true;
+      s.holder.scale.setScalar(1);
+      s.holder.position.set(s.x, level.tiles.get(key(s.x, s.z)).h + 0.5, s.z);
+      s.glow.material.opacity = 0.55;
+    }
+    if (orbsFrozen) setFrozen(false);
     resetOrbs();
   }
 
@@ -1139,6 +1217,9 @@ export function buildLevelView(level, actHue = null) {
     shuttlePos,
     shuttleDocked,
     collectShard,
+    freezes,
+    collectFreeze,
+    setFrozen,
     collectGateKey,
     setGoalLocked,
     pushBlockVisual,

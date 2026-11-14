@@ -739,6 +739,12 @@ game.on('key', () => {
   showHint('The gate is open', 2200);
 });
 
+game.on('freeze', () => {
+  audio.sfx('freeze');
+  flash('load');
+  showHint('Sentinels frozen — move!', 1600);
+});
+
 game.on('gateLocked', () => {
   audio.sfx('gateLocked');
   game.stage.shake(0.12);

@@ -985,3 +985,49 @@ equivalence and the waiting-spot audits); verifier 200 + 14 dailies
 green incl. the diversity audit; live L112 completed by the bot in
 37 moves under real fuse timers, page errors none (the pre-commit
 hook re-runs its gate incl. the rotating live window).
+
+## ADR-023 — Sentinel-freeze shard: a consumable freeze, proven in presses (2026-11-14)
+**Context:** M3 wave-1's fourth mechanic, and the catalogue's first
+consumable: a pickup that stops every sentinel's clock. It is also
+the first mechanic whose fairness proof must reason about the orb
+clocks themselves — until now a crossing was fair only if a natural
+safe window existed (`TIMING_FLOOR`), and sealed crossings made a
+level unprovable no matter what tools the level offered.
+
+**Decision:** grabbing a freeze shard sets `FREEZE_TIME` = 3.2 s of
+freeze: the view stops advancing every patrol's `dist`, the eyes and
+glows go arctic, and `checkOrbs` cannot kill. The proof never trusts
+those seconds. Fairness is counted in PRESSES: inside
+`buildCrossingGraph`, crossings the natural window rejects are kept
+as candidates, and a fixpoint promotes one to a `freeze: true` edge
+when a shard is reachable through already-proven-fair crossings and
+pickup → entry plus the crossing burst (line tiles + exit) fits
+`FREEZE_PRESS_BUDGET` = 8 presses — ≈2.8 s at a hurried cadence
+against the 0.243 s roll floor, inside the 3.2 s the game grants.
+Each promoted crossing can make further shards reachable, so chained
+freezes prove in sequence; a shard stranded beyond the crossing it
+would open proves nothing. Press distances run on plain
+`resolveRoll` in the "frozen world" (patrol-line tiles walkable,
+shuttle rides excluded — a ride burns real seconds, not presses).
+Parse law: a shard sits on a plain slab only — never stacked on
+shuttle/ice/spring/conveyor/crumble/timed/plate/door, never
+start/goal/block/shard/key. The live bot plans in (tile, charge)
+state — charge spent per press, refreshed at a pickup — and may
+commit a freeze crossing only while the real freeze outlasts the
+burst. Death and the rescue bench both clear the freeze and restore
+every shard.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=127=freeze` (L127 "The Drift", Slow Current: a
+ring with a shuttle, two sentinels, and the shard at [13,8] before
+the guarded run). The generator only places shards on levels that
+field sentinels, preferring route tiles a few presses before a
+guarded run. Organic budgets armed (shuttle bands 0.3–0.4; acts
+6–10 `gen.mech.freeze` 0.35–0.5). Curation signature learns `F`.
+
+**Gate:** unit 89/89 (4 new freeze tests: parse law, the exact
+budget boundary — 8 presses fair, 9 sealed — and the stranded-shard
+rejection); verifier 200 + 14 dailies green incl. the diversity
+audit; live L127 completed by the bot in 39 moves, page errors none
+(the pre-commit hook re-runs its gate incl. the rotating live
+window).

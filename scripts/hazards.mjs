@@ -11,11 +11,11 @@
 //   applyHazards(layout, band, rand, { force })  →  level def  (or null)
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
-//         mech: { ice, spring, shuttle, conveyor, door, timed }
+//         mech: { ice, spring, shuttle, conveyor, door, timed, freeze }
 //         (per-mechanic carve probability) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n } — carve at least n of the mechanic (archetypes
-//         that ARE a mechanic); missing one fails the candidate.
+//         timed?: n, freeze?: n } — carve at least n of the mechanic
+//         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
 export function applyHazards(layout, b, rand, opts = {}) {
@@ -513,6 +513,50 @@ export function applyHazards(layout, b, rand, opts = {}) {
     }
   }
 
+  // --- freeze shards (M3 wave-1): a consumable that locks every sentinel
+  // for FREEZE_TIME. Placed after the sentinels exist: on a plain route
+  // tile off the patrol line, preferring tiles a few presses BEFORE a
+  // guarded run so the shard reads as the tool for that crossing. Only
+  // placed when the level actually has sentinels. The tile joins mechSet
+  // so crumble and the key keep their distance, like every mechanic.
+  const freezes = [];
+  if (orbs.length) {
+    const wantFreeze = force.freeze || 0;
+    const pFreeze = (b.mech || {}).freeze || 0;
+    const lineIdx = new Set();
+    path.forEach(([x, z], i) => { if (lineSet.has(`${x},${z}`)) lineIdx.add(i); });
+    const shardSet = new Set(shards.map(([sx, sz]) => `${sx},${sz}`));
+    const placeFreeze = () => {
+      const cands = [];
+      for (let i = 1; i < path.length - 1; i++) {
+        const kk = k(i);
+        if (carved.has(kk) || mechSet.has(kk) || lineSet.has(kk) || shardSet.has(kk)) continue;
+        if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) continue;
+        if (freezes.some(([fx, fz]) => `${fx},${fz}` === kk)) continue;
+        let lead = Infinity; // presses from here to the next guarded tile
+        for (let j = i + 1; j < path.length; j++) if (lineIdx.has(j)) { lead = j - i; break; }
+        cands.push([i, lead]);
+      }
+      if (!cands.length) return false;
+      const near = cands.filter(([, lead]) => lead >= 1 && lead <= 7);
+      const [i] = pick(near.length ? near : cands);
+      freezes.push([path[i][0], path[i][1]]);
+      markMech(path[i][0], path[i][1]);
+      return true;
+    };
+    let placed = 0;
+    while (placed < wantFreeze) {
+      if (!placeFreeze()) return null; // a forced freeze must land
+      placed++;
+    }
+    while (placed < 2 && pFreeze > 0 && rand() < pFreeze * Math.pow(0.5, placed)) {
+      if (!placeFreeze()) break;
+      placed++;
+    }
+  } else if (force.freeze) {
+    return null; // no sentinels: a freeze shard would be a dead pickup
+  }
+
   // --- crumble slabs on the route (solver proves the route survives) --------
   const wantCrumble = int(b.crumble[0], b.crumble[1]);
   const crumble = [];
@@ -559,5 +603,6 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (conveyors.length) def.conveyors = conveyors;
   if (doors.length) def.doors = doors;
   if (timed.length) def.timed = timed;
+  if (freezes.length) def.freeze = freezes;
   return def;
 }

@@ -196,6 +196,7 @@ function score(def, par, b) {
   if (def.conveyors) s += 1.5;
   if (def.doors) s += 1.5;
   if (def.timed) s += 1;
+  if (def.freeze) s += 1;
   if (def.ice) s += 1;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
@@ -266,6 +267,7 @@ function mirrorDef(def, axis) {
     out.doors = def.doors.map((d) => ({ plate: T(d.plate), at: T(d.at) }));
   }
   if (def.timed) out.timed = mirrorPts(def.timed);
+  if (def.freeze) out.freeze = mirrorPts(def.freeze);
   if (def.key) out.key = T(def.key);
   return out;
 }
@@ -469,7 +471,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.key ? 'K' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

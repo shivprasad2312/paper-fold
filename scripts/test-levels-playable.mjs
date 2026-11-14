@@ -54,6 +54,7 @@ const {
   commitSchedules,
   commitBandDistR2,
   key,
+  FREEZE_PRESS_BUDGET,
 } = await import('../src/rules.js');
 
 const URL = process.env.URL || 'http://localhost:5173/';
@@ -144,6 +145,8 @@ async function snapLive() {
       state: g.state,
       hasKey: g.hasKey,
       idx: g.levelIndex,
+      freezeLeft: typeof g.freezeLeft === 'number' ? g.freezeLeft : 0,
+      collectedFreeze: (g.view.freezes || []).filter((f) => f.collected).map((f) => `${f.x},${f.z}`),
       anim: !!g.cube.anim,
       orbs: g.view.orbs.map((o) => [o.holder.position.x, o.holder.position.z]),
       // the view's own directed distance along the patrol loop — position
@@ -274,21 +277,45 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   // seed with the REAL tile object: resolveRoll's height law reads from.h,
   // and a plain {x,z} seed makes every climb look legal (NaN delta)
   const startTile = model.tiles.get(startK) || cube;
-  const dist = new Map([[startK, 0]]);
+  // freeze-aware state (tile, charge): charge = presses of freeze left,
+  // spent one per press and refreshed when a freeze pickup is reached
+  // while frozen (M3 wave-1). Plain routes never touch this: with no
+  // freeze shards, or no live freeze, the state collapses to plain tiles.
+  const freezeAt = model.freezeTiles;
+  const freezeHere = (k2) => freezeAt.has(k2) && !(cube.collectedFreeze && cube.collectedFreeze.includes(k2));
+  const frozenPresses = cube.freezeLeft > 0 ? Math.ceil(cube.freezeLeft / 0.22) : 0;
+  const sKey = (k2, ch) => `${k2}|${ch}`;
+  const dist = new Map([[sKey(startK, frozenPresses), 0]]);
   const prev = new Map();
-  const Q = [startTile];
+  const Q = [sKey(startK, frozenPresses)];
   const done = new Set();
+  const stateOf = new Map([[sKey(startK, frozenPresses), { tile: startTile, charge: frozenPresses }]]);
+  const goalState = (ch) => dist.has(sKey(targetK, ch));
   const hOf = (t) => model.tiles.get(key(t.x, t.z));
+  let targetState = goalState(frozenPresses) ? sKey(targetK, frozenPresses) : null;
   while (Q.length) {
-    Q.sort((a, b) => (dist.get(key(a.x, a.z)) ?? 1e9) - (dist.get(key(b.x, b.z)) ?? 1e9));
-    const cur = Q.shift();
+    let bestI = 0;
+    for (let i = 1; i < Q.length; i++) {
+      if ((dist.get(Q[i]) ?? 1e9) < (dist.get(Q[bestI]) ?? 1e9)) bestI = i;
+    }
+    const cs = Q.splice(bestI, 1)[0];
+    const { tile: cur, charge } = stateOf.get(cs);
+    if (done.has(cs)) continue;
+    done.add(cs);
     const ck = key(cur.x, cur.z);
-    if (done.has(ck)) continue;
-    if (ck === targetK) break;
-    done.add(ck);
-    const d0 = dist.get(ck);
+    // state keys carry the charge suffix ('6,4|0'); key-node states carry
+    // the 'key:' prefix — compare against targetK in either form
+    if (cs.split('|')[0] === targetK || ck === targetK) { targetState = cs; break; }
+    const d0 = dist.get(cs);
     const curH = hOf(cur);
     if (!curH) continue; // standing over void (dying) — replan will fix it
+    // one press: freeze burns one unit, a pickup refreshes the charge
+    const pressTo = (to) => {
+      const k2 = key(to.x, to.z);
+      let ch = Math.max(0, charge - 1);
+      if (freezeHere(k2)) ch = FREEZE_PRESS_BUDGET;
+      return sKey(k2, ch);
+    };
     // resolved off-line neighbours: ONE press may carry the cube several
     // tiles (an ice slide or a spring launch) — the route lands on the
     // resolved tile. Landing on the sentinel line is refused: the generator
@@ -301,10 +328,12 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       const k2 = key(to.x, to.z);
       if (broken.has(k2)) continue;
       if (sealedGoal(to.x, to.z) && k2 !== targetK) continue; // sealed gate
-      if (d0 + 1 < (dist.get(k2) ?? 1e9)) {
-        dist.set(k2, d0 + 1);
-        prev.set(k2, { k: ck, seq: null });
-        Q.push(to);
+      const s2 = pressTo(to);
+      if (d0 + 1 < (dist.get(s2) ?? 1e9)) {
+        dist.set(s2, d0 + 1);
+        prev.set(s2, { k: cs, seq: null });
+        stateOf.set(s2, { tile: to, charge: Number(s2.split('|')[1]) });
+        Q.push(s2);
       }
     }
     // riding a shuttle: standing on a dock, the platform (when it dwells)
@@ -313,10 +342,12 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       const rideTo = shuttleRide(model, cur);
       if (rideTo) {
         const k2 = key(rideTo.x, rideTo.z);
-        if (!broken.has(k2) && d0 + 1 < (dist.get(k2) ?? 1e9)) {
-          dist.set(k2, d0 + 1);
-          prev.set(k2, { k: ck, seq: 'RIDE' });
-          Q.push(rideTo);
+        const s2 = sKey(k2, charge); // a ride burns real seconds, not presses
+        if (!broken.has(k2) && d0 + 1 < (dist.get(s2) ?? 1e9)) {
+          dist.set(s2, d0 + 1);
+          prev.set(s2, { k: cs, seq: 'RIDE' });
+          stateOf.set(s2, { tile: rideTo, charge });
+          Q.push(s2);
         }
       }
     }
@@ -326,25 +357,41 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       const k2 = isKeyNode ? `key:${e.to.x},${e.to.z}` : key(e.to.x, e.to.z);
       if (!isKeyNode && broken.has(k2)) continue;
       if (!isKeyNode && sealedGoal(e.to.x, e.to.z) && k2 !== targetK) continue; // sealed gate
-      if (d0 + e.seq.length + 1 < (dist.get(k2) ?? 1e9)) {
-        dist.set(k2, d0 + e.seq.length + 1);
-        prev.set(k2, { k: ck, seq: e.seq });
-        Q.push(e.to);
+      // a freeze-edge may only be crossed while frozen with enough
+      // charge for the whole burst (entry press + line + exit)
+      if (e.freeze && charge < e.seq.length + 1) continue;
+      const baseKey2 = isKeyNode ? k2 : key(e.to.x, e.to.z);
+      const s2 = sKey(baseKey2, e.freeze ? Math.max(0, charge - (e.seq.length + 1)) : charge);
+      const cost = e.seq.length + 1;
+      if (d0 + cost < (dist.get(s2) ?? 1e9)) {
+        dist.set(s2, d0 + cost);
+        prev.set(s2, { k: cs, seq: e.seq, freeze: !!e.freeze });
+        stateOf.set(s2, { tile: e.to, charge: Number(s2.split('|')[1]) });
+        Q.push(s2);
       }
     }
   }
-  if (!dist.has(targetK)) return null;
+  // (the Dijkstra may settle the target without popping it — take the
+  // cheapest settled state for it)
+  if (!targetState) {
+    let best = Infinity;
+    for (const [sk, d] of dist) {
+      if (sk.split('|')[0] === targetK && d < best) { best = d; targetState = sk; }
+    }
+  }
+  if (!targetState) return null;
 
   // reconstruct: target ← … ← start, each step carries the line tiles crossed
   const chain = [];
-  let k = targetK;
-  while (k !== startK) {
+  let k = targetState;
+  while (k !== sKey(startK, frozenPresses)) {
     const p = prev.get(k);
-    chain.unshift({ k, seq: p.seq });
+    chain.unshift({ k, seq: p.seq, freeze: !!p.freeze });
     k = p.k;
   }
   const nodeOf = (kk) => {
-    const [x, z] = (kk.startsWith('key:') ? kk.slice(4) : kk).split(',').map(Number);
+    const bare = kk.split('|')[0];
+    const [x, z] = (bare.startsWith('key:') ? bare.slice(4) : bare).split(',').map(Number);
     return { x, z };
   };
   const dirOf = (a, b) => {
@@ -358,6 +405,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   const tiles = [{ x: cube.x, z: cube.z }];
   const moves = [];
   for (const step of chain) {
+    if (step.freeze) tiles[tiles.length - 1].freezeCross = step.seq.length + 1;
     if (step.seq === 'RIDE') {
       tiles.push(nodeOf(step.k));
       moves.push('ride');
@@ -365,7 +413,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
     }
     // a keyNode step's seq already ends ON the key tile
     const adds = step.seq
-      ? step.k.startsWith('key:')
+      ? step.k.split('|')[0].startsWith('key:')
         ? step.seq
         : [...step.seq, nodeOf(step.k)]
       : [nodeOf(step.k)];
@@ -462,6 +510,7 @@ async function driveRouteLive(tiles, moves, ctx) {
       const exit = i < tiles.length ? tiles[i] : null;
       const exitIdx = exit ? i : i - 1; // a terminal crossing ends on the line
       if (!exit && seq.length === 0) return false;
+      const freezeCross = tiles[r].freezeCross || 0;
       if (!ctx.crumbles.has(key(st.x, st.z))) {
         const t0 = Date.now();
         let safe = false;
@@ -470,7 +519,10 @@ async function driveRouteLive(tiles, moves, ctx) {
           if (now.state === 'won') return true;
           if (now.state !== 'playing') return false;
           if (now.x !== entry.x || now.z !== entry.z) return 'replan'; // breeze moved us
-          safe = crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
+          // a planned freeze crossing: the patrols are locked — go now,
+          // with margin for the whole burst before the freeze burns out
+          safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
+            || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
           if (!safe) await wait(70);
         }
         dbg(

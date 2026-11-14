@@ -181,7 +181,7 @@ function generate(rand, id, b) {
   // four: L28, L34, L36, L42 (+ the double-shuttle finale L50). Those
   // intro points are FORCED below; best-effort shuttle carving is low so a
   // shuttle still reads as a set piece.
-  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0, timed: 0 };
+  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0, timed: 0, freeze: 0 };
   if ((b.mech || []).includes('ice')) mech.ice = b.W >= 12 ? 0.95 : 0.6;
   // TIMED (M3 wave-1): delayed crumble joins the ice bands — fragile
   // floors are the same family (one press, keep moving).
@@ -194,6 +194,9 @@ function generate(rand, id, b) {
   // DOOR (M3 wave-1): pressure-plate doorways join the same bands — a
   // detour onto the plate is the only way through.
   if ((b.mech || []).includes('shuttle')) mech.door = b.W >= 16 ? 0.4 : 0.3;
+  // FREEZE (M3 wave-1): the sentinel-freeze shard joins the same bands —
+  // a consumable answer to a guarded crossing.
+  if ((b.mech || []).includes('shuttle')) mech.freeze = b.W >= 16 ? 0.4 : 0.3;
   const opts = {};
   if (INTRO_MECH[id]) opts.force = INTRO_MECH[id];
   if (id === 50) opts.extra = { shuttle: 0.6 }; // the finale rides twice

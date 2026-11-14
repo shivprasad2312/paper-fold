@@ -42,6 +42,14 @@ satisfy (enforced by `parseLevel` + verifier):
   on (the spawn audit keeps it out of sentinel clearance, away from
   shuttle docks and sliding bridges); proofs model it exactly like a
   crumble — gone once you step off — so the fuse is pure player grace.
+- `freeze`: `[[x,z]]` — a freeze shard: a consumable pickup on a plain
+  slab. Grabbing it locks every sentinel for `FREEZE_TIME` (3.2 s) —
+  patrol clocks stop and frozen sentinels cannot kill. Fairness counts
+  the freeze in presses, not seconds: a crossing with no natural safe
+  window is still proven fair when a shard is reachable through
+  already-fair crossings and pickup → entry + the crossing burst fits
+  `FREEZE_PRESS_BUDGET` (8 presses). Parse law: plain slab only —
+  never stacked on another mechanic, never start/goal/block/shard/key.
 - `doors`: `[{plate: [x,z], at: [x,z]}]` — a pressure plate + doorway
   (M3 wave-1): the doorway cell is void in the map (the parser
   solidifies it at the plate's height); the door is a wall to every
@@ -74,6 +82,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Conveyor carry | 1 tile per belt tile, belt direction, chains | The current chooses for you: one press, no mid-belt decisions, so the whole ride is one provable graph edge. |
 | Door entry | only from its plate; the cube's weight alone | A door is a directed edge, not a state machine: legality depends only on where the press starts, so every solver sees the same law. |
 | Timed slab | 2.4 s fuse from first landing, then it falls | The crumble's slow sibling (plain crumble burns in 0.75 s): cross at a stroll, never dawdle — and the proof models break-on-leave, so the fuse is margin, not a requirement. |
+| Freeze shard | one grab, 3.2 s of frozen sentinels | The catalogue's first consumable timing tool: the proof counts it in presses (8-press budget from pickup to crossing exit), so a frozen crossing is provable without trusting real-time reflexes. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

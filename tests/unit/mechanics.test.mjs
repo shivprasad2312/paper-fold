@@ -21,6 +21,7 @@ import {
   fairCrossingGraph,
   canPushBlock,
   solveHazards,
+  timingProblems,
   DIRS,
 } from '../../src/rules.js';
 
@@ -359,6 +360,76 @@ test('conveyor spawn audit flags a belt carrying through sentinel clearance', ()
   });
   const probs = spawnProblems(level);
   assert.ok(probs.some((p) => p.includes('conveyor')), 'belt corridor flagged');
+});
+
+// --- sentinel-freeze shards (M3 wave-1) -------------------------------------
+// A sentinel line the cube must WALK ALONG to cross (4 line tiles) — at
+// speed 2.4 its natural safe window is 0, so only a freeze can open it.
+const freezeGeo = (freeze, speed = 2.4) => ({
+  name: 'freeze-geo',
+  map: ['....1', '11111', '11...', '1....', '1....', '1....', '1....'],
+  start: [0, 6],
+  goal: [4, 0],
+  orbs: [{ path: [[0, 1], [4, 1]], speed }],
+  ...(freeze ? { freeze } : {}),
+});
+
+test('freeze shards parse as flagged pickups with a registry', () => {
+  const level = parseLevel({
+    name: 'freeze-basic',
+    map: ['11111'],
+    start: [0, 0],
+    goal: [4, 0],
+    freeze: [[2, 0]],
+  });
+  assert.ok(level.tiles.get('2,0').freeze, 'flag on the tile');
+  assert.ok(level.freezeTiles.has('2,0'), 'registry');
+  assert.equal(level.freezes.length, 1);
+});
+
+test('freeze parse rejects stacked pickups and start/goal placement', () => {
+  assert.throws(
+    () => parseLevel({ name: 'freeze-ice', map: ['111'], start: [0, 0], goal: [2, 0], ice: [[1, 0]], freeze: [[1, 0]] }),
+    /another mechanic/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'freeze-start', map: ['111'], start: [0, 0], goal: [2, 0], freeze: [[0, 0]] }),
+    /start tile/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'freeze-shard', map: ['111'], start: [0, 0], goal: [2, 0], shards: [[1, 0]], freeze: [[1, 0]] }),
+    /stacked on a shard/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'freeze-block', map: ['111'], start: [0, 0], goal: [2, 0], blocks: [[1, 0]], freeze: [[1, 0]] }),
+    /under a block/,
+  );
+});
+
+test('a crossing with no natural window is fair only inside the freeze budget', () => {
+  // no freeze at all: sealed
+  assert.ok(timingProblems(parseLevel(freezeGeo(null))).length > 0, 'unfair without a freeze');
+  // pickup 3 presses before the entry; the burst is 5 presses (4 line
+  // tiles + exit): 3 + 5 = 8 = FREEZE_PRESS_BUDGET exactly → fair
+  assert.deepEqual(timingProblems(parseLevel(freezeGeo([[0, 4]]))), [], 'budget-exact freeze is fair');
+  // one tile farther south: 4 + 5 = 9 > 8 → still sealed
+  assert.ok(timingProblems(parseLevel(freezeGeo([[0, 5]]))).length > 0, 'one press over budget stays sealed');
+  // right on the crossing entry: trivially inside the budget
+  assert.deepEqual(timingProblems(parseLevel(freezeGeo([[1, 2]]))), [], 'pickup on the entry is fair');
+});
+
+test('a freeze pickup stranded beyond the crossing cannot save it', () => {
+  const beyond = {
+    name: 'freeze-beyond',
+    map: ['..111', '11111', '11...', '1....', '1....', '1....', '1....'],
+    start: [0, 6],
+    goal: [4, 0],
+    orbs: [{ path: [[0, 1], [4, 1]], speed: 3.6 }],
+    freeze: [[3, 0]], // north of the line: reachable only after crossing it
+  };
+  assert.ok(timingProblems(parseLevel(beyond)).length > 0, 'pickup beyond the line does not count');
+  const near = { ...beyond, name: 'freeze-near', freeze: [[0, 4]] };
+  assert.deepEqual(timingProblems(parseLevel(near)), [], 'the same pickup on the near side saves it');
 });
 
 // --- timed slabs / delayed crumble (M3 wave-1) ------------------------------

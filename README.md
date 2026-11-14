@@ -229,6 +229,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // conveyors: [[x, z, dx, dz]], // belts that carry a landed roll in their own direction
   // doors: [{ plate: [x, z], at: [x, z] }], // doorway (void in map) opened by standing on its plate
   // timed: [[x, z]],         // delayed crumble: falls 2.4 s after your first landing
+  // freeze: [[x, z]],        // freeze shard: grab it to lock every sentinel for 3.2 s
   // key: [x, z],            // unlocks the sealed gate
   // wind: { x: -1, z: -1 }, // diagonal breeze
 }
