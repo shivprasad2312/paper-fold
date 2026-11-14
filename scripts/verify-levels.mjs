@@ -13,10 +13,12 @@ import {
   spawnProblems,
   timingProblems,
   legalNeighbours,
+  shortestRoute as provenRoute,
   rescueTile,
   fairReachSet,
   key,
 } from '../src/rules.js';
+import { experienceProblems } from './experience.mjs';
 
 /** Shortest number of rolls from start to goal (ignores hazards). */
 function shortestRoute(level) {
@@ -43,6 +45,8 @@ const fail = (msg) => {
   failed++;
   console.error(`  ✗ ${msg}`);
 };
+// proven pars by level id, reused by the experience-diversity audit below
+const cataloguePars = new Map();
 
 function checkLevel(label, def) {
   console.log(`\n${label}`);
@@ -114,6 +118,7 @@ function checkLevel(label, def) {
 
   const shardsOk = level.shards.filter((s) => reach.has(s.id)).length;
   const route = shortestRoute(level);
+  if (Number.isInteger(def.id)) cataloguePars.set(def.id, provenRoute(level));
   console.log(
     `  tiles ${level.tiles.size} · route ${route} rolls · shards ${shardsOk}/${level.shards.length}` +
       (level.def.crumble ? ` · crumble ${level.def.crumble.length}` : '') +
@@ -126,6 +131,16 @@ function checkLevel(label, def) {
 }
 
 for (const def of LEVELS) checkLevel(`${String(def.id).padStart(2, '0')} ${def.name}`, def);
+
+// Experience-diversity curation gate (M2.5): the per-level proofs above say
+// every level can be finished; this says the sequence does not repeat the
+// same experience back-to-back or collapse an act into one mechanic.
+console.log('\nEXPERIENCE DIVERSITY (curation gate)');
+{
+  const problems = experienceProblems(LEVELS, cataloguePars);
+  for (const p of problems) fail(p);
+  if (!problems.length) console.log('  sequence + act diversity ✓');
+}
 
 // The daily generator must produce a legal level for every day.
 for (let i = 0; i < 14; i++) {

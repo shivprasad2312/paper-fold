@@ -30,13 +30,13 @@ import {
 } from '../src/rules.js';
 import { ARCHETYPES } from './archetypes.mjs';
 import { applyHazards } from './hazards.mjs';
+import { experienceFingerprint, sequenceProblems } from './experience.mjs';
 import { ACTS, actForId, isActEnd } from '../src/acts.js';
 import { CAMPAIGN } from '../src/campaign.js';
 import { writeFileSync } from 'node:fs';
 
 const FIRST = Number(process.argv[2]) || 51;
 const LAST = Number(process.argv[3]) || 200;
-// 450 (220 → 300 → 450, 2026-11-13): each model correction (roll-law
 // 300 (was 220, 2026-11-13): the corrected fair-route model (roll-law
 // fair-reach, carve candidate source, slide-lands-on-spring) rejects more
 // candidates than M2's, so sparse slots' winners sit deeper in the stream.
@@ -264,6 +264,35 @@ for (const def of CAMPAIGN) {
 }
 const recentTileSets = [];
 
+// Experience-diversity sequence state (M2.5 curation gate): fingerprints of
+// the levels immediately before this run (the shipped file for a partial
+// run, levels 46–50 for a full one), so candidate selection can avoid
+// creating a repetitive run instead of leaving it to the verifier to catch.
+const recentExperience = [];
+{
+  let shipped2 = [];
+  try {
+    ({ CAMPAIGN2: shipped2 } = await import(new URL('../src/campaign2.js', import.meta.url)));
+  } catch {
+    /* no shipped file yet — the run starts the sequence */
+  }
+  const seedDefs = [...CAMPAIGN, ...shipped2.filter((d) => d.id < FIRST)]
+    .sort((a, b) => a.id - b.id)
+    .slice(-5);
+  for (const d of seedDefs) {
+    try {
+      recentExperience.push(experienceFingerprint(d));
+    } catch {
+      /* an unparseable seed level simply does not constrain the sequence */
+    }
+  }
+}
+const rememberExperience = (fp) => {
+  if (!fp) return;
+  recentExperience.push(fp);
+  if (recentExperience.length > 12) recentExperience.shift();
+};
+
 // per-act name pools: consumed in level-id order, boss gets the last name
 const nameQueue = {};
 for (const act of ACTS) {
@@ -358,8 +387,12 @@ for (let id = FIRST; id <= LAST; id++) {
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);
     const o = (cand.orbs || []).length;
-    if (uniq && (!best || rankOf(cand, s) > rankOf(best.cand, best.s))) best = { cand, rep, s, uniq };
-    if (!bestAny || rankOf(cand, s) > rankOf(bestAny.cand, bestAny.s)) bestAny = { cand, rep, s, uniq };
+    // experience fingerprint of the level as the player will meet it
+    // (post-mirror), and whether it keeps the local sequence diverse
+    const expFp = experienceFingerprint(act.gen.flip ? mirrorDef(cand, act.gen.flip) : cand, rep.par);
+    const expOk = sequenceProblems(expFp, recentExperience).length === 0;
+    if (uniq && expOk && (!best || rankOf(cand, s) > rankOf(best.cand, best.s))) best = { cand, rep, s, uniq, expFp };
+    if (!bestAny || rankOf(cand, s) > rankOf(bestAny.cand, bestAny.s)) bestAny = { cand, rep, s, uniq, expFp };
     // full orb budget met: take the best after a short exploration window
     if (best && (best.cand.orbs || []).length >= wantOrbs && attempt >= 24) {
       def = best.cand;
@@ -367,12 +400,16 @@ for (let id = FIRST; id <= LAST; id++) {
       seenSigs.add(best.uniq.sig);
       recentTileSets.push(best.uniq.ts);
       allTileSets.push(best.uniq.ts);
+      rememberExperience(best.expFp);
       break;
     }
     // end of attempts: settle for the best proven candidate
     if ((best || bestAny) && attempt >= slotBudget - 40) {
       const pick = best || bestAny;
       if (!best) console.error(`⚠ level ${id} (${arch}): uniqueness exhausted — settled non-unique`);
+      if (pick.expFp && sequenceProblems(pick.expFp, recentExperience).length) {
+        console.error(`⚠ level ${id} (${arch}): diversity exhausted — settled repetitive (${pick.expFp.label})`);
+      }
       if ((pick.cand.orbs || []).length < wantOrbs) {
         console.error(`⚠ level ${id} (${arch}): relaxed sentinels to ${(pick.cand.orbs || []).length}`);
       }
@@ -383,6 +420,7 @@ for (let id = FIRST; id <= LAST; id++) {
         recentTileSets.push(pick.uniq.ts);
         allTileSets.push(pick.uniq.ts);
       }
+      rememberExperience(pick.expFp);
     }
   }
   if (!def) {

@@ -155,7 +155,13 @@ Ascent only).
 **Uniqueness + curation.** A candidate is rejected if its tile signature
 hash repeats or its tile set overlaps > 85% (Jaccard) with a recently
 shipped level; of the proven candidates the best curation score (hazard
-variety + par placement) wins.
+variety + par placement) wins. On top of that, the experience-diversity
+gate (`scripts/experience.mjs`, run by the verifier) fingerprints every
+level — mechanic set, sentinel count/speed band, crumble load, par band,
+travel direction, map scale — and rejects a catalogue with three
+consecutive identical fingerprints, six consecutive levels sharing one
+mechanic signature, a mechanic-monoculture act, a missing act-identity
+mechanic, or an intra-act par cliff over 16 (boss spikes exempt).
 
 ## 6. Daily challenge
 

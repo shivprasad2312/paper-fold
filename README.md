@@ -345,7 +345,9 @@ Notable details:
   the layout, a shared hazard stage dresses it, and every candidate is pushed through
   the full verifier (reachability, soft-lock proof, crumble-aware solver, sentinel
   timing fairness under the press-schedule band, spawn safety, par band, bench
-  fairness) plus a uniqueness gate — reject and regenerate until it's proven. The
+  fairness) plus uniqueness and experience-diversity gates (no three
+  back-to-back identical levels, no mechanic-monoculture acts) — reject and
+  regenerate until it's proven. The
   output is written as static data, so the shipped game is deterministic and every
   level stays version-controlled like the hand-made ones (ADR-004, ADR-015).
 * **Post-processing.** Unreal bloom plus ACES tone mapping on top of the lit scene.

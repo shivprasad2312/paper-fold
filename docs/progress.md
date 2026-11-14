@@ -93,9 +93,14 @@ this is the map._
   commit: verify (all 200 levels + 14 dailies), unit 60/60, and the
   live bot at 201/201 playable with zero page errors — the run that
   caught the spring-slide and dock-to-dock model holes above is now
-  part of the standing nightly gate (ADR-015).
-  Remaining M2.5 scope: the experience-diversity curation gate, the
-  M3 wave-1 mechanics, and bosses as set pieces (M3).
+  part of the standing nightly gate (ADR-015). The experience-diversity
+  curation gate followed: levels are fingerprinted by mechanic set,
+  sentinel/par/crumble bands, direction and scale, and the verifier
+  now rejects repetitive sequences and mechanic-monoculture acts
+  (ADR-015 item 19; the shipped catalogue passes unchanged, and
+  `gen-campaign2` selects candidates under the same sequence law).
+  Remaining M2.5 scope: the M3 wave-1 mechanics, and bosses as set
+  pieces (M3).
 
 ## Remaining (honest list — NOT done)
 

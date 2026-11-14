@@ -593,6 +593,23 @@ defects conspired, each verified with per-attempt traces before fixing:
     the gate. (b) When planning finds no route, the bot now waits for
     the cube to settle onto a real tile (mid-slide, mid-ride) and
     plans again before declaring a level unplayable.
+19. **Experience diversity is a gate, not a hope.** The local curation
+    score ranked proven candidates inside one slot, but nothing audited
+    the *sequence* the player experiences. `scripts/experience.mjs`
+    fingerprints each level by mechanic set, sentinel count/speed band,
+    crumble load, par band, travel direction and map scale, and the
+    verifier now fails the catalogue on: three consecutive identical
+    fingerprints; six consecutive levels with one mechanic signature;
+    an act with fewer than five signatures or one signature above 60%;
+    a missing act-identity mechanic (`gen.force`, or a key act below
+    40% keyed levels); and an intra-act par jump over 16 (boss spikes
+    and act boundaries exempt). The shipped catalogue passes unchanged
+    (audit measured first: worst signature run 5, worst intra-act jump
+    15, every act ≥ 6 signatures). `gen-campaign2` consults the same
+    sequence law while selecting candidates, seeded from the levels
+    before the run, so future regenerations avoid local repetition by
+    construction; a slot that can only settle repetitively logs a
+    `diversity exhausted` warning beside the uniqueness one.
 
 **Restoration + identity.** 14–50 carry the approved mechanic INTRO
 schedule as *forced* levels (`INTRO_MECH`: first spring L25; shuttles
