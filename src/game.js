@@ -653,6 +653,37 @@ export class Game {
         };
       }
       // otherwise the slide simply stops here
+      return;
+    }
+    if (target.conveyor) {
+      // CONVEYOR (M3 wave-1): the belt imposes its own direction — the
+      // carried roll is free (same press), and its dx/dz become the travel
+      // direction for any follow-through after it (mirrors resolveRoll).
+      const bd = target.conveyor;
+      const next = this.tileAt(target.x + bd.dx, target.z + bd.dz);
+      if (next && checkRoll(this.level, target, next).ok) {
+        const axis = new THREE.Vector3(bd.dz, 0, -bd.dx).normalize();
+        const pivot = new THREE.Vector3(target.x + bd.dx * HALF, target.h, target.z + bd.dz * HALF);
+        const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
+        this.cube.anim = {
+          type: 'roll',
+          t: 0,
+          dur: ROLL_TIME,
+          axis,
+          pivot,
+          startPos,
+          fromQuat: this.cubeMesh.quaternion.clone(),
+          dx: bd.dx,
+          dz: bd.dz,
+          target: next,
+          drop: Math.max(0, target.h - next.h),
+          fromX: target.x,
+          fromZ: target.z,
+          fromH: target.h,
+          free: true, // the belt ride is the same press
+        };
+      }
+      // otherwise the belt pushes against a wall/edge: the cube stays
     }
   }
 

@@ -232,6 +232,133 @@ test('a spring landing on a too-steep wall is a fall', () => {
   assert.equal(resolveRoll(level, level.tiles.get('0,0'), DIRS.right), null);
 });
 
+// --- conveyors (M3 wave-1) ---------------------------------------------------
+test('a press onto a belt is carried in the BELT direction, not the press direction', () => {
+  const level = parseLevel({
+    name: 'belt-turn',
+    map: [
+      '111',
+      '111',
+      '111',
+    ],
+    start: [0, 0],
+    goal: [2, 2],
+    conveyors: [[1, 0, 0, 1], [1, 1, 0, 1]],
+  });
+  // press right from start lands on belt (1,0); the belt carries south
+  // through (1,1) and rests on plain (1,2)
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.deepEqual([to.x, to.z], [1, 2], 'belt redirected the press south');
+  assert.equal(shortestRoute(level), 2, 'the whole belt ride is one press');
+});
+
+test('a belt blocked by a wall or the void leaves the cube resting on the belt', () => {
+  const level = parseLevel({
+    name: 'belt-blocked',
+    map: ['111'],
+    start: [0, 0],
+    goal: [2, 0],
+    conveyors: [[1, 0, 0, -1]],
+  });
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.deepEqual([to.x, to.z], [1, 0], 'belt points off the map: cube stays on the belt');
+});
+
+test('a belt can carry the cube across a span a plain roll cannot stop on', () => {
+  const level = parseLevel({
+    name: 'belt-span',
+    map: ['11111'],
+    start: [0, 0],
+    goal: [4, 0],
+    conveyors: [[1, 0, 1, 0], [2, 0, 1, 0], [3, 0, 1, 0]],
+  });
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.equal(to.x, 4, 'chained belts carry to the goal tile in one press');
+  assert.equal(shortestRoute(level), 1);
+});
+
+test('belt → ice hands over: the slide continues in the belt direction', () => {
+  const level = parseLevel({
+    name: 'belt-ice',
+    map: [
+      '1111',
+      '1111',
+    ],
+    start: [0, 0],
+    goal: [3, 1],
+    conveyors: [[1, 0, 0, 1]],
+    ice: [[1, 1], [2, 1]],
+  });
+  // press right onto belt (1,0) → carried south onto ice (1,1) → slide
+  // continues SOUTH (belt dir), step (1,2) is off-map, so it rests on ice
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.deepEqual([to.x, to.z], [1, 1], 'ice after a belt slides the belt way and stops at the edge');
+});
+
+test('belt → spring fires the launch in the belt direction', () => {
+  const level = parseLevel({
+    name: 'belt-spring',
+    map: ['111.1'],
+    start: [0, 0],
+    goal: [4, 0],
+    conveyors: [[1, 0, 1, 0]],
+    springs: [[2, 0]],
+  });
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.equal(to.x, 4, 'belt carried onto the pad; the pad launched over the pit');
+});
+
+test('conveyor parse rejects cycles, start/goal belts and stacked mechanics', () => {
+  assert.throws(
+    () => parseLevel({
+      name: 'belt-cycle',
+      map: ['111', '111', '111'],
+      start: [0, 0],
+      goal: [0, 2],
+      conveyors: [[2, 0, 0, 1], [2, 1, -1, 0], [1, 1, 0, -1], [1, 0, 1, 0]],
+    }),
+    /conveyor cycle/,
+  );
+  assert.throws(
+    () => parseLevel({
+      name: 'belt-start',
+      map: ['11'],
+      start: [0, 0],
+      goal: [1, 0],
+      conveyors: [[0, 0, 1, 0]],
+    }),
+    /start tile/,
+  );
+  assert.throws(
+    () => parseLevel({
+      name: 'belt-on-ice',
+      map: ['111'],
+      start: [0, 0],
+      goal: [2, 0],
+      ice: [[1, 0]],
+      conveyors: [[1, 0, 1, 0]],
+    }),
+    /conveyor on ice/,
+  );
+});
+
+test('conveyor spawn audit flags a belt carrying through sentinel clearance', () => {
+  const level = parseLevel({
+    name: 'belt-near-orb',
+    map: [
+      '11111',
+      '11111',
+      '11111',
+    ],
+    start: [0, 2],
+    goal: [4, 2],
+    conveyors: [[1, 1, 1, 0], [2, 1, 1, 0]],
+    orbs: [{ path: [[3, 0], [4, 0]], speed: 1 }],
+  });
+  const probs = spawnProblems(level);
+  assert.ok(probs.some((p) => p.includes('conveyor')), 'belt corridor flagged');
+});
+
 test('spring/ice spawn audit flags a sentinel in the corridor', () => {
   const level = parseLevel({
     name: 'spring-near-orb',

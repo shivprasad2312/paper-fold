@@ -29,6 +29,13 @@ satisfy (enforced by `parseLevel` + verifier):
   direction of travel (over void, landing on the first slab within ±3
   height; nothing in range = a fall); the flight corridor keeps sentinel
   clearance.
+- `conveyors`: `[[x,z,dx,dz]]` — a belt tile (M3 wave-1): a roll onto it
+  is carried one tile in the BELT's direction, chaining along the belt,
+  and the belt direction becomes the travel direction for whatever
+  follows (ice slides the belt's way, a pad fires the belt's way). A
+  blocked belt step leaves the cube resting on the belt. Belt cycles are
+  rejected at parse; the whole carried path keeps sentinel clearance.
+  Never on start/goal/ice/springs/docks.
 - `key`: only with a sealed gate (finale); on a slab, not on start/goal.
 - `wind`: diagonal unit vector only.
 - `nudge` ≥ number of blocks that *must* move for any route (solver
@@ -50,6 +57,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Shuttle dwell | 2.0 s per dock, travel 0.8 s per gap tile | ~8 s full loop: readable at 4.12 tiles/s, tight enough that "board before it leaves" is a real reflex (dwell ≥ ~2.2 rolls, proven by the verifier). |
 | Ice slide | 1 press, stops at first non-ice / illegal step | Momentum without a timer: the whole slide is one graph edge, so fairness is provable. |
 | Spring launch | ≤ 3 tiles, landing slab within ±3 height | A fixed, readable hop — never "how high do I go?" |
+| Conveyor carry | 1 tile per belt tile, belt direction, chains | The current chooses for you: one press, no mid-belt decisions, so the whole ride is one provable graph edge. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

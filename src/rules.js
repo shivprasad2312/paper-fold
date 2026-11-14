@@ -149,6 +149,36 @@ export function parseLevel(def) {
     springTiles.add(key(x, z));
   }
 
+  // ---- conveyor belts (M3 wave-1): a roll ONTO a belt tile is carried one
+  // tile in the belt's own direction, chaining along the belt, whatever
+  // direction the press was travelling. Data: [x, z, dx, dz] (unit axis).
+  const conveyorTiles = new Set();
+  for (const [x, z, dx, dz] of def.conveyors || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] conveyor ${x},${z} is not a slab`);
+    if (t.shuttle) throw new Error(`[${def.name}] conveyor on a shuttle dock`);
+    if (t.ice) throw new Error(`[${def.name}] conveyor on ice at ${x},${z}`);
+    if (t.spring) throw new Error(`[${def.name}] conveyor on a spring at ${x},${z}`);
+    if (!((Math.abs(dx) === 1 && dz === 0) || (Math.abs(dz) === 1 && dx === 0))) {
+      throw new Error(`[${def.name}] conveyor at ${x},${z} needs a unit axis direction`);
+    }
+    t.conveyor = { dx, dz };
+    conveyorTiles.add(key(x, z));
+  }
+  if (startTile.conveyor) throw new Error(`[${def.name}] conveyor on the start tile`);
+  if (goalTile.conveyor) throw new Error(`[${def.name}] conveyor on the goal tile`);
+  // a belt loop would carry the cube forever — reject cycles at parse time
+  for (const k0 of conveyorTiles) {
+    const seen = new Set();
+    let t = tiles.get(k0);
+    while (t && t.conveyor) {
+      const kk = key(t.x, t.z);
+      if (seen.has(kk)) throw new Error(`[${def.name}] conveyor cycle at ${kk}`);
+      seen.add(kk);
+      t = tiles.get(key(t.x + t.conveyor.dx, t.z + t.conveyor.dz));
+    }
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
@@ -178,6 +208,7 @@ export function parseLevel(def) {
     shuttleDocks,
     iceTiles,
     springTiles,
+    conveyorTiles,
     gateKey,
     wind,
     nudge,
@@ -224,8 +255,8 @@ function springLaunch(level, pos, d) {
 }
 
 export function resolveRoll(level, from, d) {
-  const step = (pos) => {
-    const to = level.tiles.get(key(pos.x + d.dx, pos.z + d.dz));
+  const step = (pos, dir = d) => {
+    const to = level.tiles.get(key(pos.x + dir.dx, pos.z + dir.dz));
     if (!to || !checkRoll(level, pos, to).ok) return null;
     // Dock-to-dock rolls do not exist in real play: a cube standing on a
     // shuttle platform can only RIDE to the far dock (shuttleRide) or step
@@ -247,30 +278,53 @@ export function resolveRoll(level, from, d) {
   } else {
     t = step(from);
     if (!t) return null;
-    if (t.spring) {
-      // the press landed on a spring: it fires immediately
-      t = springLaunch(level, t, d);
-      if (!t) return null;
-    }
   }
-  // ice slide: continue in the same direction while riding ice
-  while (t.ice) {
-    const n = step(t);
-    if (!n) break;
-    t = n;
+  // Automatic follow-through: the same press keeps resolving until the
+  // cube rests on a plain tile. Each mechanic hands over to the next with
+  // its own direction law:
+  //   SPRING  — launches along the CURRENT travel direction; a failed
+  //             launch (no slab within 3) is a fall (null). The game's
+  //             autoContinue launches on ANY landing, slides and belt
+  //             rides included (the old model let an ice slide stop on a
+  //             pad, which blessed L68 "The Lost Stair" — every real
+  //             play launched into the void; M2.5, fixed 2026-11-13).
+  //   ICE     — keeps sliding in the current travel direction; a blocked
+  //             step (wall/void edge) simply ends the slide on the ice.
+  //   CONVEYOR (M3 wave-1) — the belt imposes ITS direction, and that
+  //             becomes the travel direction for whatever follows (an
+  //             ice run after a belt slides the belt's way). A blocked
+  //             belt step leaves the cube resting on the belt tile.
+  // Belt cycles are rejected at parse; the visited set also guards the
+  // combined ice/belt/spring graph — a press that would loop forever
+  // never rests, so it resolves to null and the level fails its proof.
+  let dir = d;
+  const fired = new Set();
+  for (;;) {
     if (t.spring) {
-      // A slide landing on a spring FIRES it — the game's autoContinue
-      // launches on ANY landing, slides included. The old model let the
-      // slide stop on the pad, which blessed L68 "The Lost Stair": the
-      // only route crossed an ice run that ended on a spring pad aimed
-      // at the void, so every real play launched the cube into the void
-      // while the verifier saw a safe landing. The launch's own landing
-      // law applies; a launch with no landing is a fall (null, the same
-      // convention as a roll into the void). M2.5, fixed 2026-11-13
-      // (caught by the live gate).
-      t = springLaunch(level, t, d);
-      break;
+      const kk = `P${t.x},${t.z}`;
+      if (fired.has(kk)) return null;
+      fired.add(kk);
+      t = springLaunch(level, t, dir);
+      if (!t) return null;
+      continue;
     }
+    if (t.ice) {
+      const n = step(t, dir);
+      if (!n) break;
+      t = n;
+      continue;
+    }
+    if (t.conveyor) {
+      const kk = `C${t.x},${t.z}`;
+      if (fired.has(kk)) return null;
+      fired.add(kk);
+      const n = step(t, t.conveyor);
+      if (!n) break;
+      dir = t.conveyor;
+      t = n;
+      continue;
+    }
+    break;
   }
   return t;
 }
@@ -537,7 +591,7 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring;
+    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -749,6 +803,26 @@ export function spawnProblems(level) {
         }
         if (t) break; // lands here
       }
+    }
+  }
+  // a conveyor carries the cube through every belt tile and onto the first
+  // plain tile beyond the belt — none of that carried path may sit inside
+  // a sentinel's clearance (the cube cannot choose to stop mid-belt)
+  for (const ck of level.conveyorTiles) {
+    let t = level.tiles.get(ck);
+    let guard = 0;
+    const seen = new Set();
+    while (t && !seen.has(key(t.x, t.z))) {
+      seen.add(key(t.x, t.z));
+      for (const orb of level.orbs) {
+        for (const [ox, oz] of orb.path) {
+          if (Math.max(Math.abs(ox - t.x), Math.abs(oz - t.z)) <= 1) {
+            probs.push(`conveyor at ${ck} carries through sentinel clearance`);
+          }
+        }
+      }
+      if (!t.conveyor || guard++ > 64) break;
+      t = level.tiles.get(key(t.x + t.conveyor.dx, t.z + t.conveyor.dz));
     }
   }
   return probs;

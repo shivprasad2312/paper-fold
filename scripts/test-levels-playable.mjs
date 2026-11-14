@@ -710,19 +710,19 @@ function bfsEval(targetExpr) {
     // one press from a tile in direction (dx,dz): a roll, then the
     // ice-slide / spring-launch follow-through — mirrors rules.resolveRoll
     const resolve = (from, dx, dz) => {
-      const step = (p) => {
-        const to = g.level.tiles.get(\`\${p.x + dx},\${p.z + dz}\`);
+      const step = (p, ddx = dx, ddz = dz) => {
+        const to = g.level.tiles.get(\`\${p.x + ddx},\${p.z + ddz}\`);
         if (!to) return null;
         const drop = p.h - to.h;
         if (drop < -1 || drop > 2) return null;
         if (p.shuttle && to.shuttle) return null; // no dock-to-dock rolls (mirrors rules.resolveRoll)
         return to;
       };
-      const launch = (fromPad) => {
+      const launch = (fromPad, ddx = dx, ddz = dz) => {
         let px = fromPad.x, pz = fromPad.z;
         for (let k2 = 1; k2 <= 3; k2++) {
-          const c = g.level.tiles.get(\`\${px + dx},\${pz + dz}\`);
-          px += dx; pz += dz;
+          const c = g.level.tiles.get(\`\${px + ddx},\${pz + ddz}\`);
+          px += ddx; pz += ddz;
           if (!c) continue;
           const dh = c.h - fromPad.h;
           if (dh > 3 || dh < -3) return null;
@@ -732,15 +732,36 @@ function bfsEval(targetExpr) {
       };
       let t = from.spring ? launch(from) : step(from);
       if (!t) return null;
-      if (t.spring) {
-        t = launch(t);
-        if (!t) return null;
-      }
-      while (t.ice) {
-        const n = step(t);
-        if (!n) break;
-        t = n;
-        if (t.spring) { t = launch(t); break; } // a slide landing on a pad fires it (game autoContinue)
+      // follow-through (ice slide / spring fire / conveyor carry) —
+      // mirrors rules.resolveRoll, belts impose their own direction
+      let cdx = dx, cdz = dz;
+      const fired = new Set();
+      for (;;) {
+        if (t.spring) {
+          const kk = 'P' + t.x + ',' + t.z;
+          if (fired.has(kk)) return null;
+          fired.add(kk);
+          t = launch(t, cdx, cdz);
+          if (!t) return null;
+          continue;
+        }
+        if (t.ice) {
+          const n = step(t, cdx, cdz);
+          if (!n) break;
+          t = n;
+          continue;
+        }
+        if (t.conveyor) {
+          const kk = 'C' + t.x + ',' + t.z;
+          if (fired.has(kk)) return null;
+          fired.add(kk);
+          const n = step(t, t.conveyor.dx, t.conveyor.dz);
+          if (!n) break;
+          cdx = t.conveyor.dx; cdz = t.conveyor.dz;
+          t = n;
+          continue;
+        }
+        break;
       }
       return t;
     };

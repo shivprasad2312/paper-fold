@@ -193,6 +193,7 @@ function score(def, par, b) {
   s += (def.crumble || []).length * 0.5;
   if (def.shuttles) s += 2;
   if (def.springs) s += 1.5;
+  if (def.conveyors) s += 1.5;
   if (def.ice) s += 1;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
@@ -249,6 +250,14 @@ function mirrorDef(def, axis) {
   if (def.shuttles) out.shuttles = def.shuttles.map((s) => ({ ...s, a: T(s.a), b: T(s.b) }));
   if (def.springs) out.springs = mirrorPts(def.springs);
   if (def.ice) out.ice = mirrorPts(def.ice);
+  if (def.conveyors) {
+    // belt directions mirror with the board: an x-flip reverses dx, a
+    // z-flip reverses dz (the belt still points along the mirrored run)
+    out.conveyors = def.conveyors.map(([x, z, dx, dz]) => {
+      const [mx, mz] = T([x, z]);
+      return [mx, mz, axis === 'x' ? -dx : dx, axis === 'z' ? -dz : dz];
+    });
+  }
   if (def.key) out.key = T(def.key);
   return out;
 }
@@ -339,6 +348,14 @@ for (let id = FIRST; id <= LAST; id++) {
   // undefined, so no forced carve ever happened and the mechanic acts
   // silently shipped mechanic-free).
   const allForce = { ...(act.gen.force || {}), ...force };
+  // introduction knob (sibling of KUBIK_FORCE_ARCH): force a mechanic
+  // carve on ONE slot, e.g. KUBIK_FORCE_MECH=175=conveyor — how a new
+  // mechanic enters the shipped campaign: one proven slot at a time,
+  // through the full gate, instead of a campaign-wide regeneration.
+  if (process.env.KUBIK_FORCE_MECH) {
+    const [fId, fMech] = process.env.KUBIK_FORCE_MECH.split('=');
+    if (Number(fId) === id && fMech) allForce[fMech] = (allForce[fMech] || 0) + 1;
+  }
   // per-act attempt budget (acts.js gen band `attempts`); the act's slot
   // density sets it — see the MAX_ATTEMPTS note above.
   const slotBudget = (act.gen && act.gen.attempts) || MAX_ATTEMPTS;
@@ -444,7 +461,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.key ? 'K' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

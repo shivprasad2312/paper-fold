@@ -871,3 +871,42 @@ The generator gains three inert, env-gated diagnostic knobs for slot
 forensics: `KUBIK_FORCE_ARCH=<id>=<archetype>` (pin one slot's
 archetype), `KUBIK_PROBE=1` (log the first rejections per attempt) and
 `KUBIK_MAX_ATTEMPTS=n` (attempt budget override).
+
+## ADR-020 — Conveyors enter as a resolved-press law, one proven slot at a time (2026-11-14)
+**Context:** M3 wave-1's first new mechanic. The standing doctrine is
+that a mechanic is not a special case in the game loop — it is part of
+the one law, `resolveRoll` (one press → landing after follow-through),
+consumed identically by the solver, the fairness model, the rescue
+bench and the live bot. Ice and springs already work this way.
+
+**Decision:** a conveyor is follow-through: rolling onto a belt tile
+carries the cube one tile in the belt's own direction, chaining along
+consecutive belt tiles; the belt direction becomes the travel
+direction for the next follow-through (ice after a belt slides the
+belt's way, a pad fires the belt's way); a blocked belt step leaves the
+cube resting on the belt tile. `resolveRoll` is restructured into a
+single follow-through loop (spring → ice → belt hand-overs), which
+also closes a latent L68-class hole: a spring launch landing on a
+second pad used to REST on it in the model while the game auto-fires
+every landing — the loop now fires pads in chains exactly like
+`autoContinue`. Belts are parse-validated (unit axis; never on
+start/goal/ice/springs/docks; cycles rejected), sentinel-clearance is
+audited along the whole carried path (`spawnProblems`), belts are
+excluded from the rescue bench's safe-rest assumption, and the
+mechanic signature/fingerprint learns `C` (`scripts/experience.mjs`).
+
+**Introduction law:** new mechanics enter the shipped campaign ONE
+proven slot at a time, not by campaign-wide regeneration (a global
+re-roll re-opens every proven slot to new randomness for zero player
+benefit). The generator gains the env-gated knob
+`KUBIK_FORCE_MECH=<id>=<mechanic>` (sibling of `KUBIK_FORCE_ARCH`;
+inert by default): L175 "Strainpoint" (The Pressure, act 9) is
+regenerated with a forced 2-tile belt and re-proven through the full
+gate. Organic carve budgets stay armed for future regenerations
+(campaign-14–50 shuttle bands 0.35–0.5; acts 9–10 `gen.mech.conveyor`
+0.5/0.6).
+
+**Gate:** unit 73/73 (7 new conveyor tests); verifier 200 + 14
+dailies green incl. the experience-diversity audit; FULL live run
+201/201 playable (5538 s), page errors none, L175 completed by the
+bot in 48 moves against par 40.

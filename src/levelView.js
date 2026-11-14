@@ -147,6 +147,7 @@ export function buildLevelView(level, actHue = null) {
   }
 
   // ---- ice / spring overlays + shuttle ghost docks ------------------------
+  const beltChevrons = [];
   {
     const iceMat = new THREE.MeshStandardMaterial({
       color: 0xbfe8ff, emissive: 0x3f8fc4, emissiveIntensity: 0.6,
@@ -156,6 +157,9 @@ export function buildLevelView(level, actHue = null) {
       color: 0xff9a3d, emissive: 0xff5a00, emissiveIntensity: 0.55, roughness: 0.4,
     });
     const ghostMat = new THREE.LineBasicMaterial({ color: 0xffb454, transparent: true, opacity: 0.75 });
+    const beltMat = new THREE.MeshStandardMaterial({
+      color: 0x2fd4c4, emissive: 0x0f7a70, emissiveIntensity: 0.55, roughness: 0.35,
+    });
     for (const tile of level.tiles.values()) {
       if (tile.ice || tile.spring) {
         const g = new THREE.BoxGeometry(0.94, 0.045, 0.94);
@@ -168,6 +172,21 @@ export function buildLevelView(level, actHue = null) {
           arrow.position.set(tile.x, tile.h + 0.22, tile.z);
           group.add(arrow);
         }
+      }
+      if (tile.conveyor) {
+        // CONVEYOR (M3 wave-1): a teal plate + a chevron that streams in
+        // the belt's direction (animated in update())
+        const g = new THREE.BoxGeometry(0.94, 0.045, 0.94);
+        g.translate(tile.x, tile.h + 0.025, tile.z);
+        const m = new THREE.Mesh(g, beltMat);
+        m.receiveShadow = true;
+        group.add(m);
+        const chev = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.3, 4), beltMat);
+        chev.rotation.x = tile.conveyor.dz * (Math.PI / 2);
+        chev.rotation.z = -tile.conveyor.dx * (Math.PI / 2);
+        chev.position.set(tile.x, tile.h + 0.16, tile.z);
+        group.add(chev);
+        beltChevrons.push({ mesh: chev, x: tile.x, z: tile.z, h: tile.h, dx: tile.conveyor.dx, dz: tile.conveyor.dz });
       }
       if (tile.shuttle) {
         const y = tile.h + 0.03;
@@ -612,6 +631,12 @@ export function buildLevelView(level, actHue = null) {
         sh.h - THICK / 2,
         sh.a[1] + (sh.b[1] - sh.a[1]) * f,
       );
+    }
+
+    // conveyor chevrons stream along the belt direction (M3 wave-1)
+    for (const b of beltChevrons) {
+      const off = (time * 0.9) % 0.55;
+      b.mesh.position.set(b.x + b.dx * (off - 0.27), b.h + 0.16, b.z + b.dz * (off - 0.27));
     }
 
     // step counter pop

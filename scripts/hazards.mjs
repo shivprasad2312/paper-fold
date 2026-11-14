@@ -11,10 +11,11 @@
 //   applyHazards(layout, band, rand, { force })  →  level def  (or null)
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
-//         mech: { ice, spring, shuttle } (per-mechanic carve probability) }
-// force: { shuttle?: n, spring?: n, ice?: n } — carve at least n of the
-//         mechanic (archetypes that ARE a mechanic); missing one fails the
-//         candidate.
+//         mech: { ice, spring, shuttle, conveyor } (per-mechanic carve
+//         probability) }
+// force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n } — carve at
+//         least n of the mechanic (archetypes that ARE a mechanic);
+//         missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
 export function applyHazards(layout, b, rand, opts = {}) {
@@ -45,6 +46,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   const shuttles = [];
   const springs = [];
   const ice = [];
+  const conveyors = [];
 
   // straight runs of ≥3 SOLID, consecutive walk tiles — indices into `path`.
   // Both orientations: sentinels patrol any straight line (tile-position
@@ -221,6 +223,44 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return true;
   };
 
+  // CONVEYOR (M3 wave-1): a belt segment on a straight run, pointing along
+  // the path. Stepping onto it carries the cube along the run — it cannot
+  // stop mid-belt to take a side branch, which is the puzzle. Same
+  // candidate law as ice/springs: mid-run only, collinear approach (the
+  // belt direction must be the travel direction on entry), never on
+  // start/goal, never stacked on another mechanic. The tile AFTER the
+  // belt (the carried landing) is marked as mechanic space too, so
+  // sentinels/crumble/key keep their radius-1 clearance from the whole
+  // carried path (the rules-side spawn audit checks the same corridor).
+  const tryConveyor = () => {
+    const cands = [];
+    for (let i = 1; i + 2 <= path.length - 1; i++) {
+      const dx = path[i][0] - path[i - 1][0];
+      const dz = path[i][1] - path[i - 1][1];
+      if (!dx && !dz) continue;
+      // segment of 2–3 belt tiles from i, all in the approach direction
+      for (let len = 2; len <= 3; len++) {
+        if (i + len > path.length - 1) break; // the carried landing must exist
+        let okSeg = true;
+        for (let t = i; t < i + len; t++) {
+          const kk = k(t);
+          if (carved.has(kk) || mechSet.has(kk)) { okSeg = false; break; }
+          if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) { okSeg = false; break; }
+          if (t > i && (path[t][0] - path[t - 1][0] !== dx || path[t][1] - path[t - 1][1] !== dz)) { okSeg = false; break; }
+        }
+        if (okSeg) cands.push([i, len, dx, dz]);
+      }
+    }
+    if (!cands.length) return false;
+    const [i, len, dx, dz] = cands[Math.floor(rand() * cands.length)];
+    for (let t = i; t < i + len; t++) {
+      conveyors.push([path[t][0], path[t][1], dx, dz]);
+      markMech(path[t][0], path[t][1]);
+    }
+    markMech(path[i + len][0], path[i + len][1]); // the carried landing
+    return true;
+  };
+
   // forced mechanics first (archetypes that ARE a mechanic), then the act
   // budget's probabilities
   //
@@ -239,7 +279,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['shuttle', force.shuttle || 0, (b.mech || {}).shuttle || 0],
     ['spring', force.spring || 0, (b.mech || {}).spring || 0],
     ['ice', Math.max(force.ice || 0, (layout.forceIce || []).length), (b.mech || {}).ice || 0],
+    ['conveyor', force.conveyor || 0, (b.mech || {}).conveyor || 0],
   ];
+  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor };
   // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
   // quota (n < forced) is always attempted — a forced mechanic that cannot
   // be carved fails the candidate (return null below). Extra carves beyond
@@ -249,7 +291,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // previous gate broke on `p < 1` BEFORE rolling, so best-effort carves
   // never happened at any probability < 1 — the whole 14–200 campaign
   // shipped with effectively no ice/springs/shuttles.
-  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length };
+  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0 };
   for (const [m, forced, p] of carvePlan) {
     let n = got[m];
     for (let t = 0; t < 4; t++) {
@@ -257,7 +299,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
         const pExtra = p * Math.pow(0.5, n - forced);
         if (pExtra <= 0 || rand() >= pExtra) break;
       }
-      const ok = m === 'shuttle' ? tryShuttle() : m === 'spring' ? trySpring() : tryIce();
+      const ok = carveByName[m]();
       if (!ok) break;
       n++;
     }
@@ -268,7 +310,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // per extra mechanic, never a hard requirement
   for (const [m, p] of Object.entries(opts.extra || {})) {
     if (rand() < p) {
-      const ok = m === 'shuttle' ? tryShuttle() : m === 'spring' ? trySpring() : tryIce();
+      const ok = carveByName[m]();
       if (ok) got[m]++;
     }
   }
@@ -434,5 +476,6 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (shuttles.length) def.shuttles = shuttles;
   if (springs.length) def.springs = springs;
   if (ice.length) def.ice = ice;
+  if (conveyors.length) def.conveyors = conveyors;
   return def;
 }
