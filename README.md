@@ -227,6 +227,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // ice: [[x, z]],           // slabs that keep a rolling cube sliding
   // springs: [[x, z]],       // pads that launch a roll over a void pit
   // conveyors: [[x, z, dx, dz]], // belts that carry a landed roll in their own direction
+  // doors: [{ plate: [x, z], at: [x, z] }], // doorway (void in map) opened by standing on its plate
   // key: [x, z],            // unlocks the sealed gate
   // wind: { x: -1, z: -1 }, // diagonal breeze
 }

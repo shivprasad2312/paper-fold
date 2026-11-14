@@ -36,6 +36,14 @@ satisfy (enforced by `parseLevel` + verifier):
   blocked belt step leaves the cube resting on the belt. Belt cycles are
   rejected at parse; the whole carried path keeps sentinel clearance.
   Never on start/goal/ice/springs/docks.
+- `doors`: `[{plate: [x,z], at: [x,z]}]` — a pressure plate + doorway
+  (M3 wave-1): the doorway cell is void in the map (the parser
+  solidifies it at the plate's height); the door is a wall to every
+  press except one that STARTS on its plate, so the route detours onto
+  the plate, steps through, and cannot return the same way. The cube's
+  weight only — blocks never press a plate. A launch flies over a
+  doorway, never lands on it; the plate/doorway can be waited on, so
+  sentinel fairness is the ordinary timing model (no corridor audit).
 - `key`: only with a sealed gate (finale); on a slab, not on start/goal.
 - `wind`: diagonal unit vector only.
 - `nudge` ≥ number of blocks that *must* move for any route (solver
@@ -58,6 +66,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Ice slide | 1 press, stops at first non-ice / illegal step | Momentum without a timer: the whole slide is one graph edge, so fairness is provable. |
 | Spring launch | ≤ 3 tiles, landing slab within ±3 height | A fixed, readable hop — never "how high do I go?" |
 | Conveyor carry | 1 tile per belt tile, belt direction, chains | The current chooses for you: one press, no mid-belt decisions, so the whole ride is one provable graph edge. |
+| Door entry | only from its plate; the cube's weight alone | A door is a directed edge, not a state machine: legality depends only on where the press starts, so every solver sees the same law. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

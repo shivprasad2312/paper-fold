@@ -19,6 +19,7 @@ import {
   spawnProblems,
   candidateCrossings,
   fairCrossingGraph,
+  canPushBlock,
   DIRS,
 } from '../../src/rules.js';
 
@@ -357,6 +358,126 @@ test('conveyor spawn audit flags a belt carrying through sentinel clearance', ()
   });
   const probs = spawnProblems(level);
   assert.ok(probs.some((p) => p.includes('conveyor')), 'belt corridor flagged');
+});
+
+// --- pressure plates + doors (M3 wave-1) ----------------------------------
+const doorDef = () => ({
+  name: 'door-detour',
+  map: [
+    '11.11',
+    '.111.',
+    '.....',
+  ],
+  start: [0, 0],
+  goal: [4, 0],
+  doors: [{ plate: [2, 1], at: [2, 0] }],
+});
+
+test('a door opens only to a press that starts on its plate', () => {
+  const level = parseLevel(doorDef());
+  const at = (x, z) => level.tiles.get(`${x},${z}`);
+  // from (1,0) — beside the doorway but not on the plate: refused
+  assert.equal(resolveRoll(level, at(1, 0), DIRS.right), null);
+  // from the plate: through, and the cube rests ON the doorway tile
+  const through = resolveRoll(level, at(2, 1), DIRS.up);
+  assert.deepEqual([through.x, through.z], [2, 0], 'plate → doorway');
+  // from the doorway: out the far side freely
+  const out = resolveRoll(level, at(2, 0), DIRS.right);
+  assert.deepEqual([out.x, out.z], [3, 0], 'doorway → beyond');
+  // ...but coming back is refused: the door closed behind the cube
+  assert.equal(resolveRoll(level, at(3, 0), DIRS.left), null);
+});
+
+test('the doorway is a full citizen of the route graph (detour par)', () => {
+  const level = parseLevel(doorDef());
+  // (0,0)→(1,0)→(1,1)→plate(2,1)→door(2,0)→(3,0)→(4,0): 6 presses, and
+  // the direct 4-press line through the doorway does not exist
+  assert.equal(shortestRoute(level), 6);
+});
+
+test('an ice slide stops dead at a closed door', () => {
+  const level = parseLevel({
+    name: 'door-slide',
+    map: ['111.11'],
+    start: [0, 0],
+    goal: [5, 0],
+    ice: [[1, 0], [2, 0]],
+    doors: [{ plate: [4, 0], at: [3, 0] }],
+  });
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.deepEqual([to.x, to.z], [2, 0], 'slide rests on the last ice tile before the door');
+});
+
+test('a spring launch flies over a doorway, never lands on it', () => {
+  const level = parseLevel({
+    name: 'door-launch',
+    map: ['1..11'],
+    start: [0, 0],
+    goal: [4, 0],
+    springs: [[0, 0]],
+    doors: [{ plate: [3, 0], at: [2, 0] }],
+  });
+  const to = resolveRoll(level, level.tiles.get('0,0'), DIRS.right);
+  assert.equal(to.x, 3, 'launch skips the door tile and lands beyond it');
+});
+
+test('door parse rejects non-void doorways, stray plates and stacked mechanics', () => {
+  assert.throws(
+    () => parseLevel({ name: 'door-on-slab', map: ['111'], start: [0, 0], goal: [2, 0], doors: [{ plate: [1, 0], at: [2, 0] }] }),
+    /must be void/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'door-far-plate', map: ['111', '111'], start: [0, 0], goal: [2, 0], doors: [{ plate: [0, 1], at: [1, 0] }] }),
+    /must be void/,
+  );
+  assert.throws(
+    () => parseLevel({
+      name: 'door-stray',
+      map: ['1.111', '.....'],
+      start: [0, 0],
+      goal: [4, 0],
+      doors: [{ plate: [0, 0], at: [1, 0] }],
+    }),
+    /start tile/,
+  );
+  assert.throws(
+    () => parseLevel({
+      name: 'plate-on-ice',
+      map: ['1.1', '111'],
+      start: [0, 0],
+      goal: [2, 0],
+      ice: [[1, 1]],
+      doors: [{ plate: [1, 1], at: [1, 0] }],
+    }),
+    /another mechanic/,
+  );
+});
+
+test('door parse rejects a plate that is not beside its doorway', () => {
+  assert.throws(
+    () => parseLevel({
+      name: 'door-stray2',
+      map: ['11.11', '11111'],
+      start: [0, 0],
+      goal: [4, 0],
+      doors: [{ plate: [4, 1], at: [2, 0] }],
+    }),
+    /beside its plate/,
+  );
+});
+
+test('blocks can never be pushed onto a plate or into a doorway', () => {
+  const level = parseLevel({
+    name: 'door-block',
+    map: ['111.1'],
+    start: [0, 0],
+    goal: [4, 0],
+    blocks: [[1, 0]],
+    nudge: 1,
+    doors: [{ plate: [2, 0], at: [3, 0] }],
+  });
+  assert.equal(canPushBlock(level, 1, 0, 1, 0), false, 'plate refuses blocks');
+  assert.equal(canPushBlock(level, 1, 0, -1, 0), true, 'plain slab still takes blocks');
 });
 
 test('spring/ice spawn audit flags a sentinel in the corridor', () => {

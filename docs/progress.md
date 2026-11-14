@@ -128,7 +128,7 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…020). Latest: ADR-014
+Log: `technical_decisions.md` (ADR-001…021). Latest: ADR-014
 (mid-path second chance — the rescue bench), ADR-015 (the 200-level
 campaign: archetype library + shared hazard stage + stratified live
 gate), ADR-016 (the crossing models run the game's real easeInOut
@@ -137,7 +137,9 @@ ADR-018 (the press-schedule BAND — no single press rhythm may be the
 only one that can catch a window), ADR-019 (the long-route archetypes
 are capped below par floor 19 — the act 3–9 pools are corrected),
 ADR-020 (M3 wave-1 begins: conveyor/current tiles as a resolved-press
-law; new mechanics enter one proven slot at a time — L175 first).
+law; new mechanics enter one proven slot at a time — L175 first),
+ADR-021 (pressure plate + door as a directed edge in `checkRoll` —
+the cube's weight alone, no door state in any search; L152 first).
 
 ## Blockers
 

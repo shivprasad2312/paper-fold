@@ -30,6 +30,7 @@ const MECH_FIELDS = [
   ['ice', 'I', (d) => (d.ice || []).length > 0],
   ['springs', 'P', (d) => (d.springs || []).length > 0],
   ['conveyors', 'C', (d) => (d.conveyors || []).length > 0],
+  ['doors', 'D', (d) => (d.doors || []).length > 0],
   ['shuttles', 'S', (d) => (d.shuttles || []).length > 0],
   ['key', 'K', (d) => !!d.key],
   ['blocks', 'B', (d) => (d.blocks || []).length > 0],

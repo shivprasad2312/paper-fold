@@ -716,6 +716,7 @@ function bfsEval(targetExpr) {
         const drop = p.h - to.h;
         if (drop < -1 || drop > 2) return null;
         if (p.shuttle && to.shuttle) return null; // no dock-to-dock rolls (mirrors rules.resolveRoll)
+        if (to.door && !(p.x === to.door.x && p.z === to.door.z)) return null; // doors open only from their plate (mirrors checkRoll)
         return to;
       };
       const launch = (fromPad, ddx = dx, ddz = dz) => {
@@ -724,6 +725,7 @@ function bfsEval(targetExpr) {
           const c = g.level.tiles.get(\`\${px + ddx},\${pz + ddz}\`);
           px += ddx; pz += ddz;
           if (!c) continue;
+          if (c.door) continue; // a launch never lands on a door (mirrors springLaunch)
           const dh = c.h - fromPad.h;
           if (dh > 3 || dh < -3) return null;
           return c;

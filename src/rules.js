@@ -179,11 +179,43 @@ export function parseLevel(def) {
     }
   }
 
+  // ---- pressure plates + doors (M3 wave-1): a door tile sits in a void
+  // cell (the parser solidifies it at its plate's height, like a shuttle
+  // dock). The door is a wall to every press except one that STARTS on its
+  // plate: step onto the plate and the way through opens; step off the
+  // plate anywhere else and it closes. The cube's weight only — blocks
+  // never press a plate (canPushBlock refuses plate tiles), so the whole
+  // mechanic stays a stateless press law: legality depends only on where
+  // the press starts, exactly what checkRoll/resolveRoll already know.
+  const doors = [];
+  for (const d of def.doors || []) {
+    const [px, pz] = d.plate || [];
+    const [ax, az] = d.at || [];
+    const plate = tiles.get(key(px, pz));
+    if (!plate) throw new Error(`[${def.name}] door plate ${px},${pz} is not a slab`);
+    if (tiles.has(key(ax, az))) throw new Error(`[${def.name}] door at ${ax},${az} must be void in the map`);
+    if (Math.abs(ax - px) + Math.abs(az - pz) !== 1) {
+      throw new Error(`[${def.name}] door at ${ax},${az} must sit beside its plate ${px},${pz}`);
+    }
+    if (plate.shuttle || plate.ice || plate.spring || plate.conveyor || plate.crumble) {
+      throw new Error(`[${def.name}] door plate on another mechanic at ${px},${pz}`);
+    }
+    if (plate.plate) throw new Error(`[${def.name}] plate ${px},${pz} already works a door`);
+    if (px === startTile.x && pz === startTile.z) throw new Error(`[${def.name}] door plate on the start tile`);
+    if (px === goalTile.x && pz === goalTile.z) throw new Error(`[${def.name}] door plate on the goal tile`);
+    if (def.key && def.key[0] === px && def.key[1] === pz) throw new Error(`[${def.name}] door plate on the key`);
+    const tile = { x: ax, z: az, h: plate.h, crumble: false, door: { x: px, z: pz } };
+    tiles.set(key(ax, az), tile);
+    plate.plate = { x: ax, z: az };
+    doors.push({ plate, tile });
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
     const [kx, kz] = def.key;
     if (!tiles.has(key(kx, kz))) throw new Error(`[${def.name}] key ${kx},${kz} is not a slab`);
+    if (tiles.get(key(kx, kz)).door) throw new Error(`[${def.name}] key sits on a door tile`);
     if (kx === goalTile.x && kz === goalTile.z) throw new Error(`[${def.name}] key sits on the goal`);
     gateKey = { x: kx, z: kz };
   }
@@ -209,6 +241,7 @@ export function parseLevel(def) {
     iceTiles,
     springTiles,
     conveyorTiles,
+    doors,
     gateKey,
     wind,
     nudge,
@@ -247,6 +280,7 @@ function springLaunch(level, pos, d) {
     px += d.dx;
     pz += d.dz;
     if (!cand) continue; // flew over void (or off the level)
+    if (cand.door) continue; // a launch never lands on a door (M3 wave-1): it flies the doorway over
     const dh = cand.h - pos.h;
     if (dh > 3 || dh < -3) return null; // wall too tall / drop too deep
     return cand;
@@ -359,6 +393,13 @@ export function mechanicTargets(level, tile) {
  */
 export function checkRoll(level, from, to) {
   if (!to) return { ok: false, kind: 'void' };
+  // A door is a wall to every press that does not START on its plate
+  // (M3 wave-1). Putting the law here — the one "can the cube roll
+  // from→to" predicate — means resolveRoll, the reachability searches,
+  // the game and the live bot all inherit it identically.
+  if (to.door && !(from.x === to.door.x && from.z === to.door.z)) {
+    return { ok: false, kind: 'blocked' };
+  }
   const delta = to.h - from.h;
   if (delta > MAX_CLIMB) return { ok: false, kind: 'blocked' };
   if (-delta > MAX_DROP) return { ok: false, kind: 'blocked' };
@@ -396,6 +437,9 @@ export function sliderUp(level, t, x, z) {
 export function canPushBlock(level, x, z, dx, dz) {
   const to = level.tiles.get(key(x + dx, z + dz));
   if (!to) return false;
+  // blocks never press a pressure plate and never park in a doorway
+  // (M3 wave-1: a door is the cube's weight alone)
+  if (to.door || to.plate) return false;
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
   if (level.blockTiles.has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
@@ -591,7 +635,7 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor;
+    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -1426,6 +1470,11 @@ function buildCrossingGraph(level) {
       const ha = H(a);
       const hb = H(b);
       if (typeof ha !== 'number' || typeof hb !== 'number') return false; // void
+      // a burst may not slip through a door it never opened: entering a
+      // door tile is legal only from its plate (M3 wave-1, mirrors
+      // checkRoll — this path steps synthetic tiles so it re-checks)
+      const bt = level.tiles.get(key(b.x, b.z));
+      if (bt && bt.door && !(a.x === bt.door.x && a.z === bt.door.z)) return false;
       const delta = hb - ha;
       return delta <= MAX_CLIMB && -delta <= MAX_DROP;
     };

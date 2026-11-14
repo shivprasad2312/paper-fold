@@ -181,13 +181,16 @@ function generate(rand, id, b) {
   // four: L28, L34, L36, L42 (+ the double-shuttle finale L50). Those
   // intro points are FORCED below; best-effort shuttle carving is low so a
   // shuttle still reads as a set piece.
-  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0 };
+  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0 };
   if ((b.mech || []).includes('ice')) mech.ice = b.W >= 12 ? 0.95 : 0.6;
   if ((b.mech || []).includes('spring')) mech.spring = b.W >= 16 ? 0.6 : 0.5;
   if ((b.mech || []).includes('shuttle')) mech.shuttle = 0.2;
   // CONVEYOR (M3 wave-1): belts join once shuttles exist (the moving-
   // platform bands, W14+) — a current that carries you along the route.
   if ((b.mech || []).includes('shuttle')) mech.conveyor = b.W >= 16 ? 0.5 : 0.35;
+  // DOOR (M3 wave-1): pressure-plate doorways join the same bands — a
+  // detour onto the plate is the only way through.
+  if ((b.mech || []).includes('shuttle')) mech.door = b.W >= 16 ? 0.4 : 0.3;
   const opts = {};
   if (INTRO_MECH[id]) opts.force = INTRO_MECH[id];
   if (id === 50) opts.extra = { shuttle: 0.6 }; // the finale rides twice

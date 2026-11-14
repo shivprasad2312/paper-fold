@@ -900,6 +900,9 @@ export class Game {
     const toTile = this.tileAt(this.cube.x + w.x, this.cube.z + w.z);
     if (!fromTile || !toTile) return;
     if (!this.isSolid(this.cube.x + w.x, this.cube.z + w.z)) return;
+    // the breeze does not open doors: drifting into a doorway takes the
+    // same press law as rolling (M3 wave-1, mirrors checkRoll)
+    if (toTile.door && !(fromTile.x === toTile.door.x && fromTile.z === toTile.door.z)) return;
     // the breeze carries, it does not lift: same height or a small fall only
     const dh = toTile.h - fromTile.h;
     if (dh > 0 || dh < -MAX_DROP) return;

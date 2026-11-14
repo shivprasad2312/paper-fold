@@ -11,11 +11,11 @@
 //   applyHazards(layout, band, rand, { force })  →  level def  (or null)
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
-//         mech: { ice, spring, shuttle, conveyor } (per-mechanic carve
-//         probability) }
-// force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n } — carve at
-//         least n of the mechanic (archetypes that ARE a mechanic);
-//         missing one fails the candidate.
+//         mech: { ice, spring, shuttle, conveyor, door } (per-mechanic
+//         carve probability) }
+// force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n } —
+//         carve at least n of the mechanic (archetypes that ARE a
+//         mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
 export function applyHazards(layout, b, rand, opts = {}) {
@@ -47,6 +47,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   const springs = [];
   const ice = [];
   const conveyors = [];
+  const doors = [];
 
   // straight runs of ≥3 SOLID, consecutive walk tiles — indices into `path`.
   // Both orientations: sentinels patrol any straight line (tile-position
@@ -261,6 +262,47 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return true;
   };
 
+  // DOOR (M3 wave-1): a route tile becomes a doorway and a FILL slab
+  // beside it becomes its pressure plate. The walk detours off the route
+  // onto the plate, steps through the doorway from the plate, and cannot
+  // come back the same way — the plate is the puzzle. Candidates need:
+  // the doorway mid-route (never carved/mechanic/start/goal), the plate
+  // a still-solid fill slab beside the doorway, and the plate touching
+  // the route BEFORE the doorway (so the detour is reachable without
+  // crossing it). Heights are NOT checked here — the door stands at the
+  // plate's height, and the level proof (shortest route under the door
+  // law) accepts or rejects the candidate as a whole.
+  const tryDoor = () => {
+    const cands = [];
+    for (let i = 2; i <= path.length - 3; i++) {
+      const kk = k(i);
+      if (carved.has(kk) || mechSet.has(kk)) continue;
+      if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) continue;
+      const [dx, dz] = [path[i][0], path[i][1]];
+      for (const slabKey of solidSlabs) {
+        if (!tiles.has(slabKey)) continue; // an earlier carve may have cleared it
+        if (mechSet.has(slabKey) || carved.has(slabKey)) continue;
+        const [sx, sz] = slabKey.split(',').map(Number);
+        if (Math.abs(sx - dx) + Math.abs(sz - dz) !== 1) continue; // beside the doorway
+        // the plate must touch the pre-door route (reachable detour)
+        let touches = false;
+        for (let j = 0; j < i && !touches; j++) {
+          if (Math.abs(path[j][0] - sx) + Math.abs(path[j][1] - sz) === 1) touches = true;
+        }
+        if (touches) cands.push([i, sx, sz]);
+      }
+    }
+    if (!cands.length) return false;
+    const [i, px, pz] = cands[Math.floor(rand() * cands.length)];
+    const [dx, dz] = path[i];
+    clearTile(dx, dz);
+    carved.add(k(i));
+    markMech(dx, dz);
+    markMech(px, pz);
+    doors.push({ plate: [px, pz], at: [dx, dz] });
+    return true;
+  };
+
   // forced mechanics first (archetypes that ARE a mechanic), then the act
   // budget's probabilities
   //
@@ -280,8 +322,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['spring', force.spring || 0, (b.mech || {}).spring || 0],
     ['ice', Math.max(force.ice || 0, (layout.forceIce || []).length), (b.mech || {}).ice || 0],
     ['conveyor', force.conveyor || 0, (b.mech || {}).conveyor || 0],
+    ['door', force.door || 0, (b.mech || {}).door || 0],
   ];
-  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor };
+  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor };
   // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
   // quota (n < forced) is always attempted — a forced mechanic that cannot
   // be carved fails the candidate (return null below). Extra carves beyond
@@ -291,7 +334,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // previous gate broke on `p < 1` BEFORE rolling, so best-effort carves
   // never happened at any probability < 1 — the whole 14–200 campaign
   // shipped with effectively no ice/springs/shuttles.
-  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0 };
+  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0 };
   for (const [m, forced, p] of carvePlan) {
     let n = got[m];
     for (let t = 0; t < 4; t++) {
@@ -477,5 +520,6 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (springs.length) def.springs = springs;
   if (ice.length) def.ice = ice;
   if (conveyors.length) def.conveyors = conveyors;
+  if (doors.length) def.doors = doors;
   return def;
 }

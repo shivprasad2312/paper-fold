@@ -156,7 +156,7 @@ export const ACTS = [
     gen: {
       W: 18, par: [30, 46], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.45, // the key act: gates everywhere
-      mech: { ice: 0.5, spring: 0.5, shuttle: 0.6 },
+      mech: { ice: 0.5, spring: 0.5, shuttle: 0.6, door: 0.4 },
       // orientation rotation (M2.5): the act plays as a descent — start
       // at the top of the frame (mirrored after the proof)
       flip: 'z',
@@ -178,7 +178,7 @@ export const ACTS = [
     gen: {
       W: 18, par: [32, 48], orbs: [2, 3], crumble: [2, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.3,
-      mech: { ice: 0.6, spring: 0.6, shuttle: 0.7, conveyor: 0.5 },
+      mech: { ice: 0.6, spring: 0.6, shuttle: 0.7, conveyor: 0.5, door: 0.45 },
       // orientation rotation (M2.5): the act plays RIGHT → LEFT (mirrored
       // after the proof)
       flip: 'x',
@@ -205,7 +205,7 @@ export const ACTS = [
       // under the final model — par 39, 3 sentinels, key, at ≤450). The
       // generator reads this as the attempt budget for the act's slots.
       attempts: 450,
-      mech: { ice: 0.7, spring: 0.7, shuttle: 0.8, conveyor: 0.6 },
+      mech: { ice: 0.7, spring: 0.7, shuttle: 0.8, conveyor: 0.6, door: 0.5 },
       arch: ['undertow', 'twin-falls', 'shuttle-span', 'gauntlet', 'vault', 'ring', 'meridian'],
       names: [
         'The Last Rung', 'Over the Line', 'The Breakline Crossed', 'Unmaking',

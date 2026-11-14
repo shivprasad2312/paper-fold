@@ -194,6 +194,7 @@ function score(def, par, b) {
   if (def.shuttles) s += 2;
   if (def.springs) s += 1.5;
   if (def.conveyors) s += 1.5;
+  if (def.doors) s += 1.5;
   if (def.ice) s += 1;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
@@ -257,6 +258,11 @@ function mirrorDef(def, axis) {
       const [mx, mz] = T([x, z]);
       return [mx, mz, axis === 'x' ? -dx : dx, axis === 'z' ? -dz : dz];
     });
+  }
+  if (def.doors) {
+    // plate and doorway mirror together — the pairing is positional, so
+    // the mirrored plate still sits beside the mirrored doorway
+    out.doors = def.doors.map((d) => ({ plate: T(d.plate), at: T(d.at) }));
   }
   if (def.key) out.key = T(def.key);
   return out;
@@ -461,7 +467,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.key ? 'K' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

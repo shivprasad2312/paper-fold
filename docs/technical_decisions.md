@@ -910,3 +910,41 @@ gate. Organic carve budgets stay armed for future regenerations
 dailies green incl. the experience-diversity audit; FULL live run
 201/201 playable (5538 s), page errors none, L175 completed by the
 bot in 48 moves against par 40.
+
+## ADR-021 — Pressure plate + door is a directed edge, not a state machine (2026-11-14)
+**Context:** M3 wave-1's second mechanic. A naive plate+door is a state
+machine (door open/closed over time, blocks holding plates), which
+would fork the one-law model: every solver would need door state in
+its search nodes, and block-on-plate state on top of the telekinesis
+search. The catalogue's proofs stay cheap precisely because a press's
+legality depends only on where the press starts.
+
+**Decision:** a door tile sits in a void cell (parser-solidified at its
+plate's height, like a shuttle dock) and is a wall to every press
+except one that STARTS on its plate: step onto the plate, the doorway
+opens; step through; it closes behind you. The law lives in
+`checkRoll` — the single from→to predicate — so `resolveRoll`, the
+reachability searches, the crossing graph (its synthetic-tile `rollOk`
+re-checks it), the game, and the live bot all inherit the identical
+rule. The cube's weight alone presses a plate: `canPushBlock` refuses
+plate and doorway tiles, so blocks never hold a door and no search
+state grows. Interactions follow the same press law: an ice slide
+stops dead at a closed door, a spring launch flies OVER a doorway
+(never lands on it), wind cannot drift the cube through one, and the
+mid-path bench never sits on a doorway. Plate and doorway are both
+tiles the cube may WAIT on, so sentinel fairness stays the ordinary
+timing model — no corridor audit (unlike the forced ice/spring/belt
+paths). Validation: doorway must be void in the map and beside its
+plate; the plate is a plain slab — never start/goal/key/crumble or
+another mechanic; one door per plate.
+
+**Introduction:** same law as ADR-020 — one proven slot via
+`KUBIK_FORCE_MECH=152=door` (L152 "Iron Seal", Darkwater: plate
+[4,3] → doorway [4,4]); organic budgets armed for future regeneration
+(campaign bands 0.3–0.4; acts 8–10 `gen.mech.door` 0.4/0.45/0.5).
+Curation signature learns `D`.
+
+**Gate:** unit 80/80 (7 new door tests); verifier 200 + 14 dailies
+green incl. the experience-diversity audit; live L152 completed by
+the bot in 38 moves against par 39, page errors none (the stratified
+hook re-runs its rotating window at commit).

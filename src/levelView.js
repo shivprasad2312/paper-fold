@@ -148,6 +148,8 @@ export function buildLevelView(level, actHue = null) {
 
   // ---- ice / spring overlays + shuttle ghost docks ------------------------
   const beltChevrons = [];
+  const doorRecs = [];
+  const plateRecs = [];
   {
     const iceMat = new THREE.MeshStandardMaterial({
       color: 0xbfe8ff, emissive: 0x3f8fc4, emissiveIntensity: 0.6,
@@ -160,6 +162,10 @@ export function buildLevelView(level, actHue = null) {
     const beltMat = new THREE.MeshStandardMaterial({
       color: 0x2fd4c4, emissive: 0x0f7a70, emissiveIntensity: 0.55, roughness: 0.35,
     });
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0xd98a2b, emissive: 0x8a5200, emissiveIntensity: 0.5, roughness: 0.45,
+    });
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.6, metalness: 0.35 });
     for (const tile of level.tiles.values()) {
       if (tile.ice || tile.spring) {
         const g = new THREE.BoxGeometry(0.94, 0.045, 0.94);
@@ -187,6 +193,44 @@ export function buildLevelView(level, actHue = null) {
         chev.position.set(tile.x, tile.h + 0.16, tile.z);
         group.add(chev);
         beltChevrons.push({ mesh: chev, x: tile.x, z: tile.z, h: tile.h, dx: tile.conveyor.dx, dz: tile.conveyor.dz });
+      }
+      if (tile.plate) {
+        // PRESSURE PLATE (M3 wave-1): a brass disc that sinks while the
+        // cube stands on it (animated in update())
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.34, 0.07, 20), doorMat);
+        disc.position.set(tile.x, tile.h + 0.045, tile.z);
+        disc.receiveShadow = true;
+        group.add(disc);
+        plateRecs.push({ mesh: disc, x: tile.x, z: tile.z, h: tile.h, pressed: 0 });
+      }
+      if (tile.door) {
+        // DOOR (M3 wave-1): a framed panel in the doorway; it sinks into
+        // the floor while its plate is held (animated in update())
+        const alongX = tile.door.z === tile.z; // plate beside it in x → passage runs along x
+        const panel = new THREE.Mesh(
+          alongX ? new THREE.BoxGeometry(0.14, 0.92, 0.94) : new THREE.BoxGeometry(0.94, 0.92, 0.14),
+          doorMat,
+        );
+        panel.position.set(tile.x, tile.h + 0.48, tile.z);
+        panel.castShadow = true;
+        group.add(panel);
+        for (const s of [-1, 1]) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.06, 0.12), frameMat);
+          post.position.set(
+            tile.x + (alongX ? 0 : s * 0.44),
+            tile.h + 0.53,
+            tile.z + (alongX ? s * 0.44 : 0),
+          );
+          post.castShadow = true;
+          group.add(post);
+        }
+        const lintel = new THREE.Mesh(
+          alongX ? new THREE.BoxGeometry(0.14, 0.12, 1.0) : new THREE.BoxGeometry(1.0, 0.12, 0.14),
+          frameMat,
+        );
+        lintel.position.set(tile.x, tile.h + 1.06, tile.z);
+        group.add(lintel);
+        doorRecs.push({ panel, x: tile.x, z: tile.z, h: tile.h, plate: tile.door, open: 0 });
       }
       if (tile.shuttle) {
         const y = tile.h + 0.03;
@@ -637,6 +681,25 @@ export function buildLevelView(level, actHue = null) {
     for (const b of beltChevrons) {
       const off = (time * 0.9) % 0.55;
       b.mesh.position.set(b.x + b.dx * (off - 0.27), b.h + 0.16, b.z + b.dz * (off - 0.27));
+    }
+
+    // pressure plates + doors (M3 wave-1): a door stands open while the
+    // cube rests on its plate or in the doorway itself; the panel sinks
+    // into the floor, the plate disc dips under the cube's weight
+    if (doorRecs.length || plateRecs.length) {
+      const cx = Math.round(cubePos.x);
+      const cz = Math.round(cubePos.z);
+      for (const p of plateRecs) {
+        const target = cx === p.x && cz === p.z ? 1 : 0;
+        p.pressed += (target - p.pressed) * Math.min(1, dt * 10);
+        p.mesh.position.y = p.h + 0.045 - p.pressed * 0.035;
+      }
+      for (const dr of doorRecs) {
+        const held =
+          (cx === dr.plate.x && cz === dr.plate.z) || (cx === dr.x && cz === dr.z) ? 1 : 0;
+        dr.open += (held - dr.open) * Math.min(1, dt * 7);
+        dr.panel.position.y = dr.h + 0.48 - dr.open * 0.86;
+      }
     }
 
     // step counter pop
