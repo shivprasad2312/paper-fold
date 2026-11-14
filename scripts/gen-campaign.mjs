@@ -181,8 +181,11 @@ function generate(rand, id, b) {
   // four: L28, L34, L36, L42 (+ the double-shuttle finale L50). Those
   // intro points are FORCED below; best-effort shuttle carving is low so a
   // shuttle still reads as a set piece.
-  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0 };
+  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0, timed: 0 };
   if ((b.mech || []).includes('ice')) mech.ice = b.W >= 12 ? 0.95 : 0.6;
+  // TIMED (M3 wave-1): delayed crumble joins the ice bands — fragile
+  // floors are the same family (one press, keep moving).
+  if ((b.mech || []).includes('ice')) mech.timed = b.W >= 16 ? 0.5 : 0.35;
   if ((b.mech || []).includes('spring')) mech.spring = b.W >= 16 ? 0.6 : 0.5;
   if ((b.mech || []).includes('shuttle')) mech.shuttle = 0.2;
   // CONVEYOR (M3 wave-1): belts join once shuttles exist (the moving-

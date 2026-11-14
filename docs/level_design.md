@@ -36,6 +36,12 @@ satisfy (enforced by `parseLevel` + verifier):
   blocked belt step leaves the cube resting on the belt. Belt cycles are
   rejected at parse; the whole carried path keeps sentinel clearance.
   Never on start/goal/ice/springs/docks.
+- `timed`: `[[x,z]]` — a timed slab (delayed crumble): `TIMED_FUSE`
+  (2.4 s) after the cube's first landing the slab falls, cracking in
+  stages as the fuse burns. Never a tile the player may need to wait
+  on (the spawn audit keeps it out of sentinel clearance, away from
+  shuttle docks and sliding bridges); proofs model it exactly like a
+  crumble — gone once you step off — so the fuse is pure player grace.
 - `doors`: `[{plate: [x,z], at: [x,z]}]` — a pressure plate + doorway
   (M3 wave-1): the doorway cell is void in the map (the parser
   solidifies it at the plate's height); the door is a wall to every
@@ -67,6 +73,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Spring launch | ≤ 3 tiles, landing slab within ±3 height | A fixed, readable hop — never "how high do I go?" |
 | Conveyor carry | 1 tile per belt tile, belt direction, chains | The current chooses for you: one press, no mid-belt decisions, so the whole ride is one provable graph edge. |
 | Door entry | only from its plate; the cube's weight alone | A door is a directed edge, not a state machine: legality depends only on where the press starts, so every solver sees the same law. |
+| Timed slab | 2.4 s fuse from first landing, then it falls | The crumble's slow sibling (plain crumble burns in 0.75 s): cross at a stroll, never dawdle — and the proof models break-on-leave, so the fuse is margin, not a requirement. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

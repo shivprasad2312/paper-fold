@@ -11,11 +11,11 @@
 //   applyHazards(layout, band, rand, { force })  →  level def  (or null)
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
-//         mech: { ice, spring, shuttle, conveyor, door } (per-mechanic
-//         carve probability) }
-// force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n } —
-//         carve at least n of the mechanic (archetypes that ARE a
-//         mechanic); missing one fails the candidate.
+//         mech: { ice, spring, shuttle, conveyor, door, timed }
+//         (per-mechanic carve probability) }
+// force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
+//         timed?: n } — carve at least n of the mechanic (archetypes
+//         that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
 export function applyHazards(layout, b, rand, opts = {}) {
@@ -48,6 +48,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   const ice = [];
   const conveyors = [];
   const doors = [];
+  const timed = [];
 
   // straight runs of ≥3 SOLID, consecutive walk tiles — indices into `path`.
   // Both orientations: sentinels patrol any straight line (tile-position
@@ -303,6 +304,41 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return true;
   };
 
+  // TIMED (delayed crumble, M3 wave-1): a run of 1–3 route tiles gets a
+  // 2.4 s fuse (TIMED_FUSE) — crossable at a stroll, fatal to dawdle on.
+  // The run must sit clear of ALL other mechanic space (Chebyshev 1):
+  // the spawn audit forbids timed slabs anywhere the player might need
+  // to wait (sentinel clearance, shuttle docks, sliding bridges), so the
+  // carve keeps the same distance from everything already carved. The
+  // tile after the run is the safe landing and stays plain.
+  const tryTimed = () => {
+    const cands = [];
+    for (let i = 1; i + 1 <= path.length - 1; i++) {
+      for (let len = 1; len <= 3; len++) {
+        if (i + len > path.length - 1) break; // the landing after the run must exist
+        let okSeg = true;
+        for (let t = i; t < i + len && okSeg; t++) {
+          const kk = k(t);
+          if (carved.has(kk) || mechSet.has(kk)) { okSeg = false; break; }
+          if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) { okSeg = false; break; }
+          for (let ox = -1; ox <= 1 && okSeg; ox++) {
+            for (let oz = -1; oz <= 1; oz++) {
+              if (mechSet.has(`${path[t][0] + ox},${path[t][1] + oz}`)) { okSeg = false; break; }
+            }
+          }
+        }
+        if (okSeg) cands.push([i, len]);
+      }
+    }
+    if (!cands.length) return false;
+    const [i, len] = cands[Math.floor(rand() * cands.length)];
+    for (let t = i; t < i + len; t++) {
+      timed.push([path[t][0], path[t][1]]);
+      markMech(path[t][0], path[t][1]);
+    }
+    return true;
+  };
+
   // forced mechanics first (archetypes that ARE a mechanic), then the act
   // budget's probabilities
   //
@@ -323,8 +359,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['ice', Math.max(force.ice || 0, (layout.forceIce || []).length), (b.mech || {}).ice || 0],
     ['conveyor', force.conveyor || 0, (b.mech || {}).conveyor || 0],
     ['door', force.door || 0, (b.mech || {}).door || 0],
+    ['timed', force.timed || 0, (b.mech || {}).timed || 0],
   ];
-  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor };
+  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor, timed: tryTimed };
   // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
   // quota (n < forced) is always attempted — a forced mechanic that cannot
   // be carved fails the candidate (return null below). Extra carves beyond
@@ -334,7 +371,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // previous gate broke on `p < 1` BEFORE rolling, so best-effort carves
   // never happened at any probability < 1 — the whole 14–200 campaign
   // shipped with effectively no ice/springs/shuttles.
-  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0 };
+  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0, timed: 0 };
   for (const [m, forced, p] of carvePlan) {
     let n = got[m];
     for (let t = 0; t < 4; t++) {
@@ -521,5 +558,6 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (ice.length) def.ice = ice;
   if (conveyors.length) def.conveyors = conveyors;
   if (doors.length) def.doors = doors;
+  if (timed.length) def.timed = timed;
   return def;
 }

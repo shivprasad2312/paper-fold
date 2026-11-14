@@ -726,6 +726,7 @@ export class Game {
     }
 
     if (target.crumble) this.view.breakAt(target.x, target.z);
+    if (target.timed) this.view.armTimed(target.x, target.z);
     this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h });
     this.emit('land', target);
 
@@ -749,6 +750,7 @@ export class Game {
     this.cubeMesh.position.set(target.x, target.h + HALF, target.z);
     this.cubeMesh.quaternion.copy(this.cube.quat);
     if (target.crumble) this.view.breakAt(target.x, target.z);
+    if (target.timed) this.view.armTimed(target.x, target.z);
     this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h });
     this.emit('drift', target);
     this.pumpQueue();

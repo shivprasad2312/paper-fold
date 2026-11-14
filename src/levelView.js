@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key } from './rules.js';
+import { key, TIMED_FUSE } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -87,6 +87,7 @@ export function buildLevelView(level, actHue = null) {
   const brightSegs = [];
   const dimSegs = [];
   const crumbles = new Map();
+  const timeds = new Map();
 
   const accent = ACCENT_BY_ID.get(level.id) || 0x59ff7c;
   const accentDim = new THREE.Color(accent).multiplyScalar(0.4);
@@ -119,7 +120,7 @@ export function buildLevelView(level, actHue = null) {
   }
 
   for (const tile of level.tiles.values()) {
-    if (tile.crumble) continue;
+    if (tile.crumble || tile.timed) continue; // falling slabs get their own meshes below
     if (tile.shuttle) continue; // a shuttle dock — the platform is solid, not the map
     const g = slabGeometry(tile.h, TOP, SIDE, BOTTOM);
     g.translate(tile.x, 0, tile.z);
@@ -363,6 +364,42 @@ export function buildLevelView(level, actHue = null) {
     group.add(holder);
 
     crumbles.set(key(tile.x, tile.z), {
+      tile,
+      holder,
+      mesh,
+      state: 'idle', // idle | ticking | falling | gone
+      timer: 0,
+      shake: 0,
+      vy: 0,
+      spin: new THREE.Vector3(),
+      baseY: 0,
+    });
+  }
+
+  // ---- timed slabs (delayed crumble, M3 wave-1): the crumble's slow
+  // sibling — a pale plate that cracks in stages over TIMED_FUSE once
+  // the cube first lands on it, then falls like a crumble.
+  const timedBase = new THREE.Color(0xf0dfae);
+  const timedDark = new THREE.Color(0x6b543a);
+  for (const tile of level.tiles.values()) {
+    if (!tile.timed) continue;
+    const g = slabGeometry(tile.h - 0.02, C_TOP, C_SIDE, C_BOTTOM);
+    g.scale(0.94, 1, 0.94);
+    const mat = new THREE.MeshStandardMaterial({
+      vertexColors: true, roughness: 0.8, metalness: 0.0, flatShading: true,
+    });
+    mat.color.copy(timedBase);
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    const holder = new THREE.Group();
+    holder.add(mesh);
+    const { bright, dim } = rimLines(0, 0, tile.h - 0.02, THICK * 0.8, 0.94);
+    holder.add(new THREE.LineSegments(linesGeometry(bright), crumbleRimMat));
+    holder.add(new THREE.LineSegments(linesGeometry(dim), dimRimMat));
+    holder.position.set(tile.x, 0, tile.z);
+    group.add(holder);
+    timeds.set(key(tile.x, tile.z), {
       tile,
       holder,
       mesh,
@@ -763,6 +800,39 @@ export function buildLevelView(level, actHue = null) {
       }
     }
 
+    // timed slabs: the fuse burns in stages — the plate darkens as it
+    // cracks, trembles harder, and glows hot in the last stretch
+    for (const c of timeds.values()) {
+      if (c.state === 'ticking') {
+        c.timer -= dt;
+        const f = Math.min(1, Math.max(0, 1 - c.timer / TIMED_FUSE));
+        c.mesh.material.color.copy(timedBase).lerp(timedDark, f * 0.6);
+        c.mesh.material.emissive.setHex(0xff5a00);
+        c.mesh.material.emissiveIntensity = f > 0.7 ? (f - 0.7) * 1.4 : 0;
+        const amp = 0.006 + f * f * 0.045;
+        c.holder.position.x = c.tile.x + (Math.random() - 0.5) * amp * 3;
+        c.holder.position.z = c.tile.z + (Math.random() - 0.5) * amp * 3;
+        if (c.timer <= 0) {
+          c.state = 'falling';
+          c.vy = 0;
+          c.spin.set((Math.random() - 0.5) * 1.6, (Math.random() - 0.5) * 1.2, (Math.random() - 0.5) * 1.6);
+          c.holder.position.x = c.tile.x;
+          c.holder.position.z = c.tile.z;
+        }
+      } else if (c.state === 'falling') {
+        c.vy -= dt * 9;
+        c.holder.position.y += c.vy * dt;
+        c.holder.rotation.x += c.spin.x * dt;
+        c.holder.rotation.y += c.spin.y * dt;
+        c.holder.rotation.z += c.spin.z * dt;
+        c.holder.scale.multiplyScalar(Math.pow(0.55, dt));
+        if (c.holder.position.y < c.tile.h - 6) {
+          c.state = 'gone';
+          c.holder.visible = false;
+        }
+      }
+    }
+
     // sentinels: patrol, face their heading
     for (const o of orbs) {
       o.dist = (o.dist + o.def.speed * dt) % o.total;
@@ -865,9 +935,20 @@ export function buildLevelView(level, actHue = null) {
     c.tickLength = 0.75;
   }
 
+  /** Light a timed slab's fuse (first landing only — re-landing on a
+   *  burning slab never resets it). */
+  function armTimed(x, z) {
+    const c = timeds.get(key(x, z));
+    if (!c || c.state !== 'idle') return;
+    c.state = 'ticking';
+    c.timer = TIMED_FUSE;
+  }
+
   function isBroken(x, z) {
     const c = crumbles.get(key(x, z));
-    return !!c && (c.state === 'falling' || c.state === 'gone');
+    if (c && (c.state === 'falling' || c.state === 'gone')) return true;
+    const t = timeds.get(key(x, z));
+    return !!t && (t.state === 'falling' || t.state === 'gone');
   }
 
   /** Is the sliding bridge at (x, z) currently up? Shares the render clock. */
@@ -967,6 +1048,16 @@ export function buildLevelView(level, actHue = null) {
       c.holder.rotation.set(0, 0, 0);
       c.holder.scale.setScalar(1);
     }
+    for (const c of timeds.values()) {
+      c.state = 'idle';
+      c.timer = 0;
+      c.holder.visible = true;
+      c.holder.position.set(c.tile.x, 0, c.tile.z);
+      c.holder.rotation.set(0, 0, 0);
+      c.holder.scale.setScalar(1);
+      c.mesh.material.color.copy(timedBase);
+      c.mesh.material.emissiveIntensity = 0;
+    }
     for (const s of shards) {
       s.collected = false;
       s.anim = 0;
@@ -1041,6 +1132,8 @@ export function buildLevelView(level, actHue = null) {
     update,
     setSteps,
     breakAt,
+    armTimed,
+    timeds,
     isBroken,
     sliderUp,
     shuttlePos,

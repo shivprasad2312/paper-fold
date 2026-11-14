@@ -14,6 +14,15 @@ export const DIRS = {
 export const MAX_DROP = 2;
 /** Maximum height difference you are allowed to climb in one roll. */
 export const MAX_CLIMB = 1;
+/**
+ * Seconds a TIMED slab (delayed crumble, M3 wave-1) holds after the
+ * cube's first landing before it falls. The plain crumble's fuse is
+ * 0.75 s (view-side); the timed slab is the slow sibling — roughly ten
+ * presses of grace, read from its staged cracking. Proofs never rely
+ * on the duration: solveHazards models a timed slab as break-on-leave,
+ * exactly like a crumble, so the timed window is pure player margin.
+ */
+export const TIMED_FUSE = 2.4;
 
 export const key = (x, z) => `${x},${z}`;
 
@@ -210,6 +219,24 @@ export function parseLevel(def) {
     doors.push({ plate, tile });
   }
 
+  // ---- timed slabs (delayed crumble, M3 wave-1): TIMED_FUSE seconds
+  // after the cube's first landing, the slab falls. A plain slab with a
+  // fuse — never stacked on another mechanic, never start/goal/key.
+  const timedTiles = new Set();
+  for (const [x, z] of def.timed || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] timed slab ${x},${z} is not a slab`);
+    if (t.crumble) throw new Error(`[${def.name}] timed slab on a crumble slab at ${x},${z}`);
+    if (t.shuttle || t.ice || t.spring || t.conveyor || t.plate || t.door) {
+      throw new Error(`[${def.name}] timed slab on another mechanic at ${x},${z}`);
+    }
+    if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] timed slab on the start tile`);
+    if (x === goalTile.x && z === goalTile.z) throw new Error(`[${def.name}] timed slab on the goal tile`);
+    if (def.key && def.key[0] === x && def.key[1] === z) throw new Error(`[${def.name}] timed slab on the key`);
+    t.timed = true;
+    timedTiles.add(key(x, z));
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
@@ -242,6 +269,7 @@ export function parseLevel(def) {
     springTiles,
     conveyorTiles,
     doors,
+    timedTiles,
     gateKey,
     wind,
     nudge,
@@ -440,6 +468,7 @@ export function canPushBlock(level, x, z, dx, dz) {
   // blocks never press a pressure plate and never park in a doorway
   // (M3 wave-1: a door is the cube's weight alone)
   if (to.door || to.plate) return false;
+  if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
   if (level.blockTiles.has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
@@ -635,7 +664,7 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door;
+    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -701,7 +730,10 @@ export function solveHazards(level) {
       if (!to) continue;
       const tk = key(to.x, to.z);
       if (broken.has(tk)) continue;
-      const nextBroken = tile.crumble ? new Set([...broken, key(tile.x, tile.z)]) : broken;
+      // a timed slab is modeled exactly like a crumble (gone once you
+      // step off it): real play grants TIMED_FUSE of standing/recrossing
+      // grace, so the model stays the conservative side of the game
+      const nextBroken = tile.crumble || tile.timed ? new Set([...broken, key(tile.x, tile.z)]) : broken;
       const sig = `${tk}|${blockSig(blocks)}|${left}|`;
       if (seen.has(sig)) continue;
       seen.add(sig);
@@ -867,6 +899,26 @@ export function spawnProblems(level) {
       }
       if (!t.conveyor || guard++ > 64) break;
       t = level.tiles.get(key(t.x + t.conveyor.dx, t.z + t.conveyor.dz));
+    }
+  }
+  // a timed slab falls TIMED_FUSE after the first landing — it must
+  // never be a tile the player may need to WAIT on: not in a sentinel's
+  // clearance (crossing entries and refuges hug the patrol line), not
+  // beside a shuttle dock (boarding is a wait), not beside a sliding
+  // bridge (ditto). Anywhere else a proven route just walks across it.
+  {
+    const { line } = lineRuns(level);
+    for (const tk of level.timedTiles) {
+      const [tx, tz] = tk.split(',').map(Number);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const nk = key(tx + ox, tz + oz);
+          const nt = level.tiles.get(nk);
+          if (line.has(nk)) probs.push(`timed slab at ${tk} waits inside sentinel clearance`);
+          if (nt && nt.shuttle) probs.push(`timed slab at ${tk} beside a shuttle dock`);
+          if (level.sliderTiles.has(nk)) probs.push(`timed slab at ${tk} beside a sliding bridge`);
+        }
+      }
     }
   }
   return probs;

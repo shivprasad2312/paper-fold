@@ -948,3 +948,40 @@ Curation signature learns `D`.
 green incl. the experience-diversity audit; live L152 completed by
 the bot in 38 moves against par 39, page errors none (the stratified
 hook re-runs its rotating window at commit).
+
+## ADR-022 — Delayed crumble is a slow fuse, proven as break-on-leave (2026-11-14)
+**Context:** M3 wave-1's third mechanic. Recon found the plain crumble
+is already a fast fuse in real play: `breakAt` fires on LANDING and
+the slab falls 0.75 s later whether or not the cube has left (the
+docs' "breaks on leave" was the model, not the game). So a "delayed
+crumble" earns its place as the slow sibling, not a new timer system.
+
+**Decision:** a `timed` slab falls `TIMED_FUSE` = 2.4 s (≈10 presses)
+after the cube's FIRST landing — re-landing never resets the fuse —
+cracking in visible stages (darkening plate, tremble, hot glow in the
+last stretch) before it drops, using the crumble's falling-slab
+machinery. The proof model does NOT take the duration on trust:
+`solveHazards` treats a timed slab exactly like a crumble (gone once
+you step off it), so every proven route survives even if the player
+never uses the grace; standing a beat or recrossing inside the window
+is pure player margin. That keeps the model on the safe side of the
+game (ADR-016 doctrine) with zero new search state. A timed slab must
+never be a tile the player may need to WAIT on — the spawn audit
+forbids it within sentinel clearance (crossing entries/refuges hug
+the line), beside a shuttle dock, or beside a sliding bridge — and
+the generator's carve keeps the same Chebyshev-1 distance from all
+other mechanic space. Parse law: plain slab only — never stacked,
+never start/goal/key; blocks never rest on one; the rescue bench
+never sits on one.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=112=timed` (L112 "The Ice Room", Glasswork: a
+2-tile timed run alongside ice, a shuttle and the key). Organic
+budgets armed (ice bands 0.35–0.5; acts 5–10 `gen.mech.timed`
+0.35–0.55). Curation signature learns `T`.
+
+**Gate:** unit 85/85 (5 new timed tests, incl. timed≡crumble model
+equivalence and the waiting-spot audits); verifier 200 + 14 dailies
+green incl. the diversity audit; live L112 completed by the bot in
+37 moves under real fuse timers, page errors none (the pre-commit
+hook re-runs its gate incl. the rotating live window).

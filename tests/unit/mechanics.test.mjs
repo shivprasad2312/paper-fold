@@ -20,6 +20,7 @@ import {
   candidateCrossings,
   fairCrossingGraph,
   canPushBlock,
+  solveHazards,
   DIRS,
 } from '../../src/rules.js';
 
@@ -358,6 +359,107 @@ test('conveyor spawn audit flags a belt carrying through sentinel clearance', ()
   });
   const probs = spawnProblems(level);
   assert.ok(probs.some((p) => p.includes('conveyor')), 'belt corridor flagged');
+});
+
+// --- timed slabs / delayed crumble (M3 wave-1) ------------------------------
+test('timed slabs parse as flagged plain slabs with a fuse registry', () => {
+  const level = parseLevel({
+    name: 'timed-basic',
+    map: ['11111'],
+    start: [0, 0],
+    goal: [4, 0],
+    timed: [[1, 0], [2, 0]],
+  });
+  assert.ok(level.tiles.get('1,0').timed, 'flag on the tile');
+  assert.ok(level.timedTiles.has('1,0') && level.timedTiles.has('2,0'), 'registry');
+  assert.equal(shortestRoute(level), 4, 'a timed run crosses at a stroll in the press graph');
+  assert.equal(solveHazards(level).ok, true, 'and survives the crumble-aware proof');
+});
+
+test('timed parse rejects stacked mechanics and start/goal/key placement', () => {
+  assert.throws(
+    () => parseLevel({ name: 'timed-ice', map: ['111'], start: [0, 0], goal: [2, 0], ice: [[1, 0]], timed: [[1, 0]] }),
+    /another mechanic/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'timed-start', map: ['111'], start: [0, 0], goal: [2, 0], timed: [[0, 0]] }),
+    /start tile/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'timed-goal', map: ['111'], start: [0, 0], goal: [2, 0], timed: [[2, 0]] }),
+    /goal tile/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'timed-void', map: ['1.1'], start: [0, 0], goal: [2, 0], timed: [[1, 0]] }),
+    /not a slab/,
+  );
+});
+
+test('a timed slab is modeled exactly like a crumble (break-on-leave)', () => {
+  // the same geometry, once with a timed slab and once with a crumble:
+  // the crumble-aware solver must give the identical verdict — proofs
+  // never rely on the fuse duration, only real play gets the grace.
+  const geo = (field) => ({
+    name: `model-equiv-${field}`,
+    map: ['11.11', '11111'],
+    start: [0, 0],
+    goal: [4, 1],
+    doors: [{ plate: [2, 1], at: [2, 0] }],
+    [field]: [[3, 0]],
+  });
+  const asTimed = parseLevel(geo('timed'));
+  const asCrumble = parseLevel(geo('crumble'));
+  assert.equal(solveHazards(asTimed).ok, solveHazards(asCrumble).ok);
+});
+
+test('timed spawn audit forbids waiting spots: sentinel clearance and docks', () => {
+  const nearLine = parseLevel({
+    name: 'timed-near-line',
+    map: ['11111', '11111', '11111'],
+    start: [0, 2],
+    goal: [4, 2],
+    timed: [[2, 1]],
+    orbs: [{ path: [[0, 0], [4, 0]], speed: 1 }],
+  });
+  assert.ok(
+    spawnProblems(nearLine).some((p) => p.includes('timed slab')),
+    'timed slab one tile off a patrol line is flagged (it could be a crossing refuge)',
+  );
+  const nearDock = parseLevel({
+    name: 'timed-near-dock',
+    map: ['1111111', '11...11', '1111111'],
+    start: [0, 2],
+    goal: [6, 2],
+    timed: [[1, 0]],
+    shuttles: [{ a: [2, 1], b: [4, 1], wait: 2 }],
+  });
+  assert.ok(
+    spawnProblems(nearDock).some((p) => p.includes('timed slab')),
+    'timed slab beside a shuttle dock is flagged (boarding is a wait)',
+  );
+  const clear = parseLevel({
+    name: 'timed-clear',
+    map: ['11111', '11111', '11111', '11111', '11111'],
+    start: [0, 4],
+    goal: [4, 4],
+    timed: [[2, 2]],
+    orbs: [{ path: [[0, 0], [4, 0]], speed: 1 }],
+  });
+  assert.ok(!spawnProblems(clear).some((p) => p.includes('timed slab')), 'two tiles clear is fine');
+});
+
+test('blocks can never be pushed onto a timed slab', () => {
+  const level = parseLevel({
+    name: 'timed-block',
+    map: ['11111'],
+    start: [0, 0],
+    goal: [4, 0],
+    blocks: [[1, 0]],
+    nudge: 1,
+    timed: [[2, 0]],
+  });
+  assert.equal(canPushBlock(level, 1, 0, 1, 0), false, 'timed slab refuses blocks');
+  assert.equal(canPushBlock(level, 1, 0, -1, 0), true, 'plain slab still takes blocks');
 });
 
 // --- pressure plates + doors (M3 wave-1) ----------------------------------

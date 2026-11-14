@@ -36,6 +36,7 @@ const MECH_FIELDS = [
   ['blocks', 'B', (d) => (d.blocks || []).length > 0],
   ['sliders', 'L', (d) => (d.sliders || []).length > 0],
   ['wind', 'W', (d) => !!d.wind],
+  ['timed', 'T', (d) => (d.timed || []).length > 0],
 ];
 
 /** The mechanic set a level presents, as a compact signature ('IPSK', '-'). */
