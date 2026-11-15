@@ -11,10 +11,10 @@
 //   applyHazards(layout, band, rand, { force })  →  level def  (or null)
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
-//         mech: { ice, spring, shuttle, conveyor, door, timed, freeze }
-//         (per-mechanic carve probability) }
+//         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
+//         heavy } (per-mechanic carve probability) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n, freeze?: n } — carve at least n of the mechanic
+//         timed?: n, freeze?: n, heavy?: n } — carve at least n
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -557,6 +557,44 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return null; // no sentinels: a freeze shard would be a dead pickup
   }
 
+  // --- heavy blocks (M3 wave-1): one heavy block astride the route whose
+  // natural push-forward (the next route tile) is level or downhill — the
+  // one-way shove is the lesson, and solveHazards proves the level still
+  // completes inside the nudge budget granted here. Off the patrol line
+  // and clear of every mechanic, like the freeze shard.
+  const heavies = [];
+  {
+    const wantHeavy = force.heavy || 0;
+    const pHeavy = (b.mech || {}).heavy || 0;
+    const placeHeavy = () => {
+      const shardSet = new Set(shards.map(([sx, sz]) => `${sx},${sz}`));
+      const cands = [];
+      for (let i = 1; i + 1 < path.length - 1; i++) {
+        const kk = k(i);
+        if (carved.has(kk) || mechSet.has(kk) || lineSet.has(kk) || shardSet.has(kk)) continue;
+        if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) continue;
+        const nk = k(i + 1);
+        if (carved.has(nk) || mechSet.has(nk) || lineSet.has(nk) || shardSet.has(nk)) continue;
+        const [x, z] = path[i];
+        const [nx, nz] = path[i + 1];
+        if (map[nz][nx] > map[z][x]) continue; // the push-forward must not climb
+        cands.push([i, map[nz][nx] < map[z][x]]); // prefer a downhill shove
+      }
+      if (!cands.length) return false;
+      const down = cands.filter(([, isDown]) => isDown);
+      const [i] = pick(down.length ? down : cands);
+      heavies.push([path[i][0], path[i][1]]);
+      markMech(path[i][0], path[i][1]);
+      return true;
+    };
+    let placed = 0;
+    while (placed < wantHeavy) {
+      if (!placeHeavy()) return null; // a forced heavy block must land
+      placed++;
+    }
+    if (!placed && pHeavy > 0 && rand() < pHeavy) placeHeavy();
+  }
+
   // --- crumble slabs on the route (solver proves the route survives) --------
   const wantCrumble = int(b.crumble[0], b.crumble[1]);
   const crumble = [];
@@ -604,5 +642,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (doors.length) def.doors = doors;
   if (timed.length) def.timed = timed;
   if (freezes.length) def.freeze = freezes;
+  if (heavies.length) {
+    def.heavy = heavies;
+    def.nudge = 3; // telekinesis charges for shoving it clear (solver-proven)
+  }
   return def;
 }

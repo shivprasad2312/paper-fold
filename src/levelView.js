@@ -437,18 +437,27 @@ export function buildLevelView(level, actHue = null) {
 
   // ---- obstacle blocks: dark cubes you can shove aside ----------------------
   const blockMat = new THREE.MeshStandardMaterial({ color: 0x23262e, roughness: 0.6, metalness: 0.3 });
+  // heavy blocks (M3 wave-1): denser iron, banded — they never push uphill
+  const heavyBlockMat = new THREE.MeshStandardMaterial({ color: 0x141519, roughness: 0.42, metalness: 0.7 });
+  const heavyBandMat = new THREE.MeshStandardMaterial({ color: 0x8a6f3c, roughness: 0.35, metalness: 0.8 });
   const blockGeo = new RoundedBoxGeometry(0.52, 0.52, 0.52, 3, 0.08);
+  const heavyBandGeo = new THREE.BoxGeometry(0.55, 0.09, 0.55);
   const blocks = new Map();
   const blockStarts = [];
   for (const b of level.blocks) {
     const tile = level.tiles.get(key(b.x, b.z));
     const holder = new THREE.Group();
-    const mesh = new THREE.Mesh(blockGeo, blockMat);
+    const mesh = new THREE.Mesh(blockGeo, b.heavy ? heavyBlockMat : blockMat);
     mesh.castShadow = true;
     holder.add(mesh);
+    if (b.heavy) {
+      const band = new THREE.Mesh(heavyBandGeo, heavyBandMat);
+      band.position.y = 0.1;
+      holder.add(band);
+    }
     holder.position.set(b.x, tile.h + 0.26, b.z);
     group.add(holder);
-    const rec = { x: b.x, z: b.z, holder, anim: null, start: { x: b.x, z: b.z, h: tile.h } };
+    const rec = { x: b.x, z: b.z, heavy: !!b.heavy, holder, anim: null, start: { x: b.x, z: b.z, h: tile.h } };
     blocks.set(key(b.x, b.z), rec);
     blockStarts.push(rec);
   }
@@ -733,7 +742,12 @@ export function buildLevelView(level, actHue = null) {
   const tileAt = (x, z) => level.tiles.get(key(Math.round(x), Math.round(z)));
 
   function update(dt, time, cubePos) {
-    clock.t = time;
+    // ONE time base for every hazard: the hazard clock accumulates the
+    // same clamped dt the cube and the sentinels advance on — never the
+    // raw wall clock. On a struggling device everything slows together;
+    // bridges used to keep cycling at wall speed against a slow-motion
+    // cube, which no proof model (or player) can be asked to beat.
+    clock.t += dt;
 
     // shuttle platforms drive their fixed loop
     for (const rec of shuttleRecs) {
@@ -914,9 +928,10 @@ export function buildLevelView(level, actHue = null) {
     }
 
     // sliding bridges: level while up, a dip into the void while sunk,
-    // amber warning in the last moment before they let go
+    // amber warning in the last moment before they let go (hazard clock —
+    // the visual dip and sliderUp's logic read the same phase)
     for (const s of sliders) {
-      const ph = ((time / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
+      const ph = ((clock.t / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
       let off = 0;
       if (ph >= 0.42 && ph < 0.5) off = -0.4 * smooth((ph - 0.42) / 0.08);
       else if (ph >= 0.5 && ph < 0.92) off = -0.4;
@@ -927,10 +942,10 @@ export function buildLevelView(level, actHue = null) {
       s.mat.emissiveIntensity = 1;
     }
 
-    // obstacle blocks: settle to their pushed tile
+    // obstacle blocks: settle to their pushed tile (heavy ones grind)
     for (const b of blocks.values()) {
       if (!b.anim) continue;
-      b.anim.t += dt / 0.22;
+      b.anim.t += dt / (b.heavy ? 0.34 : 0.22);
       const k = Math.min(1, b.anim.t);
       b.holder.position.lerpVectors(b.anim.from, b.anim.to, smooth(k));
       b.holder.rotation.z = Math.sin(k * Math.PI) * 0.12;

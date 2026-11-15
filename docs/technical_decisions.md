@@ -1031,3 +1031,67 @@ rejection); verifier 200 + 14 dailies green incl. the diversity
 audit; live L127 completed by the bot in 39 moves, page errors none
 (the pre-commit hook re-runs its gate incl. the rotating live
 window).
+
+## ADR-024 — Heavy block: never uphill (2026-11-15)
+**Context:** M3 wave-1's fifth mechanic. Obstacle blocks have existed
+since the hand levels (L4/L7) but never entered the generated
+campaign, and the catalogue's height law (climb 1 / drop 2) had no
+counterpart for pushed objects — a block could be shoved onto a tile
+any height above its own, which reads wrong and wastes the terrain.
+
+**Decision:** a `heavy` block is an obstacle block with one extra
+law in `canPushBlock`: its destination tile must sit at or below its
+current tile — level or downhill, never uphill. Everything else is
+the block law it inherits (plain slabs only, never
+goal/key/crumble/slider/plate/doorway/timed, 1 nudge per tile).
+Heaviness is part of the block's identity, not the tile's:
+`canPushBlock` now takes the block object plus the live occupied
+set, `solveHazards` carries the flag through its state signature,
+and the game and view track it per block (denser banded iron, a
+slower grinding push). That also retires a latent unsoundness: push
+occupancy is now checked against where blocks ARE, not where they
+started. A downhill shove is a one-way commitment — the block can
+never be shoved back up — which is the puzzle the mechanic sells.
+Parse law: slab only, never start/goal, never stacked on a normal
+block.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=144=heavy` (L144 "Keyhole", Darkwater: a gauntlet
+with a shuttle, ice and the gate key; the heavy block waits at
+[14,7] with 3 nudges). The generator places a heavy block astride
+the route only when the natural push-forward (the next route tile)
+is level or downhill, clear of the patrol line and all mechanic
+space; `solveHazards` proves the level inside the granted budget.
+Organic budgets armed (shuttle bands 0.25–0.35; acts 6–10
+`gen.mech.heavy` 0.3–0.45). Curation signature learns `H`.
+
+**Gate:** unit 92/92 (3 new heavy tests: parse law, the
+uphill-refusal against a light-block control, and the solveHazards
+corridor that a heavy block seals but a light one opens); verifier
+200 + 14 dailies green incl. the diversity audit; live L144
+completed by the bot in 44 moves, page errors none (the pre-commit
+hook re-runs its full gate).
+
+## ADR-025 — One time base for every hazard (2026-11-15)
+**Context:** the heavy-block gate run failed exactly one level —
+L13 "Boss: The Broken Keep" — with repeated `slider` deaths on its
+bridge triplets, in a sandbox rendering at ~1 fps. Forensics found
+two clocks: cube rolls and sentinel patrols advance on the clamped
+frame dt (`Math.min(raw, 0.05)`), but the view's hazard clock
+(`clock.t`, driving sliding bridges and shuttle phases) was set
+from the raw wall-clock elapsed. At 60 fps the two agree; on any
+struggling device the cube slows down while bridges keep cycling
+at wall speed — a mixed-time world no proof model (or player) can
+beat. The verifier and the live bot both assume one time base.
+
+**Decision:** the hazard clock accumulates the same clamped dt as
+everything else (`clock.t += dt`), and the bridges' visual dip
+reads that same phase — identical behaviour at ≥20 fps, consistent
+slow-motion below it. The live bot also stopped paying settle-wait
+round-trips inside a crossing burst (the exit press now queues
+behind the running roll via `game.input`), requires a fresh bridge
+rise before committing a burst that steps on bridges, and launches
+Chromium with background-throttling disabled.
+
+**Gate:** L13 passes deterministically (repeated 3/3 focused runs
+with L144); the pre-commit hook re-runs its full gate.

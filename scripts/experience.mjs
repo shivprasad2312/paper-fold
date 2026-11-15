@@ -38,6 +38,7 @@ const MECH_FIELDS = [
   ['wind', 'W', (d) => !!d.wind],
   ['timed', 'T', (d) => (d.timed || []).length > 0],
   ['freeze', 'F', (d) => (d.freeze || []).length > 0],
+  ['heavy', 'H', (d) => (d.heavy || []).length > 0],
 ];
 
 /** The mechanic set a level presents, as a compact signature ('IPSK', '-'). */

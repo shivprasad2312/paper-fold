@@ -217,7 +217,7 @@ export class Game {
     this.queue.length = 0;
     this.deadTimer = 0;
     this.winTimer = 0;
-    this.blocks = new Map(this.level.blocks.map((b) => [key(b.x, b.z), { x: b.x, z: b.z }]));
+    this.blocks = new Map(this.level.blocks.map((b) => [key(b.x, b.z), { x: b.x, z: b.z, heavy: !!b.heavy }]));
     this.nudgeLeft = this.maxNudges;
     this.hasKey = false;
     this.gateLocked = !!this.level.gateKey;
@@ -287,7 +287,8 @@ export class Game {
     // --- telekinesis: a block cube in the way can be shoved, not rolled into -
     const blockHere = this.blocks.get(key(toX, toZ));
     if (blockHere) {
-      if (this.nudgeLeft > 0 && canPushBlock(this.level, blockHere.x, blockHere.z, d.dx, d.dz)) {
+      const occupied = new Set(this.blocks.keys());
+      if (this.nudgeLeft > 0 && canPushBlock(this.level, blockHere, d.dx, d.dz, occupied)) {
         const destKey = key(toX + d.dx, toZ + d.dz);
         this.blocks.delete(key(toX, toZ));
         blockHere.x += d.dx;
@@ -298,7 +299,7 @@ export class Game {
         this.cube.anim = {
           type: 'push',
           t: 0,
-          dur: 0.22,
+          dur: blockHere.heavy ? 0.34 : 0.22, // a heavy block grinds, not slides
           dx: d.dx,
           dz: d.dz,
           startPos: this.cubeMesh.position.clone(),

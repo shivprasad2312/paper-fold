@@ -62,8 +62,14 @@ export function parseLevel(def) {
   // ---- obstacle blocks (telekinesis) ---------------------------------------
   const blocks = (def.blocks || []).map(([x, z]) => {
     if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] block ${x},${z} is not a slab`);
-    return { x, z };
+    return { x, z, heavy: false };
   });
+  // ---- heavy blocks (M3 wave-1): pushable level or downhill, never up -----
+  for (const [x, z] of def.heavy || []) {
+    if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] heavy block ${x},${z} is not a slab`);
+    if (blocks.some((b) => b.x === x && b.z === z)) throw new Error(`[${def.name}] heavy block stacked on a block at ${x},${z}`);
+    blocks.push({ x, z, heavy: true });
+  }
   const blockTiles = new Set(blocks.map((b) => key(b.x, b.z)));
   if (blockTiles.has(key(startTile.x, startTile.z))) throw new Error(`[${def.name}] block on the start tile`);
   if (blockTiles.has(key(goalTile.x, goalTile.z))) throw new Error(`[${def.name}] block on the goal tile`);
@@ -481,22 +487,30 @@ export function sliderUp(level, t, x, z) {
 }
 
 /**
- * Can the block at (x, z) be pushed by (dx, dz)?
+ * Can `block` ({x, z, heavy}) be pushed by (dx, dz)?
  * Blocks only move onto plain slabs — never onto the goal, other blocks,
- * cracked slabs, sliders, or the key.
+ * cracked slabs, sliders, or the key. A HEAVY block (M3 wave-1) is never
+ * pushed uphill: its destination must sit at or below its current tile.
+ * `occupied` is the set of "x,z" keys of every block right now (heaviness
+ * and occupancy travel with the block, not with the tile); callers that
+ * track live blocks pass it, the rest get the parsed start positions.
  */
-export function canPushBlock(level, x, z, dx, dz) {
-  const to = level.tiles.get(key(x + dx, z + dz));
+export function canPushBlock(level, block, dx, dz, occupied = null) {
+  const to = level.tiles.get(key(block.x + dx, block.z + dz));
   if (!to) return false;
   // blocks never press a pressure plate and never park in a doorway
   // (M3 wave-1: a door is the cube's weight alone)
   if (to.door || to.plate) return false;
   if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
-  if (level.blockTiles.has(key(to.x, to.z))) return false;
+  if ((occupied || level.blockTiles).has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
   if (level.sliderTiles.has(key(to.x, to.z))) return false;
   if (level.gateKey && to.x === level.gateKey.x && to.z === level.gateKey.z) return false;
+  if (block.heavy) {
+    const from = level.tiles.get(key(block.x, block.z));
+    if (from && to.h > from.h) return false; // heavy: never uphill
+  }
   return true;
 }
 
@@ -709,8 +723,11 @@ export function rescueTile(level) {
  */
 export function solveHazards(level) {
   const start = level.start;
-  const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z)).sort().join(';');
-  const startBlocks = level.blocks.map((b) => ({ x: b.x, z: b.z }));
+  // heaviness is part of a block's identity in the state signature: two
+  // layouts with the same block POSITIONS but different heavy blocks on
+  // them have different futures (M3 wave-1)
+  const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z) + (b.heavy ? 'h' : '')).sort().join(';');
+  const startBlocks = level.blocks.map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy }));
   const startState = `${key(start.x, start.z)}|${blockSig(startBlocks)}|${level.nudge}|`;
   const queue = [[start, new Set(), startBlocks, level.nudge]];
   const seen = new Set([startState]);
@@ -738,8 +755,9 @@ export function solveHazards(level) {
         // A block is in the way: the cube stays, the block slides (costs a nudge).
         if (left <= 0) continue;
         const b = blocks[blockIdx];
-        if (!canPushBlock(level, b.x, b.z, d.dx, d.dz)) continue;
-        const nb = blocks.map((p, i) => (i === blockIdx ? { x: b.x + d.dx, z: b.z + d.dz } : p));
+        const occupied = new Set(blocks.map((p) => key(p.x, p.z)));
+        if (!canPushBlock(level, b, d.dx, d.dz, occupied)) continue;
+        const nb = blocks.map((p, i) => (i === blockIdx ? { ...p, x: b.x + d.dx, z: b.z + d.dz } : p));
         const sig = `${key(tile.x, tile.z)}|${blockSig(nb)}|${left - 1}|`;
         if (seen.has(sig)) continue;
         seen.add(sig);

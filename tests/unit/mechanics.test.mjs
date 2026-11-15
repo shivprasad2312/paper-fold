@@ -432,6 +432,57 @@ test('a freeze pickup stranded beyond the crossing cannot save it', () => {
   assert.deepEqual(timingProblems(parseLevel(near)), [], 'the same pickup on the near side saves it');
 });
 
+// --- heavy blocks (M3 wave-1) ------------------------------------------------
+// A heavy block pushes level or downhill, never uphill.
+const heavyDef = (over = {}) => ({
+  name: 'heavy-geo',
+  map: ['11111', '11211'],
+  start: [0, 0],
+  goal: [4, 1],
+  heavy: [[2, 0]],
+  nudge: 3,
+  ...over,
+});
+
+test('heavy blocks parse as flagged blocks and reject stacking', () => {
+  const level = parseLevel(heavyDef());
+  assert.equal(level.blocks.length, 1);
+  assert.equal(level.blocks[0].heavy, true, 'flag travels with the block');
+  assert.throws(() => parseLevel(heavyDef({ heavy: [[0, 0]] })), /start tile/);
+  assert.throws(
+    () => parseLevel(heavyDef({ blocks: [[2, 0]], heavy: [[2, 0]] })),
+    /stacked on a block/,
+  );
+  assert.throws(() => parseLevel(heavyDef({ heavy: [[9, 9]] })), /not a slab/);
+});
+
+test('a heavy block is never pushed uphill, a light one is', () => {
+  const level = parseLevel(heavyDef());
+  const heavy = level.blocks[0]; // at (2,0), h1; (2,1) is h2
+  assert.equal(canPushBlock(level, heavy, 0, 1, new Set(['2,0'])), false, 'push onto the step climbs → refused');
+  assert.equal(canPushBlock(level, heavy, 1, 0, new Set(['2,0'])), true, 'level push along the row is fine');
+  const light = parseLevel(heavyDef({ heavy: [], blocks: [[2, 0]] }));
+  assert.equal(canPushBlock(light, light.blocks[0], 0, 1, new Set(['2,0'])), true, 'light blocks climb freely');
+});
+
+test('solveHazards: a heavy block clears a flat corridor but seals an uphill one', () => {
+  // flat: one push frees the corridor tile, the cube detours past
+  const flat = parseLevel({
+    name: 'heavy-flat', map: ['11111', '11111'], start: [0, 0], goal: [4, 0], heavy: [[2, 0]], nudge: 2,
+  });
+  assert.equal(solveHazards(flat).ok, true, 'flat push clears the way');
+  // the block sits before a step and the side row is cut: the first push
+  // climbs, so a heavy block seals the level — a light one opens it
+  const uphill = parseLevel({
+    name: 'heavy-uphill', map: ['11211', '11.11'], start: [0, 0], goal: [4, 1], heavy: [[1, 0]], nudge: 3,
+  });
+  assert.equal(solveHazards(uphill).ok, false, 'uphill push refused → no route');
+  const lightUp = parseLevel({
+    name: 'light-uphill', map: ['11211', '11.11'], start: [0, 0], goal: [4, 1], blocks: [[1, 0]], nudge: 3,
+  });
+  assert.equal(solveHazards(lightUp).ok, true, 'the same corridor opens for a light block');
+});
+
 // --- timed slabs / delayed crumble (M3 wave-1) ------------------------------
 test('timed slabs parse as flagged plain slabs with a fuse registry', () => {
   const level = parseLevel({
@@ -529,8 +580,8 @@ test('blocks can never be pushed onto a timed slab', () => {
     nudge: 1,
     timed: [[2, 0]],
   });
-  assert.equal(canPushBlock(level, 1, 0, 1, 0), false, 'timed slab refuses blocks');
-  assert.equal(canPushBlock(level, 1, 0, -1, 0), true, 'plain slab still takes blocks');
+  assert.equal(canPushBlock(level, level.blocks[0], 1, 0), false, 'timed slab refuses blocks');
+  assert.equal(canPushBlock(level, level.blocks[0], -1, 0), true, 'plain slab still takes blocks');
 });
 
 // --- pressure plates + doors (M3 wave-1) ----------------------------------
@@ -649,8 +700,8 @@ test('blocks can never be pushed onto a plate or into a doorway', () => {
     nudge: 1,
     doors: [{ plate: [2, 0], at: [3, 0] }],
   });
-  assert.equal(canPushBlock(level, 1, 0, 1, 0), false, 'plate refuses blocks');
-  assert.equal(canPushBlock(level, 1, 0, -1, 0), true, 'plain slab still takes blocks');
+  assert.equal(canPushBlock(level, level.blocks[0], 1, 0), false, 'plate refuses blocks');
+  assert.equal(canPushBlock(level, level.blocks[0], -1, 0), true, 'plain slab still takes blocks');
 });
 
 test('spring/ice spawn audit flags a sentinel in the corridor', () => {

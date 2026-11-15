@@ -144,7 +144,10 @@ ADR-022 (delayed crumble: a 2.4 s slow-fuse slab, proven as
 break-on-leave so the fuse is pure player grace; L112 first),
 ADR-023 (sentinel-freeze shard: a consumable 3.2 s freeze, proven
 in presses — an 8-press budget from pickup to crossing exit puts
-orb clocks into the proof model; L127 first).
+orb clocks into the proof model; L127 first),
+ADR-024 (heavy block: pushable level or downhill, never uphill —
+heaviness travels with the block through every search state; L144
+first).
 
 ## Blockers
 

@@ -78,7 +78,11 @@ try {
 }
 
 const browser = await puppeteer.launch({
-  args: [...chromium.args, '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'],
+  args: [...chromium.args, '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox',
+    // the bot plays in real time: background throttling would stretch
+    // every frame (and every crossing/bridge window with it)
+    '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows',
+    '--disable-renderer-backgrounding'],
   defaultViewport: { width: 900, height: 600 },
   executablePath: await chromium.executablePath(),
   headless: 'shell',
@@ -511,6 +515,24 @@ async function driveRouteLive(tiles, moves, ctx) {
       const exitIdx = exit ? i : i - 1; // a terminal crossing ends on the line
       if (!exit && seq.length === 0) return false;
       const freezeCross = tiles[r].freezeCross || 0;
+      // If the burst steps on sliding bridges, starting the commit is not
+      // enough — the LAST bridge tile it touches must have FRESHLY risen,
+      // so the whole burst (plus the step off the far side) fits inside
+      // one up-window (L13 boss: bridge triplets sink together mid-burst
+      // and drop the cube, 2026-11-15).
+      const burstTiles = exit ? [...seq, exit] : [...seq];
+      let lastSlider = null;
+      for (const t of burstTiles) if (ctx.sliders.has(key(t.x, t.z))) lastSlider = t;
+      let sliderGroup = null;
+      if (lastSlider) {
+        for (const g of ctx.def.sliders || []) {
+          if (g.tiles.some(([x, z]) => x === lastSlider.x && z === lastSlider.z)) sliderGroup = g;
+        }
+      }
+      const upWindow = sliderGroup ? (sliderGroup.period || 3.2) * 0.5 : 0;
+      const burstSeconds = (burstTiles.length + 1) * ROLL_TIME + 0.9;
+      let lastRiseAt = 0;
+      let sliderWasDown = false;
       if (!ctx.crumbles.has(key(st.x, st.z))) {
         const t0 = Date.now();
         let safe = false;
@@ -523,6 +545,13 @@ async function driveRouteLive(tiles, moves, ctx) {
           // with margin for the whole burst before the freeze burns out
           safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
             || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
+          if (safe && lastSlider) {
+            const isUp = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [lastSlider.x, lastSlider.z]);
+            if (!isUp) sliderWasDown = true;
+            else if (sliderWasDown) { lastRiseAt = Date.now(); sliderWasDown = false; }
+            const riseAge = (Date.now() - lastRiseAt) / 1000;
+            safe = lastRiseAt > 0 && riseAge < Math.max(0.35, upWindow - burstSeconds);
+          }
           if (!safe) await wait(70);
         }
         dbg(
@@ -680,19 +709,47 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
     // a crumble slab, which would break while we stand still).
     const nextIsSlider = ctx.sliders.has(key(next.x, next.z));
     if (nextIsSlider && !ctx.crumbles.has(key(st.x, st.z))) {
+      // Mid-burst, "up right now" is not enough: if the cube must STAND
+      // on the bridge for at least one more press (it is not the commit's
+      // last landing), a bridge near the end of its up-window sinks under
+      // it before the continuation press lands (L13 boss, gate run
+      // 2026-11-15: two slider deaths at crossing seq tiles). Require a
+      // FRESH rise — a full up-window ahead — unless the cube itself is
+      // standing on a bridge (then any wait is borrowed time: take "up").
+      const standsOnBridge = i + 1 < exitIdx && !ctx.sliders.has(key(st.x, st.z)) && !ctx.line.has(key(st.x, st.z));
       const t0s = Date.now();
       let up = false;
-      while (!up && Date.now() - t0s < 10000) {
+      let sawDown = false;
+      while (!up && Date.now() - t0s < 12000) {
+        const isUp = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [next.x, next.z]);
+        if (!isUp) sawDown = true;
+        up = standsOnBridge ? isUp && sawDown : isUp;
+        if (!up) await wait(60);
+      }
+      if (!up && standsOnBridge) {
+        // no fresh rise in a full cycle+: fall back to the plain law
         up = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [next.x, next.z]);
-        if (!up) await wait(80);
       }
       if (!up) return { stuck: true, r: i };
     }
     // the exit roll is driven inside the commit too: the cube must not pause
-    // on the patrol line between the last line roll and the exit roll
+    // on the patrol line between the last line roll and the exit roll.
+    // Fire the press IMMEDIATELY — game.input queues it behind the running
+    // line roll — instead of pressRoll's settle-wait pipeline: standing on
+    // the line (or on a sinking bridge tile) for that pipeline's round-
+    // trips is what killed the cube on L13's bridge triplets (2026-11-15).
     if (exited && !onLine) {
-      const res = await pressRoll(moves[i], next);
-      if (res === 'won') return { won: true, r: i };
+      await page.keyboard.press(keyMap[moves[i]]);
+      const t0e = Date.now();
+      let landed = false;
+      while (!landed && Date.now() - t0e < 8000) {
+        const stE = await snapLive();
+        if (stE.state === 'won') return { won: true, r: i };
+        if (stE.state !== 'playing') return { dead: true, r: i };
+        landed = stE.x === next.x && stE.z === next.z && !stE.anim;
+        if (!landed) await wait(40);
+      }
+      if (!landed) return { stuck: true, r: i };
       i++;
       continue;
     }

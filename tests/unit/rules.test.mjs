@@ -127,18 +127,18 @@ test('canPushBlock: blocks only slide onto plain slabs', () => {
     }),
   );
   const lvl = base();
-  assert.equal(canPushBlock(lvl, 1, 0, 1, 0), true, 'onto a plain slab');
+  assert.equal(canPushBlock(lvl, lvl.blocks[0], 1, 0), true, 'onto a plain slab');
   const voided = base({ map: ['11.11'], blocks: [[1, 0]] });
-  assert.equal(canPushBlock(voided, 1, 0, 1, 0), false, 'into the void');
-  assert.equal(canPushBlock(voided, 3, 0, 1, 0), false, 'never onto the goal');
+  assert.equal(canPushBlock(voided, voided.blocks[0], 1, 0), false, 'into the void');
+  assert.equal(canPushBlock(voided, { x: 3, z: 0, heavy: false }, 1, 0), false, 'never onto the goal');
   const c = base({ crumble: [[2, 0]] });
-  assert.equal(canPushBlock(c, 1, 0, 1, 0), false, 'never onto a crumble slab');
+  assert.equal(canPushBlock(c, c.blocks[0], 1, 0), false, 'never onto a crumble slab');
   const s = base({ sliders: [{ tiles: [[2, 0]], period: 3 }] });
-  assert.equal(canPushBlock(s, 1, 0, 1, 0), false, 'never onto a slider tile');
+  assert.equal(canPushBlock(s, s.blocks[0], 1, 0), false, 'never onto a slider tile');
   const k = base({ key: [2, 0] });
-  assert.equal(canPushBlock(k, 1, 0, 1, 0), false, 'never onto the key');
+  assert.equal(canPushBlock(k, k.blocks[0], 1, 0), false, 'never onto the key');
   const two = base({ blocks: [[1, 0], [2, 0]] });
-  assert.equal(canPushBlock(two, 1, 0, 1, 0), false, 'never onto another block');
+  assert.equal(canPushBlock(two, two.blocks[0], 1, 0), false, 'never onto another block');
 });
 
 test('legalNeighbours: honours the roll law from a tile', () => {
