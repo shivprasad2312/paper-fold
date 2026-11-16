@@ -128,7 +128,7 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…027). Latest: ADR-014
+Log: `technical_decisions.md` (ADR-001…028). Latest: ADR-014
 (mid-path second chance — the rescue bench), ADR-015 (the 200-level
 campaign: archetype library + shared hazard stage + stratified live
 gate), ADR-016 (the crossing models run the game's real easeInOut
@@ -156,7 +156,11 @@ a 4.0 s diagonal sweep — cross on the blink; modeled as a wait-out
 timing hazard like a sliding bridge; L169 first),
 ADR-027 (proximity sentinel: a patrol that sleeps until the cube
 comes within `wake` tiles; proofs assume it awake, so dormancy is
-a pure gift; L187 first).
+a pure gift; L187 first),
+ADR-028 (twin-platform shuttle: a second platform half a cycle
+out of phase; proofs model the one logical shuttle, and the carry
+locks onto the boarded platform so twins passing mid-route never
+switch the ride; L193 first. M3 wave-1 mechanics complete.)
 
 ## Blockers
 

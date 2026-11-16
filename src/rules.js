@@ -148,7 +148,11 @@ export function parseLevel(def) {
     }
     const travel = +(gap * 0.8).toFixed(2); // seconds for the drive across
     const wait = sh.wait || 2;
-    return { a: [ax, az], b: [bx, bz], dx, dz, gap, h, wait, travel, cycle: 2 * wait + 2 * travel, id: i };
+    // twin (M3 wave-1): a second platform on the same loop, half a cycle
+    // out of phase. Purely a view/game fact — every proof model in this
+    // file sees the ONE logical shuttle (dock tiles + the explicit ride),
+    // so a twin can only add boarding windows, never remove one.
+    return { a: [ax, az], b: [bx, bz], dx, dz, gap, h, wait, travel, cycle: 2 * wait + 2 * travel, twin: !!sh.twin, id: i };
   });
   const shuttleDocks = new Set(
     shuttles.flatMap((sh) => [key(sh.a[0], sh.a[1]), key(sh.b[0], sh.b[1])]),

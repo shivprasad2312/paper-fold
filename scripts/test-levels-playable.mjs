@@ -636,10 +636,10 @@ async function driveRouteLive(tiles, moves, ctx) {
         const st2 = await page.evaluate(
           ([tx, tz]) => {
             const g = window.__kubik.game;
-            const p = g.level.shuttles.length ? g.view.shuttlePos(0) : null;
-            const dwellFar = !!(
-              p && p.docked && p.x === tx && p.z === tz
-            );
+            // any platform dwelling at the far dock — a twin shuttle's
+            // second platform delivers the cube half a cycle early, and
+            // a ride on shuttle #2+ was never shuttle #0's business
+            const dwellFar = g.view.shuttleDocked(tx, tz);
             return { s: g.state, dwellFar };
           },
           [target.x, target.z],

@@ -53,6 +53,21 @@ test('shuttle docks are solid tiles flagged for the platform', () => {
   assert.ok(sh.travel > 0);
 });
 
+test('twin shuttle: a second platform is a view/game fact, proofs see one shuttle', () => {
+  const single = parseLevel(shuttleDef());
+  assert.equal(single.shuttles[0].twin, false, 'twin defaults off');
+  const twinDef = shuttleDef();
+  twinDef.shuttles[0].twin = true;
+  const twin = parseLevel(twinDef);
+  assert.equal(twin.shuttles[0].twin, true, 'twin parsed');
+  assert.equal(twin.shuttles.length, 1, 'still ONE logical shuttle');
+  // the proof model is unchanged: same route, same audits, same docks
+  assert.equal(shortestRoute(twin), shortestRoute(single), 'same par');
+  assert.deepEqual(spawnProblems(twin), spawnProblems(single), 'same spawn audit');
+  assert.deepEqual(timingProblems(twin), timingProblems(single), 'same timing audit');
+  assert.ok(reachable(twin).has('6,2'), 'goal still reachable via the ride');
+});
+
 test('shuttle ride edge connects the docks for route/search', () => {
   const level = parseLevel(shuttleDef());
   const dockA = level.tiles.get('2,1');

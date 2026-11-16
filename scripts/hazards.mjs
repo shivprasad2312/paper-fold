@@ -12,9 +12,10 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, pulse, proximity } (per-mechanic probability) }
+//         heavy, pulse, proximity, twin } (per-mechanic probability) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n, freeze?: n, heavy?: n, pulse?: n, proximity?: n }
+//         timed?: n, freeze?: n, heavy?: n, pulse?: n, proximity?: n,
+//         twin?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -420,6 +421,38 @@ export function applyHazards(layout, b, rand, opts = {}) {
       const ok = carveByName[m]();
       if (ok) got[m]++;
     }
+  }
+
+  // --- twin shuttles (M3 wave-1): one carved shuttle gains a second
+  // platform half a cycle out of phase. Proofs model the one logical
+  // shuttle, so the conversion can only add boarding windows. Like the
+  // proximity conversion, the roll comes from a content hash — never
+  // the shared rand stream — so arming it cannot reshuffle the
+  // candidate streams of already-shipped levels.
+  if (shuttles.length) {
+    const wantTwin = force.twin || 0;
+    const pTwin = (b.mech || {}).twin || 0;
+    const twinSeed = shuttles.map((s) => `${s.a};${s.b}`).join('|');
+    const twinRoll = (salt) => {
+      let h = 2166136261;
+      const s = salt + twinSeed;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const convertTwin = () => {
+      const cand = shuttles.filter((s) => !s.twin);
+      if (!cand.length) return false;
+      cand[Math.floor(twinRoll('#pick') * cand.length)].twin = true;
+      return true;
+    };
+    let placedTwin = 0;
+    while (placedTwin < wantTwin) {
+      if (!convertTwin()) return null; // a forced twin must land
+      placedTwin++;
+    }
+    if (!placedTwin && pTwin > 0 && twinRoll('#roll') < pTwin) convertTwin();
+  } else if (force.twin) {
+    return null; // no shuttle carved: nothing can twin
   }
 
   // --- shards on the route (never start/goal, never on a carved tile) -------

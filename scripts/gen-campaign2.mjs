@@ -200,6 +200,7 @@ function score(def, par, b) {
   if (def.heavy) s += 1.5;
   if (def.pulse) s += 1.5;
   if ((def.orbs || []).some((o) => o.wake)) s += 1;
+  if ((def.shuttles || []).some((sh) => sh.twin)) s += 1;
   if (def.ice) s += 1;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
@@ -476,7 +477,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.key ? 'K' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

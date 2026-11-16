@@ -16,12 +16,15 @@ satisfy (enforced by `parseLevel` + verifier):
 - `orbs`: every path point on a slab; spawn point never on start/goal.
 - `crumble`: never on a sentinel patrol line or on a tile adjacent to one — a crumble on a crossing entry would force the player to wait for the crossing window on a slab that breaks (BUG-005). The generator enforces this; hand-authored levels are checked by the verifier.
 - `sliders`: groups of slabs; period ≥ ~1.5 s (human-readable timing).
-- `shuttles`: `[{a: [x,z], b: [x,z], wait}]` — a straight track of gap 2–5;
+- `shuttles`: `[{a: [x,z], b: [x,z], wait, twin}]` — a straight track of gap 2–5;
   the gap interior and the docks are void in the map (the parser
   solidifies the docks as `shuttle` tiles); the two structure ends may
   differ by ≤ 2 heights (the platform flies at the rounded average, so
   boarding and alighting are single legal rolls); the platform is solid on
-  a dock only while it dwells there (view clock, ADR-013).
+  a dock only while it dwells there (view clock, ADR-013). `twin: true`
+  runs a second platform half a cycle out of phase on the same loop —
+  proofs still model the one logical shuttle, so a twin only ever
+  adds boarding windows.
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.
@@ -106,6 +109,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Heavy block | pushed level or downhill only, 1 nudge per tile | Weight as a one-way valve: a heavy block shoved down a step can never be shoved back up, so its resting place is a commitment the proof models exactly (heaviness is part of the block's state identity). |
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 | Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
+| Twin shuttle | second platform half a cycle out of phase | The ferry comes twice as often: the wait at the dock halves, and the proof never noticed — it models the one logical shuttle, so the twin is pure service. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

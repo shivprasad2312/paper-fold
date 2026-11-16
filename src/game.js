@@ -30,6 +30,7 @@ export class Game {
     this.levelIndex = 0;
     this.level = null;
     this.view = null;
+    this.rideRef = null; // { i, k } of the shuttle platform carrying the cube
 
     this.queue = [];
     this.camQuadrant = 0; // which 90° seat the camera is on (see setCamQuadrant)
@@ -208,6 +209,7 @@ export class Game {
 
   /** Reset everything a run owns: timers, shards, moves, and the new mechanics. */
   resetRunState() {
+    this.rideRef = null; // no shuttle ride survives a reset
     this.view.reset();
     this.totalShards = this.level.shards.length;
     this.shardsCollected = 0;
@@ -779,42 +781,68 @@ export class Game {
    * When a drive ends, the cube snaps onto the dock it arrived at.
    */
   updateShuttleCarry(time) {
-    if (this.state !== 'playing' || this.cube.anim) return;
+    if (this.state !== 'playing') return;
+    // a deliberate roll ends any ride (the cube stepped off or was
+    // launched); respawn/rescue clear the lock in their reset paths
+    if (this.cube.anim) {
+      this.rideRef = null;
+      return;
+    }
+    // Every physical platform (a twin shuttle runs two, half a cycle
+    // apart) is a candidate; the NEAREST claim wins the boarding grab.
+    // Once carried, though, the ride is LOCKED to that one platform
+    // (this.rideRef): when twins pass each other mid-route both are
+    // within grab range of the cube, and a nearest-wins flip at the
+    // meeting point would carry the cube back the way it came.
+    let ride = null; // { sh, p, d, i, k } — a moving platform carrying the cube
+    let settle = null; // { sh, dx, dz, d } — a docked platform under it
     for (let i = 0; i < this.level.shuttles.length; i++) {
       const sh = this.level.shuttles[i];
-      const p = this.view.shuttlePos(i);
       const atA = this.cube.x === sh.a[0] && this.cube.z === sh.a[1];
       const atB = this.cube.x === sh.b[0] && this.cube.z === sh.b[1];
-      const rx = Math.round(p.x);
-      const rz = Math.round(p.z);
-      if (p.moving) {
-        // GRAB: the cube stands on a dock while the platform drives — it
-        // boards immediately. TRACK: the cube's mesh rides the platform
-        // (distance-based, never tile-based: at low frame rates the
-        // platform's rounded tile jumps a tile per frame).
-        const onPlatform =
-          Math.abs(this.cubeMesh.position.x - p.x) < 0.9 &&
-          Math.abs(this.cubeMesh.position.z - p.z) < 0.9;
-        if (atA || atB || onPlatform) {
-          this.cube.x = rx;
-          this.cube.z = rz;
-          this.cube.h = sh.h;
-          this.cubeMesh.position.set(p.x, sh.h + HALF, p.z);
-        }
-      } else if (p.docked) {
-        // a drive just ended: settle the cube onto the dock
-        const [dx, dz] = p.docked === 'a' ? sh.a : sh.b;
-        if (
-          Math.abs(this.cubeMesh.position.x - dx) < 1 &&
-          Math.abs(this.cubeMesh.position.z - dz) < 1
-        ) {
-          this.cube.x = dx;
-          this.cube.z = dz;
-          this.cube.h = sh.h;
-          this.cubeMesh.position.set(dx, sh.h + HALF, dz);
-          this.checkPickups();
+      const count = sh.twin ? 2 : 1;
+      for (let k = 0; k < count; k++) {
+        if (this.rideRef && (this.rideRef.i !== i || this.rideRef.k !== k)) continue;
+        const p = this.view.shuttlePos(i, k);
+        if (p.moving) {
+          // GRAB: the cube stands on a dock while the platform drives — it
+          // boards immediately. TRACK: the cube's mesh rides the platform
+          // (distance-based, never tile-based: at low frame rates the
+          // platform's rounded tile jumps a tile per frame).
+          const onPlatform =
+            Math.abs(this.cubeMesh.position.x - p.x) < 0.9 &&
+            Math.abs(this.cubeMesh.position.z - p.z) < 0.9;
+          if (atA || atB || onPlatform) {
+            const d = Math.hypot(this.cubeMesh.position.x - p.x, this.cubeMesh.position.z - p.z);
+            if (!ride || d < ride.d) ride = { sh, p, d, i, k };
+          }
+        } else if (p.docked) {
+          // a drive just ended: settle the cube onto the dock
+          const [dx, dz] = p.docked === 'a' ? sh.a : sh.b;
+          if (
+            Math.abs(this.cubeMesh.position.x - dx) < 1 &&
+            Math.abs(this.cubeMesh.position.z - dz) < 1
+          ) {
+            const d = Math.hypot(this.cubeMesh.position.x - dx, this.cubeMesh.position.z - dz);
+            if (!settle || d < settle.d) settle = { sh, dx, dz, d };
+          }
         }
       }
+    }
+    if (ride && (!settle || ride.d <= settle.d)) {
+      const { sh, p } = ride;
+      this.cube.x = Math.round(p.x);
+      this.cube.z = Math.round(p.z);
+      this.cube.h = sh.h;
+      this.cubeMesh.position.set(p.x, sh.h + HALF, p.z);
+      this.rideRef = { i: ride.i, k: ride.k };
+    } else if (settle) {
+      this.cube.x = settle.dx;
+      this.cube.z = settle.dz;
+      this.cube.h = settle.sh.h;
+      this.cubeMesh.position.set(settle.dx, settle.sh.h + HALF, settle.dz);
+      this.rideRef = null;
+      this.checkPickups();
     }
   }
 
@@ -992,6 +1020,7 @@ export class Game {
     this.rescueOffered = false;
     this.rescueUsed = true;
     this.rescuedRun = true;
+    this.rideRef = null;
     this.freezeLeft = 0;
     this.view.setFrozen(false);
     this.view.resetOrbs();

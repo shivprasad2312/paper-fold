@@ -223,7 +223,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // crumble: [[x, z]],      // cracked slabs
   // orbs: [{ path, speed, wake }], // sentinels; wake = sleeps until the cube is that near
   // sliders: [{ tiles, period, phase }], // rising/sinking bridge groups
-  // shuttles: [{ a: [x,z], b: [x,z] }],  // looping platform that ferries across the gap
+  // shuttles: [{ a: [x,z], b: [x,z], twin }],  // looping platform that ferries across the gap; twin = a second platform half a cycle out
   // ice: [[x, z]],           // slabs that keep a rolling cube sliding
   // springs: [[x, z]],       // pads that launch a roll over a void pit
   // conveyors: [[x, z, dx, dz]], // belts that carry a landed roll in their own direction

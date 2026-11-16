@@ -1174,3 +1174,46 @@ sealed crossing stays sealed with a sleeping sentinel, a fair
 one stays fair); verifier 200 + 14 dailies green incl. the
 diversity audit; live L187 completed by the bot in 56 moves,
 page errors none (the pre-commit hook re-runs its full gate).
+
+## ADR-028 — Twin-platform shuttle: the ferry comes twice as often (2026-11-16)
+**Context:** M3 wave-1's eighth and final mechanic. A shuttle's
+cycle is mostly waiting: dwell, drive, dwell, drive back — a
+player who just misses a departure waits out nearly a full loop.
+A second platform on the same loop, half a cycle out of phase,
+halves that wait without touching the route, the docks, or the
+proof.
+
+**Decision:** a shuttle def may carry `twin: true`. The parser
+keeps ONE logical shuttle (dock tiles + the explicit
+`shuttleRide` edge), so `solveHazards`, the timing audits, and
+every solver are literally unchanged — a twin can only add
+boarding windows, never remove one. The view spawns a second
+platform mesh at `cycle / 2` offset; `shuttleDocked` answers for
+either platform. The carry is where the twin can bite: the old
+spatial grab ("the cube rides whichever platform is within 0.9
+tiles") switches rides when the twins pass each other mid-route —
+both platforms are inside the grab box at the meeting point, and
+one flipped frame carries the cube back the way it came (caught
+by the live gate on the first twin level: the bot timed out at
+the dock while the cube ping-ponged). The carry now LOCKS onto
+the boarded platform (`rideRef`, cleared by any roll, settle,
+respawn, or rescue) and ignores the other platform until the
+ride ends. The live bot asks `shuttleDocked` for the far dock
+instead of watching shuttle #0's platform — true for twins and
+for rides on any shuttle.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=193=twin` (L193 "The Final Angle", The End:
+`twin-falls` archetype, the [2,11]→[2,8] ferry runs twin, with
+conveyor/freeze/heavy/pulse/proximity company — signature
+SCFHUXW). The generator converts one carved shuttle per carve at
+the content-hash roll (never the shared rand stream, ADR-027);
+organic budgets armed (shuttle bands 0.25–0.35; acts 6–10
+`gen.mech.twin` 0.3–0.45). Curation signature learns `W`.
+
+**Gate:** unit 98/98 (twin parses as one logical shuttle; par,
+spawn audit, and timing audit byte-identical to the single);
+verifier 200 + 14 dailies green incl. the diversity audit; live
+L193 completed by the bot in 41 moves after the carry lock
+(regression: L109/L121/L196 shuttle levels re-proven same run),
+page errors none (the pre-commit hook re-runs its full gate).

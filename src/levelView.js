@@ -258,25 +258,29 @@ export function buildLevelView(level, actHue = null) {
     });
     const platRim = new THREE.LineBasicMaterial({ color: 0xb79aff, transparent: true, opacity: 0.9 });
     level.shuttles.forEach((sh, i) => {
-      const g = new THREE.BoxGeometry(0.98, THICK, 0.98);
-      const mesh = new THREE.Mesh(g, platMat);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      group.add(mesh);
-      const y = sh.h + 0.02;
-      const r = 0.49;
-      const rim = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(-r, y, -r), new THREE.Vector3(r, y, -r),
-        new THREE.Vector3(r, y, r), new THREE.Vector3(-r, y, r),
-        new THREE.Vector3(-r, y, -r),
-      ]);
-      mesh.add(new THREE.Line(rim, platRim));
-      shuttleRecs.push({ sh, mesh, i });
+      // twin shuttles run a second platform half a cycle out of phase
+      const offsets = sh.twin ? [0, sh.cycle / 2] : [0];
+      for (const off of offsets) {
+        const g = new THREE.BoxGeometry(0.98, THICK, 0.98);
+        const mesh = new THREE.Mesh(g, platMat);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        group.add(mesh);
+        const y = sh.h + 0.02;
+        const r = 0.49;
+        const rim = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(-r, y, -r), new THREE.Vector3(r, y, -r),
+          new THREE.Vector3(r, y, r), new THREE.Vector3(-r, y, r),
+          new THREE.Vector3(-r, y, -r),
+        ]);
+        mesh.add(new THREE.Line(rim, platRim));
+        shuttleRecs.push({ sh, mesh, i, off });
+      }
     });
   }
-  function shuttleF(i) {
+  function shuttleF(i, off = 0) {
     const sh = level.shuttles[i];
-    const t = ((clock.t % sh.cycle) + sh.cycle) % sh.cycle;
+    const t = (((clock.t + off) % sh.cycle) + sh.cycle) % sh.cycle;
     if (t < sh.wait) return 0;
     if (t < sh.wait + sh.travel) return (t - sh.wait) / sh.travel;
     if (t < 2 * sh.wait + sh.travel) return 1;
@@ -795,7 +799,7 @@ export function buildLevelView(level, actHue = null) {
     // shuttle platforms drive their fixed loop
     for (const rec of shuttleRecs) {
       const sh = rec.sh;
-      const f = shuttleF(rec.i);
+      const f = shuttleF(rec.i, rec.off);
       rec.mesh.position.set(
         sh.a[0] + (sh.b[0] - sh.a[0]) * f,
         sh.h - THICK / 2,
@@ -1082,10 +1086,10 @@ export function buildLevelView(level, actHue = null) {
     return !!t && (t.state === 'falling' || t.state === 'gone');
   }
 
-  /** Is the sliding bridge at (x, z) currently up? Shares the render clock. */
-  function shuttlePos(i) {
+  /** Position of platform `k` of shuttle `i` (k = 1 is the twin). */
+  function shuttlePos(i, k = 0) {
     const sh = level.shuttles[i];
-    const f = shuttleF(i);
+    const f = shuttleF(i, k * (sh.cycle / 2));
     return {
       x: sh.a[0] + (sh.b[0] - sh.a[0]) * f,
       z: sh.a[1] + (sh.b[1] - sh.a[1]) * f,
@@ -1095,11 +1099,18 @@ export function buildLevelView(level, actHue = null) {
     };
   }
 
+  /** Every physical platform of shuttle `i` (two for a twin). */
+  function shuttlePlatforms(i) {
+    return level.shuttles[i].twin ? [shuttlePos(i, 0), shuttlePos(i, 1)] : [shuttlePos(i, 0)];
+  }
+
+  /** Is any platform of the shuttle at (x, z) currently docked there? */
   function shuttleDocked(x, z) {
     for (let i = 0; i < level.shuttles.length; i++) {
       const sh = level.shuttles[i];
-      if (sh.a[0] === x && sh.a[1] === z) return shuttleF(i) === 0;
-      if (sh.b[0] === x && sh.b[1] === z) return shuttleF(i) === 1;
+      const offs = sh.twin ? [0, sh.cycle / 2] : [0];
+      if (sh.a[0] === x && sh.a[1] === z && offs.some((o) => shuttleF(i, o) === 0)) return true;
+      if (sh.b[0] === x && sh.b[1] === z && offs.some((o) => shuttleF(i, o) === 1)) return true;
     }
     return false;
   }
@@ -1306,6 +1317,7 @@ export function buildLevelView(level, actHue = null) {
     sliderUp,
     pulseUp,
     shuttlePos,
+    shuttlePlatforms,
     shuttleDocked,
     collectShard,
     freezes,
