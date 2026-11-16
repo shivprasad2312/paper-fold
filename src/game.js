@@ -869,6 +869,7 @@ export class Game {
     if (this.freezeLeft > 0) return; // frozen sentinels are inert (M3 wave-1)
     const p = this.cubeMesh.position;
     for (const o of this.view.orbs) {
+      if (o.awake === false) continue; // a sleeping proximity sentinel is inert
       const dx = p.x - o.holder.position.x;
       const dz = p.z - o.holder.position.z;
       const dy = p.y - o.holder.position.y;

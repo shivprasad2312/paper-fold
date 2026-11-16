@@ -12,9 +12,9 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, pulse } (per-mechanic carve probability) }
+//         heavy, pulse, proximity } (per-mechanic probability) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n, freeze?: n, heavy?: n, pulse?: n } — carve at least n
+//         timed?: n, freeze?: n, heavy?: n, pulse?: n, proximity?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -582,6 +582,40 @@ export function applyHazards(layout, b, rand, opts = {}) {
     }
   } else if (force.freeze) {
     return null; // no sentinels: a freeze shard would be a dead pickup
+  }
+
+  // --- proximity sentinels (M3 wave-1): one placed patrol sleeps until
+  // the cube comes within 3 tiles, then patrols normally. The fairness
+  // model treats it as always awake, so the conversion can only make a
+  // proven level kinder — never invalid.
+  if (orbs.length) {
+    const wantProx = force.proximity || 0;
+    const pProx = (b.mech || {}).proximity || 0;
+    // the conversion roll + choice come from a content hash, never the
+    // shared rand stream: arming a new mechanic must not reshuffle the
+    // candidate streams of already-shipped levels (a shifted stream once
+    // starved a shipped slot of any passing candidate)
+    const proxSeed = map.join('/') + '|' + orbs.map((o) => o.path.flat().join(',')).join(';');
+    const proxRoll = (salt) => {
+      let h = 2166136261;
+      const s = salt + proxSeed;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const convertProx = () => {
+      const cand = orbs.filter((o) => !o.wake);
+      if (!cand.length) return false;
+      cand[Math.floor(proxRoll('#pick') * cand.length)].wake = 3;
+      return true;
+    };
+    let placedProx = 0;
+    while (placedProx < wantProx) {
+      if (!convertProx()) return null; // a forced proximity sentinel must land
+      placedProx++;
+    }
+    if (!placedProx && pProx > 0 && proxRoll('#roll') < pProx) convertProx();
+  } else if (force.proximity) {
+    return null; // no sentinels: nothing can sleep
   }
 
   // --- heavy blocks (M3 wave-1): one heavy block astride the route whose

@@ -128,7 +128,7 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…022). Latest: ADR-014
+Log: `technical_decisions.md` (ADR-001…027). Latest: ADR-014
 (mid-path second chance — the rescue bench), ADR-015 (the 200-level
 campaign: archetype library + shared hazard stage + stratified live
 gate), ADR-016 (the crossing models run the game's real easeInOut
@@ -153,7 +153,10 @@ accumulates the clamped frame dt, so slow devices get consistent
 slow-motion instead of wall-speed bridges),
 ADR-026 (pulsing gap: a phantom slab seals a void cell for 40% of
 a 4.0 s diagonal sweep — cross on the blink; modeled as a wait-out
-timing hazard like a sliding bridge; L169 first).
+timing hazard like a sliding bridge; L169 first),
+ADR-027 (proximity sentinel: a patrol that sleeps until the cube
+comes within `wake` tiles; proofs assume it awake, so dormancy is
+a pure gift; L187 first).
 
 ## Blockers
 

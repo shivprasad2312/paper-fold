@@ -64,6 +64,12 @@ satisfy (enforced by `parseLevel` + verifier):
   bridge (a timing hazard you wait out beside); the waiting-spot
   audit keeps it out of sentinel clearance, away from shuttle
   docks and sliding bridges, and off the rescue bench.
+- `orbs[].wake`: `R` (tiles, ≥ 1) — a proximity sentinel: the
+  patrol sleeps parked at its path start (dark eyes, no kill
+  radius) until the cube comes within `R` tiles, then patrols
+  normally for the rest of the attempt. Proofs ignore the sleep —
+  every sentinel is modelled always-awake, so dormancy can only
+  ever help the player.
 - `doors`: `[{plate: [x,z], at: [x,z]}]` — a pressure plate + doorway
   (M3 wave-1): the doorway cell is void in the map (the parser
   solidifies it at the plate's height); the door is a wall to every
@@ -99,6 +105,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Freeze shard | one grab, 3.2 s of frozen sentinels | The catalogue's first consumable timing tool: the proof counts it in presses (8-press budget from pickup to crossing exit), so a frozen crossing is provable without trusting real-time reflexes. |
 | Heavy block | pushed level or downhill only, 1 nudge per tile | Weight as a one-way valve: a heavy block shoved down a step can never be shoved back up, so its resting place is a commitment the proof models exactly (heaviness is part of the block's state identity). |
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
+| Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

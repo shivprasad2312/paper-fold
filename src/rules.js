@@ -303,6 +303,17 @@ export function parseLevel(def) {
     gateKey = { x: kx, z: kz };
   }
 
+  // ---- proximity sentinels (M3 wave-1): an orb with `wake: R` sleeps
+  // parked on its patrol until the cube comes within R tiles, then
+  // patrols normally. The fairness model deliberately ignores the
+  // sleep: every proof treats it as always awake, so dormancy only
+  // ever helps the player.
+  for (const o of def.orbs || []) {
+    if (o.wake !== undefined && (typeof o.wake !== 'number' || !(o.wake >= 1))) {
+      throw new Error(`[${def.name}] proximity sentinel wake must be a number >= 1`);
+    }
+  }
+
   const wind = def.wind || null;
   const nudge = def.nudge || 0;
 

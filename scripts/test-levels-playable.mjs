@@ -126,7 +126,7 @@ function liveCtx(def) {
   for (const s of def.sliders || []) for (const t of s.tiles) sliders.add(key(t[0], t[1]));
   const pulse = new Set((def.pulse || []).map(([x, z]) => key(x, z)));
   const crumbles = new Set((def.crumble || []).map(([x, z]) => key(x, z)));
-  const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, table: orbTable(o.path) }));
+  const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, wake: o.wake || 0, table: orbTable(o.path) }));
   const keyOnLine = !!(def.key && line.has(key(def.key[0], def.key[1])));
   const model = parseLevel(def);
   return {
@@ -169,6 +169,7 @@ async function snapLive() {
       // alone is AMBIGUOUS on out-and-back patrols (two legs, one point),
       // so the wait must anchor on this, never re-derive it from x,z
       orbDist: g.view.orbs.map((o) => o.dist),
+      orbAwake: g.view.orbs.map((o) => o.awake !== false),
     };
   });
 }
@@ -215,19 +216,31 @@ function crossingSafe(ctx, entry, seq, exit, orbsNow, tail = 0.18) {
     const u = (s / SUB) * ROLL_TIME; // real time since "now"
     for (let oi = 0; oi < ctx.orbs.length; oi++) {
       const o = ctx.orbs[oi];
-      const op = orbPositionFromDist(o.table, orbsNow[oi].dist + o.speed * u);
+      // a sleeping proximity sentinel (M3 wave-1): it only starts moving
+      // once the cube comes within its wake radius — if the whole burst
+      // stays outside that radius it is a statue for this crossing;
+      // otherwise predict the full advance (it may wake mid-burst, and
+      // advancing from now is the conservative side of that)
+      let advance = o.speed;
+      if (o.wake && orbsNow[oi].awake === false) {
+        const parked = orbPositionFromDist(o.table, orbsNow[oi].dist);
+        const wakes = path.some((t) => (t.x - parked.x) ** 2 + (t.z - parked.z) ** 2 <= o.wake * o.wake);
+        if (!wakes) advance = 0;
+      }
+      const op = orbPositionFromDist(o.table, orbsNow[oi].dist + advance * u);
       if (commitBandDistR2(path, sched, u, op.x, op.z) < R2) return false;
     }
   }
   return true;
 }
 
-/** Current real arc distance of every sentinel. */
-function orbsNow(ctx, snapOrbs, snapDists) {
+/** Current real arc distance of every sentinel (+ proximity awake flags). */
+function orbsNow(ctx, snapOrbs, snapDists, snapAwake) {
   return ctx.orbs.map((o, i) => ({
     dist: snapDists && typeof snapDists[i] === 'number'
       ? snapDists[i]
       : orbDistAlong(o.path, snapOrbs[i][0], snapOrbs[i][1]),
+    awake: snapAwake ? snapAwake[i] !== false : true,
   }));
 }
 
@@ -558,7 +571,7 @@ async function driveRouteLive(tiles, moves, ctx) {
           // a planned freeze crossing: the patrols are locked — go now,
           // with margin for the whole burst before the freeze burns out
           safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
-            || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
+            || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist, now.orbAwake));
           if (safe && lastSlider) {
             const isUp = await phaseUp(lastSlider.x, lastSlider.z);
             if (!isUp) sliderWasDown = true;

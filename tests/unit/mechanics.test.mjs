@@ -560,6 +560,37 @@ test('spawn audit flags a pulsing gap inside sentinel clearance', () => {
   assert.ok(!spawnProblems(far).some((p) => p.includes('pulsing gap')), 'clear of the line is fine');
 });
 
+// --- proximity sentinels (M3 wave-1) -------------------------------------------
+test('proximity sentinels: wake radius is validated, proofs assume awake', () => {
+  assert.throws(
+    () => parseLevel({
+      name: 'prox-bad', map: ['111'], start: [0, 0], goal: [2, 0],
+      orbs: [{ path: [[0, 0], [2, 0]], speed: 2, wake: 0 }],
+    }),
+    /wake must be/,
+  );
+  // the freeze-test geometry: a crossing with no natural window is sealed
+  // — a sleeping sentinel does NOT open it in the proof model (dormancy
+  // only ever helps the player; fairness assumes it is already awake)
+  const sealed = parseLevel({
+    name: 'prox-sealed',
+    map: ['....1', '11111', '11...', '1....', '1....', '1....', '1....'],
+    start: [0, 6],
+    goal: [4, 0],
+    orbs: [{ path: [[0, 1], [4, 1]], speed: 2.4, wake: 3 }],
+  });
+  assert.ok(timingProblems(sealed).length > 0, 'still sealed with a sleeping sentinel');
+  // and a naturally fair crossing stays fair with one
+  const fair = parseLevel({
+    name: 'prox-fair',
+    map: ['111', '111', '111'],
+    start: [1, 0],
+    goal: [1, 2],
+    orbs: [{ path: [[0, 1], [2, 1]], speed: 1.2, wake: 2 }],
+  });
+  assert.deepEqual(timingProblems(fair), [], 'fair crossing unaffected');
+});
+
 // --- timed slabs / delayed crumble (M3 wave-1) ------------------------------
 test('timed slabs parse as flagged plain slabs with a fuse registry', () => {
   const level = parseLevel({

@@ -706,9 +706,12 @@ export function buildLevelView(level, actHue = null) {
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     body.castShadow = true;
     holder.add(body);
-    const eyeL = new THREE.Mesh(eyeGeo, eyeMat);
+    // per-orb eye material: a proximity sentinel's eyes stay dark while
+    // it sleeps, so eyes can no longer share one material
+    const ownEyeMat = eyeMat.clone();
+    const eyeL = new THREE.Mesh(eyeGeo, ownEyeMat);
     eyeL.position.set(-0.095, 0.05, 0.19);
-    const eyeR = new THREE.Mesh(eyeGeo, eyeMat);
+    const eyeR = new THREE.Mesh(eyeGeo, ownEyeMat);
     eyeR.position.set(0.095, 0.05, 0.19);
     holder.add(eyeL, eyeR);
     const glow = new THREE.Sprite(
@@ -729,9 +732,13 @@ export function buildLevelView(level, actHue = null) {
       holder,
       glow,
       body,
+      eyeMat: ownEyeMat,
       segs,
       total: Math.max(total, 0.001),
       dist: (def.phase || 0) * total,
+      // proximity sentinels (M3 wave-1) sleep parked until the cube
+      // comes within `wake` tiles — proofs treat them as always awake
+      awake: !def.wake,
       h: 0,
       pos: new THREE.Vector3(),
       prev: new THREE.Vector3(),
@@ -934,9 +941,16 @@ export function buildLevelView(level, actHue = null) {
       }
     }
 
-    // sentinels: patrol, face their heading (frozen patrols hold still)
+    // sentinels: patrol, face their heading (frozen patrols hold still;
+    // sleeping proximity sentinels hold still until the cube is near)
     for (const o of orbs) {
-      if (!orbsFrozen) o.dist = (o.dist + o.def.speed * dt) % o.total;
+      if (!o.awake && cubePos) {
+        const wdx = cubePos.x - o.holder.position.x;
+        const wdz = cubePos.z - o.holder.position.z;
+        if (wdx * wdx + wdz * wdz <= o.def.wake * o.def.wake) o.awake = true;
+      }
+      if (!orbsFrozen && o.awake) o.dist = (o.dist + o.def.speed * dt) % o.total;
+      o.eyeMat.emissiveIntensity = !o.awake ? 0.1 : orbsFrozen ? 1.1 : 2.4;
       let seg = o.segs[o.segs.length - 1];
       for (const s of o.segs) {
         if (o.dist >= s.start && o.dist < s.start + s.len) {
@@ -960,7 +974,7 @@ export function buildLevelView(level, actHue = null) {
         o.holder.rotation.y += d * Math.min(1, dt * 8);
       }
       o.prev.set(x, 0, z);
-      o.glow.material.opacity = 0.26 + Math.sin(time * 5.2) * 0.1;
+      o.glow.material.opacity = o.awake ? 0.26 + Math.sin(time * 5.2) * 0.1 : 0.04;
     }
 
     // sliding bridges: level while up, a dip into the void while sunk,
@@ -1116,16 +1130,18 @@ export function buildLevelView(level, actHue = null) {
   }
 
   // Frozen sentinels: patrol clocks stop (update skips dist), eyes and
-  // glows go arctic. Materials are shared across orbs, so one switch
-  // recolors the whole patrol.
+  // glows go arctic. Body material is shared, eye materials are per-orb
+  // (a sleeping proximity sentinel keeps dark eyes); intensity is set
+  // per frame in the patrol update, colours switch here.
   let orbsFrozen = false;
   function setFrozen(f) {
     orbsFrozen = f;
-    eyeMat.emissive.setHex(f ? 0x7fe8ff : 0xff2e6a);
-    eyeMat.emissiveIntensity = f ? 1.1 : 2.4;
     bodyMat.emissive.setHex(f ? 0x2a7ea6 : 0x000000);
     bodyMat.emissiveIntensity = f ? 0.5 : 1;
-    for (const o of orbs) o.glow.material.color.setHex(f ? 0x7fe8ff : 0xff3f74);
+    for (const o of orbs) {
+      o.eyeMat.emissive.setHex(f ? 0x7fe8ff : 0xff2e6a);
+      o.glow.material.color.setHex(f ? 0x7fe8ff : 0xff3f74);
+    }
   }
 
   function collectGateKey() {
@@ -1224,6 +1240,7 @@ export function buildLevelView(level, actHue = null) {
   function resetOrbs() {
     for (const o of orbs) {
       o.dist = (o.def.phase || 0) * o.total;
+      o.awake = !o.def.wake; // proximity sentinels go back to sleep
       o.holder.rotation.set(0, 0, 0);
     }
   }
@@ -1243,6 +1260,7 @@ export function buildLevelView(level, actHue = null) {
     haloMat.dispose();
     bodyMat.dispose();
     eyeMat.dispose();
+    for (const o of orbs) o.eyeMat.dispose();
     bodyGeo.dispose();
     eyeGeo.dispose();
     counterTex.dispose();

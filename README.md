@@ -221,7 +221,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   blocks: [[3, 4], [5, 4]],  // dark cubes you can shove
   nudge: 2,                  // telekinesis charges
   // crumble: [[x, z]],      // cracked slabs
-  // orbs: [{ path, speed }],// sentinels
+  // orbs: [{ path, speed, wake }], // sentinels; wake = sleeps until the cube is that near
   // sliders: [{ tiles, period, phase }], // rising/sinking bridge groups
   // shuttles: [{ a: [x,z], b: [x,z] }],  // looping platform that ferries across the gap
   // ice: [[x, z]],           // slabs that keep a rolling cube sliding

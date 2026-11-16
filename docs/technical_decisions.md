@@ -1134,3 +1134,43 @@ height, the phase sweep, block refusal + solid-in-model, and the
 clearance audit); verifier 200 + 14 dailies green incl. the
 diversity audit; live L169 completed by the bot in 47 moves, page
 errors none (the pre-commit hook re-runs its full gate).
+
+## ADR-027 — Proximity sentinel: it sleeps until you are close (2026-11-16)
+**Context:** M3 wave-1's seventh mechanic. Every sentinel so far
+patrols from the first frame, so a level's far corner is already
+dangerous before the player can see it. A proximity sentinel
+inverts that: it is furniture until the cube closes in, which
+lets a level stage its threat — quiet approach, then a live
+patrol exactly where the fight is.
+
+**Decision:** an orb def may carry `wake: R` (tiles, ≥ 1). The
+view parks it at its path start with dark eyes and no glow; it
+does not advance, and `checkOrbs` skips it (no kill radius) until
+the cube comes within R tiles, after which it patrols normally
+for the rest of the attempt; `resetOrbs` re-sleeps it. The proof
+model deliberately ignores dormancy — `timingProblems`, the
+crossing graph, and every solver treat it as always awake, so
+sleep can only ever help the player and no proof needs a wake
+state. The live bot mirrors that conservatism: a sleeping
+sentinel on the crossed line is predicted to advance for the
+whole burst once the path enters its wake radius, and only a
+burst that stays entirely outside the radius treats it as a
+statue. Eyes are per-orb materials so one sentinel can sleep
+while its partner patrols.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=187=proximity` (L187 "The Last Push", The End:
+the [15,12]→[15,2] patrol wakes at 3 tiles). The generator
+converts one placed patrol per carve at `wake: 3`; the conversion
+roll and choice come from a content hash, never the shared rand
+stream — arming a mechanic must not reshuffle the candidate
+streams of shipped slots (a shifted stream starved L103 of any
+passing candidate). Organic budgets armed (shuttle bands
+0.25–0.35; acts 6–10 `gen.mech.proximity` 0.3–0.45). Curation
+signature learns `X`.
+
+**Gate:** unit 97/97 (proximity contract: wake validated, a
+sealed crossing stays sealed with a sleeping sentinel, a fair
+one stays fair); verifier 200 + 14 dailies green incl. the
+diversity audit; live L187 completed by the bot in 56 moves,
+page errors none (the pre-commit hook re-runs its full gate).
