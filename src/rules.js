@@ -24,6 +24,18 @@ export const MAX_CLIMB = 1;
  */
 export const TIMED_FUSE = 2.4;
 
+/**
+ * Pulsing gaps (M3 wave-1): a void cell sealed by a phantom slab for
+ * PULSE_ON of every PULSE_PERIOD, sweeping diagonally (phase offset
+ * (x+z)/4 of a cycle). Cross on the blink — the seal never holds long
+ * enough to wait on. Proofs treat a pulse tile exactly like a sliding
+ * bridge (a timing hazard you wait out beside, always solid in the
+ * model), and the waiting-spot audit keeps it out of sentinel
+ * clearance, away from docks and bridges, like the timed slab.
+ */
+export const PULSE_PERIOD = 4.0;
+export const PULSE_ON = 0.4;
+
 export const key = (x, z) => `${x},${z}`;
 
 /**
@@ -264,6 +276,23 @@ export function parseLevel(def) {
     freezes.push({ x, z });
   }
 
+  // ---- pulsing gaps (M3 wave-1): void cells a phantom slab seals on a
+  // cycle. The slab rises to the lowest neighbouring bank (min height).
+  const pulseTiles = new Set();
+  const pulses = [];
+  for (const [x, z] of def.pulse || []) {
+    if (tiles.has(key(x, z))) throw new Error(`[${def.name}] pulse gap ${x},${z} is not void`);
+    let h = Infinity;
+    for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+      const n = tiles.get(key(x + dx, z + dz));
+      if (n) h = Math.min(h, n.h);
+    }
+    if (!Number.isFinite(h)) throw new Error(`[${def.name}] pulse gap ${x},${z} has no slab neighbour`);
+    tiles.set(key(x, z), { x, z, h, crumble: false, pulse: true });
+    pulseTiles.add(key(x, z));
+    pulses.push({ x, z });
+  }
+
   // ---- gate key -------------------------------------------------------------
   let gateKey = null;
   if (def.key) {
@@ -299,6 +328,8 @@ export function parseLevel(def) {
     timedTiles,
     freezes,
     freezeTiles,
+    pulses,
+    pulseTiles,
     gateKey,
     wind,
     nudge,
@@ -486,6 +517,19 @@ export function sliderUp(level, t, x, z) {
   return true;
 }
 
+/** Phase (0..1) of the pulse cycle at a tile: the seal sweeps diagonally. */
+export function pulsePhase(t, x, z) {
+  const offset = ((((x + z) % 4) + 4) % 4) / 4;
+  const ph = (t / PULSE_PERIOD + offset) % 1;
+  return ph < 0 ? ph + 1 : ph;
+}
+
+/** Is the pulsing gap at (x, z) sealed at time t? Non-pulse tiles: yes. */
+export function pulseUp(level, t, x, z) {
+  if (!level.pulseTiles.has(key(x, z))) return true;
+  return pulsePhase(t, x, z) < PULSE_ON;
+}
+
 /**
  * Can `block` ({x, z, heavy}) be pushed by (dx, dz)?
  * Blocks only move onto plain slabs — never onto the goal, other blocks,
@@ -502,6 +546,7 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   // (M3 wave-1: a door is the cube's weight alone)
   if (to.door || to.plate) return false;
   if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
+  if (to.pulse) return false; // nor on a pulsing gap — it would blink out under the block
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
   if ((occupied || level.blockTiles).has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
@@ -701,7 +746,7 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed;
+    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -958,6 +1003,23 @@ export function spawnProblems(level) {
           if (line.has(nk)) probs.push(`timed slab at ${tk} waits inside sentinel clearance`);
           if (nt && nt.shuttle) probs.push(`timed slab at ${tk} beside a shuttle dock`);
           if (level.sliderTiles.has(nk)) probs.push(`timed slab at ${tk} beside a sliding bridge`);
+        }
+      }
+    }
+  }
+  // a pulsing gap holds for PULSE_ON of a cycle — like a timed slab it
+  // must never be a tile the player may need to WAIT on (same audit).
+  {
+    const { line } = lineRuns(level);
+    for (const tk of level.pulseTiles) {
+      const [tx, tz] = tk.split(',').map(Number);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const nk = key(tx + ox, tz + oz);
+          const nt = level.tiles.get(nk);
+          if (line.has(nk)) probs.push(`pulsing gap at ${tk} waits inside sentinel clearance`);
+          if (nt && nt.shuttle) probs.push(`pulsing gap at ${tk} beside a shuttle dock`);
+          if (level.sliderTiles.has(nk)) probs.push(`pulsing gap at ${tk} beside a sliding bridge`);
         }
       }
     }

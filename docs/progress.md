@@ -147,7 +147,13 @@ in presses — an 8-press budget from pickup to crossing exit puts
 orb clocks into the proof model; L127 first),
 ADR-024 (heavy block: pushable level or downhill, never uphill —
 heaviness travels with the block through every search state; L144
-first).
+first),
+ADR-025 (one time base for every hazard: the view's hazard clock
+accumulates the clamped frame dt, so slow devices get consistent
+slow-motion instead of wall-speed bridges),
+ADR-026 (pulsing gap: a phantom slab seals a void cell for 40% of
+a 4.0 s diagonal sweep — cross on the blink; modeled as a wait-out
+timing hazard like a sliding bridge; L169 first).
 
 ## Blockers
 

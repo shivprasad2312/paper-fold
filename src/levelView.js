@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key, TIMED_FUSE } from './rules.js';
+import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -122,6 +122,7 @@ export function buildLevelView(level, actHue = null) {
   for (const tile of level.tiles.values()) {
     if (tile.crumble || tile.timed) continue; // falling slabs get their own meshes below
     if (tile.shuttle) continue; // a shuttle dock — the platform is solid, not the map
+    if (tile.pulse) continue; // a pulsing gap — the phantom slab renders below
     const g = slabGeometry(tile.h, TOP, SIDE, BOTTOM);
     g.translate(tile.x, 0, tile.z);
     staticGeos.push(g);
@@ -433,6 +434,41 @@ export function buildLevelView(level, actHue = null) {
       group.add(holder);
       sliders.push({ tile, holder, mat, gdef });
     }
+  }
+
+  // ---- pulsing gaps (M3 wave-1): phantom slabs sealing void cells --------
+  // Sealed (phase < PULSE_ON): a porcelain slab sits in the gap. Then it
+  // flashes amber and blinks out, leaving open void until the sweep
+  // returns. A faint marker hovers over the open gap — the seal is coming.
+  const pulses = [];
+  for (const tile of level.tiles.values()) {
+    if (!tile.pulse) continue;
+    const g = slabGeometry(tile.h, 0xd8f4f8, 0x7fb4c0, BOTTOM);
+    const mat = slabMat.clone();
+    const mesh = new THREE.Mesh(g, mat);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    const holder = new THREE.Group();
+    holder.add(mesh);
+    const { bright, dim } = rimLines(0, 0, tile.h, THICK);
+    holder.add(new THREE.LineSegments(linesGeometry(bright), brightRimMat));
+    holder.add(new THREE.LineSegments(linesGeometry(dim), dimRimMat));
+    const glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({
+        map: glowTexture(),
+        color: 0x9feaff,
+        transparent: true,
+        opacity: 0.3,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    glow.scale.setScalar(0.85);
+    glow.position.y = tile.h + 0.35;
+    holder.add(glow);
+    holder.position.set(tile.x, 0, tile.z);
+    group.add(holder);
+    pulses.push({ tile, holder, mat, glow });
   }
 
   // ---- obstacle blocks: dark cubes you can shove aside ----------------------
@@ -942,6 +978,21 @@ export function buildLevelView(level, actHue = null) {
       s.mat.emissiveIntensity = 1;
     }
 
+    // pulsing gaps: sealed flat, amber warning in the last moment, then
+    // the slab blinks out (drops away fast); while the gap is open only
+    // the marker glow hovers — the seal sweeps back on the diagonal
+    for (const s of pulses) {
+      const ph = pulsePhase(clock.t, s.tile.x, s.tile.z);
+      let off = 0;
+      if (ph >= PULSE_ON && ph < PULSE_ON + 0.05) off = -2.2 * smooth((ph - PULSE_ON) / 0.05);
+      else if (ph >= PULSE_ON + 0.05) off = -2.2;
+      s.holder.position.y = off;
+      const warn = ph >= PULSE_ON - 0.09 && ph < PULSE_ON ? (ph - (PULSE_ON - 0.09)) / 0.09 : 0;
+      s.mat.emissive.setRGB(warn * 0.55, warn * 0.18, 0);
+      s.mat.emissiveIntensity = 1;
+      s.glow.material.opacity = ph >= PULSE_ON ? 0.34 + Math.sin(time * 3 + s.tile.x) * 0.1 : 0;
+    }
+
     // obstacle blocks: settle to their pushed tile (heavy ones grind)
     for (const b of blocks.values()) {
       if (!b.anim) continue;
@@ -1047,6 +1098,11 @@ export function buildLevelView(level, actHue = null) {
       }
     }
     return true;
+  }
+
+  /** Is the pulsing gap at (x, z) currently sealed? (Hazard clock.) */
+  function pulseUp(x, z) {
+    return pulseUpAt(level, clock.t, x, z);
   }
 
   function collectShard(shard) {
@@ -1193,6 +1249,7 @@ export function buildLevelView(level, actHue = null) {
     blockMat.dispose();
     blockGeo.dispose();
     for (const s of sliders) s.mat.dispose();
+    for (const s of pulses) { s.mat.dispose(); s.glow.material.dispose(); }
     for (const w of windStreaks) {
       w.m.material.dispose();
       w.m.geometry.dispose();
@@ -1229,6 +1286,7 @@ export function buildLevelView(level, actHue = null) {
     timeds,
     isBroken,
     sliderUp,
+    pulseUp,
     shuttlePos,
     shuttleDocked,
     collectShard,

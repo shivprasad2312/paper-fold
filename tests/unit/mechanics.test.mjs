@@ -22,6 +22,8 @@ import {
   canPushBlock,
   solveHazards,
   timingProblems,
+  pulseUp,
+  PULSE_PERIOD,
   DIRS,
 } from '../../src/rules.js';
 
@@ -481,6 +483,81 @@ test('solveHazards: a heavy block clears a flat corridor but seals an uphill one
     name: 'light-uphill', map: ['11211', '11.11'], start: [0, 0], goal: [4, 1], blocks: [[1, 0]], nudge: 3,
   });
   assert.equal(solveHazards(lightUp).ok, true, 'the same corridor opens for a light block');
+});
+
+// --- pulsing gaps (M3 wave-1) -------------------------------------------------
+test('pulsing gaps parse onto void cells at the lowest bank height', () => {
+  const level = parseLevel({
+    name: 'pulse-parse',
+    map: ['121', '1.1', '111'],
+    start: [0, 0],
+    goal: [2, 2],
+    pulse: [[1, 1]],
+  });
+  const t = level.tiles.get('1,1');
+  assert.ok(t && t.pulse, 'phantom tile exists');
+  assert.equal(t.h, 1, 'rises to the lowest neighbouring bank');
+  assert.ok(level.pulseTiles.has('1,1'));
+  assert.throws(
+    () => parseLevel({ name: 'pulse-slab', map: ['111'], start: [0, 0], goal: [2, 0], pulse: [[1, 0]] }),
+    /not void/,
+  );
+  assert.throws(
+    () => parseLevel({ name: 'pulse-void', map: ['.....', '.....', '11111'], start: [0, 2], goal: [4, 2], pulse: [[2, 0]] }),
+    /no slab neighbour/,
+  );
+});
+
+test('pulseUp follows the diagonal sweep', () => {
+  const level = parseLevel({
+    name: 'pulse-phase',
+    map: ['121', '1.1', '111'],
+    start: [0, 0],
+    goal: [2, 2],
+    pulse: [[1, 1]], // (x+z)%4 = 2 → phase offset 0.5
+  });
+  assert.equal(pulseUp(level, 0, 1, 1), false, 'offset 0.5 starts unsealed');
+  assert.equal(pulseUp(level, PULSE_PERIOD * 0.6, 1, 1), true, 'phase 0.1 is sealed');
+  assert.equal(pulseUp(level, 0, 0, 0), true, 'non-pulse tiles are always solid');
+});
+
+test('blocks never rest on a pulsing gap, and the model treats it as solid', () => {
+  const level = parseLevel({
+    name: 'pulse-block',
+    map: ['11.1'],
+    start: [0, 0],
+    goal: [3, 0],
+    blocks: [[1, 0]],
+    nudge: 1,
+    pulse: [[2, 0]],
+  });
+  assert.equal(canPushBlock(level, level.blocks[0], 1, 0, new Set(['1,0'])), false, 'gap refuses the block');
+  assert.equal(canPushBlock(level, level.blocks[0], -1, 0, new Set(['1,0'])), true, 'plain slab still takes it');
+  const route = parseLevel({
+    name: 'pulse-route', map: ['11.11'], start: [0, 0], goal: [4, 0], pulse: [[2, 0]],
+  });
+  assert.equal(solveHazards(route).ok, true, 'proofs cross it as a wait-out hazard');
+});
+
+test('spawn audit flags a pulsing gap inside sentinel clearance', () => {
+  const near = parseLevel({
+    name: 'pulse-near',
+    map: ['11111', '11.11'],
+    start: [0, 1],
+    goal: [4, 1],
+    orbs: [{ path: [[0, 0], [4, 0]], speed: 2 }],
+    pulse: [[2, 1]],
+  });
+  assert.ok(spawnProblems(near).some((p) => p.includes('pulsing gap')), 'flagged beside the line');
+  const far = parseLevel({
+    name: 'pulse-far',
+    map: ['11111', '11111', '11111', '11.11'],
+    start: [0, 1],
+    goal: [4, 1],
+    orbs: [{ path: [[0, 0], [4, 0]], speed: 2 }],
+    pulse: [[2, 3]],
+  });
+  assert.ok(!spawnProblems(far).some((p) => p.includes('pulsing gap')), 'clear of the line is fine');
 });
 
 // --- timed slabs / delayed crumble (M3 wave-1) ------------------------------

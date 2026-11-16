@@ -231,6 +231,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // timed: [[x, z]],         // delayed crumble: falls 2.4 s after your first landing
   // freeze: [[x, z]],        // freeze shard: grab it to lock every sentinel for 3.2 s
   // heavy: [[x, z]],         // heavy blocks: pushable level or downhill, never uphill (needs nudge)
+  // pulse: [[x, z]],         // pulsing gaps: void cells a phantom slab seals on a cycle — cross on the blink
   // key: [x, z],            // unlocks the sealed gate
   // wind: { x: -1, z: -1 }, // diagonal breeze
 }

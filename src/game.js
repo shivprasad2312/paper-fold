@@ -273,6 +273,8 @@ export class Game {
     if (this.view.isBroken(x, z)) return null;
     // A sliding bridge only holds while it is up — the view is the clock.
     if (this.level.sliderTiles.has(key(x, z)) && !this.view.sliderUp(x, z)) return null;
+    // A pulsing gap only holds while its phantom slab is sealed in.
+    if (this.level.pulseTiles.has(key(x, z)) && !this.view.pulseUp(x, z)) return null;
     // A shuttle dock only holds while its platform dwells there.
     if (t.shuttle && !this.view.shuttleDocked(x, z)) return null;
     return t;
@@ -897,6 +899,21 @@ export class Game {
   checkSunkGround() {
     if (this.cube.anim) return;
     const k = key(this.cube.x, this.cube.z);
+    if (this.level.pulseTiles.has(k) && !this.view.pulseUp(this.cube.x, this.cube.z)) {
+      // the phantom slab blinked out underneath the cube
+      this.cube.anim = {
+        type: 'fall',
+        t: 0,
+        dx: 0,
+        dz: 0,
+        startPos: this.cubeMesh.position.clone(),
+        fromQuat: this.cubeMesh.quaternion.clone(),
+        spin: new THREE.Vector3(0.5, 0, 0.45),
+      };
+      this.emit('sliderFell');
+      this.die('pulse');
+      return;
+    }
     if (this.level.sliderTiles.has(k) && !this.view.sliderUp(this.cube.x, this.cube.z)) {
       // the bridge let go underneath the cube
       this.cube.anim = {

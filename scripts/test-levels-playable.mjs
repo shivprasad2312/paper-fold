@@ -55,6 +55,8 @@ const {
   commitBandDistR2,
   key,
   FREEZE_PRESS_BUDGET,
+  PULSE_PERIOD,
+  PULSE_ON,
 } = await import('../src/rules.js');
 
 const URL = process.env.URL || 'http://localhost:5173/';
@@ -122,6 +124,7 @@ function liveCtx(def) {
   for (const o of def.orbs || []) for (const k of orbLineTiles(o.path)) line.add(k); // keys "x,z"
   const sliders = new Set();
   for (const s of def.sliders || []) for (const t of s.tiles) sliders.add(key(t[0], t[1]));
+  const pulse = new Set((def.pulse || []).map(([x, z]) => key(x, z)));
   const crumbles = new Set((def.crumble || []).map(([x, z]) => key(x, z)));
   const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, table: orbTable(o.path) }));
   const keyOnLine = !!(def.key && line.has(key(def.key[0], def.key[1])));
@@ -132,11 +135,20 @@ function liveCtx(def) {
     graph: fairCrossingGraph(model),
     line,
     sliders,
+    pulse,
     crumbles,
     orbs,
     docks: model.shuttleDocks,
     keyOnLine,
   };
+}
+
+/** Is a phase tile (sliding bridge or pulsing gap) currently solid? */
+async function phaseUp(x, z) {
+  return page.evaluate(
+    ([px, pz]) => window.__kubik.game.view.sliderUp(px, pz) && window.__kubik.game.view.pulseUp(px, pz),
+    [x, z],
+  );
 }
 
 /** Cube tile + real orb positions, in one round-trip. */
@@ -522,18 +534,20 @@ async function driveRouteLive(tiles, moves, ctx) {
       // and drop the cube, 2026-11-15).
       const burstTiles = exit ? [...seq, exit] : [...seq];
       let lastSlider = null;
-      for (const t of burstTiles) if (ctx.sliders.has(key(t.x, t.z))) lastSlider = t;
+      for (const t of burstTiles) if (ctx.sliders.has(key(t.x, t.z)) || ctx.pulse.has(key(t.x, t.z))) lastSlider = t;
       let sliderGroup = null;
-      if (lastSlider) {
+      if (lastSlider && !ctx.pulse.has(key(lastSlider.x, lastSlider.z))) {
         for (const g of ctx.def.sliders || []) {
           if (g.tiles.some(([x, z]) => x === lastSlider.x && z === lastSlider.z)) sliderGroup = g;
         }
       }
-      const upWindow = sliderGroup ? (sliderGroup.period || 3.2) * 0.5 : 0;
+      const upWindow = lastSlider && ctx.pulse.has(key(lastSlider.x, lastSlider.z))
+        ? PULSE_PERIOD * PULSE_ON // a pulsing gap's sealed window
+        : sliderGroup ? (sliderGroup.period || 3.2) * 0.5 : 0;
       const burstSeconds = (burstTiles.length + 1) * ROLL_TIME + 0.9;
       let lastRiseAt = 0;
       let sliderWasDown = false;
-      if (!ctx.crumbles.has(key(st.x, st.z))) {
+      if (!ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
         const t0 = Date.now();
         let safe = false;
         while (!safe && Date.now() - t0 < 30000) {
@@ -546,7 +560,7 @@ async function driveRouteLive(tiles, moves, ctx) {
           safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
             || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist));
           if (safe && lastSlider) {
-            const isUp = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [lastSlider.x, lastSlider.z]);
+            const isUp = await phaseUp(lastSlider.x, lastSlider.z);
             if (!isUp) sliderWasDown = true;
             else if (sliderWasDown) { lastRiseAt = Date.now(); sliderWasDown = false; }
             const riseAge = (Date.now() - lastRiseAt) / 1000;
@@ -584,12 +598,14 @@ async function driveRouteLive(tiles, moves, ctx) {
       continue;
     }
 
-    // sliding bridge: wait for it to rise (never on a crumble slab)
-    if (ctx.sliders.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
+    // phase tile (sliding bridge / pulsing gap): wait for it to be solid
+    // (never while standing on a crumble slab or another pulsing gap)
+    if ((ctx.sliders.has(key(target.x, target.z)) || ctx.pulse.has(key(target.x, target.z)))
+      && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
       const t0 = Date.now();
       let up = false;
       while (!up && Date.now() - t0 < 10000) {
-        up = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [target.x, target.z]);
+        up = await phaseUp(target.x, target.z);
         if (!up) await wait(80);
       }
       if (!up) return false;
@@ -707,8 +723,8 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
     // a roll onto a down bridge — the roll would fall into the void. Wait
     // for the bridge to rise, same rule as the main loop (and never wait on
     // a crumble slab, which would break while we stand still).
-    const nextIsSlider = ctx.sliders.has(key(next.x, next.z));
-    if (nextIsSlider && !ctx.crumbles.has(key(st.x, st.z))) {
+    const nextIsSlider = ctx.sliders.has(key(next.x, next.z)) || ctx.pulse.has(key(next.x, next.z));
+    if (nextIsSlider && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
       // Mid-burst, "up right now" is not enough: if the cube must STAND
       // on the bridge for at least one more press (it is not the commit's
       // last landing), a bridge near the end of its up-window sinks under
@@ -716,19 +732,19 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
       // 2026-11-15: two slider deaths at crossing seq tiles). Require a
       // FRESH rise — a full up-window ahead — unless the cube itself is
       // standing on a bridge (then any wait is borrowed time: take "up").
-      const standsOnBridge = i + 1 < exitIdx && !ctx.sliders.has(key(st.x, st.z)) && !ctx.line.has(key(st.x, st.z));
+      const standsOnBridge = i + 1 < exitIdx && !ctx.sliders.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z)) && !ctx.line.has(key(st.x, st.z));
       const t0s = Date.now();
       let up = false;
       let sawDown = false;
       while (!up && Date.now() - t0s < 12000) {
-        const isUp = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [next.x, next.z]);
+        const isUp = await phaseUp(next.x, next.z);
         if (!isUp) sawDown = true;
         up = standsOnBridge ? isUp && sawDown : isUp;
         if (!up) await wait(60);
       }
       if (!up && standsOnBridge) {
         // no fresh rise in a full cycle+: fall back to the plain law
-        up = await page.evaluate(([x, z]) => window.__kubik.game.view.sliderUp(x, z), [next.x, next.z]);
+        up = await phaseUp(next.x, next.z);
       }
       if (!up) return { stuck: true, r: i };
     }
@@ -775,10 +791,10 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
           if (moves[k] === 'ride') continue; // rides need no press
           const tk = ctx.model.tiles.get(key(tiles[k + 1].x, tiles[k + 1].z));
           if (tk && tk.shuttle) continue; // a dock boarding waits for the dwell
-          // a slider roll can't be pre-queued: the bridge may be down when
-          // the queued roll fires — the next loop iteration presses it with
-          // the slider-up wait
-          if (ctx.sliders.has(key(tiles[k + 1].x, tiles[k + 1].z))) continue;
+          // a phase-tile roll can't be pre-queued: the bridge/gap may be
+          // open when the queued roll fires — the next loop iteration
+          // presses it with the phase-up wait
+          if (ctx.sliders.has(key(tiles[k + 1].x, tiles[k + 1].z)) || ctx.pulse.has(key(tiles[k + 1].x, tiles[k + 1].z))) continue;
           const qlen = await page.evaluate(() => window.__kubik.game.queue.length);
           if (qlen >= 2) break;
           await page.evaluate((mv) => window.__kubik.game.input(mv), moves[k]);

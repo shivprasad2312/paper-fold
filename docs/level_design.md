@@ -56,6 +56,14 @@ satisfy (enforced by `parseLevel` + verifier):
   through every search state; a shove downhill is one-way, so where a
   heavy block comes to rest is a commitment. Levels place it astride
   the route with a level-or-downhill push-forward.
+- `pulse`: `[[x,z]]` — a pulsing gap: a VOID cell a phantom slab
+  seals for `PULSE_ON` (40%) of every `PULSE_PERIOD` (4.0 s), the
+  seal sweeping diagonally across the floor. Cross on the blink —
+  it never holds long enough to wait on. The slab rises to the
+  lowest neighbouring bank. Proofs model it exactly like a sliding
+  bridge (a timing hazard you wait out beside); the waiting-spot
+  audit keeps it out of sentinel clearance, away from shuttle
+  docks and sliding bridges, and off the rescue bench.
 - `doors`: `[{plate: [x,z], at: [x,z]}]` — a pressure plate + doorway
   (M3 wave-1): the doorway cell is void in the map (the parser
   solidifies it at the plate's height); the door is a wall to every
@@ -90,6 +98,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Timed slab | 2.4 s fuse from first landing, then it falls | The crumble's slow sibling (plain crumble burns in 0.75 s): cross at a stroll, never dawdle — and the proof models break-on-leave, so the fuse is margin, not a requirement. |
 | Freeze shard | one grab, 3.2 s of frozen sentinels | The catalogue's first consumable timing tool: the proof counts it in presses (8-press budget from pickup to crossing exit), so a frozen crossing is provable without trusting real-time reflexes. |
 | Heavy block | pushed level or downhill only, 1 nudge per tile | Weight as a one-way valve: a heavy block shoved down a step can never be shoved back up, so its resting place is a commitment the proof models exactly (heaviness is part of the block's state identity). |
+| Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

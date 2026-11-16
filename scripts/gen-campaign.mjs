@@ -181,7 +181,7 @@ function generate(rand, id, b) {
   // four: L28, L34, L36, L42 (+ the double-shuttle finale L50). Those
   // intro points are FORCED below; best-effort shuttle carving is low so a
   // shuttle still reads as a set piece.
-  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0, timed: 0, freeze: 0, heavy: 0 };
+  const mech = { ice: 0, spring: 0, shuttle: 0, conveyor: 0, door: 0, timed: 0, freeze: 0, heavy: 0, pulse: 0 };
   if ((b.mech || []).includes('ice')) mech.ice = b.W >= 12 ? 0.95 : 0.6;
   // TIMED (M3 wave-1): delayed crumble joins the ice bands — fragile
   // floors are the same family (one press, keep moving).
@@ -200,6 +200,9 @@ function generate(rand, id, b) {
   // HEAVY (M3 wave-1): the heavy block joins the same bands — a one-way
   // shove (level or downhill, never up) astride the route.
   if ((b.mech || []).includes('shuttle')) mech.heavy = b.W >= 16 ? 0.35 : 0.25;
+  // PULSE (M3 wave-1): the pulsing gap joins the same bands — a phantom
+  // slab sealing a void cell on a cycle; cross on the blink.
+  if ((b.mech || []).includes('shuttle')) mech.pulse = b.W >= 16 ? 0.35 : 0.25;
   const opts = {};
   if (INTRO_MECH[id]) opts.force = INTRO_MECH[id];
   if (id === 50) opts.extra = { shuttle: 0.6 }; // the finale rides twice

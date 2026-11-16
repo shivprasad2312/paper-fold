@@ -1095,3 +1095,42 @@ Chromium with background-throttling disabled.
 
 **Gate:** L13 passes deterministically (repeated 3/3 focused runs
 with L144); the pre-commit hook re-runs its full gate.
+
+## ADR-026 — Pulsing gap: cross on the blink (2026-11-16)
+**Context:** M3 wave-1's sixth mechanic. The floor already has two
+timing surfaces — crumble/timed slabs that die after you land, and
+sliding bridges that dip on a cycle — so a pulsing gap has to earn
+its place as a different decision, not a third timer. The gap is a
+hole in the floor: most of the time it is simply VOID, and a
+phantom slab seals it briefly on a fixed sweep. You wait beside
+it, never on it; the rhythm is read from the diagonal pulse wave,
+not from standing on the tile.
+
+**Decision:** `pulse: [[x,z]]` names VOID cells; the parser raises
+a phantom tile at the lowest neighbouring bank. The seal holds
+for `PULSE_ON` = 40% of `PULSE_PERIOD` = 4.0 s, with phase offset
+(x+z)/4 of a cycle so seals sweep diagonally (`pulsePhase`). The
+proof model treats a pulse tile exactly like a sliding bridge —
+always solid in `solveHazards`, reachability, and the crossing
+graph: a timing hazard you wait out beside, which the ADR-025
+single hazard clock now guarantees the game agrees with. What
+keeps that honest is the waiting-spot law, shared with the timed
+slab: a pulsing gap may never sit inside sentinel clearance, beside
+a shuttle dock, or beside a sliding bridge (spawn audit), never on
+the rescue bench, and blocks can never be pushed onto it. The live
+bot treats pulse tiles as phase tiles alongside bridges in every
+wait and commit gate, and never waits standing on one.
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=169=pulse` (L169 "Compression", The Pressure: an
+aperture with the gate key, a freeze shard, and the gap at
+[13,16]). The generator hollows one plain route tile per carve —
+both route neighbours stay solid, never two gaps adjacent.
+Organic budgets armed (shuttle bands 0.25–0.35; acts 6–10
+`gen.mech.pulse` 0.3–0.45). Curation signature learns `U`.
+
+**Gate:** unit 96/96 (4 new pulse tests: parse law and bank
+height, the phase sweep, block refusal + solid-in-model, and the
+clearance audit); verifier 200 + 14 dailies green incl. the
+diversity audit; live L169 completed by the bot in 47 moves, page
+errors none (the pre-commit hook re-runs its full gate).

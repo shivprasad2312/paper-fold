@@ -12,9 +12,9 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy } (per-mechanic carve probability) }
+//         heavy, pulse } (per-mechanic carve probability) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n, freeze?: n, heavy?: n } — carve at least n
+//         timed?: n, freeze?: n, heavy?: n, pulse?: n } — carve at least n
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -339,6 +339,32 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return true;
   };
 
+  // PULSE (pulsing gap, M3 wave-1): hollow one plain route tile into a
+  // void cell that a phantom slab seals on a cycle — cross on the blink.
+  // Both route neighbours stay solid; proofs treat the tile as solid
+  // (a wait-out timing hazard, like a sliding bridge), and the spawn
+  // audit keeps it out of sentinel clearance. Never two gaps adjacent.
+  const pulses = [];
+  const tryPulse = () => {
+    const cands = [];
+    for (let i = 1; i < path.length - 1; i++) {
+      const kk = k(i);
+      if (carved.has(kk) || mechSet.has(kk)) continue;
+      if (carved.has(k(i - 1)) || carved.has(k(i + 1))) continue;
+      const [x, z] = path[i];
+      if (pulses.some(([px, pz]) => Math.abs(px - x) <= 1 && Math.abs(pz - z) <= 1)) continue;
+      cands.push(i);
+    }
+    if (!cands.length) return false;
+    const i = pick(cands);
+    const [x, z] = path[i];
+    clearTile(x, z);
+    carved.add(k(i));
+    markMech(x, z);
+    pulses.push([x, z]);
+    return true;
+  };
+
   // forced mechanics first (archetypes that ARE a mechanic), then the act
   // budget's probabilities
   //
@@ -360,8 +386,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['conveyor', force.conveyor || 0, (b.mech || {}).conveyor || 0],
     ['door', force.door || 0, (b.mech || {}).door || 0],
     ['timed', force.timed || 0, (b.mech || {}).timed || 0],
+    ['pulse', force.pulse || 0, (b.mech || {}).pulse || 0],
   ];
-  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor, timed: tryTimed };
+  const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor, timed: tryTimed, pulse: tryPulse };
   // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
   // quota (n < forced) is always attempted — a forced mechanic that cannot
   // be carved fails the candidate (return null below). Extra carves beyond
@@ -371,7 +398,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // previous gate broke on `p < 1` BEFORE rolling, so best-effort carves
   // never happened at any probability < 1 — the whole 14–200 campaign
   // shipped with effectively no ice/springs/shuttles.
-  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0, timed: 0 };
+  const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0, timed: 0, pulse: 0 };
   for (const [m, forced, p] of carvePlan) {
     let n = got[m];
     for (let t = 0; t < 4; t++) {
@@ -642,6 +669,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (doors.length) def.doors = doors;
   if (timed.length) def.timed = timed;
   if (freezes.length) def.freeze = freezes;
+  if (pulses.length) def.pulse = pulses;
   if (heavies.length) {
     def.heavy = heavies;
     def.nudge = 3; // telekinesis charges for shoving it clear (solver-proven)
