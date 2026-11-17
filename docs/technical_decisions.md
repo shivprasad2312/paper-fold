@@ -1253,6 +1253,24 @@ the [5,3]→[16,3] patrol sleeps until the key, then the arena
 runs 1.35×). Generator: act-end budgets roll `boss` at 0.65
 (content-hash conversion, never the rand stream; 1–2 wave-2
 conversions, proximity sentinels ineligible); signature `B`.
+
+**Rollout (2026-11-17):** the remaining keyed act-end finales
+took the same conversion — L120 "The Last Thaw", L140 "High
+Crossing", L160 "The Sealed Deep" (two wave-2 sentinels plus a
+proximity patrol that is never both), L180 "Maximum Pressure"
+— all at `boss.speed` 1.35, names preserved, verifier green,
+focused live 56 / 48 / 57 / 60 moves. The first focused gate
+failed L160/L180 "key unreachable": the live bot's crossing
+model carried `wake` but not `wave`, so it predicted parked
+wave-2 statues as live patrols and no window ever satisfied
+it. The bot is now wave-aware — a sleeping wave-2 sentinel is
+a statue in its model, exactly as `checkOrbs` rules it; the
+verifier's phase-blind proof never changed. The same pass
+gave bosses their player-facing identity: BOSS/FINALE tags
+and act-end card styling in level select, a boss briefing
+hint at level start, a `BOSS ASLEEP → BOSS AWAKE` HUD chip,
+and a violet ember glow on sleeping wave-2 sentinels that
+catches red when the arena wakes.
 The slot hunt exposed a latent generator flaw: the
 end-of-attempts settle sat after `if (!rep.ok) continue`, so it
 only ever ran on attempts whose own candidate also passed — a

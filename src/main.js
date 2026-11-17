@@ -264,6 +264,9 @@ function updateMechanicHud() {
   if (lvl && lvl.gateKey) {
     chips.push(`<span class="chip chip-key${game.hasKey ? ' on' : ''}" title="Gate key">${game.hasKey ? 'KEY ✓' : 'LOCKED'}</span>`);
   }
+  if (lvl && lvl.boss) {
+    chips.push(`<span class="chip chip-boss${game.hasKey ? ' on' : ''}" title="Boss arena — grabbing the key wakes the second wave at ×${lvl.boss.speed} speed">${game.hasKey ? 'BOSS AWAKE' : 'BOSS ASLEEP'}</span>`);
+  }
   if (lvl && lvl.wind) chips.push(`<span class="chip chip-wind" title="Wind">WIND</span>`);
   if (lvl && lvl.sliders && lvl.sliders.length) chips.push(`<span class="chip chip-bridge" title="Sliding bridges">BRIDGE</span>`);
   el.hudMech.innerHTML = chips.join('');
@@ -313,8 +316,14 @@ function startLevel(index, { animate = true } = {}) {
   save.lastLevel = index + 1;
   writeSave(save);
 
-  const hintText = isTouch && def.id === 1 ? 'Swipe anywhere, or tap the pad, to roll' : def.hint;
-  if (hintText) showHint(hintText);
+  // a boss arena teaches its turn before anything else: the authored
+  // hint still exists, but the phase trigger is the level's first lesson
+  const hintText = def.boss
+    ? 'Boss arena — take the key and the arena wakes: sleeping sentinels rise, and every patrol speeds up'
+    : isTouch && def.id === 1
+      ? 'Swipe anywhere, or tap the pad, to roll'
+      : def.hint;
+  if (hintText) showHint(hintText, def.boss ? 7000 : 5200);
   if (animate) flash('load');
 }
 
@@ -436,11 +445,18 @@ function renderLevelGrid() {
       const i = byId.get(def.id);
       const best = save.best[def.id];
       const card = document.createElement('button');
-      card.className = 'level-card' + (def.id === save.lastLevel ? ' current' : '');
+      // act finales carry a crown; a true boss arena (the key wakes a
+      // second wave) carries the red tag (M3, ADR-029)
+      const finale = def.id === act.end;
+      card.className = 'level-card'
+        + (def.id === save.lastLevel ? ' current' : '')
+        + (finale ? ' act-end' : '')
+        + (def.boss ? ' boss-arena' : '');
       const totalShards = (def.shards || []).length;
       const got = best ? best.shards : 0;
       card.innerHTML = `
         <span class="num">${String(def.id).padStart(2, '0')}</span>
+        ${def.boss ? '<span class="boss-tag">BOSS</span>' : finale ? '<span class="boss-tag finale">FINALE</span>' : ''}
         ${medalBadge(best?.medal)}
         ${best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
         <span class="lname">${def.name}</span>
@@ -743,6 +759,7 @@ game.on('bossphase', () => {
   audio.sfx('gateLocked');
   flash('death');
   game.stage.shake(0.2);
+  updateMechanicHud();
   showHint('The arena wakes — everything speeds up!', 2600);
 });
 

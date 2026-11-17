@@ -443,6 +443,36 @@ kbd {
   color: #eaf4ff;
   font-variant-numeric: tabular-nums;
 }
+
+/* act finales and boss arenas (M3): the crown row of each act */
+.level-card.act-end { border-color: rgba(255, 209, 102, 0.45); }
+.level-card.act-end .num { color: var(--gold); }
+.level-card.boss-arena {
+  border-color: rgba(255, 63, 116, 0.55);
+  background: linear-gradient(160deg, rgba(74, 22, 44, 0.75), rgba(16, 10, 24, 0.8));
+  box-shadow: 0 0 24px -8px rgba(255, 63, 116, 0.45);
+}
+.level-card.boss-arena .num { color: #ff8fab; }
+.level-card .boss-tag {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #ffb3c6;
+  border: 1px solid rgba(255, 63, 116, 0.55);
+  background: rgba(255, 63, 116, 0.14);
+}
+.level-card .boss-tag.finale {
+  color: var(--gold);
+  border-color: rgba(255, 209, 102, 0.45);
+  background: rgba(255, 209, 102, 0.1);
+}
+/* the best-time stamp shares the top-right corner: stack it below the tag */
+.level-card:has(.boss-tag) .best { top: 31px; }
 .level-card .lname {
   font-size: 9.5px;
   letter-spacing: 0.1em;
@@ -673,6 +703,8 @@ kbd {
 .chip-key.on { color: #9dff5e; border-color: rgba(157, 255, 94, 0.4); }
 .chip-wind { color: #9fd4ff; border-color: rgba(159, 212, 255, 0.4); }
 .chip-bridge { color: #b9c8ff; border-color: rgba(185, 200, 255, 0.4); }
+.chip-boss { color: #c9a7ff; border-color: rgba(160, 120, 255, 0.45); }
+.chip-boss.on { color: #ff8fab; border-color: rgba(255, 63, 116, 0.6); background: rgba(255, 63, 116, 0.14); }
 
 /* ===== medals ===== */
 .medal {

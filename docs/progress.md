@@ -167,7 +167,11 @@ phase-blind at the hardest settings; a wave-2 spawn keeps 2
 tiles from the key; L200 Apex first. The hunt for this slot also
 found and fixed a latent generator flaw: the end-of-attempts
 settle only ran on passing attempts, so a slot with a single
-proven candidate could never settle. M3 complete.)
+proven candidate could never settle. M3 complete. Rolled out
+2026-11-17 to the remaining keyed finales L120/L140/L160/L180,
+with boss identity in level select, a start briefing, a
+BOSS ASLEEP/AWAKE HUD chip, violet sleeping-sentinel embers,
+and a wave-aware crossing model in the live bot.)
 
 ## Blockers
 

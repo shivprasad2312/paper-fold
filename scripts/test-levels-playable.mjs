@@ -126,7 +126,7 @@ function liveCtx(def) {
   for (const s of def.sliders || []) for (const t of s.tiles) sliders.add(key(t[0], t[1]));
   const pulse = new Set((def.pulse || []).map(([x, z]) => key(x, z)));
   const crumbles = new Set((def.crumble || []).map(([x, z]) => key(x, z)));
-  const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, wake: o.wake || 0, table: orbTable(o.path) }));
+  const orbs = (def.orbs || []).map((o) => ({ path: o.path, speed: o.speed, wake: o.wake || 0, wave: o.wave || 0, table: orbTable(o.path) }));
   const keyOnLine = !!(def.key && line.has(key(def.key[0], def.key[1])));
   const model = parseLevel(def);
   return {
@@ -218,6 +218,12 @@ function crossingSafe(ctx, entry, seq, exit, orbsNow, tail = 0.18) {
     const u = (s / SUB) * ROLL_TIME; // real time since "now"
     for (let oi = 0; oi < ctx.orbs.length; oi++) {
       const o = ctx.orbs[oi];
+      // a sleeping boss wave-2 sentinel (M3, ADR-029): until the key is
+      // taken it is a statue — no motion, no kill radius (checkOrbs skips
+      // sleeping orbs). It can only wake at the instant a crossing ENDS on
+      // the key, and the spawn audit keeps its start ≥2 tiles from the key,
+      // so skipping it for the whole burst is the game's own law.
+      if (o.wave && orbsNow[oi].awake === false) continue;
       // a sleeping proximity sentinel (M3 wave-1): it only starts moving
       // once the cube comes within its wake radius — if the whole burst
       // stays outside that radius it is a statue for this crossing;

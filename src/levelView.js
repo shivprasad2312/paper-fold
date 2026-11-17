@@ -749,6 +749,9 @@ export function buildLevelView(level, actHue = null) {
       prev: new THREE.Vector3(),
     };
   });
+  // boss wave-2 sentinels (M3) smoulder violet while they sleep, so the
+  // player can read at a glance which statues are going to wake
+  for (const o of orbs) if (o.def.wave) o.glow.material.color.setHex(0x8a63ff);
 
   // ---- wind: faint streaks swept across the level in the breeze's direction -
   const windStreaks = [];
@@ -1157,7 +1160,12 @@ export function buildLevelView(level, actHue = null) {
   }
   function beginPhase() {
     bossPhase = 2;
-    for (const o of orbs) if (o.def.wave) o.awake = true;
+    for (const o of orbs) {
+      if (o.def.wave) {
+        o.awake = true;
+        o.glow.material.color.setHex(0xff3f74); // the violet ember catches
+      }
+    }
   }
 
   function setFrozen(f) {
@@ -1166,7 +1174,8 @@ export function buildLevelView(level, actHue = null) {
     bodyMat.emissiveIntensity = f ? 0.5 : 1;
     for (const o of orbs) {
       o.eyeMat.emissive.setHex(f ? 0x7fe8ff : 0xff2e6a);
-      o.glow.material.color.setHex(f ? 0x7fe8ff : 0xff3f74);
+      // a sleeping boss sentinel keeps its violet ember even unfrozen
+      o.glow.material.color.setHex(f ? 0x7fe8ff : o.def.wave && !o.awake ? 0x8a63ff : 0xff3f74);
     }
   }
 
