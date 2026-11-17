@@ -82,6 +82,13 @@ satisfy (enforced by `parseLevel` + verifier):
   doorway, never lands on it; the plate/doorway can be waited on, so
   sentinel fairness is the ordinary timing model (no corridor audit).
 - `key`: only with a sealed gate (finale); on a slab, not on start/goal.
+- `boss`: `{speed}` (1 < speed ≤ 2, default 1.35) — a boss arena
+  (M3): grabbing the gate key starts phase 2 — `wave: 2` sentinels
+  (parked dark-eyed at their patrol starts until then) wake, and
+  every patrol runs at `speed`×. Proofs are phase-blind: crossings
+  are proven with wave-2 sentinels awake at boss speed, so the one
+  static model covers both phases. A wave-2 spawn must sit ≥ 2
+  tiles from the key (the cube is standing on it at the trigger).
 - `wind`: diagonal unit vector only.
 - `nudge` ≥ number of blocks that *must* move for any route (solver
   proves it — a level with 2 required pushes and `nudge: 1` fails
@@ -110,6 +117,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 | Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
 | Twin shuttle | second platform half a cycle out of phase | The ferry comes twice as often: the wait at the dock halves, and the proof never noticed — it models the one logical shuttle, so the twin is pure service. |
+| Boss arena | key grab wakes `wave: 2` sentinels, all patrols ×1.35 | The boss is the level itself: the key run is the quiet first phase, the escape is the loud one — and the proof simply always assumed the loud phase. |
 
 ## 3. Hand levels (1–13) — the teaching spine
 

@@ -94,6 +94,9 @@ function budget(id) {
     b.orbs = [g.orbs[1], g.orbs[1]];
     b.crumble = [g.crumble[1], g.crumble[1]];
     b.keyP = Math.max(g.keyP, 0.5);
+    // boss arenas (M3): an act-end level usually answers its key with a
+    // second wave — the conversion itself is content-hash rolled
+    b.mech = { ...g.mech, boss: 0.65 };
   }
   if (id === 200) b.keyP = 1; // the campaign finale is always sealed
   return b;
@@ -201,6 +204,7 @@ function score(def, par, b) {
   if (def.pulse) s += 1.5;
   if ((def.orbs || []).some((o) => o.wake)) s += 1;
   if ((def.shuttles || []).some((sh) => sh.twin)) s += 1;
+  if (def.boss) s += 2;
   if (def.ice) s += 1;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
@@ -456,6 +460,28 @@ for (let id = FIRST; id <= LAST; id++) {
       rememberExperience(pick.expFp);
     }
   }
+  // the settle above only runs on attempts whose own candidate passed —
+  // a slot with a single proven candidate early in the budget (the boss
+  // finale under a forced mechanic: 1 in 450) would otherwise starve.
+  // Settle for the best proven candidate at the true end of attempts.
+  if (!def && (best || bestAny)) {
+    const pick = best || bestAny;
+    if (!best) console.error(`⚠ level ${id} (${arch}): uniqueness exhausted — settled non-unique`);
+    if (pick.expFp && sequenceProblems(pick.expFp, recentExperience).length) {
+      console.error(`⚠ level ${id} (${arch}): diversity exhausted — settled repetitive (${pick.expFp.label})`);
+    }
+    if ((pick.cand.orbs || []).length < wantOrbs) {
+      console.error(`⚠ level ${id} (${arch}): relaxed sentinels to ${(pick.cand.orbs || []).length}`);
+    }
+    def = pick.cand;
+    report = pick.rep;
+    if (pick.uniq) {
+      seenSigs.add(pick.uniq.sig);
+      recentTileSets.push(pick.uniq.ts);
+      allTileSets.push(pick.uniq.ts);
+    }
+    rememberExperience(pick.expFp);
+  }
   if (!def) {
     console.error(`✗ level ${id} (${arch}): no candidate passed ${slotBudget} attempts`);
     process.exit(1);
@@ -477,7 +503,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

@@ -233,6 +233,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // heavy: [[x, z]],         // heavy blocks: pushable level or downhill, never uphill (needs nudge)
   // pulse: [[x, z]],         // pulsing gaps: void cells a phantom slab seals on a cycle — cross on the blink
   // key: [x, z],            // unlocks the sealed gate
+  // boss: { speed: 1.35 },   // boss arena: grabbing the key wakes wave: 2 orbs and speeds every patrol up
   // wind: { x: -1, z: -1 }, // diagonal breeze
 }
 ```

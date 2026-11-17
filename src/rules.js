@@ -316,6 +316,31 @@ export function parseLevel(def) {
     if (o.wake !== undefined && (typeof o.wake !== 'number' || !(o.wake >= 1))) {
       throw new Error(`[${def.name}] proximity sentinel wake must be a number >= 1`);
     }
+    // boss arenas (M3): `wave: 2` sentinels sleep until the boss phase;
+    // a sentinel is woken by proximity OR by the boss, never both
+    if (o.wave !== undefined && o.wave !== 2) {
+      throw new Error(`[${def.name}] sentinel wave must be 2 (wave 1 is the default)`);
+    }
+    if (o.wave && o.wake) {
+      throw new Error(`[${def.name}] a sentinel cannot be both proximity (wake) and boss (wave)`);
+    }
+    if (o.wave && !def.boss) {
+      throw new Error(`[${def.name}] wave-2 sentinels need a boss arena (def.boss)`);
+    }
+  }
+  // ---- boss arena (M3): grabbing the gate key starts phase 2 — wave-2
+  // sentinels wake and every patrol runs at `boss.speed`. The fairness
+  // model is deliberately phase-blind: crossings are proven with wave-2
+  // sentinels AWAKE at boss speed, so the proven model is at least as
+  // hard as either real phase and one static proof covers both.
+  let boss = null;
+  if (def.boss !== undefined) {
+    if (!def.key) throw new Error(`[${def.name}] a boss arena needs a gate key (the phase trigger)`);
+    const speed = def.boss.speed === undefined ? 1.35 : def.boss.speed;
+    if (typeof speed !== 'number' || !(speed > 1) || speed > 2) {
+      throw new Error(`[${def.name}] boss speed must be a number in (1, 2]`);
+    }
+    boss = { speed };
   }
 
   const wind = def.wind || null;
@@ -345,6 +370,7 @@ export function parseLevel(def) {
     freezeTiles,
     pulses,
     pulseTiles,
+    boss,
     gateKey,
     wind,
     nudge,
@@ -897,6 +923,16 @@ export function spawnProblems(level) {
   if (level.gateKey) {
     const k = key(level.gateKey.x, level.gateKey.z);
     if (k === startK || k === goalK) probs.push('key on start/goal tile');
+    // boss arenas (M3): the phase triggers with the cube standing ON the
+    // key — a wave-2 sentinel wakes at its patrol start, so that start
+    // must leave the cube room to move (2 tiles ≈ a roll and a half of
+    // head start at boss speed; the escape route itself is timing-proven)
+    for (const orb of level.orbs) {
+      if (!orb.wave) continue;
+      const [sx, sz] = orb.path[0];
+      const d = Math.hypot(sx - level.gateKey.x, sz - level.gateKey.z);
+      if (d < 2) probs.push(`boss wave-2 sentinel spawns ${d.toFixed(1)} tiles from the key`);
+    }
   }
   // shuttle docks: the platform is the only thing solid there — nothing
   // static may depend on it or be depended on by it. (shuttleDocks is a Set
@@ -1436,7 +1472,10 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
   }
   if (!orbs.length) return Infinity;
 
-  const T = Math.max(...orbs.map((o) => orbPeriod(o.path, o.speed)));
+  // boss arenas (M3): the proof runs every patrol at phase-2 speed with
+  // wave-2 sentinels awake — the hardest the arena ever gets (ADR-029)
+  const speedMul = level.boss ? level.boss.speed : 1;
+  const T = Math.max(...orbs.map((o) => orbPeriod(o.path, o.speed * speedMul)));
   const HORIZON = orbs.length > 1 ? 2 * T : T; // joint cycle for several sentinels
   const rolls = path.length - 1;
   const R2 = ORB_KILL_RADIUS * ORB_KILL_RADIUS;
@@ -1461,7 +1500,7 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
       const t = t0 + (s / TIMING_SUBSTEPS) * ROLL_TIME;
       for (let oi = 0; oi < orbs.length; oi++) {
         const o = orbs[oi];
-        const op = orbPositionT(tables[oi], o.speed, o.phase, t);
+        const op = orbPositionT(tables[oi], o.speed * speedMul, o.phase, t);
         if (commitBandDistR2(path, sched, t - t0, op.x, op.z) < R2) return false;
       }
     }

@@ -12,10 +12,10 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, pulse, proximity, twin } (per-mechanic probability) }
+//         heavy, pulse, proximity, twin, boss } (per-mechanic prob.) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
 //         timed?: n, freeze?: n, heavy?: n, pulse?: n, proximity?: n,
-//         twin?: n }
+//         twin?: n, boss?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -740,6 +740,40 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (heavies.length) {
     def.heavy = heavies;
     def.nudge = 3; // telekinesis charges for shoving it clear (solver-proven)
+  }
+
+  // --- boss arena (M3): on a keyed level the key grab starts phase 2 —
+  // some sentinels sleep until then (wave: 2) and every patrol speeds
+  // up 1.35×. Proofs model phase 2 throughout (wave-2 awake at boss
+  // speed), so the conversion is safe by construction; the verifier's
+  // spawn audit keeps wave-2 spawns off the key tile. Roll + choice
+  // come from a content hash, never the shared rand stream (ADR-027).
+  {
+    const wantBoss = force.boss || 0;
+    const pBoss = (b.mech || {}).boss || 0;
+    const bossSeed = (keyPos ? keyPos.join(',') : 'nokey') + '|' + orbs.map((o) => o.path.flat().join(',')).join(';');
+    const bossRoll = (salt) => {
+      let h = 2166136261;
+      const s = salt + bossSeed;
+      for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const convertBoss = () => {
+      // a proximity sentinel (wake) can never also be a boss sleeper —
+      // the parser rejects the combo, so those orbs are not eligible
+      const eligible = orbs.filter((o) => !o.wake && !o.wave);
+      if (!keyPos || !eligible.length) return false;
+      def.boss = { speed: 1.35 };
+      const n = Math.min(eligible.length, orbs.length >= 3 ? 2 : 1); // keep a wave-1 patrol
+      const order = eligible.sort((x, y) => bossRoll('#o' + x.path) - bossRoll('#o' + y.path));
+      for (const o of order.slice(0, n)) o.wave = 2;
+      return true;
+    };
+    if (wantBoss) {
+      if (!convertBoss()) return null; // a forced boss needs a key + sentinels
+    } else if (pBoss > 0 && bossRoll('#roll') < pBoss) {
+      convertBoss();
+    }
   }
   return def;
 }

@@ -42,6 +42,7 @@ const MECH_FIELDS = [
   ['pulse', 'U', (d) => (d.pulse || []).length > 0],
   ['proximity', 'X', (d) => (d.orbs || []).some((o) => !!o.wake)],
   ['twin', 'W', (d) => (d.shuttles || []).some((s) => !!s.twin)],
+  ['boss', 'B', (d) => !!d.boss],
 ];
 
 /** The mechanic set a level presents, as a compact signature ('IPSK', '-'). */

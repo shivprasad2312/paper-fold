@@ -128,7 +128,7 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…028). Latest: ADR-014
+Log: `technical_decisions.md` (ADR-001…029). Latest: ADR-014
 (mid-path second chance — the rescue bench), ADR-015 (the 200-level
 campaign: archetype library + shared hazard stage + stratified live
 gate), ADR-016 (the crossing models run the game's real easeInOut
@@ -160,7 +160,14 @@ a pure gift; L187 first),
 ADR-028 (twin-platform shuttle: a second platform half a cycle
 out of phase; proofs model the one logical shuttle, and the carry
 locks onto the boarded platform so twins passing mid-route never
-switch the ride; L193 first. M3 wave-1 mechanics complete.)
+switch the ride; L193 first. M3 wave-1 mechanics complete.),
+ADR-029 (boss arenas: the key grab starts phase 2 — wave-2
+sentinels wake and every patrol runs at boss speed; proofs are
+phase-blind at the hardest settings; a wave-2 spawn keeps 2
+tiles from the key; L200 Apex first. The hunt for this slot also
+found and fixed a latent generator flaw: the end-of-attempts
+settle only ran on passing attempts, so a slot with a single
+proven candidate could never settle. M3 complete.)
 
 ## Blockers
 

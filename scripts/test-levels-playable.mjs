@@ -170,6 +170,8 @@ async function snapLive() {
       // so the wait must anchor on this, never re-derive it from x,z
       orbDist: g.view.orbs.map((o) => o.dist),
       orbAwake: g.view.orbs.map((o) => o.awake !== false),
+      // boss arenas (M3): once the phase turns, every patrol runs faster
+      speedMul: g.view.orbSpeedMul ? g.view.orbSpeedMul() : 1,
     };
   });
 }
@@ -221,7 +223,7 @@ function crossingSafe(ctx, entry, seq, exit, orbsNow, tail = 0.18) {
       // stays outside that radius it is a statue for this crossing;
       // otherwise predict the full advance (it may wake mid-burst, and
       // advancing from now is the conservative side of that)
-      let advance = o.speed;
+      let advance = o.speed * (ctx.speedMul || 1);
       if (o.wake && orbsNow[oi].awake === false) {
         const parked = orbPositionFromDist(o.table, orbsNow[oi].dist);
         const wakes = path.some((t) => (t.x - parked.x) ** 2 + (t.z - parked.z) ** 2 <= o.wake * o.wake);
@@ -570,6 +572,7 @@ async function driveRouteLive(tiles, moves, ctx) {
           if (now.x !== entry.x || now.z !== entry.z) return 'replan'; // breeze moved us
           // a planned freeze crossing: the patrols are locked — go now,
           // with margin for the whole burst before the freeze burns out
+          ctx.speedMul = now.speedMul || 1; // boss phase may have turned
           safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
             || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist, now.orbAwake));
           if (safe && lastSlider) {

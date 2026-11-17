@@ -606,6 +606,33 @@ test('proximity sentinels: wake radius is validated, proofs assume awake', () =>
   assert.deepEqual(timingProblems(fair), [], 'fair crossing unaffected');
 });
 
+// --- boss arenas (M3) ---------------------------------------------------------
+test('boss arena: keyed phases validate, proofs assume the boss awake at full speed', () => {
+  const base = {
+    name: 'boss-x',
+    map: ['....1', '11111', '11...', '1....', '1....', '1....', '1....'],
+    start: [0, 6],
+    goal: [4, 0],
+    key: [0, 3],
+  };
+  const orb = { path: [[0, 1], [4, 1]], speed: 2.4 };
+  assert.throws(() => parseLevel({ ...base, key: undefined, boss: {}, orbs: [orb] }), /needs a gate key/);
+  assert.throws(() => parseLevel({ ...base, orbs: [{ ...orb, wave: 2 }] }), /need a boss arena/);
+  assert.throws(() => parseLevel({ ...base, boss: {}, orbs: [{ ...orb, wave: 3 }] }), /wave must be 2/);
+  assert.throws(() => parseLevel({ ...base, boss: {}, orbs: [{ ...orb, wave: 2, wake: 3 }] }), /cannot be both/);
+  assert.throws(() => parseLevel({ ...base, boss: { speed: 1 }, orbs: [orb] }), /boss speed/);
+  assert.throws(() => parseLevel({ ...base, boss: { speed: 2.5 }, orbs: [orb] }), /boss speed/);
+  // the crossing with no natural window stays sealed when the sealing
+  // sentinel only wakes at the boss phase: the proof model runs it
+  // awake at boss speed, so the trigger cannot unseal a proven wall
+  const bossed = parseLevel({ ...base, boss: {}, orbs: [{ ...orb, wave: 2 }] });
+  assert.equal(bossed.boss.speed, 1.35, 'boss speed defaults to 1.35');
+  assert.ok(timingProblems(bossed).length > 0, 'still sealed with a sleeping wave-2 sentinel');
+  const custom = parseLevel({ ...base, boss: { speed: 1.5 }, orbs: [orb] });
+  assert.equal(custom.boss.speed, 1.5, 'explicit boss speed kept');
+  assert.equal(parseLevel({ ...base, orbs: [orb] }).boss, null, 'no boss, no phase');
+});
+
 // --- timed slabs / delayed crumble (M3 wave-1) ------------------------------
 test('timed slabs parse as flagged plain slabs with a fuse registry', () => {
   const level = parseLevel({

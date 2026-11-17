@@ -889,6 +889,13 @@ export class Game {
         this.view.setGoalLocked(false);
         this.stage.shake(0.1);
         this.emit('key');
+        if (this.level.boss) {
+          // the arena answers the key: wave-2 sentinels wake and every
+          // patrol speeds up (M3 bosses, ADR-029)
+          this.view.beginPhase();
+          this.stage.shake(0.22);
+          this.emit('bossphase');
+        }
       }
     }
   }

@@ -739,6 +739,13 @@ game.on('key', () => {
   showHint('The gate is open', 2200);
 });
 
+game.on('bossphase', () => {
+  audio.sfx('gateLocked');
+  flash('death');
+  game.stage.shake(0.2);
+  showHint('The arena wakes — everything speeds up!', 2600);
+});
+
 game.on('freeze', () => {
   audio.sfx('freeze');
   flash('load');

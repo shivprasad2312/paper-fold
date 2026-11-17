@@ -92,7 +92,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 51,
     "name": "The Ledge Below",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -174,7 +174,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 52,
     "name": "Under the Spire",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -244,7 +244,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 53,
     "name": "The Old Ladder",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -320,7 +320,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 54,
     "name": "Hollow Peak",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -400,7 +400,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 55,
     "name": "The Drop Deck",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -482,7 +482,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 56,
     "name": "Windlass",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -560,7 +560,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 57,
     "name": "The Second Summit",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -640,7 +640,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 58,
     "name": "Grave of the Flag",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -710,7 +710,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 59,
     "name": "The Long Rung",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -810,7 +810,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 60,
     "name": "Below the Cloudline",
-    "hint": "The summit was only a ledge \u2014 keep going down"
+    "hint": "The summit was only a ledge — keep going down"
   },
   {
     "map": [
@@ -2561,7 +2561,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 81,
     "name": "The Hatch",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -2656,7 +2656,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 82,
     "name": "Crossfire II",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -2732,7 +2732,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 83,
     "name": "The Latticework",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -2808,7 +2808,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 84,
     "name": "Overweave",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -2908,7 +2908,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 85,
     "name": "The Criss",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3003,7 +3003,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 86,
     "name": "Tension Lines",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3097,7 +3097,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 87,
     "name": "The Bind",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3194,7 +3194,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 88,
     "name": "Interlace",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3280,7 +3280,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 89,
     "name": "The Woven Dark",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3365,7 +3365,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 90,
     "name": "Crosscut",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3455,7 +3455,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 91,
     "name": "The Lacing",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3549,7 +3549,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 92,
     "name": "Taut",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3645,7 +3645,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 93,
     "name": "The Intersect",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3742,7 +3742,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 94,
     "name": "Struck Through",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3840,7 +3840,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 95,
     "name": "The Hatching",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -3926,7 +3926,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 96,
     "name": "The Weft",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -4019,7 +4019,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 97,
     "name": "Crosshatched",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -4091,7 +4091,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 98,
     "name": "The Warp",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -4197,7 +4197,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 99,
     "name": "The Selvedge",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -4291,7 +4291,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 100,
     "name": "The Binding",
-    "hint": "Every line crosses another \u2014 time them all"
+    "hint": "Every line crosses another — time them all"
   },
   {
     "map": [
@@ -4363,7 +4363,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 101,
     "name": "Frostline",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4455,7 +4455,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 102,
     "name": "The Slip",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4555,7 +4555,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 103,
     "name": "Glacier Walk",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4665,7 +4665,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 104,
     "name": "The Sheen",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4757,7 +4757,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 105,
     "name": "Slipstream",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4880,7 +4880,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 106,
     "name": "The Glide",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -4962,7 +4962,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 107,
     "name": "Frosthollow",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5076,7 +5076,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 108,
     "name": "The White Rush",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5178,7 +5178,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 109,
     "name": "Skatefield",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5276,7 +5276,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 110,
     "name": "The Cold Slide",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5364,7 +5364,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 111,
     "name": "Glaze",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5491,7 +5491,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 112,
     "name": "The Ice Room",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5587,7 +5587,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 113,
     "name": "Underglaze",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5696,7 +5696,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 114,
     "name": "The Runover",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5778,7 +5778,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 115,
     "name": "Frostbite Alley",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5884,7 +5884,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 116,
     "name": "The Mirror Lake",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -5978,7 +5978,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 117,
     "name": "Glacial Vein",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -6092,7 +6092,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 118,
     "name": "The Thin White",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -6176,7 +6176,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 119,
     "name": "Slipcase",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -6278,7 +6278,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 120,
     "name": "The Last Thaw",
-    "hint": "Ice does not brake \u2014 plan the slide, not the stop"
+    "hint": "Ice does not brake — plan the slide, not the stop"
   },
   {
     "map": [
@@ -6381,7 +6381,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 121,
     "name": "The Ferry",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6498,7 +6498,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 122,
     "name": "Crossing Time",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6582,7 +6582,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 123,
     "name": "The Slow Boat",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6670,7 +6670,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 124,
     "name": "Ropewalk",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6773,7 +6773,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 125,
     "name": "The Passage",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6870,7 +6870,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 126,
     "name": "Tidegate",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -6983,7 +6983,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 127,
     "name": "The Drift",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7080,7 +7080,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 128,
     "name": "Over the Water",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7183,7 +7183,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 129,
     "name": "The Crossing",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7274,7 +7274,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 130,
     "name": "Bridgemind",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7358,7 +7358,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 131,
     "name": "The Wait",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7455,7 +7455,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 132,
     "name": "Sluice",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7548,7 +7548,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 133,
     "name": "The Running Bridge",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7636,7 +7636,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 134,
     "name": "Current Set",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7720,7 +7720,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 135,
     "name": "The Span",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7806,7 +7806,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 136,
     "name": "Loosemooring",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7909,7 +7909,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 137,
     "name": "The Turnaround",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -7995,7 +7995,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 138,
     "name": "Fairway",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -8093,7 +8093,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 139,
     "name": "The Dockside",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -8206,7 +8206,7 @@ export const CAMPAIGN2 = [
     ],
     "id": 140,
     "name": "High Crossing",
-    "hint": "The platform keeps time \u2014 you keep your nerve"
+    "hint": "The platform keeps time — you keep your nerve"
   },
   {
     "map": [
@@ -13934,98 +13934,121 @@ export const CAMPAIGN2 = [
   },
   {
     "map": [
-      "..............1.1.",
-      ".....2..2..2...1..",
-      "....333333333321..",
-      "....2.........2...",
-      "...23.............",
-      "....2.............",
-      "....2.............",
-      "222.32............",
-      "22222.............",
-      "222.2.............",
-      "...23.............",
-      "....2.............",
-      "....3.............",
-      "...23...2..2..2...",
-      "....333333323322..",
-      ".....2.........22.",
-      "..............11..",
-      "..............122."
+      "...............1.1",
+      "................1.",
+      ".....2..2..2...22.",
+      "...21111112233333.",
+      "....1.........2...",
+      "....1.............",
+      "...211............",
+      "222.1.............",
+      "22221.............",
+      "222.12............",
+      "....1.............",
+      "....1.............",
+      "....1..2..2..2....",
+      "...22333332323....",
+      "................3.",
+      "................3.",
+      "................3.",
+      "...............122"
     ],
     "start": [
-      16,
+      17,
       17
     ],
     "goal": [
-      15,
+      16,
       1
     ],
     "shards": [
       [
-        4,
-        5
+        7,
+        13
       ],
       [
-        4,
-        8
+        8,
+        3
       ],
       [
-        12,
+        13,
+        13
+      ],
+      [
+        16,
         14
-      ],
+      ]
+    ],
+    "crumble": [
       [
-        4,
-        7
+        10,
+        13
       ]
     ],
     "orbs": [
       {
         "path": [
           [
-            4,
-            13
-          ],
-          [
-            4,
-            2
-          ]
-        ],
-        "speed": 1.86
-      },
-      {
-        "path": [
-          [
-            14,
-            14
-          ],
-          [
-            4,
-            14
-          ]
-        ],
-        "speed": 1.77,
-        "phase": 0.78
-      },
-      {
-        "path": [
-          [
             5,
-            2
+            3
           ],
           [
-            15,
-            2
+            16,
+            3
           ]
         ],
-        "speed": 2.21,
-        "phase": 0.74
+        "speed": 1.97,
+        "wave": 2
+      },
+      {
+        "path": [
+          [
+            4,
+            12
+          ],
+          [
+            4,
+            3
+          ]
+        ],
+        "speed": 2.14,
+        "phase": 0.41
       }
     ],
     "key": [
       0,
-      8
+      9
     ],
+    "shuttles": [
+      {
+        "a": [
+          16,
+          13
+        ],
+        "b": [
+          14,
+          13
+        ],
+        "wait": 2
+      }
+    ],
+    "conveyors": [
+      [
+        16,
+        16,
+        0,
+        -1
+      ],
+      [
+        16,
+        15,
+        0,
+        -1
+      ]
+    ],
+    "boss": {
+      "speed": 1.35
+    },
     "id": 200,
     "name": "Apex: The Broken Spire",
     "hint": "The whole game, wound into one fall"

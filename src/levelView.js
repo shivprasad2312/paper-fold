@@ -741,8 +741,9 @@ export function buildLevelView(level, actHue = null) {
       total: Math.max(total, 0.001),
       dist: (def.phase || 0) * total,
       // proximity sentinels (M3 wave-1) sleep parked until the cube
-      // comes within `wake` tiles — proofs treat them as always awake
-      awake: !def.wake,
+      // comes within `wake` tiles — proofs treat them as always awake.
+      // Boss wave-2 sentinels (M3) sleep until the phase trigger.
+      awake: !def.wake && !def.wave,
       h: 0,
       pos: new THREE.Vector3(),
       prev: new THREE.Vector3(),
@@ -948,12 +949,12 @@ export function buildLevelView(level, actHue = null) {
     // sentinels: patrol, face their heading (frozen patrols hold still;
     // sleeping proximity sentinels hold still until the cube is near)
     for (const o of orbs) {
-      if (!o.awake && cubePos) {
+      if (!o.awake && o.def.wake && cubePos) {
         const wdx = cubePos.x - o.holder.position.x;
         const wdz = cubePos.z - o.holder.position.z;
         if (wdx * wdx + wdz * wdz <= o.def.wake * o.def.wake) o.awake = true;
       }
-      if (!orbsFrozen && o.awake) o.dist = (o.dist + o.def.speed * dt) % o.total;
+      if (!orbsFrozen && o.awake) o.dist = (o.dist + o.def.speed * orbSpeedMul() * dt) % o.total;
       o.eyeMat.emissiveIntensity = !o.awake ? 0.1 : orbsFrozen ? 1.1 : 2.4;
       let seg = o.segs[o.segs.length - 1];
       for (const s of o.segs) {
@@ -1145,6 +1146,20 @@ export function buildLevelView(level, actHue = null) {
   // (a sleeping proximity sentinel keeps dark eyes); intensity is set
   // per frame in the patrol update, colours switch here.
   let orbsFrozen = false;
+
+  // Boss arena phase (M3): 1 until the gate key is grabbed, then 2 —
+  // wave-2 sentinels wake and every patrol runs at boss speed. The
+  // fairness proofs always model phase 2 (ADR-029), so the trigger is
+  // presentation and pressure, never a proof obligation.
+  let bossPhase = 1;
+  function orbSpeedMul() {
+    return bossPhase >= 2 && level.boss ? level.boss.speed : 1;
+  }
+  function beginPhase() {
+    bossPhase = 2;
+    for (const o of orbs) if (o.def.wave) o.awake = true;
+  }
+
   function setFrozen(f) {
     orbsFrozen = f;
     bodyMat.emissive.setHex(f ? 0x2a7ea6 : 0x000000);
@@ -1249,9 +1264,11 @@ export function buildLevelView(level, actHue = null) {
    *  which keeps the run's shards/crumbles/blocks but gives the hazards
    *  (and the player) a clean timing slate. */
   function resetOrbs() {
+    bossPhase = 1; // the arena sleeps again (a rescue keeps the key but
+    // still gets the clean timing slate resetOrbs promises)
     for (const o of orbs) {
       o.dist = (o.def.phase || 0) * o.total;
-      o.awake = !o.def.wake; // proximity sentinels go back to sleep
+      o.awake = !o.def.wake && !o.def.wave; // sleepers go back to sleep
       o.holder.rotation.set(0, 0, 0);
     }
   }
@@ -1325,6 +1342,8 @@ export function buildLevelView(level, actHue = null) {
     setFrozen,
     collectGateKey,
     setGoalLocked,
+    beginPhase,
+    orbSpeedMul,
     pushBlockVisual,
     reset,
     resetOrbs,

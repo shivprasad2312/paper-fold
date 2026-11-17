@@ -1217,3 +1217,55 @@ verifier 200 + 14 dailies green incl. the diversity audit; live
 L193 completed by the bot in 41 moves after the carry lock
 (regression: L109/L121/L196 shuttle levels re-proven same run),
 page errors none (the pre-commit hook re-runs its full gate).
+
+## ADR-029 — Boss arenas: the key grab starts phase 2 (2026-11-16)
+**Context:** M3's final item — bosses as set pieces. Act-end
+levels (every 20th) already get the boss-arena budget (18×18,
+ceiling sentinels, a sealed finale at 200), but mechanically
+they were just big levels. A boss needs a *turn*: a moment the
+arena changes character mid-fight. Any dynamic boss AI would
+break the static, provable level contract (ADR-004), so the
+turn is a phase trigger on data the proofs already track — the
+gate key.
+
+**Decision:** a keyed level may carry `boss: { speed }`
+(1 < speed ≤ 2, default 1.35). Grabbing the key starts phase 2:
+orbs marked `wave: 2` — parked dark-eyed at their patrol starts
+until then, reusing the proximity sentinel's sleeping body —
+wake, and every patrol's speed multiplies by `boss.speed`
+(view clock; the bot reads the live multiplier for its crossing
+predictions). The fairness model is phase-blind by design:
+`crossingWindow` runs every patrol at boss speed with wave-2
+sentinels awake, so the proven model is at least as hard as
+either real phase and both are covered by the one static proof
+— no solver state grows a phase bit. Two guards keep the turn
+honest: a wave-2 sentinel's spawn (patrol start) must sit ≥ 2
+tiles from the key, since the cube is standing on the key at
+the trigger (spawn audit); and a sentinel may not be both
+proximity (`wake`) and boss (`wave`) woken. Death restarts the
+arena at phase 1; a rescue keeps the key but still gets
+resetOrbs' clean timing slate (wave-2 sleeps again — the slate
+was always player-kind).
+
+**Introduction:** one proven slot (ADR-020 law) —
+`KUBIK_FORCE_MECH=200=boss` (L200 "Apex: The Broken Spire":
+the [5,3]→[16,3] patrol sleeps until the key, then the arena
+runs 1.35×). Generator: act-end budgets roll `boss` at 0.65
+(content-hash conversion, never the rand stream; 1–2 wave-2
+conversions, proximity sentinels ineligible); signature `B`.
+The slot hunt exposed a latent generator flaw: the
+end-of-attempts settle sat after `if (!rep.ok) continue`, so it
+only ever ran on attempts whose own candidate also passed — a
+slot with a single proven candidate in its whole budget (Apex
+under force: 1 in 450, at attempt 91) could never settle and
+always reported "no candidate passed". The settle now also
+runs as a true post-loop fallback; in-loop behaviour for every
+other slot is unchanged.
+
+**Gate:** unit 99/99 (boss validation: key required, wave
+law, speed band; a sealed crossing stays sealed with the
+sealer asleep at wave 2); verifier 200 + 14 dailies green
+incl. the diversity audit; live L200 completed by the bot in
+61 moves, page errors none (the pre-commit hook re-runs its
+full gate). M3 is complete: eight wave-1 mechanics plus boss
+arenas.
