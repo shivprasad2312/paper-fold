@@ -226,6 +226,12 @@ act-context force, paired force) by forced-slot splices, and a
 density ratchet in the unit gate fails the build if any tracked
 mechanic's count drops. Batch 1: door 2→8 (teach L92, twist
 L172), pulse 3→14, twin 3→10, conveyor 6→11, timed 6→14.
+Batch 2 (ADR-032) completes the floors (door →14, conveyor →14,
+twin →15), teaches the generator light blocks (carve + solver
+budget; teach L58, twist L171), and makes sawtooth relief law:
+relief slots settle on their shortest proven candidate, and the
+experience audit rejects any act running 6+ levels above its
+relief line (bottom third of the par band).
 
 **The hazard stage's laws.**
 - Mechanics (ice, spring, shuttle) are carved only along MAXIMAL straight

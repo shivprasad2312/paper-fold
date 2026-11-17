@@ -197,6 +197,27 @@ export function experienceProblems(defs, parById = new Map()) {
         problems.push(`act ${act.id} (${act.name}): key act carries keys on only ${keyed}/${list.length} levels`);
       }
     }
+    // — sawtooth relief (Phase C, ADR-032): a difficulty staircase needs
+    //   breathing slots, not a flat wall of median-par levels. Inside a
+    //   generated act, no run of more than five consecutive levels may
+    //   sit above the relief line (bottom third of the act's par band).
+    if (gen.par) {
+      const [lo, hi] = gen.par;
+      const reliefLine = lo + (hi - lo) / 3;
+      let run = 0;
+      let runStart = null;
+      for (const f of list) {
+        if (f.par >= 0 && f.par > reliefLine) {
+          if (run === 0) runStart = f;
+          run++;
+          if (run === 6) {
+            problems.push(`act ${act.id} (${act.name}): sawtooth relief missing — 6+ levels above par ${reliefLine.toFixed(0)} from L${runStart.id} (no breathing slot in the bottom third of the band)`);
+          }
+        } else {
+          run = 0;
+        }
+      }
+    }
   }
 
   return problems;

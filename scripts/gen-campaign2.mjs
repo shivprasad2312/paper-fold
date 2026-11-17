@@ -279,6 +279,7 @@ function mirrorDef(def, axis) {
   if (def.timed) out.timed = mirrorPts(def.timed);
   if (def.freeze) out.freeze = mirrorPts(def.freeze);
   if (def.heavy) out.heavy = mirrorPts(def.heavy);
+  if (def.blocks) out.blocks = mirrorPts(def.blocks);
   if (def.pulse) out.pulse = mirrorPts(def.pulse);
   if (def.key) out.key = T(def.key);
   return out;
@@ -405,6 +406,12 @@ for (let id = FIRST; id <= LAST; id++) {
   // full-orb candidates explicitly (rank = orb count, then score).
   const wantOrbs = bEff.orbs[0];
   const rankOf = (c, s) => (c.orbs || []).length * 100000 + s;
+  // sawtooth relief slot (Phase C, ADR-032): KUBIK_RELIEF=<id> settles
+  // this slot on its SHORTEST proven candidate instead of the
+  // highest-ranked one — a designed breathing slot in the act's par
+  // curve (bottom third of the band), not an accident of the draw.
+  const reliefSlot = Number(process.env.KUBIK_RELIEF || 0) === id;
+  const rankRelief = (c, s, par) => (reliefSlot ? -par * 100000 + s : rankOf(c, s));
   for (let attempt = 0; attempt < slotBudget && !def; attempt++) {
     const layout = ARCHETYPES[arch](rand, bEff);
     if (!layout) continue;
@@ -434,10 +441,11 @@ for (let id = FIRST; id <= LAST; id++) {
     // (post-mirror), and whether it keeps the local sequence diverse
     const expFp = experienceFingerprint(act.gen.flip ? mirrorDef(cand, act.gen.flip) : cand, rep.par);
     const expOk = sequenceProblems(expFp, recentExperience).length === 0;
-    if (uniq && expOk && (!best || rankOf(cand, s) > rankOf(best.cand, best.s))) best = { cand, rep, s, uniq, expFp };
-    if (!bestAny || rankOf(cand, s) > rankOf(bestAny.cand, bestAny.s)) bestAny = { cand, rep, s, uniq, expFp };
+    if (uniq && expOk && (!best || rankRelief(cand, s, rep.par) > rankRelief(best.cand, best.s, best.rep.par))) best = { cand, rep, s, uniq, expFp };
+    if (!bestAny || rankRelief(cand, s, rep.par) > rankRelief(bestAny.cand, bestAny.s, bestAny.rep.par)) bestAny = { cand, rep, s, uniq, expFp };
     // full orb budget met: take the best after a short exploration window
-    if (best && (best.cand.orbs || []).length >= wantOrbs && attempt >= 24) {
+    // (a relief slot keeps exploring: its shortest candidate may come late)
+    if (!reliefSlot && best && (best.cand.orbs || []).length >= wantOrbs && attempt >= 24) {
       def = best.cand;
       report = best.rep;
       seenSigs.add(best.uniq.sig);

@@ -689,6 +689,41 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placed && pHeavy > 0 && rand() < pHeavy) placeHeavy();
   }
 
+  // --- light blocks (Phase C, ADR-032): the telekinesis cube from the
+  // hand-authored campaign (L4/L7) joins the generator. Same placement
+  // law as the heavy block — astride the route, off the patrol line,
+  // clear of every mechanic — but a light block pushes level, downhill
+  // AND uphill, so there is no climb restriction on the push-forward;
+  // solveHazards proves the level still completes inside the budget.
+  const blocks = [];
+  {
+    const wantBlocks = force.blocks || 0;
+    const pBlocks = (b.mech || {}).blocks || 0;
+    const placeBlock = () => {
+      const shardSet = new Set(shards.map(([sx, sz]) => `${sx},${sz}`));
+      const cands = [];
+      for (let i = 1; i + 1 < path.length - 1; i++) {
+        const kk = k(i);
+        if (carved.has(kk) || mechSet.has(kk) || lineSet.has(kk) || shardSet.has(kk)) continue;
+        if (kk === `${start[0]},${start[1]}` || kk === `${goal[0]},${goal[1]}`) continue;
+        const nk = k(i + 1);
+        if (carved.has(nk) || mechSet.has(nk) || lineSet.has(nk) || shardSet.has(nk)) continue;
+        cands.push(i);
+      }
+      if (!cands.length) return false;
+      const i = pick(cands);
+      blocks.push([path[i][0], path[i][1]]);
+      markMech(path[i][0], path[i][1]);
+      return true;
+    };
+    let placed = 0;
+    while (placed < wantBlocks) {
+      if (!placeBlock()) return null; // a forced block must land
+      placed++;
+    }
+    if (!placed && pBlocks > 0 && rand() < pBlocks) placeBlock();
+  }
+
   // --- crumble slabs on the route (solver proves the route survives) --------
   const wantCrumble = int(b.crumble[0], b.crumble[1]);
   const crumble = [];
@@ -740,6 +775,11 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (heavies.length) {
     def.heavy = heavies;
     def.nudge = 3; // telekinesis charges for shoving it clear (solver-proven)
+  }
+  if (blocks.length) {
+    def.blocks = blocks;
+    // three charges per block in play (solver proves sufficiency)
+    def.nudge = Math.max(def.nudge || 0, 3 * (blocks.length + heavies.length));
   }
 
   // --- boss arena (M3): on a keyed level the key grab starts phase 2 —

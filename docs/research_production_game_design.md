@@ -463,9 +463,14 @@ campaign's 0.19, and tower routes run 47–57 rolls against the old
 44-roll game-wide ceiling. **Phase C batch 1 shipped** (ADR-031):
 21 forced slots scheduled teach→test→twist lift door 2→8,
 pulse 3→14, twin 3→10, conveyor 6→11, timed 6→14, guarded by a
-unit-test density ratchet. Next: Phase C batch 2 (door →12,
-sawtooth relief slots; sliders/wind/blocks carve support), then
-Phase B verbs (lifts first).
+unit-test density ratchet. **Phase C batch 2 shipped** (ADR-032):
+floors completed (door →14, conveyor →14, twin →15 — every
+generator-placeable mechanic now ≥12); light blocks join the
+generator (2→10, teach L58 → twist L171); sawtooth relief is
+audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
+may run 6+ levels above its relief line). Remaining Phase C:
+wind/slider carve + proof support. Next: Phase B verbs
+(lifts first).
 
 ---
 

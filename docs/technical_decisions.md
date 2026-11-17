@@ -1354,3 +1354,45 @@ the mechanic schedule, not the tile layout, is the contract.
 campaign-1 mechanics; the generator has no carve for them yet),
 the ≤55% density caps for crumble/sentinels (requires removal,
 a separate decision), and sawtooth relief slots — batch 2.
+
+## ADR-032 — Floors completed, light-block carve, sawtooth relief (2026-11-17)
+**Context:** Phase C batch 2 (ADR-031 follow-up): door (8),
+conveyor (11) and twin (10) sat below the ≥12 floor; light
+blocks existed only in two hand-authored levels (L4/L7); and
+the par curve had no designed breathing slots — density alone
+makes a wall, not a staircase.
+**Decision:** (1) Floors completed by forced slots (door →14,
+conveyor →14, twin →15; every generator-placeable mechanic now
+≥12, and the density ratchet records the shipped counts —
+pulse 18, timed 17, freeze 18, heavy 17, proximity 21).
+(2) The generator learns light blocks: a `blocks` carve
+in the hazard stage mirrors the heavy placement law without
+the climb restriction (a light block pushes uphill), nudge
+budget 3 per block in play, solver-proven; Acts 6–10 carry
+blocks probabilities; count 2→10. First arc: teach L58,
+test L77/L115, twist L171. (The mirror law gained `def.blocks`
+in the same batch: the first L58 candidate shipped its block at
+the unmirrored coordinate — in the void after the act's z-flip.
+Every def field that carries coordinates must mirror; the
+heavy list already did.) (3) Sawtooth relief is law, not luck: a relief
+slot settles on its shortest proven candidate
+(`KUBIK_RELIEF=<id>`, ranked −par), and the experience audit
+fails any generated act with 6+ consecutive levels above the
+relief line (bottom third of the act's par band). A relief
+re-cut strips a slot's scheduled mechanic like any re-cut, so
+relief landed where it cost nothing: L94 + L97 (Act 5; L92's
+stripped door was restored by re-forcing, at natural par),
+L136 (Act 7; L135's stripped conveyor likewise restored, its
+relief ceded to L136), and an Act 8 cascade — L147 relief
+(par 33) exposed an 18-point cliff to the Phase A tower slot
+L148 (par 50), repaired in the neighbourhood rather than by
+weakening either audit: L148 re-cut to 39, relief at L149
+and L151 (32), L146 took a forced twin test slot (49; the
+49→33 step is exactly the intra-act cliff limit), L152 relief
+at 37. The cliff and relief audits both stand as written.
+**Not yet:** wind and sliders remain hand-authored-only —
+neither has a generator carve, and wind has no static proof
+model at all (the verifier cannot yet prove a drift level);
+they get carve + proof work or stay rare, decided with
+Phase B. The ≤55% caps for crumble/sentinels still await a
+removal decision.

@@ -197,6 +197,17 @@ order with paired twist forces; `KUBIK_FORCE_MECH` accepts
 tracked mechanic drops below its shipped count. Ring slots
 185/195 could not admit door/twin carves and were re-forced to
 gauntlet/meridian under the same mechanic force.)
+ADR-032 (Phase C batch 2: floors completed — door 2→14,
+conveyor 6→14, twin 3→15, every generator-placeable mechanic
+now ≥12 and the ratchet records shipped counts; light blocks
+join the generator (hazard-stage carve, teach L58 → twist
+L171, count 2→10); sawtooth relief becomes law — `KUBIK_RELIEF`
+settles a slot on its shortest proven candidate and the
+experience audit fails any act with 6+ consecutive levels
+above the relief line; relief landed at L94/L97 (Act 5),
+L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
+slot re-cut to repair the relief cliff — audits unweakened);
+21 slots re-cut, names preserved.)
 
 ## Blockers
 

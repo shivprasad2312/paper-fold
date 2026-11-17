@@ -17,14 +17,15 @@ import assert from 'node:assert/strict';
 import { LEVELS } from '../../src/levels.js';
 
 const TRACKED = {
-  door: { count: (d) => (d.doors || []).length, floor: 8 },
-  pulse: { count: (d) => (d.pulse || []).length, floor: 12 },
-  timed: { count: (d) => (d.timed || []).length, floor: 12 },
-  conveyor: { count: (d) => (d.conveyors || []).length, floor: 11 },
-  twin: { count: (d) => (d.shuttles || []).some((s) => s.twin) ? 1 : 0, floor: 10 },
-  freeze: { count: (d) => (d.freeze || []).length, floor: 12 },
-  heavy: { count: (d) => (d.heavy || []).length, floor: 12 },
-  proximity: { count: (d) => (d.orbs || []).some((o) => o.wake) ? 1 : 0, floor: 12 },
+  door: { count: (d) => (d.doors || []).length, floor: 14 },
+  pulse: { count: (d) => (d.pulse || []).length, floor: 18 },
+  timed: { count: (d) => (d.timed || []).length, floor: 17 },
+  conveyor: { count: (d) => (d.conveyors || []).length, floor: 14 },
+  twin: { count: (d) => (d.shuttles || []).some((s) => s.twin) ? 1 : 0, floor: 15 },
+  freeze: { count: (d) => (d.freeze || []).length, floor: 18 },
+  heavy: { count: (d) => (d.heavy || []).length, floor: 17 },
+  proximity: { count: (d) => (d.orbs || []).some((o) => o.wake) ? 1 : 0, floor: 21 },
+  blocks: { count: (d) => (d.blocks || []).length, floor: 10 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {
