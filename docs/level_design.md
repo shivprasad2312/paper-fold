@@ -219,6 +219,14 @@ depth grow act over act while the opening stays readable. First
 spliced slots: plaza L88, L113, L128; tower L148, L168, L188;
 citadel L155, L177, L196.
 
+**Density arcs (Phase C, ADR-031).** A mechanic becomes vocabulary
+only after a dozen appearances in growing contexts. New appearances
+are scheduled teach → test → twist in level order (solo force,
+act-context force, paired force) by forced-slot splices, and a
+density ratchet in the unit gate fails the build if any tracked
+mechanic's count drops. Batch 1: door 2→8 (teach L92, twist
+L172), pulse 3→14, twin 3→10, conveyor 6→11, timed 6→14.
+
 **The hazard stage's laws.**
 - Mechanics (ice, spring, shuttle) are carved only along MAXIMAL straight
   runs of the path — a mechanic replaces solid route tiles with a hazard

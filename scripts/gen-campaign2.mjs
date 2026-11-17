@@ -376,7 +376,11 @@ for (let id = FIRST; id <= LAST; id++) {
   // through the full gate, instead of a campaign-wide regeneration.
   if (process.env.KUBIK_FORCE_MECH) {
     const [fId, fMech] = process.env.KUBIK_FORCE_MECH.split('=');
-    if (Number(fId) === id && fMech) allForce[fMech] = (allForce[fMech] || 0) + 1;
+    // a '+' list forces a combination on the slot (Phase C twist slots:
+    // teach solo, test in context, twist paired — ADR-031)
+    if (Number(fId) === id && fMech) {
+      for (const m of fMech.split('+')) allForce[m] = (allForce[m] || 0) + 1;
+    }
   }
   // per-act attempt budget (acts.js gen band `attempts`); the act's slot
   // density sets it — see the MAX_ATTEMPTS note above.

@@ -460,8 +460,12 @@ tower / citadel archetypes; Acts 8–10 at W20 with par bands
 slots (plaza L88/L113/L128, tower L148/L168/L188, citadel
 L155/L177/L196) — structure slots measure fill 0.53–0.67 against the
 campaign's 0.19, and tower routes run 47–57 rolls against the old
-44-roll game-wide ceiling. Next: Phase C density floors +
-teach–test–twist arcs, then Phase B verbs (lifts first).
+44-roll game-wide ceiling. **Phase C batch 1 shipped** (ADR-031):
+21 forced slots scheduled teach→test→twist lift door 2→8,
+pulse 3→14, twin 3→10, conveyor 6→11, timed 6→14, guarded by a
+unit-test density ratchet. Next: Phase C batch 2 (door →12,
+sawtooth relief slots; sliders/wind/blocks carve support), then
+Phase B verbs (lifts first).
 
 ---
 

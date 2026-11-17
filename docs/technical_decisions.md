@@ -1323,3 +1323,34 @@ Rollout follows the ADR-020 law by hand: forced slots only
 act pools admit the new archetypes for future natural picks.
 **Introduction:** nine spliced slots — plaza L88/L113/L128,
 tower L148/L168/L188, citadel L155/L177/L196.
+
+## ADR-031 — Density floors and teach–test–twist arcs (2026-11-17)
+**Context:** the research audit (§4.3) found debuts instead of
+design: M3 mechanics shipped at densities where an arc is
+impossible (doors 2, pulse 3, twin 3, conveyor 6, timed 6,
+proximity 7, heavy 8, freeze 11). A mechanic seen twice is a
+gimmick; seen a dozen times in growing contexts it becomes
+vocabulary. Phase C raises floors without new systems — the
+generator learns scheduling.
+**Decision:** (1) Every generator-placeable mechanic targets
+≥12 appearances. (2) New appearances are scheduled as arcs in
+level order: teach (earliest, solo force), test (mid-campaign,
+in act context), twist (late, paired force — `KUBIK_FORCE_MECH`
+now accepts `a+b` lists). (3) A density ratchet
+(`tests/unit/density.test.mjs`) records shipped counts per
+mechanic and fails the build if any drops below — floors rise
+only in the commit that raises the count, so a splice can
+never silently strip a mechanic. (4) Rollout follows the
+forced-slot law: one slot at a time, names preserved, diff
+against the pre-batch file proves only the scheduled slots
+changed. Batch 1 (22 slots incl. a par-cliff repair at L156): door 2→8 (teach L92 … twist
+L172), pulse 3→14, twin 3→10, conveyor 6→11, timed 6→14
+(incidental co-carves included). (5) Two `ring` slots (185,
+195) starved under their forced mechanics — ring geometry
+cannot admit a door/twin carve, so the archetype was
+re-forced (gauntlet/meridian) under the same mechanic force;
+the mechanic schedule, not the tile layout, is the contract.
+**Not in this batch:** sliders/wind/light blocks (hand-authored
+campaign-1 mechanics; the generator has no carve for them yet),
+the ≤55% density caps for crumble/sentinels (requires removal,
+a separate decision), and sawtooth relief slots — batch 2.

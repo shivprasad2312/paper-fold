@@ -188,6 +188,15 @@ turn made L196's key route unplayable on paper). Occupancy
 mirrors the game exactly: only a press's immediate step is
 block-aware, so ice slides may land on a pushed block's tile
 (L144's crossing depends on it).
+ADR-031 (density floors + teach–test–twist arcs, Phase C
+batch 1: 22 forced slots (21 scheduled + neighbour
+L156 absorbed by an act par-cliff repair) lift door 2→8, pulse 3→14, twin 3→10,
+conveyor 6→11, timed 6→14, scheduled teach→test→twist in level
+order with paired twist forces; `KUBIK_FORCE_MECH` accepts
+`a+b`; a unit-test density ratchet fails the build if any
+tracked mechanic drops below its shipped count. Ring slots
+185/195 could not admit door/twin carves and were re-forced to
+gauntlet/meridian under the same mechanic force.)
 
 ## Blockers
 
