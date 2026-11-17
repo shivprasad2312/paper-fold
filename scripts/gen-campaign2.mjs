@@ -23,6 +23,7 @@ import {
   spawnProblems,
   timingProblems,
   shortestRoute,
+  shortestPath,
   rescueTile,
   fairReachSet,
   key,
@@ -281,6 +282,7 @@ function mirrorDef(def, axis) {
   if (def.heavy) out.heavy = mirrorPts(def.heavy);
   if (def.blocks) out.blocks = mirrorPts(def.blocks);
   if (def.pulse) out.pulse = mirrorPts(def.pulse);
+  if (def.lifts) out.lifts = def.lifts.map((l) => ({ ...l, at: T(l.at) }));
   if (def.key) out.key = T(def.key);
   return out;
 }
@@ -434,6 +436,13 @@ for (let id = FIRST; id <= LAST; id++) {
       }
     }
     if (!rep.ok) continue;
+    // a forced lift must be RIDDEN by the proven route — a shaft the
+    // optimal line never takes teaches nothing (Phase B, ADR-033)
+    if ((allForce.lift || 0) > 0) {
+      const lv = parseLevel(cand);
+      const pth = shortestPath(lv);
+      if (!pth || !pth.some((t) => t.lift)) continue;
+    }
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);
     const o = (cand.orbs || []).length;

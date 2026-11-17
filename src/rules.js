@@ -158,12 +158,61 @@ export function parseLevel(def) {
     shuttles.flatMap((sh) => [key(sh.a[0], sh.a[1]), key(sh.b[0], sh.b[1])]),
   );
 
+  // ---- lift platforms (Phase B, ADR-033): a shuttle turned vertical ------
+  // One dock cell (void in the map) whose platform dwells at `low`, rides
+  // to `high`, dwells, and returns: board at the low bank, ride up, step
+  // off at the high bank — or the reverse. The dock tile is solidified at
+  // `low` and carries the lift; checkRoll prices any step against EITHER
+  // dwell (waiting for the platform is free in every proof, the same
+  // abstraction a shuttle dock gets), while the game prices live presses
+  // against the dwell the view's clock actually shows. A lift is only
+  // ever entered or left by a deliberate press (spawnProblems keeps
+  // slides, belts and launches away from the shaft).
+  const lifts = [];
+  const liftDocks = new Set();
+  for (const [i, lf] of (def.lifts || []).entries()) {
+    const [ax, az] = lf.at || [];
+    if (def.wind) throw new Error(`[${def.name}] lift ${i}: wind would shove a cube mid-ride — no wind level carries a lift`);
+    if (tiles.has(key(ax, az))) throw new Error(`[${def.name}] lift ${i} dock ${ax},${az} is not void`);
+    const { low, high } = lf;
+    if (!Number.isInteger(low) || !Number.isInteger(high) || high - low < 2 || high - low > 4) {
+      throw new Error(`[${def.name}] lift ${i} rise must be 2-4 storeys (got ${low}->${high})`);
+    }
+    // the banks: orthogonal slab neighbours. A bank serves a dwell when
+    // the plain roll law could step between the bank and a platform
+    // standing at that height.
+    const banks = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      .map(([dx, dz]) => tiles.get(key(ax + dx, az + dz)))
+      .filter(Boolean);
+    const serves = (n, h) => h - n.h <= MAX_CLIMB && n.h - h <= MAX_DROP;
+    if (!banks.some((n) => serves(n, low))) throw new Error(`[${def.name}] lift ${i} has no bank at its low dwell`);
+    if (!banks.some((n) => serves(n, high))) throw new Error(`[${def.name}] lift ${i} has no bank at its high dwell`);
+    // the shaft must join two height worlds: at least one bank reachable
+    // from only one of the dwells — otherwise the platform connects
+    // nothing a plain roll could not already reach.
+    if (!banks.some((n) => serves(n, low) !== serves(n, high))) {
+      throw new Error(`[${def.name}] lift ${i} joins no two banks (every neighbour serves both dwells)`);
+    }
+    // no machinery-to-machinery steps (the dock-to-dock law, L196): a
+    // platform dock never touches another platform's dock.
+    for (const n of banks) {
+      if (n.shuttle || n.lift) throw new Error(`[${def.name}] lift ${i} dock touches another platform dock`);
+    }
+    const wait = lf.wait || 2;
+    const travel = +((high - low) * 0.8).toFixed(2); // 0.8s per storey, as shuttles per tile
+    const lift = { at: [ax, az], low, high, wait, travel, cycle: 2 * wait + 2 * travel, id: i };
+    tiles.set(key(ax, az), { x: ax, z: az, h: low, crumble: false, lift });
+    lifts.push(lift);
+    liftDocks.add(key(ax, az));
+  }
+
   // ---- ice slabs: a roll onto ice keeps sliding one tile per step ----------
   const iceTiles = new Set();
   for (const [x, z] of def.ice || []) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] ice ${x},${z} is not a slab`);
     if (t.shuttle) throw new Error(`[${def.name}] ice on a shuttle dock`);
+    if (t.lift) throw new Error(`[${def.name}] ice on a lift dock`);
     t.ice = true;
     iceTiles.add(key(x, z));
   }
@@ -176,6 +225,7 @@ export function parseLevel(def) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] spring ${x},${z} is not a slab`);
     if (t.shuttle) throw new Error(`[${def.name}] spring on a shuttle dock`);
+    if (t.lift) throw new Error(`[${def.name}] spring on a lift dock`);
     t.spring = true;
     springTiles.add(key(x, z));
   }
@@ -188,6 +238,7 @@ export function parseLevel(def) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] conveyor ${x},${z} is not a slab`);
     if (t.shuttle) throw new Error(`[${def.name}] conveyor on a shuttle dock`);
+    if (t.lift) throw new Error(`[${def.name}] conveyor on a lift dock`);
     if (t.ice) throw new Error(`[${def.name}] conveyor on ice at ${x},${z}`);
     if (t.spring) throw new Error(`[${def.name}] conveyor on a spring at ${x},${z}`);
     if (!((Math.abs(dx) === 1 && dz === 0) || (Math.abs(dz) === 1 && dx === 0))) {
@@ -228,7 +279,7 @@ export function parseLevel(def) {
     if (Math.abs(ax - px) + Math.abs(az - pz) !== 1) {
       throw new Error(`[${def.name}] door at ${ax},${az} must sit beside its plate ${px},${pz}`);
     }
-    if (plate.shuttle || plate.ice || plate.spring || plate.conveyor || plate.crumble) {
+    if (plate.shuttle || plate.ice || plate.spring || plate.conveyor || plate.crumble || plate.lift) {
       throw new Error(`[${def.name}] door plate on another mechanic at ${px},${pz}`);
     }
     if (plate.plate) throw new Error(`[${def.name}] plate ${px},${pz} already works a door`);
@@ -249,7 +300,7 @@ export function parseLevel(def) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] timed slab ${x},${z} is not a slab`);
     if (t.crumble) throw new Error(`[${def.name}] timed slab on a crumble slab at ${x},${z}`);
-    if (t.shuttle || t.ice || t.spring || t.conveyor || t.plate || t.door) {
+    if (t.shuttle || t.ice || t.spring || t.conveyor || t.plate || t.door || t.lift) {
       throw new Error(`[${def.name}] timed slab on another mechanic at ${x},${z}`);
     }
     if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] timed slab on the start tile`);
@@ -267,7 +318,7 @@ export function parseLevel(def) {
   for (const [x, z] of def.freeze || []) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] freeze shard ${x},${z} is not a slab`);
-    if (t.shuttle || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.plate || t.door) {
+    if (t.shuttle || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.plate || t.door || t.lift) {
       throw new Error(`[${def.name}] freeze shard on another mechanic at ${x},${z}`);
     }
     if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] freeze shard on the start tile`);
@@ -303,6 +354,7 @@ export function parseLevel(def) {
     const [kx, kz] = def.key;
     if (!tiles.has(key(kx, kz))) throw new Error(`[${def.name}] key ${kx},${kz} is not a slab`);
     if (tiles.get(key(kx, kz)).door) throw new Error(`[${def.name}] key sits on a door tile`);
+    if (tiles.get(key(kx, kz)).lift) throw new Error(`[${def.name}] key sits on a lift dock`);
     if (kx === goalTile.x && kz === goalTile.z) throw new Error(`[${def.name}] key sits on the goal`);
     gateKey = { x: kx, z: kz };
   }
@@ -361,6 +413,8 @@ export function parseLevel(def) {
     sliderTiles,
     shuttles,
     shuttleDocks,
+    lifts,
+    liftDocks,
     iceTiles,
     springTiles,
     conveyorTiles,
@@ -410,6 +464,7 @@ function springLaunch(level, pos, d) {
     pz += d.dz;
     if (!cand) continue; // flew over void (or off the level)
     if (cand.door) continue; // a launch never lands on a door (M3 wave-1): it flies the doorway over
+    if (cand.lift) continue; // nor on a lift (Phase B): it flies the shaft over
     const dh = cand.h - pos.h;
     if (dh > 3 || dh < -3) return null; // wall too tall / drop too deep
     return cand;
@@ -430,7 +485,7 @@ export function resolveRoll(level, from, d) {
     // the transfer window never opened in real play and the level was
     // unplayable; the model, treating dock tiles as ordinary slabs, had
     // blessed it. Fixed 2026-11-13 (caught by the live gate).
-    if (pos.shuttle && to.shuttle) return null;
+    if ((pos.shuttle || pos.lift) && (to.shuttle || to.lift)) return null;
     return to;
   };
   let t;
@@ -529,10 +584,27 @@ export function checkRoll(level, from, to) {
   if (to.door && !(from.x === to.door.x && from.z === to.door.z)) {
     return { ok: false, kind: 'blocked' };
   }
-  const delta = to.h - from.h;
-  if (delta > MAX_CLIMB) return { ok: false, kind: 'blocked' };
-  if (-delta > MAX_DROP) return { ok: false, kind: 'blocked' };
-  return { ok: true, kind: delta === 0 ? 'flat' : delta > 0 ? 'climb' : 'drop' };
+  // A lift dock (Phase B, ADR-033) dwells at two heights: statically a
+  // step is legal if SOME dwell pairing satisfies the roll law — the
+  // cube waits for the platform (on the bank, or riding it), exactly as
+  // it waits for a shuttle. The live game never passes a lift-flagged
+  // tile here (its cube carries the true height and isSolid hands over
+  // the platform's actual dwell), so real presses price against the
+  // height the platform truly shows; only the proofs use the two-dwell
+  // law, and a proof may therefore ask for a wait, never for a climb.
+  const fromH = from.lift ? [from.lift.low, from.lift.high] : [from.h];
+  const toH = to.lift ? [to.lift.low, to.lift.high] : [to.h];
+  let kind = null;
+  for (const hf of fromH) {
+    for (const ht of toH) {
+      const delta = ht - hf;
+      if (delta > MAX_CLIMB || -delta > MAX_DROP) continue;
+      const k = delta === 0 ? 'flat' : delta > 0 ? 'climb' : 'drop';
+      if (k === 'flat') return { ok: true, kind: k };
+      kind = kind || k;
+    }
+  }
+  return kind ? { ok: true, kind } : { ok: false, kind: 'blocked' };
 }
 
 /** Neighbours that are legal destinations from a tile (void excluded). */
@@ -588,6 +660,7 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   if (to.door || to.plate) return false;
   if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
   if (to.pulse) return false; // nor on a pulsing gap — it would blink out under the block
+  if (to.lift) return false; // nor on a lift platform (Phase B) — it would ride away under the block
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
   if ((occupied || level.blockTiles).has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
@@ -787,7 +860,7 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse;
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -994,6 +1067,22 @@ export function spawnProblems(level) {
       }
       gx += sh.dx;
       gz += sh.dz;
+    }
+  }
+  // lift docks (Phase B, ADR-033): the platform is the only thing solid
+  // in the shaft — no sentinel may patrol the dock, and no slide, belt or
+  // launch tile may feed it (follow-through cannot wait for a dwell, so
+  // the shaft is only ever entered by a deliberate press).
+  for (const dock of level.liftDocks) {
+    const [x, z] = dock.split(',').map(Number);
+    for (const orb of level.orbs) {
+      if (orb.path.some(([px, pz]) => px === x && pz === z)) {
+        probs.push(`orb patrols a lift dock ${x},${z}`);
+      }
+    }
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const n = level.tiles.get(key(x + dx, z + dz));
+      if (n && (n.ice || n.spring || n.conveyor)) probs.push(`lift dock ${x},${z} is fed by a slide/belt/launch tile`);
     }
   }
   // a spring launch must not fly through or land near a sentinel: the flight

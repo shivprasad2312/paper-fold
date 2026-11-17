@@ -12,10 +12,10 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, pulse, proximity, twin, boss } (per-mechanic prob.) }
+//         heavy, blocks, pulse, proximity, twin, boss, lift } (per-mech. prob.) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
-//         timed?: n, freeze?: n, heavy?: n, pulse?: n, proximity?: n,
-//         twin?: n, boss?: n }
+//         timed?: n, freeze?: n, heavy?: n, blocks?: n, pulse?: n,
+//         proximity?: n, twin?: n, boss?: n, lift?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -455,6 +455,100 @@ export function applyHazards(layout, b, rand, opts = {}) {
     return null; // no shuttle carved: nothing can twin
   }
 
+  // --- lifts (Phase B, ADR-033): the shuttle carve turned vertical — the
+  // middle tile of a two-storey stair run on the route is hollowed into a
+  // shaft, and the platform dwells at the two path heights it joins, so
+  // the ride replaces the stair. Like the twin/boss conversions, the pick
+  // comes from a content hash — never the shared rand stream — so arming
+  // the carve cannot reshuffle already-shipped candidate streams.
+  const lifts = [];
+  {
+    const wantLift = force.lift || 0;
+    const pLift = (b.mech || {}).lift || 0;
+    const liftSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const liftRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + liftSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const findLiftCells = () => {
+      // class 1 — stair shafts: the middle tile of a two-storey stair
+      // run on the route (the ride replaces the stair)
+      // class 2 — band shafts: a void or clearable fill cell whose
+      // neighbours span two storeys (the tower/citadel geometry: the
+      // lift skips the middle band the stamped stairs climb through)
+      const stairs = [];
+      const bands = [];
+      for (let i = 1; i + 1 < path.length; i++) {
+        const [ax, az] = path[i - 1];
+        const [bx, bz] = path[i];
+        const [cx, cz] = path[i + 1];
+        const ha = map[az][ax];
+        const hc = map[cz][cx];
+        if (ha === 0 || hc === 0 || Math.abs(hc - ha) !== 2) continue; // a two-storey stair
+        const bk = `${bx},${bz}`;
+        if (carved.has(bk) || mechSet.has(bk)) continue;
+        // the banks and every other neighbour must be unclaimed floor:
+        // slides/belts/launches never feed the shaft, no platform dock
+        // touches another, and a claimed neighbour would fail the parse
+        let claimed = false;
+        for (const [nx, nz] of [[bx - 1, bz], [bx + 1, bz], [bx, bz - 1], [bx, bz + 1]]) {
+          if (carved.has(`${nx},${nz}`) || mechSet.has(`${nx},${nz}`)) claimed = true;
+        }
+        if (claimed) continue;
+        stairs.push({
+          at: [bx, bz],
+          low: Math.min(ha, hc),
+          high: Math.max(ha, hc),
+        });
+      }
+      const serves = (nh, Hh) => Hh - nh <= 1 && nh - Hh <= 2;
+      for (let z = 1; z < H - 1; z++) {
+        for (let x = 1; x < W - 1; x++) {
+          const kk = `${x},${z}`;
+          if (pathSet.has(kk) || carved.has(kk) || mechSet.has(kk)) continue;
+          const ns = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+            .map(([dx, dz]) => ({ x: x + dx, z: z + dz, h: map[z + dz][x + dx], kk: `${x + dx},${z + dz}` }))
+            .filter((n) => n.h > 0);
+          if (ns.length < 2) continue;
+          if (ns.some((n) => carved.has(n.kk) || mechSet.has(n.kk))) continue;
+          const heights = [...new Set(ns.map((n) => n.h))];
+          const maxH = Math.max(...heights);
+          for (const lo of heights) {
+            // the high dwell may overshoot the tallest bank by one
+            // storey (the platform rises past the far bank and the cube
+            // drops off — how a lift crosses a one-storey moat in the
+            // concentric tower/citadel rings, whose bands sit 1 apart)
+            for (let hi = lo + 2; hi <= Math.min(lo + 3, maxH + 1); hi++) {
+              if (!ns.some((n) => serves(n.h, lo)) || !ns.some((n) => serves(n.h, hi))) continue;
+              if (!ns.some((n) => serves(n.h, lo) !== serves(n.h, hi))) continue;
+              bands.push({ at: [x, z], low: lo, high: hi });
+            }
+          }
+        }
+      }
+      return { stairs, bands };
+    };
+    const convertLift = () => {
+      const { stairs, bands } = findLiftCells();
+      const pool = stairs.length ? stairs : bands;
+      if (!pool.length) return false;
+      const c = pool[Math.floor(liftRoll('#pick') * pool.length)];
+      clearTile(c.at[0], c.at[1]);
+      carved.add(`${c.at[0]},${c.at[1]}`);
+      lifts.push({ at: c.at, low: c.low, high: c.high, wait: 2.0 });
+      markMech(c.at[0], c.at[1]);
+      return true;
+    };
+    let placedLift = 0;
+    while (placedLift < wantLift) {
+      if (!convertLift()) return null; // a forced lift must land
+      placedLift++;
+    }
+    if (!placedLift && pLift > 0 && liftRoll('#roll') < pLift) convertLift();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
   const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
@@ -765,6 +859,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (orbs.length) def.orbs = orbs;
   if (keyPos) def.key = keyPos;
   if (shuttles.length) def.shuttles = shuttles;
+  if (lifts.length) def.lifts = lifts;
   if (springs.length) def.springs = springs;
   if (ice.length) def.ice = ice;
   if (conveyors.length) def.conveyors = conveyors;

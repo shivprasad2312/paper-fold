@@ -25,6 +25,19 @@ satisfy (enforced by `parseLevel` + verifier):
   runs a second platform half a cycle out of phase on the same loop —
   proofs still model the one logical shuttle, so a twin only ever
   adds boarding windows.
+- `lifts`: `[{at: [x,z], low, high, wait}]` — a shuttle turned vertical
+  (Phase B, ADR-033): the dock cell is void in the map (the parser
+  solidifies it as a `lift` tile); the platform dwells at `low`, rides
+  to `high` (0.8 s per storey) and back. Board at one bank, ride, step
+  off at the other. Rise 2–4 storeys; each dwell needs a bank the roll
+  law can serve at that height, and some bank must serve exactly one
+  dwell (a shaft joining nothing is rejected). Static proofs price a
+  step against either dwell (waiting is free, as at a shuttle dock);
+  live presses price against the dwell the view clock shows, and the
+  dock only holds while the platform dwells (ADR-013). The shaft is
+  entered only by a deliberate press: no sentinel patrols the dock, no
+  ice/spring/conveyor tile feeds it, no other mechanic stacks on it,
+  blocks never park on it, and no platform dock touches another.
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.

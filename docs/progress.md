@@ -208,6 +208,17 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-033 (Phase B opens: lift platforms — a shuttle turned vertical.
+`lifts: [{at, low, high, wait}]`; `checkRoll` prices steps against
+either dwell so every proof inherits lift crossings, while live
+presses price against the view clock's actual dwell; rise 2–4
+storeys, two-bank parse law, no slide/belt/launch feed, no wind.
+Generator gains a content-hash shaft conversion (stair-hollow on
+the route, or band shaft with ≤1-storey overshoot in the
+tower/citadel rings); first slots teach L131 'The Wait' (Act 7,
+1→3) and test L173 'Over the Edge' (Act 9 tower, 2→4), a forced
+lift must be ridden by the proven route; bot waits for the serving
+dwell; ratchet tracks lifts at 2. Next Phase B verb: shrink pads.)
 
 ## Blockers
 

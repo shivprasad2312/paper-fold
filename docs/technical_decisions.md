@@ -1396,3 +1396,56 @@ model at all (the verifier cannot yet prove a drift level);
 they get carve + proof work or stay rare, decided with
 Phase B. The ≤55% caps for crumble/sentinels still await a
 removal decision.
+
+## ADR-033 — Lift platforms: the shuttle turned vertical (2026-11-17)
+**Context:** Phase B opens with the verb the Phase A structures were
+built for (research §5, gap G5): towers and citadels are stacks of
+one-storey bands crossed by stamped stairs, and the route language
+had no way to *change storeys* as a timed, readable event. EDGE's
+answer is the moving platform; KUBIK's shuttles already move the
+cube horizontally between docks — the missing axis was height.
+**Decision:** A lift is a shuttle turned vertical: `lifts:
+[{at, low, high, wait}]` — one dock cell (void in the map) whose
+platform dwells at `low`, rides to `high` (0.8 s per storey, the
+shuttle's per-tile rate), dwells, and returns. Board at the low
+bank, ride, step off high — or the reverse. (1) *Proof law:* the
+parser solidifies the dock at `low`; `checkRoll` prices any step
+against EITHER dwell — a proof may ask the cube to wait for the
+platform (on the bank or riding it), never to climb — the same
+abstraction a shuttle dock has always had, so every search
+(shortest route, soft-lock, hazard solver, fair-reach) inherits
+lift crossings from the one predicate. The live game never prices
+a lift-flagged tile: `isSolid` hands the roll law the platform's
+actual dwell height (from the view clock) and the cube's `h`
+tracks the platform while it rides, so real presses are priced
+against the height truly shown. (2) *Parse law:* rise 2–4
+storeys; each dwell needs a serving bank (roll law, priced at that
+dwell); the shaft must join two height worlds (some bank serving
+exactly one dwell — a decorative shaft is rejected); no platform
+dock touches another (the dock-to-dock law); no wind. Ice,
+springs, conveyors, plates, keys, timed and freeze never stack on
+the dock, and the spawn audit adds: no sentinel patrols the dock,
+no slide/belt/launch tile feeds the shaft — a lift is only ever
+entered by a deliberate press. Blocks never park on the platform
+(`canPushBlock`). (3) *Generator:* a content-hash conversion in
+the hazard stage (never the shared rand stream) hollows either
+the middle tile of a two-storey stair run on the route (dwells =
+the two path heights; the ride replaces the stair — the teach
+geometry) or a void/clearable band cell whose neighbours span
+two storeys, the high dwell overshooting the tallest bank by at
+most one storey (how a lift crosses the one-storey moats in the
+concentric tower/citadel rings). Acts 7–10 carry `lift`
+probabilities; `KUBIK_FORCE_MECH=lift` plus a generator rule — a
+forced lift must be *ridden by the proven route* — ships the
+first slots: teach L131 "The Wait" (Act 7 ring, 1→3, par 33) and
+test L173 "Over the Edge" (Act 9 tower, 2→4 over the core,
+par 43), names preserved. The live bot prices lift steps with the
+same two-dwell mirror and waits for the serving dwell before
+boarding or stepping off (commit bursts hand lift steps back to
+the main loop, like dock boardings). `mirrorDef` mirrors
+`lifts[].at`; the experience fingerprint learns 'V'; the density
+ratchet tracks lifts at their shipped count (2).
+**Not yet:** lift *density* (a teach→test→twist arc at 12+, the
+Phase C treatment) waits for a later cadence pass; twin lifts and
+mid-shaft exits to a third bank are deliberately unmodelled; the
+next Phase B verb is the shrink pad (mini-cube).

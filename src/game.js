@@ -279,6 +279,15 @@ export class Game {
     if (this.level.pulseTiles.has(key(x, z)) && !this.view.pulseUp(x, z)) return null;
     // A shuttle dock only holds while its platform dwells there.
     if (t.shuttle && !this.view.shuttleDocked(x, z)) return null;
+    // A lift dock (Phase B, ADR-033) only holds while its platform dwells
+    // at an end, and then at that dwell's height.
+    if (t.lift) {
+      const h = this.view.liftDockHeight(x, z);
+      if (h === null) return null;
+      const lt = { ...t, h };
+      delete lt.lift;
+      return lt;
+    }
     return t;
   }
 
@@ -425,6 +434,7 @@ export class Game {
     this.updateCube(dt, time);
     this.view.update(dt, time, this.cubeMesh.position);
     this.updateShuttleCarry(time);
+    this.updateLiftCarry();
 
     // camera follows the cube gently
     this.stage.setFocus(this.cubeMesh.position.x, this.cubeMesh.position.z);
@@ -591,6 +601,7 @@ export class Game {
       px += d.dx;
       pz += d.dz;
       if (!cand) continue;
+      if (cand.lift) continue; // a launch never lands on a lift: it flies the shaft over
       if (this.view.isBroken(cand.x, cand.z)) continue; // a crater is not a floor
       const dh = cand.h - from.h;
       if (dh > 3 || dh < -3) return null;
@@ -844,6 +855,24 @@ export class Game {
       this.rideRef = null;
       this.checkPickups();
     }
+  }
+
+  /**
+   * Lift carry (Phase B, ADR-033): the cube rests on the platform in its
+   * own cell — riding it changes only the cube's height. cube.h tracks
+   * the platform's true height every frame, so a press off the shaft is
+   * priced against the height the cube actually floats at (stepping off
+   * mid-ride is legal exactly when the roll law says it is, as with a
+   * shuttle's drive).
+   */
+  updateLiftCarry() {
+    if (this.state !== 'playing' || this.cube.anim) return;
+    if (!this.level.liftDocks.has(key(this.cube.x, this.cube.z))) return;
+    const i = this.level.lifts.findIndex((lf) => lf.at[0] === this.cube.x && lf.at[1] === this.cube.z);
+    if (i < 0) return;
+    const h = this.view.liftHeightAt(i);
+    this.cube.h = h;
+    this.cubeMesh.position.set(this.cube.x, h + HALF, this.cube.z);
   }
 
   checkPickups() {

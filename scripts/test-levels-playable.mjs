@@ -48,6 +48,7 @@ const {
   orbPositionFromDist,
   fairCrossingGraph,
   resolveRoll,
+  checkRoll,
   shuttleRide,
   ROLL_TIME,
   ORB_KILL_RADIUS,
@@ -151,8 +152,28 @@ function liveCtx(def) {
     crumbles,
     orbs,
     docks: model.shuttleDocks,
+    liftDocks: model.liftDocks,
     keyOnLine,
   };
+}
+
+/**
+ * Wait until the lift at (x, z) dwells at a height `okH` approves (the
+ * boarding/exit dwell for the step about to be pressed). The static
+ * model prices a lift step against either dwell; the live shaft only
+ * serves the press while the platform rests at a serving end.
+ */
+async function waitLiftDwell(x, z, okH, timeout = 20000) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    const h = await page.evaluate(
+      ([lx, lz]) => window.__kubik.game.view.liftDockHeight(lx, lz),
+      [x, z],
+    );
+    if (h !== null && okH(h)) return true;
+    await wait(70);
+  }
+  return false;
 }
 
 /** Is a phase tile (sliding bridge or pulsing gap) currently solid? */
@@ -640,6 +661,21 @@ async function driveRouteLive(tiles, moves, ctx) {
     }
     if (++stuck > 4) return false; // cannot advance (no pushes left, etc.)
 
+    // leaving a lift (Phase B): the cube rides the platform in its own
+    // cell, so its position never leaves the dock — but the step off is
+    // only served while the platform dwells at a height the roll law
+    // accepts toward the target. Wait for that dwell (never on crumble).
+    {
+      const curTile = ctx.model.tiles.get(key(st.x, st.z));
+      if (curTile && curTile.lift && !ctx.crumbles.has(key(st.x, st.z))) {
+        const lift = curTile.lift;
+        const targetTile = ctx.model.tiles.get(key(target.x, target.z));
+        const ok = await waitLiftDwell(st.x, st.z,
+          (h) => checkRoll(ctx.model, { x: st.x, z: st.z, h }, targetTile).ok);
+        if (!ok) return false;
+      }
+    }
+
     const onLineTarget = ctx.line.has(key(target.x, target.z));
 
     if (onLineTarget && !ctx.line.has(key(st.x, st.z))) {
@@ -780,6 +816,16 @@ async function driveRouteLive(tiles, moves, ctx) {
       continue;
     }
 
+    // boarding a lift (Phase B): the platform must dwell at a height
+    // the roll law accepts from the cube's tile — the shaft only holds
+    // at a dwell, and at the dwell's own height.
+    if (ctx.liftDocks.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
+      const curTile = ctx.model.tiles.get(key(st.x, st.z));
+      const ok = await waitLiftDwell(target.x, target.z,
+        (h) => checkRoll(ctx.model, curTile, { x: target.x, z: target.z, h }).ok);
+      if (!ok) return false;
+    }
+
     // boarding a shuttle dock: the platform must be dwelling there first
     if (ctx.docks.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
       const t0 = Date.now();
@@ -847,7 +893,7 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
     // roll into a dock the platform is not standing on
     {
       const nt = ctx.model.tiles.get(key(next.x, next.z));
-      if (nt && nt.shuttle) break;
+      if (nt && (nt.shuttle || nt.lift)) break;
     }
     // a sliding bridge that dips into the void: never press (or pre-queue)
     // a roll onto a down bridge — the roll would fall into the void. Wait
@@ -920,7 +966,7 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
           if (k >= tiles.length - 1) break;
           if (moves[k] === 'ride') continue; // rides need no press
           const tk = ctx.model.tiles.get(key(tiles[k + 1].x, tiles[k + 1].z));
-          if (tk && tk.shuttle) continue; // a dock boarding waits for the dwell
+          if (tk && (tk.shuttle || tk.lift)) continue; // a dock boarding waits for the dwell
           // a phase-tile roll can't be pre-queued: the bridge/gap may be
           // open when the queued roll fires — the next loop iteration
           // presses it with the phase-up wait
@@ -968,9 +1014,10 @@ function bfsEval(targetExpr) {
       const step = (p, ddx = dx, ddz = dz) => {
         const to = g.level.tiles.get(\`\${p.x + ddx},\${p.z + ddz}\`);
         if (!to) return null;
-        const drop = p.h - to.h;
-        if (drop < -1 || drop > 2) return null;
-        if (p.shuttle && to.shuttle) return null; // no dock-to-dock rolls (mirrors rules.resolveRoll)
+        const phs = p.lift ? [p.lift.low, p.lift.high] : [p.h];
+        const ths = to.lift ? [to.lift.low, to.lift.high] : [to.h];
+        if (!phs.some((hf) => ths.some((ht) => ht - hf <= 1 && hf - ht <= 2))) return null; // roll law, either dwell (mirrors checkRoll)
+        if ((p.shuttle || p.lift) && (to.shuttle || to.lift)) return null; // no machinery-to-machinery rolls (mirrors rules.resolveRoll)
         if (to.door && !(p.x === to.door.x && p.z === to.door.z)) return null; // doors open only from their plate (mirrors checkRoll)
         return to;
       };
@@ -981,6 +1028,7 @@ function bfsEval(targetExpr) {
           px += ddx; pz += ddz;
           if (!c) continue;
           if (c.door) continue; // a launch never lands on a door (mirrors springLaunch)
+          if (c.lift) continue; // nor on a lift (mirrors springLaunch)
           const dh = c.h - fromPad.h;
           if (dh > 3 || dh < -3) return null;
           return c;

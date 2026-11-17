@@ -287,7 +287,7 @@ structure, verbs, cadence, and meta.
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
 | G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
 | G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Only "roll"; novelty is tile-side | **Behind** |
-| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles/sliders only, horizontal | Partial |
+| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033); pistons/turntables pending | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
 | G7 | Difficulty rhythm | Sawtooth + relief (§2.2) | Act bands rise ~monotonically; intra-act cliffs audited ≤16 | Partial |
 | G8 | Mastery meta | Ranks/ghosts/best-times (§2.5–2.6) | Par + medals only; no per-level grade, no ghost | **Behind** |
@@ -348,12 +348,14 @@ treatment).
 *Each is an original KUBIK mechanic, one proven slot each (ADR-020).
 Ordered by proof-friendliness:*
 
-1. **Lift platforms (vertical shuttles).** A shuttle whose track moves
-   in *height* between two banks: board at low bank, ride up, step off
-   high. Proof-wise it is a shuttle edge between different-height
-   tiles — the resolver already prices bank steps; the ride edge stays
-   one logical edge. Unlocks towers/crossings from Phase A.
-   *First slot:* an Act-7 level re-cut around a lift shaft.
+1. **Lift platforms (vertical shuttles).** ✅ *Shipped (ADR-033).*
+   A shuttle whose track moves in *height* between two banks: board
+   at low bank, ride up, step off high. Proof-wise it is a shuttle
+   edge between different-height tiles — the resolver already prices
+   bank steps; the ride edge stays one logical edge. Unlocks
+   towers/crossings from Phase A. *First slots:* teach L131
+   "The Wait" (Act 7, 1→3) and test L173 "Over the Edge" (Act 9
+   tower, 2→4); density arc deferred to a later cadence pass.
 2. **Shrink pads ("mini-cube").** Rolling onto a pad halves the cube
    until it exits a low gate arch or re-pads. Mini-cube fits 1-wide
    *low tunnels* (tiles flagged `low` — impassable to full cube).
@@ -469,8 +471,9 @@ generator-placeable mechanic now ≥12); light blocks join the
 generator (2→10, teach L58 → twist L171); sawtooth relief is
 audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
 may run 6+ levels above its relief line). Remaining Phase C:
-wind/slider carve + proof support. Next: Phase B verbs
-(lifts first).
+wind/slider carve + proof support. **Phase B opened (ADR-033):**
+lift platforms shipped (see Phase B item 1). Next: shrink pads
+(mini-cube), then pistons, turntables, clinging.
 
 ---
 

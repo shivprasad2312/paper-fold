@@ -8,9 +8,10 @@
 // breaks the build here instead of shipping unnoticed. Raise a floor
 // only in the commit that raises the mechanic's actual count.
 //
-// Not tracked: sliders / wind / light blocks (hand-authored campaign-1
-// mechanics the generator cannot carve yet) and boss (act finales only,
-// by design).
+// Not tracked: sliders / wind (hand-authored campaign-1 mechanics the
+// generator cannot carve yet) and boss (act finales only, by design).
+// Light blocks joined the generator in ADR-032 and lifts in ADR-033;
+// both are tracked below at their shipped counts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -26,6 +27,7 @@ const TRACKED = {
   heavy: { count: (d) => (d.heavy || []).length, floor: 17 },
   proximity: { count: (d) => (d.orbs || []).some((o) => o.wake) ? 1 : 0, floor: 21 },
   blocks: { count: (d) => (d.blocks || []).length, floor: 10 },
+  lift: { count: (d) => (d.lifts || []).length, floor: 2 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {

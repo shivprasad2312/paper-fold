@@ -20,6 +20,7 @@ import {
   candidateCrossings,
   fairCrossingGraph,
   canPushBlock,
+  checkRoll,
   solveHazards,
   timingProblems,
   pulseUp,
@@ -871,4 +872,129 @@ test('spring/ice spawn audit flags a sentinel in the corridor', () => {
   const probs = spawnProblems(level);
   assert.ok(probs.some((p) => p.includes('spring')), 'spring corridor flagged');
   assert.ok(probs.some((p) => p.includes('ice')), 'ice corridor flagged');
+});
+
+// --- lifts (Phase B, ADR-033): a shuttle turned vertical --------------------
+// Low bank west at h1, high bank east at h4, one shaft cell between them:
+// the only way up is the platform.
+const liftDef = () => ({
+  name: 'lift-test',
+  map: [
+    '.....',
+    '.11.4',
+    '.11.4',
+    '.....',
+  ],
+  start: [1, 1],
+  goal: [4, 1],
+  lifts: [{ at: [3, 1], low: 1, high: 4 }],
+});
+
+test('lift docks are solid tiles flagged for the platform, with a cycle', () => {
+  const level = parseLevel(liftDef());
+  const dock = level.tiles.get('3,1');
+  assert.ok(dock.lift, 'dock flagged');
+  assert.equal(level.lifts.length, 1);
+  const lf = level.lifts[0];
+  assert.equal(lf.low, 1);
+  assert.equal(lf.high, 4);
+  assert.equal(lf.wait, 2, 'dwell defaults to the shuttle dwell');
+  assert.equal(lf.travel, 2.4, 'ride time is 0.8s per storey');
+  assert.equal(lf.cycle, 2 * lf.wait + 2 * lf.travel);
+  assert.ok(level.liftDocks.has('3,1'));
+});
+
+test('the proven route rides the lift; without it the high bank is unreachable', () => {
+  const level = parseLevel(liftDef());
+  assert.equal(shortestRoute(level), 3);
+  assert.ok(reachable(level).has('4,1'), 'high bank reachable');
+  assert.ok(canStillFinish(level).has('1,1'), 'no soft-lock at the low bank');
+  const bare = parseLevel({ ...liftDef(), lifts: [] });
+  assert.equal(shortestRoute(bare), -1, 'no lift, no route up');
+});
+
+test('checkRoll prices a lift step against either dwell, and nothing else', () => {
+  const level = parseLevel(liftDef());
+  const lowBank = level.tiles.get('2,1');
+  const highBank = level.tiles.get('4,1');
+  const dock = level.tiles.get('3,1');
+  assert.ok(checkRoll(level, lowBank, dock).ok, 'board at the low dwell');
+  assert.ok(checkRoll(level, dock, highBank).ok, 'step off at the high dwell');
+  assert.ok(checkRoll(level, highBank, dock).ok, 'board at the high dwell');
+  assert.ok(checkRoll(level, dock, lowBank).ok, 'step off at the low dwell');
+  // a bank no dwell can serve: an h9 tower beside the shaft
+  const tall = parseLevel({
+    name: 'lift-tall',
+    map: [
+      '...9.',
+      '.11.4',
+      '.11.4',
+    ],
+    start: [1, 1],
+    goal: [4, 1],
+    lifts: [{ at: [3, 1], low: 1, high: 4 }],
+  });
+  const tower = tall.tiles.get('3,0');
+  const shaft = tall.tiles.get('3,1');
+  assert.equal(checkRoll(tall, tower, shaft).ok, false, 'a drop of 5+ serves no dwell');
+  assert.equal(checkRoll(tall, shaft, tower).ok, false, 'a climb of 5+ serves no dwell');
+});
+
+test('a press resolves onto and off the lift; a launch flies the shaft over', () => {
+  const level = parseLevel(liftDef());
+  const lowBank = level.tiles.get('2,1');
+  const dock = level.tiles.get('3,1');
+  assert.equal(resolveRoll(level, lowBank, DIRS.right), dock, 'press boards the platform');
+  assert.equal(resolveRoll(level, dock, DIRS.right).x, 4, 'press leaves at the far bank');
+  const sprung = parseLevel({ ...liftDef(), springs: [[2, 1]] });
+  const landed = resolveRoll(sprung, sprung.tiles.get('2,1'), DIRS.right);
+  assert.equal(landed.x, 4, 'the launch flies over the shaft, never lands in it');
+  assert.equal(landed.z, 1);
+});
+
+test('solveHazards proves a lift level; blocks never park on the platform', () => {
+  const level = parseLevel(liftDef());
+  assert.equal(solveHazards(level).ok, true);
+  const blocked = parseLevel({ ...liftDef(), blocks: [[2, 1]], nudge: 3 });
+  assert.equal(canPushBlock(blocked, blocked.blocks[0], 1, 0), false, 'the platform would ride away under the block');
+  assert.equal(canPushBlock(blocked, blocked.blocks[0], 0, 1), true, 'a plain slab still takes it');
+});
+
+test('lift parse rejects bad rises, missing banks, and decorative shafts', () => {
+  assert.throws(() => parseLevel({ ...liftDef(), lifts: [{ at: [3, 1], low: 1, high: 2 }] }), /rise must be 2-4/);
+  assert.throws(() => parseLevel({ ...liftDef(), lifts: [{ at: [3, 1], low: 1, high: 6 }] }), /rise must be 2-4/);
+  assert.throws(() => parseLevel({ ...liftDef(), lifts: [{ at: [2, 1], low: 1, high: 4 }] }), /is not void/);
+  assert.throws(() => parseLevel({ ...liftDef(), lifts: [{ at: [3, 1], low: 7, high: 9 }] }), /no bank at its low dwell/);
+  // every bank serves both dwells: the shaft connects nothing
+  assert.throws(() => parseLevel({
+    name: 'lift-decorative',
+    map: [
+      '.....',
+      '.44.4',
+      '.44.4',
+      '.....',
+    ],
+    start: [1, 1],
+    goal: [4, 1],
+    lifts: [{ at: [3, 1], low: 2, high: 5 }],
+  }), /joins no two banks/);
+});
+
+test('lift parse rejects stacked mechanics and platform neighbours', () => {
+  assert.throws(() => parseLevel({ ...liftDef(), ice: [[3, 1]] }), /ice on a lift dock/);
+  assert.throws(() => parseLevel({ ...liftDef(), key: [3, 1] }), /key sits on a lift dock/);
+  assert.throws(() => parseLevel({
+    ...liftDef(),
+    lifts: [{ at: [3, 1], low: 1, high: 4 }, { at: [3, 2], low: 1, high: 4 }],
+  }), /touches another platform dock/);
+});
+
+test('spawn audit flags a sentinel on the dock and a slide feeding the shaft', () => {
+  const patrolled = parseLevel({
+    ...liftDef(),
+    orbs: [{ path: [[3, 1], [3, 2]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(patrolled).some((p) => p.includes('orb patrols a lift dock')));
+  const fed = parseLevel({ ...liftDef(), ice: [[2, 1]] });
+  assert.ok(spawnProblems(fed).some((p) => p.includes('fed by a slide')));
 });

@@ -122,6 +122,17 @@ export function buildLevelView(level, actHue = null) {
   for (const tile of level.tiles.values()) {
     if (tile.crumble || tile.timed) continue; // falling slabs get their own meshes below
     if (tile.shuttle) continue; // a shuttle dock — the platform is solid, not the map
+    if (tile.lift) {
+      // a lift dock — the platform is solid, not the map; the bounds
+      // still cover the shaft up to the high dwell (Phase B, ADR-033)
+      bounds.min.x = Math.min(bounds.min.x, tile.x - 0.5);
+      bounds.max.x = Math.max(bounds.max.x, tile.x + 0.5);
+      bounds.min.z = Math.min(bounds.min.z, tile.z - 0.5);
+      bounds.max.z = Math.max(bounds.max.z, tile.z + 0.5);
+      bounds.min.y = Math.min(bounds.min.y, tile.lift.low - THICK);
+      bounds.max.y = Math.max(bounds.max.y, tile.lift.high + 1.6);
+      continue;
+    }
     if (tile.pulse) continue; // a pulsing gap — the phantom slab renders below
     const g = slabGeometry(tile.h, TOP, SIDE, BOTTOM);
     g.translate(tile.x, 0, tile.z);
@@ -246,6 +257,21 @@ export function buildLevelView(level, actHue = null) {
         ];
         group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ghostMat));
       }
+      if (tile.lift) {
+        // both dwell outlines: the platform's two homes (Phase B)
+        for (const hy of [tile.lift.low, tile.lift.high]) {
+          const y = hy + 0.03;
+          const r = 0.47;
+          const pts = [
+            new THREE.Vector3(tile.x - r, y, tile.z - r),
+            new THREE.Vector3(tile.x + r, y, tile.z - r),
+            new THREE.Vector3(tile.x + r, y, tile.z + r),
+            new THREE.Vector3(tile.x - r, y, tile.z + r),
+            new THREE.Vector3(tile.x - r, y, tile.z - r),
+          ];
+          group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ghostMat));
+        }
+      }
     }
   }
 
@@ -285,6 +311,82 @@ export function buildLevelView(level, actHue = null) {
     if (t < sh.wait + sh.travel) return (t - sh.wait) / sh.travel;
     if (t < 2 * sh.wait + sh.travel) return 1;
     return 1 - (t - (2 * sh.wait + sh.travel)) / sh.travel;
+  }
+
+  // ---- lift platforms: the shuttle loop turned vertical (Phase B, ADR-033)
+  const liftRecs = [];
+  if (level.lifts.length) {
+    const platMat = new THREE.MeshStandardMaterial({
+      color: 0x8a63ff, emissive: 0x4a2f9f, emissiveIntensity: 0.45,
+      roughness: 0.3, metalness: 0.25,
+    });
+    const platRim = new THREE.LineBasicMaterial({ color: 0xb79aff, transparent: true, opacity: 0.9 });
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.6, metalness: 0.35 });
+    level.lifts.forEach((lf, i) => {
+      const g = new THREE.BoxGeometry(0.98, THICK, 0.98);
+      const mesh = new THREE.Mesh(g, platMat);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      group.add(mesh);
+      const r = 0.49;
+      const rim = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(-r, 0.02, -r), new THREE.Vector3(r, 0.02, -r),
+        new THREE.Vector3(r, 0.02, r), new THREE.Vector3(-r, 0.02, r),
+        new THREE.Vector3(-r, 0.02, -r),
+      ]);
+      mesh.add(new THREE.Line(rim, platRim));
+      // guide posts at the shaft corners, low dwell to high dwell
+      const span = lf.high - lf.low;
+      for (const sx of [-1, 1]) {
+        for (const sz of [-1, 1]) {
+          const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, span + THICK, 0.09), postMat);
+          post.position.set(lf.at[0] + sx * 0.44, lf.low - THICK / 2 + span / 2, lf.at[1] + sz * 0.44);
+          post.castShadow = true;
+          group.add(post);
+        }
+      }
+      liftRecs.push({ lf, mesh, i });
+    });
+  }
+  function liftF(i) {
+    const lf = level.lifts[i];
+    const t = ((clock.t % lf.cycle) + lf.cycle) % lf.cycle;
+    if (t < lf.wait) return 0;
+    if (t < lf.wait + lf.travel) return (t - lf.wait) / lf.travel;
+    if (t < 2 * lf.wait + lf.travel) return 1;
+    return 1 - (t - (2 * lf.wait + lf.travel)) / lf.travel;
+  }
+  /** The platform of lift `i` right now: height, and where it dwells. */
+  function liftPos(i) {
+    const lf = level.lifts[i];
+    const f = liftF(i);
+    return {
+      x: lf.at[0],
+      z: lf.at[1],
+      h: lf.low + (lf.high - lf.low) * f,
+      f,
+      moving: f > 0 && f < 1,
+      docked: f === 0 ? 'low' : f === 1 ? 'high' : null,
+    };
+  }
+  /** The height lift `i`'s platform stands at this instant. */
+  function liftHeightAt(i) {
+    return liftPos(i).h;
+  }
+  /**
+   * The dwell height of the lift dock at (x, z) — low or high while the
+   * platform rests at an end, null while it rides (the dock only holds
+   * at a dwell, like a shuttle dock).
+   */
+  function liftDockHeight(x, z) {
+    for (let i = 0; i < level.lifts.length; i++) {
+      const lf = level.lifts[i];
+      if (lf.at[0] === x && lf.at[1] === z) {
+        const f = liftF(i);
+        return f === 0 ? lf.low : f === 1 ? lf.high : null;
+      }
+    }
+    return null;
   }
 
   // ---- step counter: a floating glowing number, EDGE-style ---------------
@@ -799,6 +901,11 @@ export function buildLevelView(level, actHue = null) {
     // bridges used to keep cycling at wall speed against a slow-motion
     // cube, which no proof model (or player) can be asked to beat.
     clock.t += dt;
+
+    // lift platforms ride their vertical loop (Phase B)
+    for (const rec of liftRecs) {
+      rec.mesh.position.set(rec.lf.at[0], liftHeightAt(rec.i) - THICK / 2, rec.lf.at[1]);
+    }
 
     // shuttle platforms drive their fixed loop
     for (const rec of shuttleRecs) {
@@ -1345,6 +1452,9 @@ export function buildLevelView(level, actHue = null) {
     shuttlePos,
     shuttlePlatforms,
     shuttleDocked,
+    liftPos,
+    liftHeightAt,
+    liftDockHeight,
     collectShard,
     freezes,
     collectFreeze,
