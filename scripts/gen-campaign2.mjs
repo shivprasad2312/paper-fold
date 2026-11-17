@@ -86,9 +86,11 @@ function budget(id) {
     mech: g.mech,
   };
   if (isActEnd(id)) {
-    // the act-end spike: the boss carries the act's ceiling
-    b.W = 18;
-    b.H = 18;
+    // the act-end spike: the boss carries the act's ceiling — and the
+    // board grows with the act (Phase A escalation, ADR-030): a finale
+    // is the biggest room of its act, never a standard 18×18
+    b.W = Math.max(18, g.W + 2);
+    b.H = b.W;
     // the boss track runs long: allow the par to sit above the act ceiling
     b.par = [g.par[0] + 2, g.par[1] + 4];
     b.orbs = [g.orbs[1], g.orbs[1]];

@@ -1005,6 +1005,173 @@ export function canyon(rand, b) {
   return finish(W, H, map, path);
 }
 
+// ---------------------------------------------------------------------------
+// STRUCTURE ARCHETYPES (Phase A, ADR-030) — places, not tracks. The track
+// archetypes above fill ~19% of their board; these fill the board with a
+// court / massif / composite and let the route cross real space. Sentinel
+// patrols still ride the path's straight runs, shards still sit on/near
+// the route — the hazard stage needs no changes.
+// ---------------------------------------------------------------------------
+
+// 25. PLAZA — a filled court in a void surround. The floor is one solid
+// slab (terrace band +1, sunken lane −1 where the floor has height to
+// give); the route S-crosses it, but the openness is the point: the
+// player chooses lines across the court while patrols sweep the lanes.
+export function plaza(rand, b) {
+  const { W, H } = b;
+  const map = blank(W, H);
+  const mx = int(rand, 1, 3);
+  const mz = int(rand, 1, 3);
+  const x0 = mx;
+  const x1 = W - 1 - mx;
+  const z0 = mz;
+  const z1 = H - 1 - mz;
+  if (x1 - x0 < 7 || z1 - z0 < 7) return null;
+  const hb = int(rand, 1, 2);
+  for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) put(map, x, z, hb);
+  // terrace band (a step, never a wall) and a sunken lane, never co-rowed
+  const tz = int(rand, z0 + 2, z1 - 2);
+  for (let x = x0; x <= x1; x++) put(map, x, tz, Math.min(3, hb + 1));
+  if (hb > 1) {
+    const lz = int(rand, z0 + 1, z1 - 1);
+    if (lz !== tz) for (let x = x0; x <= x1; x++) put(map, x, lz, hb - 1);
+  }
+  // route: up the west edge, cross the court, up the east edge
+  const mid = int(rand, z0 + 2, z1 - 3);
+  const path = [];
+  for (let z = z1; z >= mid; z--) path.push([x0, z]);
+  for (let x = x0 + 1; x <= x1; x++) path.push([x, mid]);
+  for (let z = mid - 1; z >= z0; z--) path.push([x1, z]);
+  return finish(W, H, map, path);
+}
+
+// 26. TOWER — a terraced massif the route climbs ring by ring. Ring
+// bands rise 1 → 2 → 3, separated by one-wide VOID moats: a direct
+// radial climb would have to cross a moat (a roll lands one tile —
+// void is death), so the only way up is the stair on each ring, and
+// the stairs sit at OPPOSITE corners so every ring is really walked.
+// Height bands by dist-to-edge: 0–1 → 1, 3–4 → 2, ≥6 → 3; the moat
+// rings (dist 2, 5) are void except where the path's stairs cross.
+export function tower(rand, b) {
+  const { W, H } = b;
+  const map = blank(W, H);
+  const mx = int(rand, 1, 2);
+  const mz = int(rand, 1, 2);
+  const x0 = mx;
+  const x1 = W - 1 - mx;
+  const z0 = mz;
+  const z1 = H - 1 - mz;
+  if (x1 - x0 < 11 || z1 - z0 < 11) return null;
+  const bandH = (d) => (d <= 1 ? 1 : d === 2 ? 0 : d <= 4 ? 2 : d === 5 ? 0 : 3);
+  for (let z = z0; z <= z1; z++) {
+    for (let x = x0; x <= x1; x++) {
+      const d = Math.min(x - x0, x1 - x, z - z0, z1 - z);
+      const h = bandH(d);
+      if (h) put(map, x, z, h);
+    }
+  }
+  // route with stamped heights: ring walks at band height, stairs climb
+  const path = [];
+  const stamp = new Map();
+  const step = (x, z, h) => {
+    path.push([x, z]);
+    stamp.set(`${x},${z}`, h);
+  };
+  const line = (x, z, tx, tz, h) => {
+    while (x !== tx || z !== tz) {
+      if (x !== tx) x += Math.sign(tx - x);
+      else z += Math.sign(tz - z);
+      step(x, z, h);
+    }
+  };
+  // ring 0 (h1): SW corner → up the west face → east along the north face
+  step(x0, z1, 1);
+  line(x0, z1, x0, z0, 1);
+  line(x0, z0, x1, z0, 1);
+  // stair A (NE): tread, two bridge tiles over the moat, ring-1 corner
+  step(x1, z0 + 1, 1);
+  step(x1 - 1, z0 + 1, 1);
+  step(x1 - 1, z0 + 2, 2);
+  step(x1 - 2, z0 + 2, 2);
+  step(x1 - 3, z0 + 2, 2);
+  step(x1 - 3, z0 + 3, 2);
+  // ring 1 (h2): west along the north face → down the west face to SW
+  line(x1 - 3, z0 + 3, x0 + 3, z0 + 3, 2);
+  line(x0 + 3, z0 + 3, x0 + 3, z1 - 3, 2);
+  // stair B (SW): tread, bridge over the moat, summit shoulder
+  step(x0 + 4, z1 - 3, 2);
+  step(x0 + 4, z1 - 4, 2);
+  step(x0 + 5, z1 - 4, 3);
+  step(x0 + 5, z1 - 5, 3);
+  step(x0 + 6, z1 - 5, 3);
+  step(x0 + 6, z1 - 6, 3);
+  // summit: walk to the centre — the goal looks over the whole climb
+  const cx = Math.floor((x0 + x1) / 2);
+  const cz = Math.floor((z0 + z1) / 2);
+  line(x0 + 6, z1 - 6, cx, z1 - 6, 3);
+  line(cx, z1 - 6, cx, cz, 3);
+  for (const [x, z] of path) put(map, x, z, stamp.get(`${x},${z}`));
+  // random mirror for orientation variety (acts may mirror again)
+  if (rand() < 0.5) {
+    for (let z = 0; z < H; z++) map[z].reverse();
+    for (const p of path) p[0] = W - 1 - p[0];
+  }
+  return finish(W, H, map, path);
+}
+
+// 27. CITADEL — the finale-class composite: a plaza court in front of a
+// tower keep. Cross the court, step up onto the keep's ring, walk it to
+// the far stair, and finish on the summit. Two places in one level.
+export function citadel(rand, b) {
+  const { W, H } = b;
+  const map = blank(W, H);
+  const mx = int(rand, 1, 2);
+  const mz = int(rand, 1, 2);
+  const x0 = mx;
+  const x1 = W - 1 - mx;
+  const z0 = mz;
+  const z1 = H - 1 - mz;
+  if (x1 - x0 < 10 || z1 - z0 < 12) return null;
+  const keepZ1 = z0 + Math.floor((z1 - z0) * 0.45); // keep occupies the north
+  // court: solid floor at h1 over the southern ground incl. under the keep
+  for (let z = z0; z <= z1; z++) for (let x = x0; x <= x1; x++) put(map, x, z, 1);
+  // keep: dist-banded massif (ring h2, moat void, summit h3)
+  for (let z = z0; z <= keepZ1; z++) {
+    for (let x = x0; x <= x1; x++) {
+      const d = Math.min(x - x0, x1 - x, z - z0, keepZ1 - z);
+      if (d <= 1) put(map, x, z, 2);
+      else if (d === 2) put(map, x, z, 0);
+      else put(map, x, z, 3);
+    }
+  }
+  // a void moat row between court and keep, crossed only at the west
+  // bridge — otherwise the keep's whole south face is a climbable step
+  // and the west-stair route is theatre (the tower's lesson)
+  for (let x = x0 + 1; x <= x1; x++) put(map, x, keepZ1 + 1, 0);
+  // route: enter at the court's SE corner, cross the whole court west,
+  // up the west lane, over the bridge, onto the keep's ring, east along
+  // the ring's north face, and up the moat stair to the summit
+  const path = [];
+  for (let x = x1; x >= x0; x--) path.push([x, z1]); // court south lane
+  for (let z = z1 - 1; z >= keepZ1 + 2; z--) path.push([x0, z]); // court west lane
+  path.push([x0, keepZ1 + 1]); // the bridge over the moat (h1)
+  path.push([x0, keepZ1]); // step up onto the ring (h1 → h2)
+  for (let z = keepZ1 - 1; z >= z0 + 1; z--) path.push([x0, z]); // ring west walk
+  for (let x = x0 + 1; x <= x1 - 1; x++) path.push([x, z0 + 1]); // ring north walk (h2 tread)
+  path.push([x1 - 1, z0 + 2]); // moat stair (h3)
+  path.push([x1 - 2, z0 + 2]); // summit
+  path.push([x1 - 2, z0 + 3]);
+  path.push([x1 - 3, z0 + 3]);
+  // stamp the path: court 1, ring 2, the stair + summit walk 3 (the raw
+  // dist bands would leave the moat crossing void — finish() would fail)
+  for (const [x, z] of path) {
+    if (z > keepZ1) put(map, x, z, 1);
+    else if (x >= x1 - 3 && z <= z0 + 3) put(map, x, z, 3);
+    else put(map, x, z, 2);
+  }
+  return finish(W, H, map, path);
+}
+
 export const ARCHETYPES = {
   descent,
   switchback,
@@ -1030,4 +1197,7 @@ export const ARCHETYPES = {
   'boss-arena': bossArena,
   undertow,
   canyon,
+  plaza,
+  tower,
+  citadel,
 };

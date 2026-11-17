@@ -207,6 +207,18 @@ natural par falls outside the act's band is not in that act's pool
 (meridian, par 46 at 18×18, plays in Darkwater/The Pressure/The Last
 Ascent only).
 
+**Structure archetypes (Phase A, ADR-030).** The track archetypes fill
+≈ 19% of their board; three builders make *places*: **plaza** (a filled
+court, fill ≈ 0.6, crossed on chosen lines under patrol lanes),
+**tower** (a terraced massif, rings 1→2→3 split by void moats, stairs
+at opposite corners so every ring is walked), **citadel** (court +
+moated keep, the finale-class composite). Escalation is budgeted:
+Acts 8–10 generate at 20×20 with par bands [32,50] / [36,58] /
+[40,66], and an act-end board is `max(18, W+2)` — size and route
+depth grow act over act while the opening stays readable. First
+spliced slots: plaza L88, L113, L128; tower L148, L168, L188;
+citadel L155, L177, L196.
+
 **The hazard stage's laws.**
 - Mechanics (ice, spring, shuttle) are carved only along MAXIMAL straight
   runs of the path — a mechanic replaces solid route tiles with a hazard

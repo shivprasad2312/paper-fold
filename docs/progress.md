@@ -128,7 +128,7 @@ None open. Measured baseline: `performance_report.md` (frame p95
 
 ## Architectural decisions
 
-Log: `technical_decisions.md` (ADR-001…029). Latest: ADR-014
+Log: `technical_decisions.md` (ADR-001…030). Latest: ADR-014
 (mid-path second chance — the rescue bench), ADR-015 (the 200-level
 campaign: archetype library + shared hazard stage + stratified live
 gate), ADR-016 (the crossing models run the game's real easeInOut
@@ -171,8 +171,33 @@ proven candidate could never settle. M3 complete. Rolled out
 2026-11-17 to the remaining keyed finales L120/L140/L160/L180,
 with boss identity in level select, a start briefing, a
 BOSS ASLEEP/AWAKE HUD chip, violet sleeping-sentinel embers,
-and a wave-aware crossing model in the live bot.)
+and a wave-aware crossing model in the live bot.),
+ADR-030 (structure archetypes — plaza/tower/citadel make places
+instead of tracks, fill ≈ 0.6 vs 0.19; Acts 8–10 escalate to
+20×20 boards with par bands [32,50]/[36,58]/[40,66] and act-end
+boards at W+2; first spliced slots plaza L88/L113/L128, tower
+L148/L168/L188, citadel L155/L177/L196. Phase A of the
+production-design strategy.) Live proof of the nine slots
+(2026-11-17) forced two live-bot planner fixes: block pushes are
+now first-class plan state (live block positions + remaining
+nudges from the snapshot, pushes replayed with
+rules.canPushBlock — planning through a block's spawn tile
+bump-looped L113/L148/L196), and resolved presses record their
+direction instead of re-deriving it from endpoints (a conveyor
+turn made L196's key route unplayable on paper). Occupancy
+mirrors the game exactly: only a press's immediate step is
+block-aware, so ice slides may land on a pushed block's tile
+(L144's crossing depends on it).
 
 ## Blockers
 
 None.
+
+## Research
+
+`research_production_game_design.md` (2026-11-17): production
+level/game-design research + EDGE reference teardown + a measured
+audit of the shipped 200 (tracks-not-places: fill ≈ 0.19, route cap
+44 rolls, M3 mechanics at density 1–5). Strategy phases A–F
+(structure archetypes, new cube verbs, teach–test–twist cadence,
+feel, mastery meta, validation) with decisions D1–D4 pending.

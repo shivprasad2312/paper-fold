@@ -1287,3 +1287,39 @@ incl. the diversity audit; live L200 completed by the bot in
 61 moves, page errors none (the pre-commit hook re-runs its
 full gate). M3 is complete: eight wave-1 mechanics plus boss
 arenas.
+
+## ADR-030 — Structure archetypes: places, not tracks (2026-11-17)
+**Context:** the production-design research audit
+(`research_production_game_design.md`) measured what players
+see: generated levels fill ≈ 0.19 of their board (1-wide
+serpentine tracks in void), the board caps at 18×18 from
+Act 5, tile mass *falls* after Act 6, and the longest proven
+route in the game is 44 rolls. Production references grow the
+other way — boards and route *depth* grow act over act while
+the opening stays readable (the arrow-puzzle data: boards
+~3× first→last, layers 27→57, opening breadth flat), and
+EDGE's levels are filled multi-storey structures. The fix is
+topological, not cosmetic: the archetype library learns
+architecture.
+
+**Decision:** three structure archetypes join the library.
+`plaza` — a filled court (fill ≈ 0.6) crossed on chosen lines
+while patrols sweep its lanes. `tower` — a terraced massif
+(rings 1→2→3) split by one-wide void moats: a roll lands one
+tile, so the moat makes each ring's stair the only way up,
+and the stairs sit at opposite corners so every ring is
+really walked (the first tower draft stacked both stairs at
+one corner and played in 11 rolls — caught by the par gate
+in smoke tests, before it ever reached a slot). `citadel` —
+a court before a tower keep, moat between, the finale-class
+composite. Structure slots keep every existing law: the
+hazard stage dresses the route, the verifier proves, par
+bands gate. Escalation is budgeted, not hoped for: Acts 8–10
+generate at W20 (was 18) with par bands grown to [32,50],
+[36,58], [40,66], and the act-end board becomes
+`max(18, W+2)` — a finale is the biggest room of its act.
+Rollout follows the ADR-020 law by hand: forced slots only
+(`KUBIK_FORCE_ARCH`), names preserved, batches live-tested;
+act pools admit the new archetypes for future natural picks.
+**Introduction:** nine spliced slots — plaza L88/L113/L128,
+tower L148/L168/L188, citadel L155/L177/L196.

@@ -89,7 +89,7 @@ export const ACTS = [
       // no long-route archetypes (ADR-019): switchback/canyon/long-drop
       // cap at par ~23 on W18 — below this act's floor of 24 (probed
       // at L81, 2026-11-09)
-      arch: ['lattice', 'gauntlet', 'aperture', 'ring', 'split-merge', 'undertow'],
+      arch: ['lattice', 'gauntlet', 'aperture', 'ring', 'split-merge', 'undertow', 'plaza'],
       names: [
         'The Hatch', 'Crossfire II', 'The Latticework', 'Overweave',
         'The Criss', 'Tension Lines', 'The Bind', 'Interlace',
@@ -113,7 +113,7 @@ export const ACTS = [
       mech: { ice: 0.6, spring: 0.5, shuttle: 0.5, timed: 0.5, freeze: 0.35, heavy: 0.3, pulse: 0.3, proximity: 0.3, twin: 0.3 },
       // no long-route archetypes (ADR-019): switchback/long-drop/canyon
       // cap at par ~23 — below this act's floor of 26 (probed 2026-11-09)
-      arch: ['ice-river', 'undertow', 'spring-field', 'twin-falls', 'lattice', 'gauntlet'],
+      arch: ['ice-river', 'undertow', 'spring-field', 'twin-falls', 'lattice', 'gauntlet', 'plaza'],
       names: [
         'Frostline', 'The Slip', 'Glacier Walk', 'The Sheen',
         'Slipstream', 'The Glide', 'Frosthollow', 'The White Rush',
@@ -139,7 +139,7 @@ export const ACTS = [
       // crossing runs westbound (mirrored after the proof)
       flip: 'x',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 28
-      arch: ['shuttle-span', 'undertow', 'twin-bridge', 'bridge-chain', 'ring', 'aperture'],
+      arch: ['shuttle-span', 'undertow', 'twin-bridge', 'bridge-chain', 'ring', 'aperture', 'plaza'],
       names: [
         'The Ferry', 'Crossing Time', 'The Slow Boat', 'Ropewalk',
         'The Passage', 'Tidegate', 'The Drift', 'Over the Water',
@@ -154,14 +154,14 @@ export const ACTS = [
     id: 8, name: 'Darkwater', tag: 'pay for the way out', hue: 230,
     start: 141, end: 160,
     gen: {
-      W: 18, par: [30, 46], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.4],
+      W: 20, par: [32, 50], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.45, // the key act: gates everywhere
       mech: { ice: 0.5, spring: 0.5, shuttle: 0.6, door: 0.4, timed: 0.4, freeze: 0.4, heavy: 0.35, pulse: 0.35, proximity: 0.35, twin: 0.35 },
       // orientation rotation (M2.5): the act plays as a descent — start
       // at the top of the frame (mirrored after the proof)
       flip: 'z',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 30
-      arch: ['key-detour', 'vault', 'shuttle-span', 'gauntlet', 'twin-falls', 'meridian', 'aperture'],
+      arch: ['key-detour', 'vault', 'shuttle-span', 'gauntlet', 'twin-falls', 'meridian', 'aperture', 'tower', 'citadel'],
       names: [
         'The Toll', 'Lockbox', 'The Sealed Door', 'Keyhole',
         'The Ransom', 'Deadlock', 'The Warded Gate', 'The Fee',
@@ -176,14 +176,14 @@ export const ACTS = [
     id: 9, name: 'The Pressure', tag: 'everything at once', hue: 0,
     start: 161, end: 180,
     gen: {
-      W: 18, par: [32, 48], orbs: [2, 3], crumble: [2, 4], speed: [1.7, 2.4],
+      W: 20, par: [36, 58], orbs: [2, 3], crumble: [2, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.3,
       mech: { ice: 0.6, spring: 0.6, shuttle: 0.7, conveyor: 0.5, door: 0.45, timed: 0.5, freeze: 0.45, heavy: 0.4, pulse: 0.4, proximity: 0.4, twin: 0.4 },
       // orientation rotation (M2.5): the act plays RIGHT → LEFT (mirrored
       // after the proof)
       flip: 'x',
       // no switchback (ADR-019): caps at par ~23 — below the floor of 32
-      arch: ['gauntlet', 'undertow', 'twin-falls', 'shuttle-span', 'aperture', 'meridian'],
+      arch: ['gauntlet', 'undertow', 'twin-falls', 'shuttle-span', 'aperture', 'meridian', 'plaza', 'tower', 'citadel'],
       names: [
         'Full Tide', 'The Squeeze', 'Overload', 'The Crunch',
         'Breaking Strain', 'The Load', 'Bottleneck', 'The Jam',
@@ -198,7 +198,7 @@ export const ACTS = [
     id: 10, name: 'The Last Ascent', tag: 'one more chance, then the top', hue: 45,
     start: 181, end: 200,
     gen: {
-      W: 18, par: [34, 50], orbs: [2, 3], crumble: [3, 4], speed: [1.7, 2.4],
+      W: 20, par: [40, 66], orbs: [2, 3], crumble: [3, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.35,
       // sparse band: the finale's long par + dense crumble means fewer
       // candidates prove (the vault slot in particular needs >300 attempts
@@ -206,7 +206,7 @@ export const ACTS = [
       // generator reads this as the attempt budget for the act's slots.
       attempts: 450,
       mech: { ice: 0.7, spring: 0.7, shuttle: 0.8, conveyor: 0.6, door: 0.5, timed: 0.55, freeze: 0.5, heavy: 0.45, pulse: 0.45, proximity: 0.45, twin: 0.45 },
-      arch: ['undertow', 'twin-falls', 'shuttle-span', 'gauntlet', 'vault', 'ring', 'meridian'],
+      arch: ['undertow', 'twin-falls', 'shuttle-span', 'gauntlet', 'vault', 'ring', 'meridian', 'plaza', 'tower', 'citadel'],
       names: [
         'The Last Rung', 'Over the Line', 'The Breakline Crossed', 'Unmaking',
         'The Final Weave', 'Loose Ends', 'The Last Push', 'The Seams',

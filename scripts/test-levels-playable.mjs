@@ -53,6 +53,7 @@ const {
   ORB_KILL_RADIUS,
   commitSchedules,
   commitBandDistR2,
+  canPushBlock,
   key,
   FREEZE_PRESS_BUDGET,
   PULSE_PERIOD,
@@ -113,7 +114,18 @@ const waitFor = async (fn, timeout = 20000) => {
 const snap = () =>
   page.evaluate(() => {
     const g = window.__kubik.game;
-    return { x: g.cube.x, z: g.cube.z, state: g.state, hasKey: g.hasKey, idx: g.levelIndex };
+    return {
+      x: g.cube.x,
+      z: g.cube.z,
+      state: g.state,
+      hasKey: g.hasKey,
+      idx: g.levelIndex,
+      // Blocks are run state, not level geometry: a death/rescue can leave
+      // them far from their spawn tiles, so every (re)plan must anchor on
+      // where they actually are and how many pushes remain.
+      blocks: [...g.blocks.values()].map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy })),
+      nudgeLeft: g.nudgeLeft,
+    };
   });
 
 // ---------------------------------------------------------------------------
@@ -162,6 +174,8 @@ async function snapLive() {
       hasKey: g.hasKey,
       idx: g.levelIndex,
       freezeLeft: typeof g.freezeLeft === 'number' ? g.freezeLeft : 0,
+      blocks: [...g.blocks.values()].map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy })),
+      nudgeLeft: g.nudgeLeft,
       collectedFreeze: (g.view.freezes || []).filter((f) => f.collected).map((f) => `${f.x},${f.z}`),
       anim: !!g.cube.anim,
       orbs: g.view.orbs.map((o) => [o.holder.position.x, o.holder.position.z]),
@@ -265,11 +279,16 @@ const MOVE_V = {
   left: { dx: -1, dz: 0 },
   right: { dx: 1, dz: 0 },
 };
+const dirName = (dx, dz) => (dx > 0 ? 'right' : dx < 0 ? 'left' : dz > 0 ? 'down' : 'up');
 
 /**
  * Plan a route from `cube` to `target` over the fair-crossing graph:
  * off-line tiles + only sentinel crossings the level is proven to allow.
- * Dijkstra in roll count; broken crumble slabs are removed.
+ * Dijkstra in press count; broken crumble slabs are removed. Block pushes
+ * are first-class state (live block positions + remaining nudges, seeded
+ * from the snapshot): a press into a block slides IT and leaves the cube
+ * standing, exactly as game.doMove plays it — planning through a block's
+ * spawn tile while it sits elsewhere bump-loops forever (L148, 2026-11-17).
  * Returns { tiles, moves } or null (no fair route from here).
  */
 function planRoute(ctx, cube, target, broken, sealed = false) {
@@ -278,6 +297,12 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   // the game rejects any roll onto it, so a route may not cut through it.
   const goalK = key(model.goal.x, model.goal.z);
   const sealedGoal = (x, z) => sealed && x === model.goal.x && z === model.goal.z;
+  // live block state for this plan: the snapshot's actual positions when
+  // present (a replan after a death/rescue/push), else the parsed spawns
+  const startBlocks = (Array.isArray(cube.blocks) ? cube.blocks : model.blocks)
+    .map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy }));
+  const startNudges = typeof cube.nudgeLeft === 'number' ? cube.nudgeLeft : model.nudge || 0;
+  const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z) + (b.heavy ? 'h' : '')).sort().join(';');
   // tripwire: a planned route may only reference real, non-line tiles
   // (line tiles appear only inside a crossing step's seq)
   const validateRoute = (r) => {
@@ -285,8 +310,11 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
     // A press is legal iff resolveRoll (one press = one resolved landing,
     // ice/spring included) lands exactly on the next route tile — this is
     // the same primitive the game executes, so a valid route is a route
-    // the game can actually play.
+    // the game can actually play. Push steps replay the block state with
+    // rules.canPushBlock, the game's own push law.
     const bad = [];
+    let simBlocks = startBlocks.map((b) => ({ ...b }));
+    let simNudges = startNudges;
     for (let i = 0; i < r.tiles.length; i++) {
       const t = r.tiles[i];
       if (!model.tiles.get(key(t.x, t.z))) bad.push(`tile ${t.x},${t.z} not in model`);
@@ -295,10 +323,29 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
         const at = model.tiles.get(key(a.x, a.z));
         if (!at) continue;
         const d = MOVE_V[r.moves[i - 1]];
-        const land = d ? resolveRoll(model, at, d) : null;
+        if (!d) { bad.push(`unknown move ${r.moves[i - 1]}`); continue; }
+        if (t.push) {
+          const bi = simBlocks.findIndex((b) => b.x === a.x + d.dx && b.z === a.z + d.dz);
+          const occupied = new Set(simBlocks.map((b) => key(b.x, b.z)));
+          if (bi < 0 || simNudges <= 0 || !canPushBlock(model, simBlocks[bi], d.dx, d.dz, occupied)) {
+            bad.push(`push ${r.moves[i - 1]} from ${a.x},${a.z} is not playable`);
+          } else {
+            simBlocks = simBlocks.map((b, j) => (j === bi ? { ...b, x: b.x + d.dx, z: b.z + d.dz } : b));
+            simNudges--;
+          }
+          continue;
+        }
+        if (simBlocks.some((b) => b.x === a.x + d.dx && b.z === a.z + d.dz)) {
+          bad.push(`press ${r.moves[i - 1]} from ${a.x},${a.z} rolls into a block`);
+          continue;
+        }
+        const land = resolveRoll(model, at, d);
         if (!land || land.x !== t.x || land.z !== t.z) {
           bad.push(`press ${r.moves[i - 1]} from ${a.x},${a.z} lands ${land ? land.x + ',' + land.z : 'NOWHERE'}, route says ${t.x},${t.z}`);
         }
+        // (landing on a block's tile deeper into a slide/launch is legal
+        // in the game — only the immediate step is block-aware; see the
+        // planner's expansion note)
       }
     }
     if (bad.length) {
@@ -321,22 +368,25 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   const freezeAt = model.freezeTiles;
   const freezeHere = (k2) => freezeAt.has(k2) && !(cube.collectedFreeze && cube.collectedFreeze.includes(k2));
   const frozenPresses = cube.freezeLeft > 0 ? Math.ceil(cube.freezeLeft / 0.22) : 0;
-  const sKey = (k2, ch) => `${k2}|${ch}`;
-  const dist = new Map([[sKey(startK, frozenPresses), 0]]);
+  // state = tile | freeze charge | block layout | nudges left. With no
+  // blocks in play the last two fields are constant and the search is the
+  // plain tile/charge Dijkstra it always was.
+  const sKey = (k2, ch, blocks, nudges) => `${k2}|${ch}|${blockSig(blocks)}|${nudges}`;
+  const startState = sKey(startK, frozenPresses, startBlocks, startNudges);
+  const dist = new Map([[startState, 0]]);
   const prev = new Map();
-  const Q = [sKey(startK, frozenPresses)];
+  const Q = [startState];
   const done = new Set();
-  const stateOf = new Map([[sKey(startK, frozenPresses), { tile: startTile, charge: frozenPresses }]]);
-  const goalState = (ch) => dist.has(sKey(targetK, ch));
+  const stateOf = new Map([[startState, { tile: startTile, charge: frozenPresses, blocks: startBlocks, nudges: startNudges }]]);
   const hOf = (t) => model.tiles.get(key(t.x, t.z));
-  let targetState = goalState(frozenPresses) ? sKey(targetK, frozenPresses) : null;
+  let targetState = startK === targetK ? startState : null;
   while (Q.length) {
     let bestI = 0;
     for (let i = 1; i < Q.length; i++) {
       if ((dist.get(Q[i]) ?? 1e9) < (dist.get(Q[bestI]) ?? 1e9)) bestI = i;
     }
     const cs = Q.splice(bestI, 1)[0];
-    const { tile: cur, charge } = stateOf.get(cs);
+    const { tile: cur, charge, blocks, nudges } = stateOf.get(cs);
     if (done.has(cs)) continue;
     done.add(cs);
     const ck = key(cur.x, cur.z);
@@ -347,29 +397,57 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
     const curH = hOf(cur);
     if (!curH) continue; // standing over void (dying) — replan will fix it
     // one press: freeze burns one unit, a pickup refreshes the charge
-    const pressTo = (to) => {
+    const pressTo = (to, nextBlocks = blocks, nextNudges = nudges) => {
       const k2 = key(to.x, to.z);
       let ch = Math.max(0, charge - 1);
       if (freezeHere(k2)) ch = FREEZE_PRESS_BUDGET;
-      return sKey(k2, ch);
+      return sKey(k2, ch, nextBlocks, nextNudges);
     };
+    const occupied = new Set(blocks.map((b) => key(b.x, b.z)));
     // resolved off-line neighbours: ONE press may carry the cube several
     // tiles (an ice slide or a spring launch) — the route lands on the
     // resolved tile. Landing on the sentinel line is refused: the generator
     // keeps mechanic corridors clear of patrols, so a fair level never needs
     // to slide into one.
     for (const [dx, dz] of DIRV) {
+      // a block in the immediate way: the press pushes IT (cube stays,
+      // one nudge spent) when rules.canPushBlock allows the slide
+      const bi = blocks.findIndex((b) => b.x === cur.x + dx && b.z === cur.z + dz);
+      if (bi >= 0) {
+        if (nudges > 0 && canPushBlock(model, blocks[bi], dx, dz, occupied)
+          && !broken.has(key(blocks[bi].x + dx, blocks[bi].z + dz))) {
+          const nb = blocks.map((b, j) => (j === bi ? { ...b, x: b.x + dx, z: b.z + dz } : b));
+          const s2 = sKey(ck, Math.max(0, charge - 1), nb, nudges - 1);
+          if (d0 + 1 < (dist.get(s2) ?? 1e9)) {
+            dist.set(s2, d0 + 1);
+            prev.set(s2, { k: cs, seq: null, push: dirName(dx, dz) });
+            stateOf.set(s2, { tile: cur, charge: Math.max(0, charge - 1), blocks: nb, nudges: nudges - 1 });
+            Q.push(s2);
+          }
+        }
+        continue;
+      }
       const to = resolveRoll(model, cur, { dx, dz });
       if (!to) continue;
       if (graph.line.has(key(to.x, to.z))) continue;
       const k2 = key(to.x, to.z);
       if (broken.has(k2)) continue;
+      // NB: a slide/launch CAN land on a block's tile — the game only
+      // treats a block as an obstacle for the immediate step of a press
+      // (doMove's blockHere); autoContinue never checks occupancy, and
+      // rules.solveHazards models it the same way (L144's ice crossing
+      // is only playable by sliding onto the pushed block's tile).
       if (sealedGoal(to.x, to.z) && k2 !== targetK) continue; // sealed gate
       const s2 = pressTo(to);
       if (d0 + 1 < (dist.get(s2) ?? 1e9)) {
         dist.set(s2, d0 + 1);
-        prev.set(s2, { k: cs, seq: null });
-        stateOf.set(s2, { tile: to, charge: Number(s2.split('|')[1]) });
+        // record the PRESS, not just the landing: one press can travel
+        // several tiles and even turn (a conveyor imposes its own
+        // direction), so the direction can never be re-derived from the
+        // endpoints (L196's key route rides a belt west after a south
+        // press — endpoint geometry says "left", the game needs "down")
+        prev.set(s2, { k: cs, seq: null, press: dirName(dx, dz) });
+        stateOf.set(s2, { tile: to, charge: Number(s2.split('|')[1]), blocks, nudges });
         Q.push(s2);
       }
     }
@@ -379,11 +457,11 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       const rideTo = shuttleRide(model, cur);
       if (rideTo) {
         const k2 = key(rideTo.x, rideTo.z);
-        const s2 = sKey(k2, charge); // a ride burns real seconds, not presses
+        const s2 = sKey(k2, charge, blocks, nudges); // a ride burns real seconds, not presses
         if (!broken.has(k2) && d0 + 1 < (dist.get(s2) ?? 1e9)) {
           dist.set(s2, d0 + 1);
           prev.set(s2, { k: cs, seq: 'RIDE' });
-          stateOf.set(s2, { tile: rideTo, charge });
+          stateOf.set(s2, { tile: rideTo, charge, blocks, nudges });
           Q.push(s2);
         }
       }
@@ -397,13 +475,15 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       // a freeze-edge may only be crossed while frozen with enough
       // charge for the whole burst (entry press + line + exit)
       if (e.freeze && charge < e.seq.length + 1) continue;
+      // the burst rolls tile by tile: a block parked on any of them is a wall
+      if ([...e.seq, e.to].some((t) => occupied.has(key(t.x, t.z)))) continue;
       const baseKey2 = isKeyNode ? k2 : key(e.to.x, e.to.z);
-      const s2 = sKey(baseKey2, e.freeze ? Math.max(0, charge - (e.seq.length + 1)) : charge);
+      const s2 = sKey(baseKey2, e.freeze ? Math.max(0, charge - (e.seq.length + 1)) : charge, blocks, nudges);
       const cost = e.seq.length + 1;
       if (d0 + cost < (dist.get(s2) ?? 1e9)) {
         dist.set(s2, d0 + cost);
         prev.set(s2, { k: cs, seq: e.seq, freeze: !!e.freeze });
-        stateOf.set(s2, { tile: e.to, charge: Number(s2.split('|')[1]) });
+        stateOf.set(s2, { tile: e.to, charge: Number(s2.split('|')[1]), blocks, nudges });
         Q.push(s2);
       }
     }
@@ -421,9 +501,9 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   // reconstruct: target ← … ← start, each step carries the line tiles crossed
   const chain = [];
   let k = targetState;
-  while (k !== sKey(startK, frozenPresses)) {
+  while (k !== startState) {
     const p = prev.get(k);
-    chain.unshift({ k, seq: p.seq, freeze: !!p.freeze });
+    chain.unshift({ k, seq: p.seq, freeze: !!p.freeze, push: p.push || null, press: p.press || null });
     k = p.k;
   }
   const nodeOf = (kk) => {
@@ -443,6 +523,15 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   const moves = [];
   for (const step of chain) {
     if (step.freeze) tiles[tiles.length - 1].freezeCross = step.seq.length + 1;
+    if (step.push) {
+      // a push step: the cube stays on its tile, the block slides — the
+      // route repeats the tile, flagged so the driver presses instead of
+      // treating "already there" as arrival
+      const at = nodeOf(step.k);
+      tiles.push({ x: at.x, z: at.z, push: true });
+      moves.push(step.push);
+      continue;
+    }
     if (step.seq === 'RIDE') {
       tiles.push(nodeOf(step.k));
       moves.push('ride');
@@ -455,7 +544,10 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
         : [...step.seq, nodeOf(step.k)]
       : [nodeOf(step.k)];
     for (const t of adds) {
-      moves.push(dirOf(tiles[tiles.length - 1], t));
+      // crossing bursts roll tile-to-tile (direction from geometry), but a
+      // plain resolved press uses its recorded direction — the landing can
+      // be several tiles away, around a conveyor's corner
+      moves.push(step.seq ? dirOf(tiles[tiles.length - 1], t) : step.press || dirOf(tiles[tiles.length - 1], t));
       tiles.push(t);
     }
   }
@@ -515,6 +607,22 @@ async function driveRouteLive(tiles, moves, ctx) {
       return false;
     }
     const target = tiles[r + 1];
+    if (target.push) {
+      // a push step: the cube stays, the block slides. Press toward the
+      // block, then verify from live state that the block actually moved
+      // (a bump means the plan and the world have desynced — replan).
+      if (st.x !== tiles[r].x || st.z !== tiles[r].z) return 'replan';
+      const d = MOVE_V[moves[r]];
+      const blockAt = { x: st.x + d.dx, z: st.z + d.dz };
+      await pressRoll(moves[r], blockAt);
+      const after = await snapLive();
+      if (after.state === 'won') return true;
+      if (after.state !== 'playing') return false;
+      if ((after.blocks || []).some((b) => b.x === blockAt.x && b.z === blockAt.z)) return false;
+      r++;
+      stuck = 0;
+      continue;
+    }
     if (st.x === target.x && st.z === target.z) {
       r++;
       stuck = 0;
