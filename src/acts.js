@@ -134,7 +134,7 @@ export const ACTS = [
       // geometry never admits a shuttle carve fails the act — that is the
       // act's identity, so it is not relaxed.
       force: { shuttle: 1 },
-      mech: { ice: 0.4, spring: 0.4, shuttle: 0.5, timed: 0.45, freeze: 0.35, heavy: 0.3, blocks: 0.25, pulse: 0.3, proximity: 0.3, twin: 0.3, lift: 0.3, shrink: 0.3, piston: 0.3, turntable: 0.3 },
+      mech: { ice: 0.4, spring: 0.4, shuttle: 0.5, timed: 0.45, freeze: 0.35, heavy: 0.3, blocks: 0.25, pulse: 0.3, proximity: 0.3, twin: 0.3, lift: 0.3, shrink: 0.3, piston: 0.3, turntable: 0.3, cling: 0.3 },
       // orientation rotation (M2.5): the act plays RIGHT → LEFT — the
       // crossing runs westbound (mirrored after the proof)
       flip: 'x',
@@ -156,7 +156,7 @@ export const ACTS = [
     gen: {
       W: 20, par: [32, 50], orbs: [2, 3], crumble: [2, 3], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.45, // the key act: gates everywhere
-      mech: { ice: 0.5, spring: 0.5, shuttle: 0.6, door: 0.4, timed: 0.4, freeze: 0.4, heavy: 0.35, blocks: 0.3, pulse: 0.35, proximity: 0.35, twin: 0.35, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35 },
+      mech: { ice: 0.5, spring: 0.5, shuttle: 0.6, door: 0.4, timed: 0.4, freeze: 0.4, heavy: 0.35, blocks: 0.3, pulse: 0.35, proximity: 0.35, twin: 0.35, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35, cling: 0.3 },
       // orientation rotation (M2.5): the act plays as a descent — start
       // at the top of the frame (mirrored after the proof)
       flip: 'z',
@@ -178,7 +178,7 @@ export const ACTS = [
     gen: {
       W: 20, par: [36, 58], orbs: [2, 3], crumble: [2, 4], speed: [1.7, 2.4],
       shards: [4, 4], fill: [6, 10], keyP: 0.3,
-      mech: { ice: 0.6, spring: 0.6, shuttle: 0.7, conveyor: 0.5, door: 0.45, timed: 0.5, freeze: 0.45, heavy: 0.4, blocks: 0.35, pulse: 0.4, proximity: 0.4, twin: 0.4, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35 },
+      mech: { ice: 0.6, spring: 0.6, shuttle: 0.7, conveyor: 0.5, door: 0.45, timed: 0.5, freeze: 0.45, heavy: 0.4, blocks: 0.35, pulse: 0.4, proximity: 0.4, twin: 0.4, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35, cling: 0.35 },
       // orientation rotation (M2.5): the act plays RIGHT → LEFT (mirrored
       // after the proof)
       flip: 'x',
@@ -205,7 +205,7 @@ export const ACTS = [
       // under the final model — par 39, 3 sentinels, key, at ≤450). The
       // generator reads this as the attempt budget for the act's slots.
       attempts: 450,
-      mech: { ice: 0.7, spring: 0.7, shuttle: 0.8, conveyor: 0.6, door: 0.5, timed: 0.55, freeze: 0.5, heavy: 0.45, blocks: 0.35, pulse: 0.45, proximity: 0.45, twin: 0.45, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35 },
+      mech: { ice: 0.7, spring: 0.7, shuttle: 0.8, conveyor: 0.6, door: 0.5, timed: 0.55, freeze: 0.5, heavy: 0.45, blocks: 0.35, pulse: 0.45, proximity: 0.45, twin: 0.45, lift: 0.35, shrink: 0.35, piston: 0.35, turntable: 0.35, cling: 0.35 },
       arch: ['undertow', 'twin-falls', 'shuttle-span', 'gauntlet', 'vault', 'ring', 'meridian', 'plaza', 'tower', 'citadel'],
       names: [
         'The Last Rung', 'Over the Line', 'The Breakline Crossed', 'Unmaking',

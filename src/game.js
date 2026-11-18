@@ -5,7 +5,7 @@ import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
 import { getDailyLevel } from './daily.js';
-import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME, clingTarget } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 // Vivid cube colour per level, like EDGE's recolouring between stages.
@@ -380,6 +380,18 @@ export class Game {
       return;
     }
 
+    // CLINGING (Phase B, ADR-037): a press into a declared grip crevice
+    // catches the far face and lands on it — the only press that spans
+    // void by hand. A block parked on the far bank occupies the handhold,
+    // so that press reads as a bump instead.
+    if (!check.ok && check.kind === 'void') {
+      const clingTo = clingTarget(this.level, from, d);
+      if (clingTo && !this.blocks.has(key(clingTo.x, clingTo.z))) {
+        this.startCling(d, clingTo);
+        return;
+      }
+    }
+
     if (!check.ok && check.kind === 'void') {
       this.cube.anim = {
         type: 'fall',
@@ -413,6 +425,29 @@ export class Game {
       fromX: from.x,
       fromZ: from.z,
       fromH: from.h,
+    };
+    this.emit('move');
+  }
+
+  /**
+   * Clinging (Phase B, ADR-037): roll off the ledge, fall into the grip
+   * crevice, catch the far face and hang a beat, then mantle onto it. The
+   * press crosses the crevice and lands on the far bank — one action, one
+   * landing, exactly what the resolver proof priced.
+   */
+  startCling(d, target) {
+    this.cube.anim = {
+      type: 'cling',
+      t: 0,
+      dur: 0.62,
+      dx: d.dx,
+      dz: d.dz,
+      axis: new THREE.Vector3(d.dz, 0, -d.dx).normalize(),
+      from: { x: this.cube.x, z: this.cube.z, h: this.cube.h },
+      crevice: { x: this.cube.x + d.dx, z: this.cube.z + d.dz },
+      target,
+      startPos: this.cubeMesh.position.clone(),
+      fromQuat: this.cubeMesh.quaternion.clone(),
     };
     this.emit('move');
   }
@@ -588,6 +623,54 @@ export class Game {
         this.cube.anim = null;
         this.emit('pushDone'); // the shove landed — a held input may continue
         this.pumpQueue();
+      }
+    } else if (a.type === 'cling') {
+      // CLINGING (Phase B, ADR-037): off the ledge → hang on the far face
+      // → mantle up. Three beats in one press; the cube's logical tile
+      // only changes at the very end, so every rule keeps reading the
+      // takeoff tile until the landing is real.
+      a.t = Math.min(1, a.t + dt / a.dur);
+      const p = a.t;
+      // the hang holds the cube JUST under the far lip, pressed against
+      // the face: from any camera seat the grip reads as a hang, not as a
+      // cube standing on the shelf (a lip-level pose hides it behind the
+      // bank at a high camera)
+      const hangY = a.target.h - 0.52;
+      if (p < 0.5) {
+        const e = easeInOut(p / 0.5);
+        mesh.position.set(
+          a.from.x + (a.crevice.x - a.from.x) * e,
+          a.from.h + HALF + (hangY - (a.from.h + HALF)) * e * e + Math.sin(e * Math.PI) * 0.16,
+          a.from.z + (a.crevice.z - a.from.z) * e,
+        );
+        mesh.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(a.axis, e * Math.PI * 0.5)).multiply(a.fromQuat);
+      } else if (p < 0.72) {
+        // the hang beat: pressed against the FAR face (the one being
+        // caught), a breath of sway — centred in the gap the cube would
+        // read as floating in mid-air
+        const e = (p - 0.5) / 0.22;
+        mesh.position.set(
+          a.crevice.x + a.dx * 0.40,
+          hangY + Math.sin(e * Math.PI) * 0.05,
+          a.crevice.z + a.dz * 0.40,
+        );
+        mesh.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(a.axis, Math.PI * 0.5)).multiply(a.fromQuat);
+      } else {
+        // the mantle: pull up onto the far bank
+        const e = easeInOut((p - 0.72) / 0.28);
+        mesh.position.set(
+          a.crevice.x + a.dx * 0.5 * e,
+          hangY + (a.target.h + HALF - hangY) * e,
+          a.crevice.z + a.dz * 0.5 * e,
+        );
+        mesh.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(a.axis, (0.5 + e * 0.5) * Math.PI)).multiply(a.fromQuat);
+      }
+      if (p >= 1) {
+        this.cube.x = a.target.x;
+        this.cube.z = a.target.z;
+        this.cube.h = a.target.h;
+        this.cube.quat.copy(mesh.quaternion);
+        this.finishMove(a.target, null, false);
       }
     } else if (a.type === 'drift') {
       // The breeze carries the cube a tile — a soft hop, no roll, no count.

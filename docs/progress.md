@@ -208,6 +208,32 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-037 (Phase B item 5, the last verb: clinging — the hang-ledge.
+`clings: [[x,z]]` declares ONE void crevice between two plain slabs; a
+press INTO it from either bank catches the far face, hangs a beat and
+mantles up, so one press crosses the crevice and a height step one
+storey past the roll law each way (climb +2, drop −3; `CLING_UP`/
+`CLING_DOWN`). Declared, never inferred: an inferred hang would rewrite
+every accidental crevice in the 200 shipped levels, so the crevice is
+audited at parse (banks in reach, real map structure, no
+mechanic/block/patrol on a grip face, never start/goal) and the edge
+rides `resolveRollAt`'s step so `rollTargets`, `reachable`,
+`canStillFinish`, both shortest-path engines, `solveHazards` and the
+fair-crossing graph inherit it with no new search. Never decoration:
+the verifier and the generator both fail a level whose clings do not
+SHORTEN the proven route (par with clings vs par stripped). Live: a
+`cling` animation (off the ledge → hang pressed to the far face →
+mantle), logical tile unchanged until the landing, block-on-the-bank
+bumps instead of hanging; the view cuts a dark notch with three amber
+rungs into both crevice-facing banks. Generator: content-hash carve
+over EXISTING void cells at a fold of the walk (one bank on/beside the
+walk, banks ≥4 presses apart), candidate rejected unless the cling
+shortens the par; pivots mirror, fingerprint 'G', ratchet tracks cling
+at 3. First slots teach L176 'The Wall of It' (Act 9 citadel, par 41),
+test L186 'Loose Ends' (Act 10, par 42), twist L191 'The Last Seam'
+(Act 10, par 42) — census after landing: cling 0→3, conveyor 14→15,
+freeze 19→21, blocks 12→14, heavy 20→22; every ratchet floor holds.
+Density arc deferred like the rest of Phase B. **Phase B is complete.**)
 ADR-036 (Phase B item 4: turntable bridges — the bridge that
 rewires. `turntables: [{at, period?, phase?}]`; a rigid 3-tile bar
 over a void cross joins alternate bank pairs each half-cycle, the

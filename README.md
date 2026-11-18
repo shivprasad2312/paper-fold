@@ -229,6 +229,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // low: [[x, z]],          // low tunnel tile: only the mini cube may enter (a gantry to duck under)
   // pistons: [{ at, dx, dz, period, phase }], // machinery whose arm sweeps the next cell each cycle, shoving the cube (never crushing)
   // turntables: [{ at, period, phase }], // a 3-tile bar turning on the pivot cell, joining alternate bank pairs each half-cycle
+  // clings: [[x, z]],       // grip crevice: a press into it catches the far face and mantles across (the hang)
   // ice: [[x, z]],           // slabs that keep a rolling cube sliding
   // springs: [[x, z]],       // pads that launch a roll over a void pit
   // conveyors: [[x, z, dx, dz]], // belts that carry a landed roll in their own direction
@@ -336,6 +337,15 @@ Notable details:
   offers a rescue: restart once from a bench tile midway — past the key, on safe
   ground (never on a patrol line, a crumbling slab, ice or a spring). A rescued
   run still clears the level; it just records no time and no ghost.
+* **Five verbs, one roll law.** Rolling is the only input, but the cube *does* more
+  than roll: it shrinks and grows on pads to duck low tunnels, rides lift platforms
+  between storeys, gets shoved by piston arms, crosses turntable bridges that rewire
+  which banks are joined, and **clings** — drop into a declared grip crevice and it
+  catches the far face, hangs a beat and mantles up, crossing a gap and a storey the
+  roll law forbids (+2 up, −3 down). Every one of those is priced by the same
+  single roll predicate, so the proofs, the solver, the daily generator and the bot
+  all inherit them; none of them is decoration (the verifier fails a level whose
+  clinging does not shorten its proven route).
 * **Physics-lite mechanics.** Telekinesis shoves a dark cube one tile (the cube stays
   put, the block slides, a charge is spent — the solver tracks block positions and
   remaining pushes). Sliding bridges share the render clock, so what you see is

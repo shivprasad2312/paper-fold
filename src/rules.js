@@ -85,6 +85,19 @@ export function turntableSolid(level, t, x, z) {
   return (turntableAxis(t, tt) === 'h') === (z === tt.at[1]);
 }
 
+/**
+ * Clinging (Phase B, ADR-037): the hang-ledge. A `clings` entry is a
+ * declared grip crevice — ONE void cell between two plain slabs. A press
+ * into the crevice from either bank makes the cube catch the far face,
+ * hang a beat, and settle on top of it, so the press crosses the crevice
+ * and climbs/drops ONE storey beyond the roll law (the law the gulf
+ * already forbids: you cannot walk it, and the plain press falls in).
+ * The edge is declared, audited against geometry, and never inferred:
+ * cling move = strictly new reachability, never a quieter roll.
+ */
+export const CLING_UP = 2;
+export const CLING_DOWN = 3;
+
 /** Cycle phase (0..1) of a piston at time `t`. */
 export function pistonPhase(t, piston) {
   const ph = ((t / piston.period + piston.phase) % 1 + 1) % 1;
@@ -106,12 +119,16 @@ export function parseLevel(def) {
   const tiles = new Map();
   const width = Math.max(...def.map.map((r) => r.length));
   const depth = def.map.length;
+  // the raw map slabs, before any mechanic adds phantom tiles: cling
+  // banks must be real structure, never a dock or a bar cell (ADR-037)
+  const mapSlabs = new Set();
 
   def.map.forEach((row, z) => {
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
       if (ch >= '0' && ch <= '9') {
         tiles.set(key(x, z), { x, z, h: Number(ch), crumble: false });
+        mapSlabs.add(key(x, z));
       }
     }
   });
@@ -196,6 +213,38 @@ export function parseLevel(def) {
     for (const [cx, cz] of cross) turntableCells.set(key(cx, cz), tt);
     turntables.push(tt);
   }
+  // ---- clinging (Phase B, ADR-037): declared grip crevices ----------------
+  // Each entry is ONE void cell between two plain map slabs. A press into
+  // the crevice from either bank catches the far face and lands on it when
+  // the height step is within [−CLING_DOWN, +CLING_UP] — one storey beyond
+  // the roll law each way. The crevice is the only thing that carries the
+  // edge: elsewhere a press into void is still a fall. Banks must be real
+  // structure (mapSlabs), never a dock/bar cell; the audit below rejects
+  // banks that carry another mechanic.
+  const clingCells = new Map(); // crevice "x,z" -> { at, id }
+  const clingPairs = new Map(); // "fromKey|dx,dz" -> far bank tile
+  const clingBanks = new Set();
+  for (const [i, c] of (def.clings || []).entries()) {
+    const [ax, az] = c;
+    if (tiles.has(key(ax, az))) throw new Error(`[${def.name}] cling ${i} crevice ${ax},${az} is not void`);
+    let grips = 0;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const g = tiles.get(key(ax - dx, az - dz)); // the bank you press from
+      const f = tiles.get(key(ax + dx, az + dz)); // the face you catch
+      if (!g || !f) continue;
+      if (!mapSlabs.has(key(g.x, g.z)) || !mapSlabs.has(key(f.x, f.z))) continue;
+      if (g.crumble || f.crumble) continue;
+      const dh = f.h - g.h;
+      if (dh > CLING_UP || dh < -CLING_DOWN) continue;
+      grips++;
+      clingPairs.set(`${key(g.x, g.z)}|${dx},${dz}`, f);
+      clingBanks.add(key(g.x, g.z));
+      clingBanks.add(key(f.x, f.z));
+    }
+    if (!grips) throw new Error(`[${def.name}] cling ${i} at ${ax},${az} joins no two banks within reach`);
+    clingCells.set(key(ax, az), { at: [ax, az], id: i });
+  }
+
   // ---- sliding bridge tiles -------------------------------------------------
   const sliderTiles = new Set();
   const sliders = (def.sliders || []).map((g) => {
@@ -627,6 +676,20 @@ export function parseLevel(def) {
     if (shards.some((s) => s.x === t.x && s.z === t.z)) throw new Error(`[${def.name}] turntable cell stacked on a shard at ${k}`);
   }
 
+  // cling banks stay pure (Phase B, ADR-037): a grip face is plain
+  // structure — no mechanic fires on the landing, no bar or piston owns the
+  // handhold, and no sentinel patrols the climb. Checked LATE so every
+  // mechanic parsed after the clings has already claimed its tiles.
+  for (const kk of clingBanks) {
+    const t = tiles.get(kk);
+    if (!t) throw new Error(`[${def.name}] cling bank ${kk} is not a slab`);
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable) {
+      throw new Error(`[${def.name}] cling bank ${kk} carries another mechanic`);
+    }
+    if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] cling bank ${kk} is the goal tile`);
+    if (blockTiles.has(kk)) throw new Error(`[${def.name}] cling bank ${kk} is under a block`);
+  }
+
   const wind = def.wind || null;
   // one drift force per level (Phase B, ADR-035): a breeze and a piston
   // arm would fight over the same idle cube — never both. A turntable
@@ -672,6 +735,10 @@ export function parseLevel(def) {
     pistonCells,
     turntables,
     turntableCells,
+    clings: def.clings || [],
+    clingCells,
+    clingPairs,
+    clingBanks,
     wind,
     nudge,
   };
@@ -727,6 +794,18 @@ export function sizeAfter(level, tile, mini) {
   return p === 'shrink' ? true : p === 'grow' ? false : !!mini;
 }
 
+/**
+ * The cling edge a press from `from` in direction `d` takes, if the void
+ * cell ahead is a declared grip crevice (Phase B, ADR-037). Null when the
+ * press is an ordinary target or a plain fall. Both banks are audited at
+ * parse, so this is a pure lookup — the one source of truth shared by the
+ * resolver, the game and the live bot.
+ */
+export function clingTarget(level, from, d) {
+  if (!level.clingPairs || !level.clingPairs.size) return null;
+  return level.clingPairs.get(`${key(from.x, from.z)}|${d.dx},${d.dz}`) || null;
+}
+
 export function resolveRoll(level, from, d) {
   return resolveRollAt(level, from, d, false);
 }
@@ -747,7 +826,15 @@ export function resolveRollAt(level, from, d, mini = false) {
   };
   const step = (pos, dir = d) => {
     const to = level.tiles.get(key(pos.x + dir.dx, pos.z + dir.dz));
-    if (!to || !checkRoll(level, pos, to, size).ok) return null;
+    if (!to) {
+      // CLINGING (Phase B, ADR-037): a press into a declared grip crevice
+      // catches the far face and spans the gap in the same press. The
+      // plain law would fall; the declared edge is the only thing that
+      // carries it. (Grip banks are plain slabs by the parse audit, so the
+      // size bit has nothing to price here.)
+      return clingTarget(level, pos, dir);
+    }
+    if (!checkRoll(level, pos, to, size).ok) return null;
     // Dock-to-dock rolls do not exist in real play: a cube standing on a
     // shuttle platform can only RIDE to the far dock (shuttleRide) or step
     // onto a slab. Stepping onto another dock tile needs THAT platform
@@ -840,6 +927,12 @@ export function mechanicTargets(level, tile) {
       const to = springLaunch(level, tile, d);
       if (to) out.push(to);
     }
+  }
+  // clinging (Phase B, ADR-037) spans a crevice in one press: without it
+  // the fair-reach model would call a cling route unreachable
+  for (const d of Object.values(DIRS)) {
+    const to = clingTarget(level, tile, d);
+    if (to) out.push(to);
   }
   return out;
 }
@@ -947,6 +1040,7 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   if (to.lift) return false; // nor on a lift platform (Phase B) — it would ride away under the block
   if (to.piston) return false; // nor onto a piston base (Phase B): machinery housing
   if (to.turntable) return false; // nor onto a turntable (Phase B): the bar must turn free
+  if (level.clingBanks.has(key(to.x, to.z))) return false; // nor onto a cling bank (ADR-037): the grip face stays clear
   if (to.low) return false; // nor into a low tunnel (Phase B): a block is full-size, it would never fit
   if (to.shrink || to.grow) return false; // nor park on a size pad — pads stay clear for the cube
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
@@ -1623,6 +1717,16 @@ export function spawnProblems(level) {
       const t = level.tiles.get(k);
       if (t && t.low) probs.push(`sentinel patrols a low tunnel tile ${k}`);
       if (t && (t.shrink || t.grow)) probs.push(`size pad on a sentinel patrol line at ${k}`);
+    }
+  }
+  // cling banks (Phase B, ADR-037): a sentinel patrolling a grip face
+  // would kill the climb mid-hang — the hang has no waiting spot and the
+  // crossing model cannot price it (the generator keeps radius-1
+  // clearance via mechSet, this is the backstop)
+  for (const kk of level.clingBanks) {
+    const [x, z] = kk.split(',').map(Number);
+    for (const orb of level.orbs) {
+      if (orb.path.some(([px, pz]) => px === x && pz === z)) probs.push(`sentinel patrols a cling bank ${kk}`);
     }
   }
   // a pulsing gap holds for PULSE_ON of a cycle — like a timed slab it

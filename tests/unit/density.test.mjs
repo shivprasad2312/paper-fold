@@ -34,6 +34,7 @@ const TRACKED = {
   shrink: { count: (d) => (d.shrink || []).length, floor: 3 },
   piston: { count: (d) => (d.pistons || []).length, floor: 3 },
   turntable: { count: (d) => (d.turntables || []).length, floor: 3 },
+  cling: { count: (d) => (d.clings || []).length, floor: 3 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {

@@ -145,6 +145,14 @@ function verify(def, b, minOrbs) {
   for (const p of spawnProblems(level)) problems.push(p);
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
+  // clinging (Phase B, ADR-037): a declared grip crevice must SHORTEN the
+  // proven route — a crevice the optimal line walks around is decoration,
+  // rejected like a lift that joins no two banks. Two BFS runs, only on
+  // defs that carry clings.
+  if ((def.clings || []).length) {
+    const p0 = shortestRoute(parseLevel({ ...def, clings: undefined }));
+    if (!(par > 0) || !(p0 > par)) problems.push(`cling does not shorten the route (${p0} → ${par})`);
+  }
   for (const orb of level.orbs) {
     for (const [x, z] of orb.path) {
       if (!level.tiles.has(key(Math.round(x), Math.round(z)))) problems.push(`orb over void ${x},${z}`);
@@ -205,6 +213,7 @@ function score(def, par, b) {
   if (def.freeze) s += 1;
   if (def.heavy) s += 1.5;
   if (def.pulse) s += 1.5;
+  if (def.clings) s += 1.5;
   if ((def.orbs || []).some((o) => o.wake)) s += 1;
   if ((def.shuttles || []).some((sh) => sh.twin)) s += 1;
   if (def.boss) s += 2;
@@ -288,6 +297,9 @@ function mirrorDef(def, axis) {
   // turntable bridges (Phase B, ADR-036): the bar is axis-symmetric, the
   // pivot simply mirrors (a mirrored spin reads identically)
   if (def.turntables) out.turntables = def.turntables.map((tt) => ({ ...tt, at: T(tt.at) }));
+  // clinging (Phase B, ADR-037): a crevice is a point — the grip pair
+  // mirrors with the board and both banks move with it
+  if (def.clings) out.clings = mirrorPts(def.clings);
   if (def.shrink) out.shrink = mirrorPts(def.shrink);
   if (def.grow) out.grow = mirrorPts(def.grow);
   if (def.low) out.low = mirrorPts(def.low);
@@ -472,6 +484,18 @@ for (let id = FIRST; id <= LAST; id++) {
       const pth = shortestPath(lv);
       if (!pth || !pth.some((t) => lv.turntableCells.has(`${t.x},${t.z}`))) continue;
     }
+    // a forced cling must be CROSSED by the proven route (Phase B,
+    // ADR-037): the grip crevice only teaches if the optimal line takes
+    // it. A cling edge is a shortcut, so this is a strict par comparison
+    // — par with the clings must beat par with them stripped (any shorter
+    // line necessarily crosses a grip).
+    if ((allForce.cling || 0) > 0) {
+      const lv = parseLevel(cand);
+      const bare = parseLevel({ ...cand, clings: undefined });
+      const p1 = shortestRoute(lv);
+      const p0 = shortestRoute(bare);
+      if (!(p1 > 0) || !(p0 > p1)) continue;
+    }
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);
     const o = (cand.orbs || []).length;
@@ -555,7 +579,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '') + (def.clings ? 'G' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

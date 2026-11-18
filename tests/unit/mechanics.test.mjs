@@ -36,6 +36,7 @@ import {
   turntableAxis,
   turntableSolid,
   TURNTABLE_PERIOD,
+  mechanicTargets,
 } from '../../src/rules.js';
 
 // --- shuttle ---------------------------------------------------------------
@@ -1377,4 +1378,81 @@ test('the rescue bench never lands on the bar', () => {
   const bench = rescueTile(level);
   assert.ok(bench, 'a bench exists on an 8-press level');
   assert.equal(bench.turntable, undefined);
+});
+
+// --- clinging (Phase B, ADR-037): the hang-ledge ---------------------------
+// A declared grip crevice: one void cell whose two banks are in reach of a
+// catch. The press crosses the crevice in ONE action (roll off, hang, pull
+// up), so the whole resolver/search/oracle stack inherits it unchanged.
+const clingDef = (row = '11.11', extra = {}) => ({
+  name: 'cling-test',
+  map: [row],
+  start: [0, 0],
+  goal: [4, 0],
+  clings: [[2, 0]],
+  ...extra,
+});
+
+test('a cling press spans a declared crevice; without it the crevice is a fall', () => {
+  const level = parseLevel(clingDef());
+  assert.equal(level.clingCells.size, 1);
+  assert.deepEqual([...level.clingBanks].sort(), ['1,0', '3,0']);
+  // one press from bank to bank, and the resolver says so
+  assert.equal(resolveRoll(level, level.tiles.get('1,0'), DIRS.right), level.tiles.get('3,0'));
+  assert.equal(shortestRoute(level), 3); // 0,0 → 1,0 → cling → 3,0 → 4,0
+  assert.ok(reachable(level).has('3,0'), 'the far bank is in the proof graph');
+  assert.ok(mechanicTargets(level, level.tiles.get('1,0')).some((t) => t.x === 3), 'fair-reach sees the grip');
+  assert.deepEqual(solveHazards(level), { ok: true });
+  // the same map with the declaration stripped: a press into void is a fall
+  const bare = parseLevel(clingDef('11.11', { clings: undefined }));
+  assert.equal(resolveRoll(bare, bare.tiles.get('1,0'), DIRS.right), null);
+  assert.equal(shortestRoute(bare), -1);
+  assert.ok(shortestRoute(level) > 0, 'with the grip the level proves');
+  assert.equal(shortestRoute(bare), -1, 'without it the route is gone');
+});
+
+test('the grip reaches one storey past the roll law each way — and no further', () => {
+  // climb +2 and drop −3 are the reach; the gulf makes both new moves
+  assert.equal(shortestRoute(parseLevel(clingDef('11.31'))), 3, 'a 2-storey mantle up');
+  assert.equal(shortestRoute(parseLevel(clingDef('44.11'))), 3, 'a 3-storey catch down');
+  // a 4-storey gulf is out of reach BOTH ways: no grip exists at all, so
+  // the declaration is decoration and the parser refuses it
+  assert.throws(() => parseLevel(clingDef('11.51')), /joins no two banks/);
+  // a 3-storey gulf: the high bank can still catch DOWN, the low bank
+  // cannot climb it — the grip is one-way, and the proof keeps it that way
+  const oneWay = parseLevel({ name: 'cling-once', map: ['11.41'], start: [3, 0], goal: [0, 0], clings: [[2, 0]] });
+  assert.equal(shortestRoute(oneWay), 2);
+  assert.equal(resolveRoll(oneWay, oneWay.tiles.get('3,0'), DIRS.left).x, 1, 'high bank descends');
+  assert.equal(resolveRoll(oneWay, oneWay.tiles.get('1,0'), DIRS.right), null, 'low bank cannot climb');
+});
+
+test('cling parse rejects stacked slabs, dead crevices and dirty grip faces', () => {
+  // the crevice must be void in the map
+  assert.throws(() => parseLevel({ name: 'c', map: ['11111'], start: [0, 0], goal: [4, 0], clings: [[2, 0]] }), /is not void/);
+  // a dead-end void is no grip (no second bank)
+  assert.throws(() => parseLevel({ name: 'c', map: ['11...'], start: [0, 0], goal: [0, 0], clings: [[2, 0]] }), /joins no two banks/);
+  // a grip face may not carry another mechanic: ice would fire the slide
+  assert.throws(() => parseLevel(clingDef('11.11', { ice: [[3, 0]] })), /carries another mechanic/);
+  // nor a crumble slab (it would fall out of the wall)
+  assert.throws(() => parseLevel(clingDef('11.11', { crumble: [[3, 0]] })), /joins no two banks/);
+  // nor the goal (the seal/reject path owns that tile)
+  assert.throws(() => parseLevel({ name: 'c', map: ['11.11'], start: [0, 0], goal: [3, 0], clings: [[2, 0]] }), /goal tile/);
+});
+
+test('blocks never park on a grip face; patrols never cross one', () => {
+  const level = parseLevel({
+    name: 'cling-block',
+    map: ['11.11', '11.11'],
+    start: [0, 0],
+    goal: [4, 0],
+    clings: [[2, 1]],
+    blocks: [[0, 1]],
+    nudge: 2,
+  });
+  assert.equal(canPushBlock(level, { x: 0, z: 1, heavy: false }, 1, 0), false);
+  const patrolled = parseLevel({
+    ...clingDef('11.11', { clings: [[2, 0]] }),
+    orbs: [{ path: [[1, 0], [3, 0]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(patrolled).some((p) => p.includes('patrols a cling bank')), spawnProblems(patrolled).join(';'));
 });

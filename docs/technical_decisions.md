@@ -1653,3 +1653,79 @@ by the bar (rotation displaces nothing — stepping off before the
 sweep is the player's job, as with sliders); plate-pressed rotation
 (the research's alternative trigger) is unmodelled — cycles only.
 The hang-ledge ("clinging") is the last Phase B verb.
+
+### ADR-037 — Phase B item 5: clinging (the hang-ledge), the last verb
+
+**Context.** Phase B's last research item (G4, the verb gap) was the
+"expressive one": EDGE's signature hang lets a cube drop off a ledge,
+catch a face and cross gaps no roll can span. The plan called it the
+biggest resolver change of the phase and gated it behind a prototype.
+KUBIK's roll law is the one predicate every consumer shares (`checkRoll`),
+so a new edge kind had to enter *there* or be re-derived six times.
+
+**Decision — declared grip crevices, one press, one landing.**
+`clings: [[x,z]]` declares a crevice: ONE void cell between two plain
+slabs. Pressing into it from either bank resolves to the far bank in a
+single action (roll off → hang → mantle), and the reach is one storey
+past the roll law each way — climb +2, drop −3, constants `CLING_UP`/
+`CLING_DOWN`. Everything else about the law is unchanged, and the reach
+is *only* at a declared crevice: elsewhere a press into void still falls.
+
+**Why declared, not inferred.** An inferred hang (any void gap with a
+reachable face) would silently rewrite 200 shipped levels — every
+accidental crevice in the catalogue would become a shortcut, and every
+par would move. Declaring the crevice keeps the mechanism local, makes
+the geometry auditable at parse (banks in reach, both banks real map
+structure, no mechanic/block/patrol on a grip face, never start/goal),
+and makes the generator's job explicit. It also mirrors how the
+turntable reuse worked in ADR-036: a new mechanic rides an existing
+predicate rather than introducing a second resolver.
+
+**Proof model.** The cling edge lives in `resolveRollAt`'s `step()`, the
+single primitive every search expands, so `rollTargets`, `reachable`,
+`canStillFinish`, `shortestRoute`/`shortestPath`, `solveHazards`, the
+rescue bench and the fair-crossing graph all inherit it with no new
+code paths — the same argument ADR-033 used for lifts. `mechanicTargets`
+gains the cling moves so the fair-reach model (which expands adjacent
+tiles one at a time) can cross a crevice too. The audit is strict about
+one thing: **a cling may never be decoration** — `verify-levels.mjs`
+and the generator both compare the proven par with the clings against
+the par with them stripped and fail the level unless the declared grips
+make the route shorter. That is the same "joins no two banks" spirit the
+lift and turntable pars enforce, moved into the proof itself.
+
+**Live law.** The game resolves a press into a declared crevice into a
+`cling` animation (`startCling`): off the ledge, a hang beat pressed
+against the far face, then a mantle onto it; the cube's logical tile
+changes only at the end, so every rule keeps reading the takeoff tile
+until the landing is real. A block parked on the far bank occupies the
+handhold, so that press bumps instead of hanging. The view cuts a grip
+into both banks' crevice-facing sides — a dark slot with three amber
+rungs, static (the hang is the cube's, not the world's).
+
+**Generator.** A content-hash carve (never the shared rand stream) that
+converts only EXISTING void cells sitting at a fold of the proven walk:
+both banks within the cling reach, at least one bank on (or within two
+steps of) the walk, and the two banks at least four presses apart on
+that walk's clock. Adding a crevice slightly deepens the route graph;
+the generator then rejects the candidate unless the cling actually
+shortens the proven par. Pivots mirror with the board (`mirrorPts`), the
+fingerprint learns 'G', and the density ratchet tracks `cling` at 3.
+
+**First slots (names preserved).** Teach **L176 "The Wall of It"**
+(Act 9 citadel; one crevice at 6,6 cutting the switchback, par 41);
+test **L186 "Loose Ends"** (Act 10 citadel, par 42); twist **L191 "The
+Last Seam"** (Act 10 citadel, par 42). Each was landed through the full
+gate on a forced slot; no ratchet floor moved down. Census after
+landing: cling 0→3 (door 16, pulse 21→20, timed 23→22, conveyor 14→15,
+freeze 19→21, blocks 12→14, heavy 20→22, turntable 3, lift 4,
+shrink 3, piston 3 — every tracked mechanic stays at or above its floor).
+
+**Not yet.** The cling density arc (12+ teach→test→twist) is deferred
+like the other Phase B arcs. The hang is a fixed beat, not a hold: there
+is no player-controlled hang time, no hang-to-sideways transfer (EDGE's
+"ride a moving block sideways" use), and the trap use of the verb is
+unmodelled on purpose — a crevice the optimal line does not take is
+rejected, so what ships is a shortcut, always. Phase B is complete with
+this item; the remaining research debt is Phase C's slider/wind carves
+and the overuse-cap decision.

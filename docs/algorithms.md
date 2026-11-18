@@ -52,6 +52,13 @@ move primitive, so a slide or launch is **one edge with one press of par**,
 never a sub-simulation. Fairness stays provable because the edge is the
 same object the verifier expands.
 
+**Clinging (ADR-037)** joins the *first step* rather than the follow-
+through: when the cell ahead is void and is a declared grip crevice, the
+step resolves to the far bank. The press is still one press and one
+landing, so par, the soft-lock proof and the hazard solver price a hang
+exactly like a roll — and the cling edge is priced by the same primitive
+the game executes.
+
 ### 2.2 The shuttle ride edge
 
 A shuttle is not tile geometry — its platform is a presentation-clock

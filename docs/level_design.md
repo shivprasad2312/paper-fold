@@ -70,6 +70,23 @@ satisfy (enforced by `parseLevel` + verifier):
   nothing else may live on the cross. Patrols never cross the bar,
   conveyors never feed it, the rescue bench never lands on it, and
   wind never shares the level.
+- `clings`: `[[x,z]]` — grip crevices (Phase B, ADR-037, the hang-ledge):
+  ONE void cell between two plain slabs. A press *into* the crevice from
+  either bank catches the far face, hangs a beat and mantles up, so the
+  press crosses the crevice in a single action — and the height step it
+  can span is one storey past the roll law each way (climb +2, drop −3;
+  the roll law's +1/−2 still applies everywhere else). Both banks must be
+  real map structure within reach of each other; a grip face may carry no
+  other mechanic, block or patrol (the hang has no waiting spot), and the
+  crevice may touch neither start nor goal. **Never decoration:** the
+  verifier fails a level whose clings do not SHORTEN the proven route, so
+  a crevice always reads as a fold in the level you can cut across. The
+  resolver prices the whole press (game, solver, fair-reach, bot), and the
+  generator rejects any candidate whose clings do not beat the stripped
+  par (the two BFS runs are compared explicitly). The generator carve
+  only converts EXISTING void cells at a fold of the walk — it never
+  opens a crevice through structure — and its banks must sit on (or
+  beside) the proven route.
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.

@@ -670,6 +670,50 @@ export function buildLevelView(level, actHue = null) {
     turntables.push({ tt, rotor, barMat });
   }
 
+  // ---- clinging (Phase B, ADR-037): grip faces on the banks of a declared
+  // crevice — a recessed dark slot with three amber rungs cut into the face
+  // the cube catches. Static by design: the hang is the cube's, not the
+  // world's, so there is no clock to read.
+  {
+    const slotMat = new THREE.MeshStandardMaterial({ color: 0x232831, roughness: 0.7, metalness: 0.35 });
+    const rungMat = new THREE.MeshStandardMaterial({
+      color: 0xffc46b, emissive: 0xb06a12, emissiveIntensity: 0.7, roughness: 0.4,
+    });
+    for (const cc of level.clingCells.values()) {
+      const [cx, cz] = cc.at;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const bankK = key(cx + dx, cz + dz);
+        if (!level.clingBanks.has(bankK)) continue;
+        const bank = level.tiles.get(bankK);
+        // the grip is cut into the bank face that LOOKS INTO the crevice:
+        // the crevice sits at -d from the bank, so the rungs offset that way
+        const alongX = dx !== 0;
+        const faceX = -dx;
+        const faceZ = -dz;
+        const holder = new THREE.Group();
+        const slot = new THREE.Mesh(
+          alongX ? new THREE.BoxGeometry(0.07, 0.44, 0.78) : new THREE.BoxGeometry(0.78, 0.44, 0.07),
+          slotMat,
+        );
+        // OUTSIDE the slab's 0.497 half-width: a notch proud of the face,
+        // so it is visible from any seat (buried at 0.47 it vanished into
+        // the slab body — caught in the first visual pass)
+        slot.position.set(faceX * 0.512, bank.h - 0.22, faceZ * 0.512);
+        holder.add(slot);
+        for (const r of [-0.15, 0, 0.15]) {
+          const rung = new THREE.Mesh(
+            alongX ? new THREE.BoxGeometry(0.09, 0.062, 0.58) : new THREE.BoxGeometry(0.58, 0.062, 0.09),
+            rungMat,
+          );
+          rung.position.set(faceX * 0.526, bank.h - 0.22 + r, faceZ * 0.526);
+          holder.add(rung);
+        }
+        holder.position.set(cx + dx, 0, cz + dz);
+        group.add(holder);
+      }
+    }
+  }
+
   // ---- pulsing gaps (M3 wave-1): phantom slabs sealing void cells --------
   // Sealed (phase < PULSE_ON): a porcelain slab sits in the gap. Then it
   // flashes amber and blinks out, leaving open void until the sweep

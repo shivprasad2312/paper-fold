@@ -12,7 +12,7 @@ import {
   solveHazards,
   spawnProblems,
   timingProblems,
-  legalNeighbours,
+  rollTargets,
   shortestRoute as provenRoute,
   rescueTile,
   fairReachSet,
@@ -29,7 +29,10 @@ function shortestRoute(level) {
     const next = [];
     for (const tile of frontier) {
       if (tile === level.goal) return d;
-      for (const { to } of legalNeighbours(level, tile)) {
+      // the verified route is the one the PRESS law yields, so a cling
+      // edge (Phase B, ADR-037) — which spans a void crevice in one press
+      // — counts here exactly as it counts in the proofs
+      for (const to of rollTargets(level, tile)) {
         const k = key(to.x, to.z);
         if (!seen.has(k)) { seen.add(k); next.push(to); }
       }
@@ -116,6 +119,15 @@ function checkLevel(label, def) {
     fail('wind direction must be a diagonal unit vector');
   }
 
+  // 8. clinging (Phase B, ADR-037): a declared grip crevice must SHORTEN
+  // the proven route — a crevice the optimal line walks around is
+  // decoration, and decoration is not allowed to ship
+  if ((def.clings || []).length) {
+    const p1 = provenRoute(level);
+    const p0 = provenRoute(parseLevel({ ...def, clings: undefined }));
+    if (!(p1 > 0) || !(p0 > p1)) fail(`cling does not shorten the proven route (${p0} → ${p1})`);
+  }
+
   const shardsOk = level.shards.filter((s) => reach.has(s.id)).length;
   const route = shortestRoute(level);
   if (Number.isInteger(def.id)) cataloguePars.set(def.id, provenRoute(level));
@@ -126,7 +138,8 @@ function checkLevel(label, def) {
       (level.blocks.length ? ` · blocks ${level.blocks.length} (pushes ${level.nudge})` : '') +
       (level.sliders.length ? ` · sliders ${level.sliders.reduce((a, g) => a + g.tileSet.size, 0)} tiles` : '') +
       (level.gateKey ? ' · key' : '') +
-      (level.wind ? ' · wind' : ''),
+      (level.wind ? ' · wind' : '') +
+      (level.def.clings ? ` · cling ${level.def.clings.length}` : ''),
   );
 }
 

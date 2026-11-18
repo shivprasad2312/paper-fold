@@ -286,8 +286,8 @@ structure, verbs, cadence, and meta.
 | G1 | Level topology | Filled places, landmarks, multiple routes (§2.3) | 1-wide tracks, fill 0.19, one critical path + shard spurs | **Behind** |
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
 | G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
-| G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Only "roll"; novelty is tile-side | **Behind** |
-| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035) + turntable bridges (ADR-036); clinging pending | Partial |
+| G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Roll + shrink pads (ADR-034) + lift rides (ADR-033) + clinging, the hang (ADR-037); no momentum verb | Closing |
+| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035) + turntable bridges (ADR-036) + clinging (ADR-037) | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
 | G7 | Difficulty rhythm | Sawtooth + relief (§2.2) | Act bands rise ~monotonically; intra-act cliffs audited ≤16 | Partial |
 | G8 | Mastery meta | Ranks/ghosts/best-times (§2.5–2.6) | Par + medals only; no per-level grade, no ghost | **Behind** |
@@ -386,15 +386,23 @@ Ordered by proof-friendliness:*
    Crunch" (Act 9), twist L189 "The Unwinding" (Act 10); density arc
    deferred like the other Phase B arcs; plate-pressed rotation not
    modelled — cycles only.
-5. **Hang-ledge (the expressive one — design carefully, name ours:**
-   "**clinging**"). Roll off a high bank toward a wall face and the
-   cube clings to the wall's side for one beat, then drops to the bank
-   below or pulls up if the wall is 1 high. This is the verb that makes
-   structures *playable* rather than decorative. It is also the biggest
-   resolver change (a new edge kind + a hang state), so it comes last
-   in the phase, behind Lifts/Mini which unlock 80% of the structural
-   value. If prototyping shows proof cost exploding, we ship B1–B4 and
-   revisit.
+5. **Hang-ledge (the expressive one, name ours: "clinging").** ✅
+   *Shipped (ADR-037) — as a declared grip crevice, not an inferred
+   one.* Roll off a bank into a declared void crevice and the cube
+   catches the far face, hangs one beat and mantles up: a single press
+   spans the gap and a height step one storey past the roll law each way
+   (climb +2, drop −3). The prototype decision the plan reserved was
+   made the safe way: the edge is DECLARED and audited (banks in reach,
+   plain faces, on the walk, never decoration — the verifier fails any
+   cling that does not shorten the proven route), so it cannot silently
+   rewrite the 200 shipped levels the way an inferred hang would have.
+   Proof cost did not explode: the edge rides the one press primitive,
+   so every search inherits it. *First slots:* teach L176 "The Wall of
+   It" (Act 9 citadel), test L186 "Loose Ends" (Act 10), twist L191
+   "The Last Seam" (Act 10); density arc deferred like the rest of
+   Phase B. Not modelled: player-controlled hang time, hang-to-side
+   transfer, and the trap use of the verb (a crevice the optimal line
+   does not take is rejected by design).
 
 *Files per mechanic:* `rules.js` (law + proof), `game.js`,
 `levelView.js`, `hazards.mjs` (conversion, content-hash only),
@@ -469,7 +477,8 @@ live bot's crossing model, README/`level_design.md` + a new ADR each.
 **Sequencing:** A (structure) and C (cadence) are generator-only and
 de-risk everything; B1 lift unblocks A's towers; B2 mini unblocks
 vaults; D is independent and can interleave; E lands last on stable
-content; B5 clinging is explicitly optional pending prototype.
+content; B5 clinging was gated on a prototype that the declared-crevice
+design cleared (ADR-037).
 
 **Status (2026-11-17):** direction approved (structure first, re-cut
 shipped levels, full meta later; size = production-style escalation,
@@ -488,11 +497,14 @@ generator-placeable mechanic now ≥12); light blocks join the
 generator (2→10, teach L58 → twist L171); sawtooth relief is
 audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
 may run 6+ levels above its relief line). Remaining Phase C:
-wind/slider carve + proof support. **Phase B opened (ADR-033):**
+wind/slider carve + proof support. **Phase B complete (ADR-033…ADR-037):**
 lift platforms shipped (see Phase B item 1); shrink pads shipped
 (ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
-item 3); turntable bridges shipped (ADR-036, Phase B item 4). Next:
-clinging (the hang-ledge), last.
+item 3); turntable bridges shipped (ADR-036, Phase B item 4); clinging
+shipped (ADR-037, Phase B item 5) — every Phase B verb has landed.
+Next: the deferred cadence work (Phase C slider/wind carves, the
+crumble/sentinel overuse cap, the Phase B 12+ density arcs) and Phase
+E meta.
 
 ---
 

@@ -12,12 +12,15 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, blocks, pulse, proximity, twin, boss, lift, shrink } (per-mech. prob.) }
+//         heavy, blocks, pulse, proximity, twin, boss, lift, shrink,
+//         piston, turntable, cling } (per-mech. prob.) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
 //         timed?: n, freeze?: n, heavy?: n, blocks?: n, pulse?: n,
-//         proximity?: n, twin?: n, boss?: n, lift?: n, shrink?: n }
+//         proximity?: n, twin?: n, boss?: n, lift?: n, shrink?: n,
+//         piston?: n, turntable?: n, cling?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
+import { CLING_UP, CLING_DOWN } from '../src/rules.js';
 
 export function applyHazards(layout, b, rand, opts = {}) {
   const { W, H, map, path, start, goal } = layout;
@@ -801,6 +804,105 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placedTurntable && pTurntable > 0 && ttRoll('#roll') < pTurntable) convertTurntable();
   }
 
+  // --- clinging (Phase B, ADR-037): a DECLARED grip crevice — one void
+  // cell between two plain banks within one storey of the roll law each
+  // way. One bank must stand on (or beside) the proven walk and the two
+  // banks must sit far apart on that walk's clock, so the crevice reads
+  // as a fold in the route: catching the far face cuts the corner. The
+  // GENERATOR then enforces the strict law — par with the clings must
+  // beat par with them stripped, or the candidate is rejected — so a
+  // crevice is never decoration. The crevice and both banks claim
+  // mechSet before shards, sentinels, crumble and the key are placed (the
+  // rules-side parse audit keeps the grip faces plain and unpatrolled).
+  // The pick comes from a content hash — never the shared rand stream —
+  // so arming the carve cannot reshuffle shipped candidates.
+  const clings = [];
+  {
+    const wantCling = force.cling || 0;
+    const pCling = (b.mech || {}).cling || 0;
+    const clingSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const clingRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + clingSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const idxOf = new Map();
+    path.forEach(([x, z], i) => { if (!idxOf.has(`${x},${z}`)) idxOf.set(`${x},${z}`, i); });
+    // how far along the walk a tile sits: its own index, else the nearest
+    // walk tile's within two steps (a bank one cell off the route still
+    // carries the route's clock — that is what makes the fold a shortcut)
+    const walkClock = (x, z) => {
+      let best = Infinity;
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oz = -2; oz <= 2; oz++) {
+          const i = idxOf.get(`${x + ox},${z + oz}`);
+          if (i === undefined) continue;
+          best = Math.min(best, i + Math.abs(ox) + Math.abs(oz));
+        }
+      }
+      return best;
+    };
+    const findClingSpots = () => {
+      const spots = [];
+      const startK = `${start[0]},${start[1]}`;
+      const goalK = `${goal[0]},${goal[1]}`;
+      for (let z = 0; z < H; z++) {
+        for (let x = 0; x < W; x++) {
+          if (map[z][x] !== 0) continue;
+          const ck = `${x},${z}`;
+          // an existing void cell only: the carve never opens a crevice
+          // through structure (that would rewrite the walk it dresses)
+          if (carved.has(ck) || mechSet.has(ck)) continue;
+          for (const [dx, dz] of [[1, 0], [0, 1]]) {
+            const ax = x - dx;
+            const az = z - dz;
+            const bx = x + dx;
+            const bz = z + dz;
+            if (map[az] === undefined || map[bz] === undefined) continue;
+            const ha = map[az][ax];
+            const hb = map[bz][bx];
+            if (!ha || !hb) continue;
+            if (hb - ha > CLING_UP || ha - hb > CLING_DOWN) continue;
+            const ka = `${ax},${az}`;
+            const kb = `${bx},${bz}`;
+            if (ka === startK || kb === startK || ka === goalK || kb === goalK) continue;
+            if (carved.has(ka) || carved.has(kb) || mechSet.has(ka) || mechSet.has(kb)) continue;
+            const ca = walkClock(ax, az);
+            const cb = walkClock(bx, bz);
+            if (!Number.isFinite(ca) || !Number.isFinite(cb)) continue; // one bank on the walk
+            const skip = Math.abs(ca - cb);
+            if (skip < 4) continue; // a fold, not a sideways step
+            spots.push({ at: [x, z], banks: [ka, kb], skip });
+          }
+        }
+      }
+      // the smallest fold first: the deeper the shortcut, the likelier the
+      // act's par band (checked after the carve) falls below its floor
+      spots.sort((p, q) => p.skip - q.skip);
+      return spots;
+    };
+    const convertCling = () => {
+      const spots = findClingSpots();
+      if (!spots.length) return false;
+      const pool = spots.slice(0, Math.min(6, spots.length));
+      const spot = pool[Math.floor(clingRoll('#pick') * pool.length)];
+      clings.push(spot.at);
+      markMech(spot.at[0], spot.at[1]);
+      for (const bk of spot.banks) {
+        const [bx, bz] = bk.split(',').map(Number);
+        markMech(bx, bz);
+      }
+      return true;
+    };
+    let placedCling = 0;
+    while (placedCling < wantCling) {
+      if (!convertCling()) return null; // a forced cling must land
+      placedCling++;
+    }
+    if (!placedCling && pCling > 0 && clingRoll('#roll') < pCling) convertCling();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
   const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
@@ -1115,6 +1217,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (lifts.length) def.lifts = lifts;
   if (pistons.length) def.pistons = pistons;
   if (turntables.length) def.turntables = turntables;
+  if (clings.length) def.clings = clings;
   if (shrinks.length) {
     def.shrink = shrinks;
     def.low = lows;

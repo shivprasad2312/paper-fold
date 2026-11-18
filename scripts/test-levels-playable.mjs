@@ -51,6 +51,7 @@ const {
   resolveRollAt,
   checkRoll,
   shuttleRide,
+  clingTarget,
   ROLL_TIME,
   ORB_KILL_RADIUS,
   commitSchedules,
@@ -942,6 +943,14 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
       return { desync: true, r: i };
     }
     i = j;
+    // a cling press (Phase B, ADR-037) is a long three-beat move (roll
+    // off → hang → mantle): the main loop owns it, and the burst must
+    // never pre-queue a pull-up behind it
+    if (moves[i] !== 'ride') {
+      const curT = ctx.model.tiles.get(key(tiles[i].x, tiles[i].z));
+      const cd = MOVE_V[moves[i]];
+      if (curT && cd && clingTarget(ctx.model, curT, cd)) break;
+    }
     if (i >= exitIdx) return { r: i }; // this crossing is done — the main
     // loop owns every further segment (it re-checks sentinels before any
     // re-entry into the line)
