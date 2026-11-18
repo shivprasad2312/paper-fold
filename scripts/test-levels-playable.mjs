@@ -157,6 +157,10 @@ function liveCtx(def) {
     // piston strike cells (Phase B, ADR-035): plain floor to the planner,
     // a timed wall to the executor
     pistons: new Set(model.pistons.map((pn) => key(pn.strike.x, pn.strike.z))),
+    // turntable arm cells (Phase B, ADR-036): plain floor to the planner;
+    // the executor crosses only while the bar joins their bank pair, and
+    // never waits standing on an arm (the pivot is the safe refuge)
+    turntableArms: new Set([...model.tiles.values()].filter((t) => t.turntable && !t.turntablePivot).map((t) => key(t.x, t.z))),
     keyOnLine,
   };
 }
@@ -812,6 +816,27 @@ async function driveRouteLive(tiles, moves, ctx) {
       if (!clear) return false;
     }
 
+    // turntable arm (Phase B, ADR-036): step on only while the bar joins
+    // this pair AND the dwell has room for the crossing press sequence —
+    // the executor re-checks before every step, so requiring the bar to
+    // be freshly aligned (first half of its dwell-half) covers the step
+    // on plus the step off onto the pivot or far bank. Never wait while
+    // standing on an arm, a crumble, or a pulsing gap.
+    if (ctx.turntableArms.has(key(target.x, target.z)) && !ctx.turntableArms.has(key(st.x, st.z))
+      && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
+      const t0 = Date.now();
+      let aligned = false;
+      while (!aligned && Date.now() - t0 < 20000) {
+        aligned = await page.evaluate(
+          ([x, z]) => window.__kubik.game.view.turntableSolidAt(x, z)
+            && window.__kubik.game.view.turntableDwellLeftAt(x, z) >= 0.9,
+          [target.x, target.z],
+        );
+        if (!aligned) await wait(70);
+      }
+      if (!aligned) return false;
+    }
+
     // shuttle RIDE: the cube stands on a dock; the platform dwells, takes
     // it, and carries it to the far dock. Phase 1: wait for the drive to
     // finish (the platform dwells at the far dock — generous timeout: under
@@ -928,7 +953,7 @@ async function driveCommit(tiles, moves, r, ctx, exitIdx) {
     // roll into a dock the platform is not standing on
     {
       const nt = ctx.model.tiles.get(key(next.x, next.z));
-      if (nt && (nt.shuttle || nt.lift)) break;
+      if (nt && (nt.shuttle || nt.lift || nt.turntable)) break;
     }
     // a sliding bridge that dips into the void: never press (or pre-queue)
     // a roll onto a down bridge — the roll would fall into the void. Wait

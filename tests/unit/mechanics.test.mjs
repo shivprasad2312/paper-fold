@@ -32,6 +32,10 @@ import {
   pistonExtended,
   PISTON_PERIOD,
   PISTON_EXTENDED_FROM,
+  turntablePhase,
+  turntableAxis,
+  turntableSolid,
+  TURNTABLE_PERIOD,
 } from '../../src/rules.js';
 
 // --- shuttle ---------------------------------------------------------------
@@ -1282,4 +1286,95 @@ test('the rescue bench never lands on a strike cell or a piston base', () => {
   assert.ok(bench, 'a bench exists on an 8-press level');
   assert.equal(level.pistonCells.has(`${bench.x},${bench.z}`), false);
   assert.equal(bench.piston, undefined);
+});
+
+// --- turntable bridges (Phase B, ADR-036): the bridge that rewires ---------
+// A void crossroads: corridor banks east/west, banks north/south.
+const turntableDef = () => ({
+  name: 'turntable-test',
+  map: [
+    '..1..',
+    '.....',
+    '1...1',
+    '.....',
+    '..1..',
+  ],
+  start: [0, 2],
+  goal: [4, 2],
+  turntables: [{ at: [2, 2] }],
+});
+
+test('turntables parse as a five-cell phantom cross at one bank height', () => {
+  const level = parseLevel(turntableDef());
+  assert.equal(level.turntables.length, 1);
+  assert.equal(level.turntableCells.size, 5);
+  const pivot = level.tiles.get('2,2');
+  assert.ok(pivot.turntablePivot, 'pivot flagged');
+  assert.equal(pivot.h, 1);
+  assert.equal(parseLevel(turntableDef()).turntables[0].period, TURNTABLE_PERIOD);
+});
+
+test('turntable parse rejects slabs, floaters, decoration and bad timing', () => {
+  // cross cell on a slab
+  assert.throws(() => parseLevel({
+    ...turntableDef(),
+    map: ['..1..', '..1..', '1.1.1', '..1..', '..1..'],
+  }), /is not void/);
+  // a one-shore spike is decoration: only the east bank exists here
+  assert.throws(() => parseLevel({
+    name: 'tt-flat',
+    map: ['.....', '.....', '....1', '.....', '....1'],
+    start: [4, 4],
+    goal: [4, 2],
+    turntables: [{ at: [2, 2] }],
+  }), /floats free|fewer than two shores/);
+  assert.throws(() => parseLevel({ ...turntableDef(), turntables: [{ at: [2, 2], period: 2 }] }), /period/);
+  assert.throws(() => parseLevel({ ...turntableDef(), turntables: [{ at: [2, 2], phase: 1 }] }), /phase/);
+  assert.throws(() => parseLevel({ ...turntableDef(), wind: { x: 1, z: 0 } }), /never shares/);
+});
+
+test('the cross is plain floor in the one roll law, on both axes', () => {
+  const level = parseLevel(turntableDef());
+  assert.equal(shortestRoute(level), 4); // straight through pivot and arms
+  assert.ok(reachable(level).has('2,0'), 'the far north bank is in the proof graph');
+  // a block can never park on the bar
+  assert.equal(canPushBlock(level, { x: 0, z: 2, heavy: false }, 1, 0), false);
+});
+
+test('turntable clock: the bar joins one pair, sweeps, joins the other', () => {
+  const level = parseLevel(turntableDef());
+  const tt = level.turntables[0];
+  assert.equal(turntableAxis(0, tt), 'h');
+  assert.equal(turntableAxis(TURNTABLE_PERIOD * 0.5 + 0.01, tt), 'v');
+  assert.equal(turntableSolid(level, 0, 2, 2), true); // pivot always floored
+  assert.equal(turntableSolid(level, 0, 1, 2), true); // west arm while 'h'
+  assert.equal(turntableSolid(level, 0, 2, 1), false); // north arm while 'h'
+  assert.equal(turntableSolid(level, TURNTABLE_PERIOD * 0.75, 2, 1), true);
+  const shifted = parseLevel({ ...turntableDef(), turntables: [{ at: [2, 2], phase: 0.5 }] });
+  assert.equal(turntableAxis(0, shifted.turntables[0]), 'v'); // phase offsets the pairing
+});
+
+test('spawn audit keeps patrols and conveyor feeds off the bar', () => {
+  const honest = parseLevel({
+    name: 'tt-orb',
+    map: ['..1..', '.....', '1...1', '.....', '..1..'],
+    start: [0, 2],
+    goal: [4, 2],
+    turntables: [{ at: [2, 2] }],
+    orbs: [{ path: [[2, 0], [2, 4]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(honest).some((p) => p.includes('patrols a turntable cell')), spawnProblems(honest).join(';'));
+});
+
+test('the rescue bench never lands on the bar', () => {
+  const level = parseLevel({
+    name: 'tt-bench',
+    map: ['..1......', '.........', '1...11111', '.........', '..1......'],
+    start: [0, 2],
+    goal: [8, 2],
+    turntables: [{ at: [2, 2] }],
+  });
+  const bench = rescueTile(level);
+  assert.ok(bench, 'a bench exists on an 8-press level');
+  assert.equal(bench.turntable, undefined);
 });

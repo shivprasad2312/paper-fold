@@ -208,6 +208,25 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-036 (Phase B item 4: turntable bridges — the bridge that
+rewires. `turntables: [{at, period?, phase?}]`; a rigid 3-tile bar
+over a void cross joins alternate bank pairs each half-cycle, the
+pivot always floored as the crossing refuge. Cross cells are plain
+floor in every proof (the slider wait-out doctrine); live, entry
+onto an unjoined arm is a step into void and loitering on an arm
+through the sweep drops the cube (slider law, amber telegraph).
+Cross tiles register before every other mechanic so dock/bank
+checks price the bar; one height (the lowest bank), at least two
+shores (cross, T or corner), nothing else on the cross, no wind.
+Generator gains a content-hash carve (spine triple cleared like
+shuttle docks, perpendicular arms may clear one layer of fill;
+`mechSet` doubles as the carrier registry), which also exposed and
+fixed a latent key-pick bug (a start-of-stage slab snapshot could
+be voided by later carves). First slots teach L129 'The Crossing'
+(Act 7), test L164 'The Crunch' (Act 9 tower), twist L189 'The
+Unwinding' (Act 10 tower) — no ratchet floor moved; ratchet tracks
+turntable at 3. Bot waits for alignment + 0.9 s dwell, refuge on
+the pivot. Next and last Phase B verb: clinging (the hang-ledge).)
 ADR-035 (Phase B item 3: piston pushers — the timed wall that
 shoves. `pistons: [{at, dx, dz, period?, phase?}]`; the strike cell
 is plain floor in every proof (the sliding-bridge doctrine) while

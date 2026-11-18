@@ -287,7 +287,7 @@ structure, verbs, cadence, and meta.
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
 | G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
 | G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Only "roll"; novelty is tile-side | **Behind** |
-| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035); turntables pending | Partial |
+| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035) + turntable bridges (ADR-036); clinging pending | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
 | G7 | Difficulty rhythm | Sawtooth + relief (§2.2) | Act bands rise ~monotonically; intra-act cliffs audited ≤16 | Partial |
 | G8 | Mastery meta | Ranks/ghosts/best-times (§2.5–2.6) | Par + medals only; no per-level grade, no ghost | **Behind** |
@@ -376,9 +376,16 @@ Ordered by proof-friendliness:*
    crush. *First slots:* teach L137 "The Turnaround" (Act 7), test
    L169 "Compression" (Act 9), twist L187 "The Last Push" (Act 10
    citadel); density arc deferred like the lift/shrink arcs.
-4. **Turntable bridges.** A bridge segment that rotates 90° on a cycle
-   (or when a plate is pressed), re-wiring the route graph over time.
-   Proof: slider-family wait-out model.
+4. **Turntable bridges.** *(Shipped — ADR-036.)* A bridge segment that
+   rotates 90° on a cycle, re-wiring the route graph over time. As
+   shipped: a rigid 3-tile bar over a void cross, pivot always floored
+   as the mid-crossing refuge, cross cells plain floor in every proof
+   (the slider-family wait-out model, as promised), the live arm
+   dropping a loitering cube exactly as a sinking slider does.
+   *First slots:* teach L129 "The Crossing" (Act 7), test L164 "The
+   Crunch" (Act 9), twist L189 "The Unwinding" (Act 10); density arc
+   deferred like the other Phase B arcs; plate-pressed rotation not
+   modelled — cycles only.
 5. **Hang-ledge (the expressive one — design carefully, name ours:**
    "**clinging**"). Roll off a high bank toward a wall face and the
    cube clings to the wall's side for one beat, then drops to the bank
@@ -484,7 +491,8 @@ may run 6+ levels above its relief line). Remaining Phase C:
 wind/slider carve + proof support. **Phase B opened (ADR-033):**
 lift platforms shipped (see Phase B item 1); shrink pads shipped
 (ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
-item 3). Next: turntable bridges, then clinging.
+item 3); turntable bridges shipped (ADR-036, Phase B item 4). Next:
+clinging (the hang-ledge), last.
 
 ---
 

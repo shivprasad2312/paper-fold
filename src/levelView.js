@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM } from './rules.js';
+import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM, turntablePhase, turntableSolid, turntableDwellLeft } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -634,6 +634,42 @@ export function buildLevelView(level, actHue = null) {
     pistons.push({ pn, holder: armHolder, armMat, padMat });
   }
 
+  // ---- turntable bridges (Phase B, ADR-036): a dark steel bar three
+  // tiles long on an axle post, turning over the void cross. The bar
+  // dwells joining one pair of banks, flashes the sliders' amber
+  // telegraph, then sweeps 90 degrees in the last beat of the half-cycle
+  // and dwells on the other pair — the same clock turntableSolid reads.
+  const turntables = [];
+  for (const tt of level.turntables) {
+    const topY = tt.h + THICK / 2;
+    const holder = new THREE.Group();
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.17, 0.22, 0.3, 16),
+      new THREE.MeshStandardMaterial({ color: 0x2c313a, roughness: 0.55, metalness: 0.6 }),
+    );
+    post.position.y = topY + 0.13;
+    post.castShadow = true;
+    holder.add(post);
+    const barMat = new THREE.MeshStandardMaterial({ color: 0x646e7e, roughness: 0.45, metalness: 0.65 });
+    const bar = new THREE.Mesh(new RoundedBoxGeometry(2.94, 0.14, 0.92, 2, 0.05), barMat);
+    bar.position.y = topY + 0.02;
+    bar.castShadow = true;
+    bar.receiveShadow = true;
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x39404c, roughness: 0.5, metalness: 0.6 });
+    const rotor = new THREE.Group();
+    rotor.add(bar);
+    for (const sgn of [-1, 1]) {
+      const cap = new THREE.Mesh(new RoundedBoxGeometry(0.5, 0.2, 0.98, 2, 0.05), capMat);
+      cap.position.set(sgn * 1.28, topY + 0.05, 0);
+      cap.castShadow = true;
+      rotor.add(cap);
+    }
+    holder.add(rotor);
+    holder.position.set(tt.at[0], 0, tt.at[1]);
+    group.add(holder);
+    turntables.push({ tt, rotor, barMat });
+  }
+
   // ---- pulsing gaps (M3 wave-1): phantom slabs sealing void cells --------
   // Sealed (phase < PULSE_ON): a porcelain slab sits in the gap. Then it
   // flashes amber and blinks out, leaving open void until the sweep
@@ -1243,6 +1279,21 @@ export function buildLevelView(level, actHue = null) {
       p.padMat.emissiveIntensity = 1;
     }
 
+    // turntable bars: dwell on one bank pair, amber telegraph, then a
+    // 90-degree sweep in the last 0.4 s of the half-cycle, arriving
+    // exactly as the solidity axis flips (the game's clock)
+    for (const p of turntables) {
+      const ph = turntablePhase(clock.t, p.tt);
+      const seg = Math.floor(ph * 2);
+      const segT = ph * 2 - seg;
+      const sweepSpan = 0.4 / (p.tt.period / 2);
+      const sweep = segT > 1 - sweepSpan ? smooth((segT - (1 - sweepSpan)) / sweepSpan) : 0;
+      p.rotor.rotation.y = (seg + sweep) * Math.PI / 2;
+      const warn = segT > 1 - sweepSpan * 1.4 ? Math.min(1, (segT - (1 - sweepSpan * 1.4)) / (sweepSpan * 1.4)) : 0;
+      p.barMat.emissive.setRGB(warn * 0.55, warn * 0.19, 0);
+      p.barMat.emissiveIntensity = 1;
+    }
+
     // obstacle blocks: settle to their pushed tile (heavy ones grind)
     for (const b of blocks.values()) {
       if (!b.anim) continue;
@@ -1366,6 +1417,16 @@ export function buildLevelView(level, actHue = null) {
   function pistonCycle(x, z) {
     const pn = level.pistonCells.get(key(x, z));
     return pn ? Math.floor(clock.t / pn.period + pn.phase) : -1;
+  }
+
+  /** Is the turntable cell (x, z) floored right now? (Hazard clock.) */
+  function turntableSolidAt(x, z) {
+    return turntableSolid(level, clock.t, x, z);
+  }
+
+  /** Seconds until the bar at (x, z) sweeps (Infinity: pivot/plain). */
+  function turntableDwellLeftAt(x, z) {
+    return turntableDwellLeft(level, clock.t, x, z);
   }
 
   /** Is the piston striking (x, z) currently extended? (Hazard clock.) */
@@ -1593,6 +1654,8 @@ export function buildLevelView(level, actHue = null) {
     pistonExtendedAt,
     pistonCycle,
     pistonImminent,
+    turntableSolidAt,
+    turntableDwellLeftAt,
     shuttlePos,
     shuttlePlatforms,
     shuttleDocked,

@@ -59,6 +59,17 @@ satisfy (enforced by `parseLevel` + verifier):
   The strike cell's neighbourhood keeps clear of patrol lines, docks
   and bridges (nothing a player waits beside the arm); the rescue
   bench never lands on it. Never on a wind level (one drift force).
+- `turntables`: `[{at, period?, phase?}]` — turntable bridges (Phase B,
+  ADR-036): a rigid 3-tile bar turning on the pivot cell over a void
+  cross, joining one pair of banks for half a cycle, then sweeping
+  90° to join the other. The pivot is always floored (the refuge);
+  arms hold only while the bar joins their side, and a cube standing
+  on an arm when it sweeps is dropped (the slider law). Cross cells
+  are plain floor in every proof; the bar must reach at least two
+  shores (cross, T or corner) at one height — the lowest bank — and
+  nothing else may live on the cross. Patrols never cross the bar,
+  conveyors never feed it, the rescue bench never lands on it, and
+  wind never shares the level.
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.

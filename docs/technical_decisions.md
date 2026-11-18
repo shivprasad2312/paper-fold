@@ -1577,3 +1577,79 @@ like the lift and shrink arcs; piston-pushed *blocks* (an arm that
 shoves cargo) are unmodelled — blocks stall the arm where they park,
 never ride it; turntable bridges are the next Phase B verb, the
 hang-ledge last.
+
+## ADR-036: Turntable bridges — the bridge that rewires (Phase B, item 4)
+
+**Decision.** `turntables: [{ at: [x, z], period?, phase? }]` (period
+defaults to 5.6 s, phase to 0). A rigid bar three tiles long turns on a
+centre pivot over a cross of five void cells (the pulsing-gap phantom
+idiom): the bar joins one pair of opposite banks for half of every
+cycle, sweeps 90°, and joins the other pair — the route graph rewires
+itself over time. The pivot is always floored: it is the mid-crossing
+refuge where a player (and the bot) waits out the sweep.
+
+*Slider-family proofs.* All five cross cells are plain floor in every
+search — `checkRoll` prices them as slabs, so route, soft-lock,
+hazard and fair-reach solvers inherit turntables with zero new
+machinery; the wait-out doctrine says the timing is proven by waiting
+beside the bar, never by modelling phase in the graph. The phase law
+is shared (`turntablePhase`, `turntableAxis`, `turntableSolid`,
+`turntableDwellLeft`) so view, game and bot read one clock. *Live:*
+entry onto an arm the bar has not joined reads as a step into void
+(`isSolid` gate), and standing on an arm when the bar sweeps away
+drops the cube — the slider/pulse sunk-ground law, telegraphed by the
+same amber warning the sliders taught, in the last beat of the dwell.
+A legal-value refinement cost nothing: `turntableDwellLeft` lets the
+bot require ≥0.9 s of dwell before stepping on, and the crossing then
+re-checks step by step (bank → arm → pivot refuge → arm → bank).
+
+*Parse law.* The cross cells must be void in the map and register
+FIRST — before shuttles, lifts, doors and every other mechanic — so
+docking/bank/boarding checks everywhere else price the bar as the
+floor it is (a late registration left shuttle docks "boardless" over
+cleared arms; the one-law resolver now literally sees the bar first).
+The bar has one height, the lowest bank it touches (pulse rule), and
+must reach at least two of its four beyond-banks (a full cross, a T,
+or a corner junction — each dwell joins a different shore subset
+through the pivot); an arm floating free of every bank, a one-shore
+spike, stacking on any cross cell (start/goal/key/block/shard
+included, audited after all parses), a block parked on the bar
+(`canPushBlock`), wind sharing the level, period outside [3.2, 10] or
+phase outside [0, 1) are all rejected. Spawn audits keep patrol lines
+off every cross cell (a crossing burst cannot price the sweep) and
+forbid conveyor feeds into the bar (a belt landing must be provably
+solid); the rescue bench never lands on the cross.
+
+*Generator:* a content-hash carve in the hazard stage — a straight
+spine triple becomes pivot + route-side arms (cleared like shuttle
+docks), and the perpendicular arms reach banks within one storey,
+clearing one layer of non-route fill where the terrain offers no
+void (the lift shaft's terrain surgery; a clear may never strand a
+shuttle/lift dock's boarding slab). The junction must reach at least
+three banks counting the route's own shores. Cross cells claim
+carved + mechSet, and `mechSet` doubles as the carrier registry that
+keeps the carve from clearing a tile an earlier mechanic's def still
+points at. Finding the carve also exposed a latent hazard-stage bug:
+the gate-key pick read a start-of-stage slab snapshot that carve
+stages could have voided; it now filters on the current map. A forced
+turntable must be crossed by the proven route. Acts 7–10 carry
+`turntable` probabilities; `mirrorDef` mirrors the pivot (the bar is
+axis-symmetric); the fingerprint learns 'R'; the ratchet tracks
+turntable at 3. The bot's planner is untouched (cross cells are plain
+floor); its executor waits for alignment + dwell, never waits on an
+arm, and hands commit bursts back at the bar.
+
+*First slots (names preserved):* teach L129 "The Crossing" (Act 7
+shuttle-span), test L164 "The Crunch" (Act 9, tower re-forced — plaza
+ran paradox-short beneath the act's par band), twist L189 "The
+Unwinding" (Act 10 tower). No ratchet floor moved down (conveyor
+15→14 is its floor; twin 18→17 above its floor). Page-level smokes:
+a cube parked on the pivot survives repeated sweeps; a cube parked
+on an arm is dropped by the sweep, cause 'turntable'.
+
+**Not yet:** the turntable density arc (12+ teach→test→twist) is
+deferred like the lift/shrink/piston arcs; a cube is never CARRIED
+by the bar (rotation displaces nothing — stepping off before the
+sweep is the player's job, as with sliders); plate-pressed rotation
+(the research's alternative trigger) is unmodelled — cycles only.
+The hang-ledge ("clinging") is the last Phase B verb.

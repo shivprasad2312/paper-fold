@@ -285,6 +285,9 @@ function mirrorDef(def, axis) {
   if (def.lifts) out.lifts = def.lifts.map((l) => ({ ...l, at: T(l.at) }));
   // piston pushers (Phase B, ADR-035): base mirrors, the push reverses
   if (def.pistons) out.pistons = def.pistons.map((pn) => ({ ...pn, at: T(pn.at), dx: -pn.dx }));
+  // turntable bridges (Phase B, ADR-036): the bar is axis-symmetric, the
+  // pivot simply mirrors (a mirrored spin reads identically)
+  if (def.turntables) out.turntables = def.turntables.map((tt) => ({ ...tt, at: T(tt.at) }));
   if (def.shrink) out.shrink = mirrorPts(def.shrink);
   if (def.grow) out.grow = mirrorPts(def.grow);
   if (def.low) out.low = mirrorPts(def.low);
@@ -461,6 +464,13 @@ for (let id = FIRST; id <= LAST; id++) {
       const lv = parseLevel(cand);
       const pth = shortestPath(lv);
       if (!pth || !pth.some((t) => lv.pistonCells.has(`${t.x},${t.z}`))) continue;
+    }
+    // a forced turntable must be CROSSED by the proven route — a bar
+    // the optimal line walks around teaches nothing (Phase B, ADR-036)
+    if ((allForce.turntable || 0) > 0) {
+      const lv = parseLevel(cand);
+      const pth = shortestPath(lv);
+      if (!pth || !pth.some((t) => lv.turntableCells.has(`${t.x},${t.z}`))) continue;
     }
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);

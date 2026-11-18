@@ -12,9 +12,9 @@
 // generator cannot carve yet) and boss (act finales only, by design).
 // Light blocks joined the generator in ADR-032 and lifts in ADR-033;
 // both are tracked below at their shipped counts. Shrink pads (ADR-034)
-// and piston pushers (ADR-035) enter at their three teach/test/twist
-// slots; the 12+ density arc for the Phase B mechanics is the deferred
-// follow-up, as it was for lifts.
+// and piston pushers (ADR-035) and turntable bridges (ADR-036) enter
+// at their three teach/test/twist slots; the 12+ density arc for the
+// Phase B mechanics is the deferred follow-up, as it was for lifts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -33,6 +33,7 @@ const TRACKED = {
   lift: { count: (d) => (d.lifts || []).length, floor: 2 },
   shrink: { count: (d) => (d.shrink || []).length, floor: 3 },
   piston: { count: (d) => (d.pistons || []).length, floor: 3 },
+  turntable: { count: (d) => (d.turntables || []).length, floor: 3 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {

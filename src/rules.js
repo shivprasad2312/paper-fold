@@ -47,6 +47,44 @@ export const PULSE_ON = 0.4;
 export const PISTON_PERIOD = 3.2;
 export const PISTON_EXTENDED_FROM = 0.55;
 
+/**
+ * Turntable bridges (Phase B, ADR-036): a rigid bar three tiles long
+ * turning on a centre pivot over void cells. The bar joins one pair of
+ * opposite banks for half of every cycle, then sweeps 90 degrees and
+ * joins the other pair — the route graph rewires itself over time.
+ * Proofs use the slider-family wait-out model: all five cross cells are
+ * plain floor in every search, and the phase law lives here so the
+ * view, the game and the live bot read the same clock.
+ */
+export const TURNTABLE_PERIOD = 5.6;
+
+/** Cycle phase (0..1) of a turntable at time `t`. */
+export function turntablePhase(t, tt) {
+  return ((t / tt.period + tt.phase) % 1 + 1) % 1;
+}
+
+/** Which bank pair the bar joins at time `t`: 'h' (x axis) or 'v' (z axis). */
+export function turntableAxis(t, tt) {
+  return turntablePhase(t, tt) < 0.5 ? 'h' : 'v';
+}
+
+/** Is the turntable cell (x, z) floored at time `t`? (Pivot: always.) */
+/** Seconds until the bar at (x, z) next sweeps (Infinity: pivot/plain). */
+export function turntableDwellLeft(level, t, x, z) {
+  const tt = level.turntableCells.get(key(x, z));
+  if (!tt) return Infinity;
+  if (tt.at[0] === x && tt.at[1] === z) return Infinity;
+  const ph = turntablePhase(t, tt);
+  return (Math.ceil(ph * 2) / 2 - ph) * tt.period || 0;
+}
+
+export function turntableSolid(level, t, x, z) {
+  const tt = level.turntableCells.get(key(x, z));
+  if (!tt) return true;
+  if (tt.at[0] === x && tt.at[1] === z) return true;
+  return (turntableAxis(t, tt) === 'h') === (z === tt.at[1]);
+}
+
 /** Cycle phase (0..1) of a piston at time `t`. */
 export function pistonPhase(t, piston) {
   const ph = ((t / piston.period + piston.phase) % 1 + 1) % 1;
@@ -108,6 +146,56 @@ export function parseLevel(def) {
   if (blockTiles.has(key(startTile.x, startTile.z))) throw new Error(`[${def.name}] block on the start tile`);
   if (blockTiles.has(key(goalTile.x, goalTile.z))) throw new Error(`[${def.name}] block on the goal tile`);
 
+  // ---- turntable bridges (Phase B, ADR-036): a rigid 3-tile bar turning
+  // on a pivot, all five cross cells void in the map (the pulsing-gap
+  // phantom idiom). The bar has ONE height — the lowest bank it touches —
+  // and must join two opposite shores on at least one axis, or it is
+  // decoration. In every proof the cross cells are plain floor (the
+  // wait-out doctrine); only the live clock decides which pair is joined.
+  const turntables = [];
+  const turntableCells = new Map(); // cross cell "x,z" -> turntable
+  for (const [i, td] of (def.turntables || []).entries()) {
+    const [px, pz] = td.at || [];
+    const cross = [[px, pz], [px + 1, pz], [px - 1, pz], [px, pz + 1], [px, pz - 1]];
+    for (const [cx, cz] of cross) {
+      if (tiles.has(key(cx, cz))) throw new Error(`[${def.name}] turntable ${i} cell ${cx},${cz} is not void`);
+    }
+    let h = Infinity;
+    for (const [cx, cz] of cross) {
+      for (const [dx, dz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        const n = tiles.get(key(cx + dx, cz + dz));
+        if (n && !cross.some(([ax, az]) => ax === cx + dx && az === cz + dz)) h = Math.min(h, n.h);
+      }
+    }
+    if (!Number.isFinite(h)) throw new Error(`[${def.name}] turntable ${i} touches no bank`);
+    for (const [cx, cz] of cross.slice(1)) {
+      const touches = [[0, -1], [0, 1], [-1, 0], [1, 0]].some(([dx, dz]) => {
+        const nx = cx + dx;
+        const nz = cz + dz;
+        return tiles.has(key(nx, nz)) && !cross.some(([ax, az]) => ax === nx && az === nz);
+      });
+      if (!touches) throw new Error(`[${def.name}] turntable ${i} arm cell ${cx},${cz} floats free of every bank`);
+    }
+    // the bar must actually reach shores: at least two of the four
+    // beyond-banks exist (a full cross, a T, or a corner junction —
+    // each dwell joins a different subset through the pivot)
+    const banks = [[px - 2, pz], [px + 2, pz], [px, pz - 2], [px, pz + 2]]
+      .filter(([bx, bz]) => tiles.has(key(bx, bz))).length;
+    if (banks < 2) throw new Error(`[${def.name}] turntable ${i} reaches fewer than two shores`);
+    const period = td.period === undefined ? TURNTABLE_PERIOD : td.period;
+    if (typeof period !== 'number' || !(period >= 3.2) || period > 10) {
+      throw new Error(`[${def.name}] turntable ${i} period must be a number in [3.2, 10] (got ${td.period})`);
+    }
+    const phase = td.phase === undefined ? 0 : td.phase;
+    if (typeof phase !== 'number' || !(phase >= 0) || phase >= 1) {
+      throw new Error(`[${def.name}] turntable ${i} phase must be a number in [0, 1) (got ${td.phase})`);
+    }
+    const tt = { at: [px, pz], period, phase, h, id: i };
+    tiles.set(key(px, pz), { x: px, z: pz, h, turntable: tt, turntablePivot: true });
+    for (const [cx, cz] of cross.slice(1)) tiles.set(key(cx, cz), { x: cx, z: cz, h, turntable: tt });
+    for (const [cx, cz] of cross) turntableCells.set(key(cx, cz), tt);
+    turntables.push(tt);
+  }
   // ---- sliding bridge tiles -------------------------------------------------
   const sliderTiles = new Set();
   const sliders = (def.sliders || []).map((g) => {
@@ -500,7 +588,7 @@ export function parseLevel(def) {
     const strike = tiles.get(key(sx, sz));
     if (!strike) throw new Error(`[${def.name}] piston ${i} strike cell ${sx},${sz} is not a slab`);
     for (const [t, what] of [[base, 'base'], [strike, 'strike cell']]) {
-      if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston) {
+      if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable) {
         throw new Error(`[${def.name}] piston ${i} ${what} stacked on another mechanic at ${t.x},${t.z}`);
       }
       if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] piston ${i} ${what} on the start tile`);
@@ -527,11 +615,24 @@ export function parseLevel(def) {
     pistons.push(piston);
   }
 
+  // turntable cross cells stay pure: nothing else may live on the bar
+  for (const k of turntableCells.keys()) {
+    const t = tiles.get(k);
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston) {
+      throw new Error(`[${def.name}] turntable cell stacked on another mechanic at ${k}`);
+    }
+    if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] turntable cell on the start tile`);
+    if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] turntable cell on the goal tile`);
+    if (blockTiles.has(k)) throw new Error(`[${def.name}] turntable cell under a block at ${k}`);
+    if (shards.some((s) => s.x === t.x && s.z === t.z)) throw new Error(`[${def.name}] turntable cell stacked on a shard at ${k}`);
+  }
+
   const wind = def.wind || null;
   // one drift force per level (Phase B, ADR-035): a breeze and a piston
-  // arm would fight over the same idle cube — never both
-  if (wind && pistons.length) {
-    throw new Error(`[${def.name}] a level carries either wind or pistons, never both`);
+  // arm would fight over the same idle cube — never both. A turntable
+  // turns the floor itself; a breeze over it is the same fight.
+  if (wind && (pistons.length || turntables.length)) {
+    throw new Error(`[${def.name}] wind never shares a level with pistons or turntables`);
   }
   const nudge = def.nudge || 0;
 
@@ -569,6 +670,8 @@ export function parseLevel(def) {
     hasSize,
     pistons,
     pistonCells,
+    turntables,
+    turntableCells,
     wind,
     nudge,
   };
@@ -843,6 +946,7 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   if (to.pulse) return false; // nor on a pulsing gap — it would blink out under the block
   if (to.lift) return false; // nor on a lift platform (Phase B) — it would ride away under the block
   if (to.piston) return false; // nor onto a piston base (Phase B): machinery housing
+  if (to.turntable) return false; // nor onto a turntable (Phase B): the bar must turn free
   if (to.low) return false; // nor into a low tunnel (Phase B): a block is full-size, it would never fit
   if (to.shrink || to.grow) return false; // nor park on a size pad — pads stay clear for the cube
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
@@ -1176,7 +1280,7 @@ export function rescueTile(level) {
     // never a low tunnel or a size pad: the bench re-places the cube at
     // full size (ADR-034), so it must be a tile full size may stand on,
     // and standing there must not silently flip the cube's size
-    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k);
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k) && !t.turntable;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -1488,6 +1592,24 @@ export function spawnProblems(level) {
           if (level.sliderTiles.has(nk)) probs.push(`piston strike cell at ${sk} beside a sliding bridge`);
         }
       }
+    }
+  }
+  // turntable bridges (Phase B, ADR-036): the cross cells are plain
+  // floor in every proof but timed in the live game, so a patrol may
+  // never cross the bar (a crossing burst cannot price the sweep), and
+  // no conveyor may feed it (a belt landing must be provably solid).
+  {
+    const { line } = lineRuns(level);
+    for (const tt of level.turntables) {
+      const cross = [[tt.at[0], tt.at[1]], [tt.at[0] + 1, tt.at[1]], [tt.at[0] - 1, tt.at[1]], [tt.at[0], tt.at[1] + 1], [tt.at[0], tt.at[1] - 1]];
+      for (const [cx, cz] of cross) {
+        if (line.has(key(cx, cz))) probs.push(`sentinel patrols a turntable cell ${cx},${cz}`);
+      }
+    }
+    for (const t of level.tiles.values()) {
+      if (!t.conveyor) continue;
+      const ahead = level.tiles.get(key(t.x + t.conveyor.dx, t.z + t.conveyor.dz));
+      if (ahead && ahead.turntable) probs.push(`conveyor at ${t.x},${t.z} feeds a turntable`);
     }
   }
   // size pads and low tunnels vs the patrol line (Phase B, ADR-034): the

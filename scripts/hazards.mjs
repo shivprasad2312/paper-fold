@@ -686,6 +686,121 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placedPiston && pPiston > 0 && pistonRoll('#roll') < pPiston) convertPiston();
   }
 
+  // --- turntable bridges (Phase B, ADR-036): the shuttle-dock carve
+  // turned sideways — a straight, flat stretch of the proven route
+  // becomes the bar's own cross. The pivot and the route-side arms are
+  // cleared to void (the parser re-adds them as phantom cells, exactly
+  // like shuttle docks), and the perpendicular arms reach across void
+  // to standing banks at the same height, so the bar's other dwell
+  // joins a real second crossing. The cross claims carved + mechSet;
+  // the pick comes from a content hash — never the shared rand stream —
+  // so arming the carve cannot reshuffle shipped candidates.
+  const turntables = [];
+  {
+    const wantTurntable = force.turntable || 0;
+    const pTurntable = (b.mech || {}).turntable || 0;
+    const ttSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const ttRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + ttSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const findTurntableSpots = () => {
+      const spots = [];
+      const startK = `${start[0]},${start[1]}`;
+      const goalK = `${goal[0]},${goal[1]}`;
+      for (let i = 1; i + 1 < path.length; i++) {
+        const [px, pz] = path[i];
+        const pk = `${px},${pz}`;
+        // mechSet is the carrier registry: every earlier carve stage
+        // marks the tiles its def entries point at, and clearing one
+        // would orphan the reference (a conveyor on a voided tile)
+        if (carved.has(pk) || mechSet.has(pk) || pk === startK || pk === goalK) continue;
+        const dx = Math.sign(path[i][0] - path[i - 1][0]);
+        const dz = Math.sign(path[i][1] - path[i - 1][1]);
+        if (!dx && !dz) continue;
+        if (path[i + 1][0] - path[i][0] !== dx || path[i + 1][1] - path[i][1] !== dz) continue; // straight
+        const hP = map[pz][px];
+        if (!hP) continue;
+        const arms = [path[i - 1], path[i + 1]];
+        // the bar is rigid but rolls price a one-storey step on or off it
+        if (arms.some(([ax, az]) => Math.abs(map[az][ax] - hP) > 1)) continue;
+        if (arms.some(([ax, az]) => carved.has(`${ax},${az}`) || mechSet.has(`${ax},${az}`))) continue;
+        // perpendicular arms cross to banks within one storey: an arm
+        // cell may be void, or a non-route fill slab the carve clears
+        // (the lift shaft's terrain surgery). The junction — these two
+        // shores plus the route's own pair — must reach at least three
+        // banks, so the bar genuinely rewires the walk.
+        const fx = dz;
+        const fz = dx;
+        let banks = 0;
+        let ok = true;
+        const armClears = [];
+        const dockCells = new Set();
+        for (const sh of shuttles) { dockCells.add(`${sh.a[0]},${sh.a[1]}`); dockCells.add(`${sh.b[0]},${sh.b[1]}`); }
+        for (const lf of lifts) dockCells.add(`${lf.at[0]},${lf.at[1]}`);
+        for (const side of [1, -1]) {
+          const ax = px + fx * side;
+          const az = pz + fz * side;
+          const bx = px + fx * side * 2;
+          const bz = pz + fz * side * 2;
+          if (map[az] === undefined || map[bz] === undefined) { ok = false; break; }
+          if (carved.has(`${ax},${az}`) || mechSet.has(`${ax},${az}`) || pathSet.has(`${ax},${az}`)) { ok = false; break; }
+          if (map[az][ax] !== 0) {
+            // clearable fill — unless a shuttle/lift dock boards from it
+            const strands = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ox, oz]) => dockCells.has(`${ax + ox},${az + oz}`));
+            if (strands) { ok = false; break; }
+            armClears.push([ax, az]);
+          }
+          // the parser's float rule, mirrored: the arm must touch a
+          // shore beyond it or a slab beside it
+          const touches = map[bz][bx] > 0 || map[az + dz]?.[ax + dx] > 0 || map[az - dz]?.[ax - dx] > 0;
+          if (!touches) { ok = false; break; }
+          if (map[bz][bx] > 0 && Math.abs(map[bz][bx] - hP) <= 1) banks++;
+        }
+        if (!ok) continue;
+        // the route's own shores (map tiles two out along the corridor,
+        // either side) count toward the junction too: the honest carve
+        // floor is a T — one perpendicular shore plus the route pair
+        for (const side of [1, -1]) {
+          const bx = px + dx * side * 2;
+          const bz = pz + dz * side * 2;
+          if (map[bz] && map[bz][bx] > 0 && Math.abs(map[bz][bx] - hP) <= 1) banks++;
+        }
+        if (banks < 3) continue;
+        // side slabs beside the perpendicular arms would crowd the sweep
+        spots.push({ at: [px, pz], clears: [path[i - 1], path[i], path[i + 1]], armClears });
+      }
+      return spots;
+    };
+    const convertTurntable = () => {
+      const spots = findTurntableSpots();
+      if (!spots.length) return false;
+      const spot = spots[Math.floor(ttRoll('#pick') * spots.length)];
+      turntables.push({ at: spot.at, period: 5.6, phase: Math.floor(ttRoll('#phase') * 4) / 4 });
+      for (const [x, z] of [...spot.clears, ...(spot.armClears || [])]) {
+        clearTile(x, z);
+        carved.add(`${x},${z}`);
+        markMech(x, z);
+      }
+      const [px, pz] = spot.at;
+      // the perpendicular arm cells are void already: just claim them
+      // (they enter the def through the turntable's own cross)
+      for (const [ax, az] of [[px + 1, pz], [px - 1, pz], [px, pz + 1], [px, pz - 1]]) {
+        carved.add(`${ax},${az}`);
+        markMech(ax, az);
+      }
+      return true;
+    };
+    let placedTurntable = 0;
+    while (placedTurntable < wantTurntable) {
+      if (!convertTurntable()) return null; // a forced turntable must land
+      placedTurntable++;
+    }
+    if (!placedTurntable && pTurntable > 0 && ttRoll('#roll') < pTurntable) convertTurntable();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
   const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
@@ -977,6 +1092,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (b.keyP != null && rand() < b.keyP) {
     const candidates = solidSlabs.filter((t) => {
       const [fx, fz] = t.split(',').map(Number);
+      if (!map[fz][fx]) return false; // carve stages since the snapshot may have voided it
       if (crumbleSet.has(t)) return false;
       if (lineSet.has(t)) return false;
       if (mechSet.has(t)) return false;
@@ -998,6 +1114,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (shuttles.length) def.shuttles = shuttles;
   if (lifts.length) def.lifts = lifts;
   if (pistons.length) def.pistons = pistons;
+  if (turntables.length) def.turntables = turntables;
   if (shrinks.length) {
     def.shrink = shrinks;
     def.low = lows;

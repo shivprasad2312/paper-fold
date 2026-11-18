@@ -282,6 +282,9 @@ export class Game {
     if (this.level.sliderTiles.has(key(x, z)) && !this.view.sliderUp(x, z)) return null;
     // A pulsing gap only holds while its phantom slab is sealed in.
     if (this.level.pulseTiles.has(key(x, z)) && !this.view.pulseUp(x, z)) return null;
+    // A turntable arm (Phase B, ADR-036) only holds while the bar joins
+    // its bank pair; the pivot always holds.
+    if (t.turntable && !t.turntablePivot && !this.view.turntableSolidAt(x, z)) return null;
     // A shuttle dock only holds while its platform dwells there.
     if (t.shuttle && !this.view.shuttleDocked(x, z)) return null;
     // A lift dock (Phase B, ADR-033) only holds while its platform dwells
@@ -1048,6 +1051,21 @@ export class Game {
       };
       this.emit('sliderFell');
       this.die('slider');
+      return;
+    }
+    if (this.level.turntableCells.has(k) && !this.view.turntableSolidAt(this.cube.x, this.cube.z)) {
+      // the bar swept away underneath the cube (Phase B, ADR-036)
+      this.cube.anim = {
+        type: 'fall',
+        t: 0,
+        dx: 0,
+        dz: 0,
+        startPos: this.cubeMesh.position.clone(),
+        fromQuat: this.cubeMesh.quaternion.clone(),
+        spin: new THREE.Vector3(0.45, 0, 0.4),
+      };
+      this.emit('sliderFell');
+      this.die('turntable');
     }
   }
 

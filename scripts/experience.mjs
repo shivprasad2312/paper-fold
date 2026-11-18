@@ -35,6 +35,7 @@ const MECH_FIELDS = [
   ['lifts', 'V', (d) => (d.lifts || []).length > 0],
   ['shrink', 'M', (d) => (d.shrink || []).length > 0],
   ['piston', 'Y', (d) => (d.pistons || []).length > 0],
+  ['turntables', 'R', (d) => (d.turntables || []).length > 0],
   ['key', 'K', (d) => !!d.key],
   ['blocks', 'B', (d) => (d.blocks || []).length > 0],
   ['sliders', 'L', (d) => (d.sliders || []).length > 0],
