@@ -208,6 +208,26 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-035 (Phase B item 3: piston pushers — the timed wall that
+shoves. `pistons: [{at, dx, dz, period?, phase?}]`; the strike cell
+is plain floor in every proof (the sliding-bridge doctrine) while
+the base is a wall to presses and blocks; live, an extended arm
+refuses entry and a resting cube is shoved one tile under the
+wind-drift law — legal shoves ride the drift machinery (ghost-log
+included), illegal ones stall; pistons displace, never crush, and
+never share a level with wind. Spawn audits keep the strike cell
+and its neighbourhood clear of every patience spot; the rescue
+bench never lands on the machinery. Generator gains a content-hash
+flank carve on straight flat corridors (forced pistons must be
+crossed by the proven route); first slots teach L137 'The
+Turnaround' (Act 7, freeze shard as support), test L169
+'Compression' (Act 9, +timed+ice) and twist L187 'The Last Push'
+(Act 10 citadel braid); the census cost (freeze, proximity) was
+restored on the teach slot and by a repair re-cut of L183 — no
+ratchet floor moved; ratchet tracks piston at 3. A page-level
+smoke test parked the cube on a strike cell: shoved exactly one
+tile, still playing, no page errors. Next Phase B verb: turntable
+bridges, then the hang-ledge last.)
 ADR-034 (Phase B item 2: shrink pads — size is one more bit of cube
 state. `shrink`/`grow` pads flip the cube mini/full on every landing;
 `low` tiles are tunnel mouths only the mini cube may enter;

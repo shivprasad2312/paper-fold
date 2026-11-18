@@ -36,6 +36,28 @@ export const TIMED_FUSE = 2.4;
 export const PULSE_PERIOD = 4.0;
 export const PULSE_ON = 0.4;
 
+/**
+ * Piston pushers (Phase B, ADR-035): a machinery base whose arm sweeps
+ * the neighbouring strike cell for the tail of every cycle — retracted
+ * for the first 55% (cross then), extended for the rest. Proofs model
+ * the strike cell as the plain floor it is (a wait-out timing hazard,
+ * the sliding-bridge doctrine); the phase law lives here so the view,
+ * the game and the live bot all read the same clock.
+ */
+export const PISTON_PERIOD = 3.2;
+export const PISTON_EXTENDED_FROM = 0.55;
+
+/** Cycle phase (0..1) of a piston at time `t`. */
+export function pistonPhase(t, piston) {
+  const ph = ((t / piston.period + piston.phase) % 1 + 1) % 1;
+  return ph;
+}
+
+/** Is the piston's arm extended at time `t`? */
+export function pistonExtended(piston, t) {
+  return pistonPhase(t, piston) >= PISTON_EXTENDED_FROM;
+}
+
 export const key = (x, z) => `${x},${z}`;
 
 /**
@@ -452,7 +474,65 @@ export function parseLevel(def) {
   if (shrinkPads.size && !hasSize) throw new Error(`[${def.name}] size pads but no low tunnel to spend them on`);
   if (startMini && !hasSize) throw new Error(`[${def.name}] starts mini but has no low tunnel`);
 
+  // ---- piston pushers (Phase B, ADR-035): a machinery base on a slab,
+  // its arm periodically sweeping the strike cell one step along (dx,dz).
+  // The base is a wall to every press (checkRoll); the strike cell stays
+  // a plain slab in every proof — the arm is a timing hazard you wait
+  // out beside, exactly the sliding-bridge doctrine. Live, the arm
+  // blocks entry while extended, and a cube resting on the strike cell
+  // when it fires is shoved one tile further (the wind-drift law) when
+  // that shove is legal — otherwise the arm stalls against the cube.
+  // Pistons never crush: being somewhere the arm wants to be is a
+  // displacement, never a death.
+  const pistons = [];
+  const pistonCells = new Map(); // strike cell "x,z" -> piston
+  const pistonFootprint = new Set();
+  for (const [i, pn] of (def.pistons || []).entries()) {
+    const [ax, az] = pn.at || [];
+    const { dx, dz } = pn || {};
+    if (!((Math.abs(dx) === 1 && dz === 0) || (Math.abs(dz) === 1 && dx === 0))) {
+      throw new Error(`[${def.name}] piston ${i} needs a unit axis direction`);
+    }
+    const base = tiles.get(key(ax, az));
+    if (!base) throw new Error(`[${def.name}] piston ${i} base ${ax},${az} is not a slab`);
+    const sx = ax + dx;
+    const sz = az + dz;
+    const strike = tiles.get(key(sx, sz));
+    if (!strike) throw new Error(`[${def.name}] piston ${i} strike cell ${sx},${sz} is not a slab`);
+    for (const [t, what] of [[base, 'base'], [strike, 'strike cell']]) {
+      if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston) {
+        throw new Error(`[${def.name}] piston ${i} ${what} stacked on another mechanic at ${t.x},${t.z}`);
+      }
+      if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] piston ${i} ${what} on the start tile`);
+      if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] piston ${i} ${what} on the goal tile`);
+      if (gateKey && gateKey.x === t.x && gateKey.z === t.z) throw new Error(`[${def.name}] piston ${i} ${what} on the key`);
+      if (blockTiles.has(key(t.x, t.z))) throw new Error(`[${def.name}] piston ${i} ${what} under a block at ${t.x},${t.z}`);
+      if (shards.some((s) => s.x === t.x && s.z === t.z)) throw new Error(`[${def.name}] piston ${i} ${what} stacked on a shard at ${t.x},${t.z}`);
+    }
+    for (const kk of [key(ax, az), key(sx, sz)]) {
+      if (pistonFootprint.has(kk)) throw new Error(`[${def.name}] piston ${i} overlaps another piston's footprint at ${kk}`);
+      pistonFootprint.add(kk);
+    }
+    const period = pn.period === undefined ? PISTON_PERIOD : pn.period;
+    if (typeof period !== 'number' || !(period >= 1.6) || period > 8) {
+      throw new Error(`[${def.name}] piston ${i} period must be a number in [1.6, 8] (got ${pn.period})`);
+    }
+    const phase = pn.phase === undefined ? 0 : pn.phase;
+    if (typeof phase !== 'number' || !(phase >= 0) || phase >= 1) {
+      throw new Error(`[${def.name}] piston ${i} phase must be a number in [0, 1) (got ${pn.phase})`);
+    }
+    const piston = { at: [ax, az], dx, dz, period, phase, strike: { x: sx, z: sz }, id: i };
+    base.piston = { dx, dz, id: i };
+    pistonCells.set(key(sx, sz), piston);
+    pistons.push(piston);
+  }
+
   const wind = def.wind || null;
+  // one drift force per level (Phase B, ADR-035): a breeze and a piston
+  // arm would fight over the same idle cube — never both
+  if (wind && pistons.length) {
+    throw new Error(`[${def.name}] a level carries either wind or pistons, never both`);
+  }
   const nudge = def.nudge || 0;
 
   return {
@@ -487,6 +567,8 @@ export function parseLevel(def) {
     lowTiles,
     startMini,
     hasSize,
+    pistons,
+    pistonCells,
     wind,
     nudge,
   };
@@ -672,6 +754,10 @@ export function checkRoll(level, from, to, mini = false) {
   // bot) prices tunnels identically; callers that predate the mechanic
   // get the full-size law by default.
   if (to.low && !mini) return { ok: false, kind: 'blocked' };
+  // A piston base (Phase B, ADR-035) is machinery housing: a wall to
+  // every press at any size. Its strike cell stays plain floor here —
+  // the arm itself is priced only by the live game, never by a proof.
+  if (to.piston) return { ok: false, kind: 'blocked' };
   // A door is a wall to every press that does not START on its plate
   // (M3 wave-1). Putting the law here — the one "can the cube roll
   // from→to" predicate — means resolveRoll, the reachability searches,
@@ -756,6 +842,7 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
   if (to.pulse) return false; // nor on a pulsing gap — it would blink out under the block
   if (to.lift) return false; // nor on a lift platform (Phase B) — it would ride away under the block
+  if (to.piston) return false; // nor onto a piston base (Phase B): machinery housing
   if (to.low) return false; // nor into a low tunnel (Phase B): a block is full-size, it would never fit
   if (to.shrink || to.grow) return false; // nor park on a size pad — pads stay clear for the cube
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
@@ -1089,7 +1176,7 @@ export function rescueTile(level) {
     // never a low tunnel or a size pad: the bench re-places the cube at
     // full size (ADR-034), so it must be a tile full size may stand on,
     // and standing there must not silently flip the cube's size
-    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow;
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k);
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -1375,6 +1462,30 @@ export function spawnProblems(level) {
           if (line.has(nk)) probs.push(`timed slab at ${tk} waits inside sentinel clearance`);
           if (nt && nt.shuttle) probs.push(`timed slab at ${tk} beside a shuttle dock`);
           if (level.sliderTiles.has(nk)) probs.push(`timed slab at ${tk} beside a sliding bridge`);
+        }
+      }
+    }
+  }
+  // piston pushers (Phase B, ADR-035): the strike cell is plain floor in
+  // every proof, so — like a timed slab — it must never be a tile the
+  // player may need to WAIT on (crossing entries and refuges hug the
+  // patrol line; boarding and bridge waits hug their machinery), and no
+  // patrol may cross the machinery itself.
+  {
+    const { line } = lineRuns(level);
+    for (const pn of level.pistons) {
+      const bk = key(pn.at[0], pn.at[1]);
+      const sk = key(pn.strike.x, pn.strike.z);
+      if (line.has(bk)) probs.push(`sentinel patrols a piston base ${bk}`);
+      if (line.has(sk)) probs.push(`sentinel patrols a piston strike cell ${sk}`);
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) {
+          const nk = key(pn.strike.x + ox, pn.strike.z + oz);
+          const nt = level.tiles.get(nk);
+          if (line.has(nk)) probs.push(`piston strike cell at ${sk} waits inside sentinel clearance`);
+          if (nt && nt.shuttle) probs.push(`piston strike cell at ${sk} beside a shuttle dock`);
+          if (nt && nt.lift) probs.push(`piston strike cell at ${sk} beside a lift dock`);
+          if (level.sliderTiles.has(nk)) probs.push(`piston strike cell at ${sk} beside a sliding bridge`);
         }
       }
     }

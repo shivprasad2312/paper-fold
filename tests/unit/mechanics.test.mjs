@@ -29,6 +29,9 @@ import {
   resolveRollAt,
   sizeAfter,
   rescueTile,
+  pistonExtended,
+  PISTON_PERIOD,
+  PISTON_EXTENDED_FROM,
 } from '../../src/rules.js';
 
 // --- shuttle ---------------------------------------------------------------
@@ -1174,4 +1177,109 @@ test('the rescue bench never lands on a tunnel tile or a pad', () => {
   assert.equal(bench.low, undefined);
   assert.equal(bench.shrink, undefined);
   assert.equal(bench.grow, undefined);
+});
+
+// --- piston pushers (Phase B, ADR-035): the timed wall that shoves ---------
+// A base beside the route; its arm sweeps the strike cell on the route.
+const pistonDef = () => ({
+  name: 'piston-test',
+  map: [
+    '00000',
+    '00000',
+    '.....',
+  ],
+  start: [0, 1],
+  goal: [4, 1],
+  pistons: [{ at: [2, 0], dx: 0, dz: 1 }],
+});
+
+test('pistons parse with a registered strike cell and cycle defaults', () => {
+  const level = parseLevel(pistonDef());
+  assert.equal(level.pistons.length, 1);
+  const pn = level.pistons[0];
+  assert.deepEqual(pn.strike, { x: 2, z: 1 });
+  assert.equal(pn.period, PISTON_PERIOD);
+  assert.equal(level.pistonCells.get('2,1'), pn);
+  assert.ok(level.tiles.get('2,0').piston, 'base tile flagged');
+});
+
+test('piston parse rejects void, stacking, overlap and bad timing', () => {
+  assert.throws(() => parseLevel({ ...pistonDef(), pistons: [{ at: [2, 2], dx: 0, dz: -1 }] }), /is not a slab/);
+  assert.throws(() => parseLevel({ ...pistonDef(), pistons: [{ at: [2, 0], dx: 1, dz: 1 }] }), /unit axis/);
+  assert.throws(() => parseLevel({ ...pistonDef(), pistons: [{ at: [2, 0], dx: 0, dz: 1, period: 1 }] }), /period/);
+  assert.throws(() => parseLevel({ ...pistonDef(), pistons: [{ at: [2, 0], dx: 0, dz: 1, phase: 1 }] }), /phase/);
+  assert.throws(() => parseLevel({ ...pistonDef(), ice: [[2, 1]] }), /stacked/); // strike on ice
+  assert.throws(() => parseLevel({
+    ...pistonDef(),
+    pistons: [{ at: [2, 0], dx: 0, dz: 1 }, { at: [2, 2 - 2], dx: 0, dz: 1 }],
+  }), /stacked|overlap/);
+  assert.throws(() => parseLevel({
+    name: 'p2',
+    map: ['000', '000', '000'],
+    start: [0, 0],
+    goal: [2, 2],
+    pistons: [{ at: [1, 0], dx: 0, dz: 1 }, { at: [1, 2], dx: 0, dz: -1 }],
+  }), /overlap/); // two arms, one strike cell
+  assert.throws(() => parseLevel({ ...pistonDef(), pistons: [{ at: [4, 0], dx: 0, dz: 1 }] }), /goal tile/);
+});
+
+test('the base is a wall in the one roll law; the strike cell stays plain floor', () => {
+  const level = parseLevel(pistonDef());
+  assert.equal(checkRoll(level, level.tiles.get('1,1'), level.tiles.get('2,0')).ok, false);
+  // the proven route walks straight through the strike cell
+  assert.equal(shortestRoute(level), 4);
+  assert.ok(reachable(level).has('2,1'));
+  assert.equal(reachable(level).has('2,0'), false); // the base is never stood on
+  // a block can park on the strike cell (it stalls the arm) but never on the base
+  assert.equal(canPushBlock(level, { x: 1, z: 1, heavy: false }, 1, 0), true);
+  assert.equal(canPushBlock(level, { x: 2, z: 1, heavy: false }, 0, -1), false);
+});
+
+test('piston phase law: retracted first, extended for the tail of the cycle', () => {
+  const level = parseLevel(pistonDef());
+  const pn = level.pistons[0];
+  assert.equal(pistonExtended(pn, 0), false);
+  assert.equal(pistonExtended(pn, PISTON_PERIOD * PISTON_EXTENDED_FROM - 0.01), false);
+  assert.equal(pistonExtended(pn, PISTON_PERIOD * PISTON_EXTENDED_FROM + 0.01), true);
+  assert.equal(pistonExtended(pn, PISTON_PERIOD - 0.01), true);
+  assert.equal(pistonExtended(pn, PISTON_PERIOD + 0.01), false); // wraps
+  const shifted = parseLevel({ ...pistonDef(), pistons: [{ at: [2, 0], dx: 0, dz: 1, phase: 0.6 }] }).pistons[0];
+  assert.equal(pistonExtended(shifted, 0), true); // phase offset moves the window
+});
+
+test('spawn audit keeps patrols off the machinery and waits off the strike cell', () => {
+  const patrolled = parseLevel({
+    name: 'piston-orb',
+    map: ['00000', '00000', '00000'],
+    start: [0, 2],
+    goal: [4, 2],
+    pistons: [{ at: [2, 0], dx: 0, dz: 1 }],
+    orbs: [{ path: [[2, 2], [2, 0]], speed: 1 }],
+  });
+  const probs = spawnProblems(patrolled);
+  assert.ok(probs.some((p) => p.includes('patrols a piston strike cell')), probs.join(';'));
+  assert.ok(probs.some((p) => p.includes('waits inside sentinel clearance')), probs.join(';'));
+  const basePatrolled = parseLevel({
+    name: 'piston-orb2',
+    map: ['00000', '00000', '00000'],
+    start: [0, 2],
+    goal: [4, 2],
+    pistons: [{ at: [2, 0], dx: 0, dz: 1 }],
+    orbs: [{ path: [[0, 0], [4, 0]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(basePatrolled).some((p) => p.includes('patrols a piston base')));
+});
+
+test('the rescue bench never lands on a strike cell or a piston base', () => {
+  const level = parseLevel({
+    name: 'piston-bench',
+    map: ['000000000', '000000000', '.........'],
+    start: [0, 1],
+    goal: [8, 1],
+    pistons: [{ at: [4, 0], dx: 0, dz: 1 }],
+  });
+  const bench = rescueTile(level);
+  assert.ok(bench, 'a bench exists on an 8-press level');
+  assert.equal(level.pistonCells.has(`${bench.x},${bench.z}`), false);
+  assert.equal(bench.piston, undefined);
 });

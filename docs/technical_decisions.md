@@ -1506,3 +1506,74 @@ Phase C treatment) is deferred like the lift arc; low-ceiling
 *height* play (a mini cube under a high bank) is unmodelled — a
 low tile is a flat gate, not a clearance volume; the next Phase B
 verb is the piston pusher.
+
+## ADR-035: Piston pushers — the timed wall that shoves (Phase B, item 3)
+
+**Decision.** `pistons: [{ at: [x, z], dx, dz, period?, phase? }]` (period
+defaults to 3.2 s, phase to 0). A piston is machinery on a base slab:
+its arm sweeps the neighbouring *strike cell* (`at + (dx,dz)`) for the
+tail of every cycle (`PISTON_EXTENDED_FROM = 0.55` onward, shared
+`pistonExtended` in rules.js), and the crossing is a timing beat:
+retracted for the first 55% of the cycle — cross then.
+
+*One law, priced like the sliding bridges.* The strike cell is plain
+floor in **every** proof — `checkRoll`/`resolveRollAt` price it as the
+slab it is, so shortest-route, soft-lock, hazard and fair-reach
+solvers inherit piston crossings from the one predicate with zero new
+machinery (the timed-slab/sliding-bridge doctrine: a wait-out timing
+hazard is proven by the act of waiting beside it, never by modelling
+phase in the search). The base is the only hard geometry: a wall to
+every press (`checkRoll` blocked, any size) and to blocks
+(`canPushBlock`), never a standpoint. *Live, the phase law prices
+exactly two moments:* entry into the strike cell is refused (a bump)
+while the arm is extended, and a cube resting on the strike cell when
+the arm fires is **shoved**.
+
+*Pistons displace; they never crush.* The shove is the wind-drift law
+with a steel accent: legal exactly when the drift would be (solid
+landing by the live `isSolid`, no door breach, no climb, no deep drop
+— priced by `checkRoll` itself), and then it reuses the drift
+animation, `finishDrift` landing (crumble/timed/pad effects included)
+and the move log, so ghosts replay shoves faithfully. An illegal
+shove **stalls** — the arm holds flat against the cube and nothing
+happens. There is no placement a player can stand in that a piston
+can kill from: being somewhere the arm wants to be is a displacement,
+never a death. One drift force per level: wind and pistons never
+co-occur (parser-enforced).
+
+*Fairness fences* mirror the patience audit: the strike cell may never
+be a tile a proof can make the player wait on — the spawn audit keeps
+every patrol line off the base and strike cell, and keeps the strike
+cell's whole neighbourhood clear of patrol lines, shuttle docks, lift
+docks and sliding bridges (patience spots all). The rescue bench never
+lands on a strike cell or a base. Parse law: footprints never overlap;
+base and strike stack on no other mechanic, never on start/goal/key/
+block/shard; period ∈ [1.6, 8], phase ∈ [0, 1).
+
+*Generator:* a content-hash carve in the hazard stage finds a straight,
+flat route corridor with a standing flank slab and a flat slab across —
+housing on the flank, arm sweeping the route tile, the shove knocking
+the cube onto the slab beyond — claims strike+base in carved+mechSet,
+and never runs on a wind level. Acts 7–10 carry `piston`
+probabilities; a forced piston must be *crossed* by the proven route.
+First slots, names preserved: teach L137 "The Turnaround" (Act 7
+shuttle-span, with a freeze shard as long-known support), test L169
+"Compression" (Act 9 aperture, piston + timed + ice) and twist L187
+"The Last Push" (Act 10 citadel — piston + pulse + timed + conveyor +
+ice + spring + heavy). The re-cuts cost freeze (restored on the teach
+slot) and proximity (restored by a repair re-cut of L183 "The
+Breakline Crossed", the L156 pattern) — no Phase C ratchet floor
+moved. `mirrorDef` mirrors pistons with the push reversed; the
+fingerprint learns 'Y'; the ratchet tracks piston at 3. The live bot
+needs no planner change (strike cells are plain floor to the fair
+graph); its executor waits beside an imminent strike cell
+(`pistonImminent`, margin 0.5 s) and treats a shove as a replan.
+View: plinth + gauge on the base, a flat arm with a pusher pad, and
+the amber telegraph the sliding bridges taught — the last fifth
+before the sweep.
+
+**Not yet:** the piston density arc (12+ teach→test→twist) is deferred
+like the lift and shrink arcs; piston-pushed *blocks* (an arm that
+shoves cargo) are unmodelled — blocks stall the arm where they park,
+never ride it; turntable bridges are the next Phase B verb, the
+hang-ledge last.

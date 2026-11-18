@@ -53,6 +53,7 @@ export class Game {
     this.hasKey = false;
     this.gateLocked = false;
     this.windTimer = WIND_PERIOD;
+    this._pistonFired = new Map(); // piston id -> cycle already shoved (ADR-035)
     this.moveLog = []; // {t, x, z, h} — replayed as the ghost of a best run
     this.ghost = null; // {log, mesh, idx}
     this.ghostMesh = null;
@@ -346,6 +347,23 @@ export class Game {
     const to = this.isSolid(toX, toZ);
     const check = checkRoll(this.level, from, to, this.mini);
 
+    // A piston arm holding its strike cell (Phase B, ADR-035) refuses
+    // entry: the press reads as a bump. Rolling IN while the arm is
+    // retracted stays legal — the shove law below owns what happens
+    // when it fires with the cube aboard.
+    if (to && this.level.pistonCells.has(key(toX, toZ)) && this.view.pistonExtendedAt(toX, toZ)) {
+      this.cube.anim = {
+        type: 'bump',
+        t: 0,
+        dur: 0.2,
+        dx: d.dx,
+        dz: d.dz,
+        startPos: this.cubeMesh.position.clone(),
+      };
+      this.emit('bump');
+      return;
+    }
+
     if (!check.ok && check.kind === 'blocked') {
       this.cube.anim = {
         type: 'bump',
@@ -469,6 +487,7 @@ export class Game {
       this.checkBrokenGround();
       this.checkSunkGround();
       this.updateWind(dt);
+      this.updatePistons();
       this.updateGhost(dt);
     }
 
@@ -1030,6 +1049,49 @@ export class Game {
       this.emit('sliderFell');
       this.die('slider');
     }
+  }
+
+  /**
+   * Piston pushers (Phase B, ADR-035): the shove. When the arm fires and
+   * the cube rests on the strike cell, the cube is carried one tile along
+   * the push axis IF that shove is legal under the same law a breeze
+   * obeys (solid landing, no door breach, no climb, no deep drop) — a
+   * legal shove reuses the drift machinery, move log and all, so ghosts
+   * replay it faithfully. An illegal shove STALLS: the arm holds flat
+   * against the cube and nothing happens. Pistons displace; they never
+   * crush and never shove the cube into the void.
+   */
+  updatePistons() {
+    if (!this.level.pistons.length) return;
+    if (this.state !== 'playing' || this.cube.anim || this.cube.ridingShuttle || this.cube.ridingLift) return;
+    const c = this.cube;
+    const pn = this.level.pistonCells.get(key(c.x, c.z));
+    if (!pn) return;
+    const cycle = this.view.pistonCycle(c.x, c.z);
+    if (this._pistonFired.get(pn.id) === cycle) return; // one shove per extension
+    if (!this.view.pistonExtendedAt(c.x, c.z)) return;
+    this._pistonFired.set(pn.id, cycle);
+    const fromTile = this.tileAt(c.x, c.z);
+    const tx = c.x + pn.dx;
+    const tz = c.z + pn.dz;
+    const toTile = this.tileAt(tx, tz);
+    if (!fromTile || !toTile) return; // shoved toward the void: the arm stalls
+    const solid = this.isSolid(tx, tz);
+    if (!solid) return;
+    if (!checkRoll(this.level, fromTile, solid, this.mini).ok) return;
+    this.cube.anim = {
+      type: 'drift',
+      t: 0,
+      dur: 0.24,
+      dx: pn.dx,
+      dz: pn.dz,
+      fromX: c.x,
+      fromZ: c.z,
+      fromH: fromTile.h,
+      target: toTile,
+      startPos: this.cubeMesh.position.clone(),
+    };
+    this.emit('pistonShove');
   }
 
   updateWind(dt) {

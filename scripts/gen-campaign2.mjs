@@ -283,6 +283,8 @@ function mirrorDef(def, axis) {
   if (def.blocks) out.blocks = mirrorPts(def.blocks);
   if (def.pulse) out.pulse = mirrorPts(def.pulse);
   if (def.lifts) out.lifts = def.lifts.map((l) => ({ ...l, at: T(l.at) }));
+  // piston pushers (Phase B, ADR-035): base mirrors, the push reverses
+  if (def.pistons) out.pistons = def.pistons.map((pn) => ({ ...pn, at: T(pn.at), dx: -pn.dx }));
   if (def.shrink) out.shrink = mirrorPts(def.shrink);
   if (def.grow) out.grow = mirrorPts(def.grow);
   if (def.low) out.low = mirrorPts(def.low);
@@ -452,6 +454,13 @@ for (let id = FIRST; id <= LAST; id++) {
       const lv = parseLevel(cand);
       const pth = shortestPath(lv);
       if (!pth || !pth.some((t) => t.low)) continue;
+    }
+    // a forced piston must be CROSSED by the proven route — a corridor
+    // the optimal line never enters teaches nothing (Phase B, ADR-035)
+    if ((allForce.piston || 0) > 0) {
+      const lv = parseLevel(cand);
+      const pth = shortestPath(lv);
+      if (!pth || !pth.some((t) => lv.pistonCells.has(`${t.x},${t.z}`))) continue;
     }
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);

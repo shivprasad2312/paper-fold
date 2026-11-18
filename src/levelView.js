@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON } from './rules.js';
+import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -586,6 +586,52 @@ export function buildLevelView(level, actHue = null) {
       group.add(holder);
       sliders.push({ tile, holder, mat, gdef });
     }
+  }
+
+  // ---- piston pushers (Phase B, ADR-035): steel machinery on the base --
+  // slab, a small housing plinth, and the shove arm: retracted behind the
+  // housing, an amber telegraph in the cycle's last fifth before it fires,
+  // then the arm sweeps the strike cell flat and low and holds it through
+  // the tail of the cycle, so the cube is shoved bodily, never crushed.
+  const pistons = [];
+  for (const pn of level.pistons) {
+    const base = level.tiles.get(key(pn.at[0], pn.at[1]));
+    const topY = base.h + THICK / 2;
+    const holder = new THREE.Group();
+    const plinth = new THREE.Mesh(
+      new RoundedBoxGeometry(0.86, 0.22, 0.86, 2, 0.05),
+      new THREE.MeshStandardMaterial({ color: 0x4a5260, roughness: 0.55, metalness: 0.55 }),
+    );
+    plinth.position.y = topY + 0.11;
+    plinth.castShadow = true;
+    holder.add(plinth);
+    const gauge = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.09, 0.34, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2c313a, roughness: 0.6, metalness: 0.5 }),
+    );
+    gauge.position.set(-pn.dx * 0.28, topY + 0.34, -pn.dz * 0.28);
+    gauge.castShadow = true;
+    holder.add(gauge);
+    holder.position.set(pn.at[0], 0, pn.at[1]);
+    group.add(holder);
+    const armHolder = new THREE.Group();
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x9aa4b4, roughness: 0.4, metalness: 0.7 });
+    const arm = new THREE.Mesh(new RoundedBoxGeometry(0.66, 0.1, 0.66, 2, 0.03), armMat);
+    arm.castShadow = true;
+    arm.position.y = topY + 0.04;
+    armHolder.add(arm);
+    const padMat = new THREE.MeshStandardMaterial({ color: 0xb97a34, roughness: 0.5, metalness: 0.45 });
+    const pad = new THREE.Mesh(
+      new RoundedBoxGeometry(0.6, 0.34, 0.12, 2, 0.04),
+      padMat,
+    );
+    pad.position.set(pn.dx * 0.28, topY + 0.17, pn.dz * 0.28);
+    pad.rotation.y = Math.atan2(pn.dx, pn.dz); // the pusher face looks down the push axis
+    pad.castShadow = true;
+    armHolder.add(pad);
+    armHolder.position.set(pn.at[0] + pn.dx * 0.55, 0, pn.at[1] + pn.dz * 0.55);
+    group.add(armHolder);
+    pistons.push({ pn, holder: armHolder, armMat, padMat });
   }
 
   // ---- pulsing gaps (M3 wave-1): phantom slabs sealing void cells --------
@@ -1175,6 +1221,28 @@ export function buildLevelView(level, actHue = null) {
       s.glow.material.opacity = ph >= PULSE_ON ? 0.34 + Math.sin(time * 3 + s.tile.x) * 0.1 : 0;
     }
 
+    // piston arms: retracted between housing and strike mid-line, an
+    // amber telegraph in the last fifth before the fire phase, then a
+    // fast sweep into the strike cell and a held shove (the same piston
+    // clock the game's shove law reads)
+    for (const p of pistons) {
+      const ph = pistonPhase(clock.t, p.pn);
+      let sweep = 0;
+      if (ph >= PISTON_EXTENDED_FROM && ph < PISTON_EXTENDED_FROM + 0.08) sweep = smooth((ph - PISTON_EXTENDED_FROM) / 0.08);
+      else if (ph >= PISTON_EXTENDED_FROM + 0.08) sweep = 1;
+      p.holder.position.set(
+        p.pn.at[0] + p.pn.dx * (0.55 + sweep * 0.45),
+        0,
+        p.pn.at[1] + p.pn.dz * (0.55 + sweep * 0.45),
+      );
+      const warn = ph >= PISTON_EXTENDED_FROM - 0.12 && ph < PISTON_EXTENDED_FROM
+        ? (ph - (PISTON_EXTENDED_FROM - 0.12)) / 0.12 : 0;
+      p.armMat.emissive.setRGB(warn * 0.6, warn * 0.2, 0);
+      p.armMat.emissiveIntensity = 1;
+      p.padMat.emissive.setRGB(warn * 0.55, warn * 0.22, 0);
+      p.padMat.emissiveIntensity = 1;
+    }
+
     // obstacle blocks: settle to their pushed tile (heavy ones grind)
     for (const b of blocks.values()) {
       if (!b.anim) continue;
@@ -1292,6 +1360,26 @@ export function buildLevelView(level, actHue = null) {
   /** Is the pulsing gap at (x, z) currently sealed? (Hazard clock.) */
   function pulseUp(x, z) {
     return pulseUpAt(level, clock.t, x, z);
+  }
+
+  /** Current cycle index of the piston striking (x, z) (-1 if none). */
+  function pistonCycle(x, z) {
+    const pn = level.pistonCells.get(key(x, z));
+    return pn ? Math.floor(clock.t / pn.period + pn.phase) : -1;
+  }
+
+  /** Is the piston striking (x, z) currently extended? (Hazard clock.) */
+  function pistonExtendedAt(x, z) {
+    const pn = level.pistonCells.get(key(x, z));
+    return pn ? pistonExtended(pn, clock.t) : false;
+  }
+
+  /** Would the cube on (x, z) get shoved within the next `margin` seconds? */
+  function pistonImminent(x, z, margin = 0.3) {
+    const pn = level.pistonCells.get(key(x, z));
+    if (!pn) return false;
+    if (pistonExtended(pn, clock.t)) return true;
+    return (PISTON_EXTENDED_FROM - pistonPhase(clock.t, pn)) * pn.period <= margin;
   }
 
   function collectShard(shard) {
@@ -1502,6 +1590,9 @@ export function buildLevelView(level, actHue = null) {
     isBroken,
     sliderUp,
     pulseUp,
+    pistonExtendedAt,
+    pistonCycle,
+    pistonImminent,
     shuttlePos,
     shuttlePlatforms,
     shuttleDocked,

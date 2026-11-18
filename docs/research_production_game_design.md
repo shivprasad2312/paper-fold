@@ -287,7 +287,7 @@ structure, verbs, cadence, and meta.
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
 | G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
 | G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Only "roll"; novelty is tile-side | **Behind** |
-| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034); pistons/turntables pending | Partial |
+| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035); turntables pending | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
 | G7 | Difficulty rhythm | Sawtooth + relief (§2.2) | Act bands rise ~monotonically; intra-act cliffs audited ≤16 | Partial |
 | G8 | Mastery meta | Ranks/ghosts/best-times (§2.5–2.6) | Par + medals only; no per-level grade, no ghost | **Behind** |
@@ -365,10 +365,17 @@ Ordered by proof-friendliness:*
    *First slots:* teach L126 "Tidegate" (Act 7 plaza), test L161
    "Full Tide" (Act 9 tower), twist L193 "The Final Angle" (Act 10
    citadel); density arc deferred like the lift arc.
-3. **Piston pushers.** A block that periodically extends one tile,
-   shoving the cube (like a conveyor with timing): crossing a piston
-   corridor is a timing beat the crossing-window model already knows
-   how to prove. Adds EDGE-like "machinery that can hurt/help you".
+3. **Piston pushers.** *(Shipped — ADR-035.)* A block that periodically
+   extends one tile, shoving the cube (like a conveyor with timing):
+   crossing a piston corridor is a timing beat the crossing-window
+   model already knows how to prove. Adds EDGE-like "machinery that
+   can hurt/help you". As shipped, the strike cell is plain floor in
+   every proof (the sliding-bridge doctrine), the base is a wall, and
+   the live arm refuses entry while extended and otherwise shoves a
+   resting cube under the wind-drift law — displacement, never a
+   crush. *First slots:* teach L137 "The Turnaround" (Act 7), test
+   L169 "Compression" (Act 9), twist L187 "The Last Push" (Act 10
+   citadel); density arc deferred like the lift/shrink arcs.
 4. **Turntable bridges.** A bridge segment that rotates 90° on a cycle
    (or when a plate is pressed), re-wiring the route graph over time.
    Proof: slider-family wait-out model.
@@ -476,8 +483,8 @@ audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
 may run 6+ levels above its relief line). Remaining Phase C:
 wind/slider carve + proof support. **Phase B opened (ADR-033):**
 lift platforms shipped (see Phase B item 1); shrink pads shipped
-(ADR-034, Phase B item 2). Next: piston pushers, then turntables,
-clinging.
+(ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
+item 3). Next: turntable bridges, then clinging.
 
 ---
 

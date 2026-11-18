@@ -49,6 +49,16 @@ satisfy (enforced by `parseLevel` + verifier):
   low tiles are plain slabs (a shard may end a tunnel niche); blocks
   never enter a tunnel or park on a pad. Proofs carry size as search
   state; the rescue bench never lands on a low tile or pad.
+- `pistons`: `[{at, dx, dz, period?, phase?}]` — piston pushers (Phase B,
+  ADR-035): a machinery base whose arm sweeps the next cell along
+  (dx,dz) for the tail of every cycle (retracted for the first 55% —
+  cross then). The base is a wall; the strike cell is plain floor in
+  every proof, and live the arm refuses entry while extended and
+  otherwise shoves a resting cube one tile under the drift law — a
+  legal shove displaces, an illegal one stalls; pistons never crush.
+  The strike cell's neighbourhood keeps clear of patrol lines, docks
+  and bridges (nothing a player waits beside the arm); the rescue
+  bench never lands on it. Never on a wind level (one drift force).
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.

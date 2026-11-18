@@ -154,6 +154,9 @@ function liveCtx(def) {
     orbs,
     docks: model.shuttleDocks,
     liftDocks: model.liftDocks,
+    // piston strike cells (Phase B, ADR-035): plain floor to the planner,
+    // a timed wall to the executor
+    pistons: new Set(model.pistons.map((pn) => key(pn.strike.x, pn.strike.z))),
     keyOnLine,
   };
 }
@@ -787,6 +790,26 @@ async function driveRouteLive(tiles, moves, ctx) {
         if (!up) await wait(80);
       }
       if (!up) return false;
+    }
+
+    // piston strike cell (Phase B, ADR-035): never roll in while the arm
+    // is extended or about to fire — wait beside it the way the proofs
+    // assume a player does (never while standing on a crumble, a pulsing
+    // gap, or another strike cell: then press off immediately; a shove
+    // just desyncs us into a replan, it cannot kill)
+    if (ctx.pistons.has(key(target.x, target.z)) && !ctx.pistons.has(key(st.x, st.z))
+      && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
+      const t0 = Date.now();
+      let clear = false;
+      while (!clear && Date.now() - t0 < 15000) {
+        const immin = await page.evaluate(
+          ([x, z]) => window.__kubik.game.view.pistonImminent(x, z, 0.5),
+          [target.x, target.z],
+        );
+        clear = !immin;
+        if (!clear) await wait(60);
+      }
+      if (!clear) return false;
     }
 
     // shuttle RIDE: the cube stands on a dock; the platform dwells, takes

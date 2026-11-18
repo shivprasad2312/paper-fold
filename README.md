@@ -227,6 +227,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // shrink: [[x, z]],       // shrink pad: landing makes the cube mini until a grow pad restores it
   // grow: [[x, z]],         // grow pad: landing restores full size
   // low: [[x, z]],          // low tunnel tile: only the mini cube may enter (a gantry to duck under)
+  // pistons: [{ at, dx, dz, period, phase }], // machinery whose arm sweeps the next cell each cycle, shoving the cube (never crushing)
   // ice: [[x, z]],           // slabs that keep a rolling cube sliding
   // springs: [[x, z]],       // pads that launch a roll over a void pit
   // conveyors: [[x, z, dx, dz]], // belts that carry a landed roll in their own direction

@@ -615,6 +615,77 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placedShrink && pShrink > 0 && shrinkRoll('#roll') < pShrink) convertShrink();
   }
 
+  // --- piston pushers (Phase B, ADR-035): a housing flanking a straight,
+  // flat route corridor; the arm sweeps the strike cell (a route tile) and
+  // knocks the cube sideways onto the flat slab across the corridor. The
+  // strike cell stays plain floor in every proof — the carve only claims
+  // the strike and base tiles (carved + mechSet) so shards, sentinels and
+  // the key keep their distance, and the spawn audits hold the machinery
+  // clear of the patrol line. The pick comes from a content hash — never
+  // the shared rand stream — so arming the carve cannot reshuffle shipped
+  // candidates. A wind level never gains a piston (one drift force each).
+  const pistons = [];
+  {
+    const wantPiston = force.piston || 0;
+    const pPiston = (b.mech || {}).piston || 0;
+    const pistonSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const pistonRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + pistonSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const findPistonSpots = () => {
+      const spots = [];
+      const startK = `${start[0]},${start[1]}`;
+      const goalK = `${goal[0]},${goal[1]}`;
+      for (let i = 1; i + 1 < path.length; i++) {
+        const [sx, sz] = path[i];
+        const sk = `${sx},${sz}`;
+        if (carved.has(sk) || mechSet.has(sk) || sk === startK || sk === goalK) continue;
+        const dx = Math.sign(path[i][0] - path[i - 1][0]);
+        const dz = Math.sign(path[i][1] - path[i - 1][1]);
+        if (!dx && !dz) continue;
+        if (path[i + 1][0] - path[i][0] !== dx || path[i + 1][1] - path[i][1] !== dz) continue; // straight corridor
+        const hS = map[sz][sx];
+        if (!hS) continue;
+        for (const side of [1, -1]) {
+          const fx = dz * side; // flank unit (perpendicular to travel)
+          const fz = dx * side;
+          const bx = sx + fx;
+          const bz = sz + fz;
+          const lx = sx - fx; // the shove landing, across the corridor
+          const lz = sz - fz;
+          if (map[bz] === undefined || map[lz] === undefined) continue;
+          if (map[bz][bx] === 0 || map[lz][lx] !== hS) continue; // a standing base slab, a flat landing
+          const bk = `${bx},${bz}`;
+          const lk = `${lx},${lz}`;
+          if (pathSet.has(bk) || carved.has(bk) || mechSet.has(bk)) continue;
+          if (carved.has(lk) || mechSet.has(lk)) continue;
+          spots.push({ at: [bx, bz], dx: -fx, dz: -fz, strike: [sx, sz] });
+        }
+      }
+      return spots;
+    };
+    const convertPiston = () => {
+      const spots = findPistonSpots();
+      if (!spots.length) return false;
+      const spot = spots[Math.floor(pistonRoll('#pick') * spots.length)];
+      pistons.push({ at: spot.at, dx: spot.dx, dz: spot.dz, period: 3.2, phase: Math.floor(pistonRoll('#phase') * 4) / 4 });
+      for (const [x, z] of [spot.strike, spot.at]) {
+        carved.add(`${x},${z}`);
+        markMech(x, z);
+      }
+      return true;
+    };
+    let placedPiston = 0;
+    while (placedPiston < wantPiston) {
+      if (!convertPiston()) return null; // a forced piston must land
+      placedPiston++;
+    }
+    if (!placedPiston && pPiston > 0 && pistonRoll('#roll') < pPiston) convertPiston();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
   const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
@@ -926,6 +997,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (keyPos) def.key = keyPos;
   if (shuttles.length) def.shuttles = shuttles;
   if (lifts.length) def.lifts = lifts;
+  if (pistons.length) def.pistons = pistons;
   if (shrinks.length) {
     def.shrink = shrinks;
     def.low = lows;
