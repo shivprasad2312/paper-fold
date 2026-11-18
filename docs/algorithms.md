@@ -114,7 +114,12 @@ crumble counts are small (≤ ~10 per level) and pushes are scarce, so real
 runs are < 10⁴ states (< 50 ms for the hardest level). The budget makes
 the worst case *explicitly fail* instead of hang.
 **Deliberate simplification (documented in the source):** sentinels and
-sliders are modelled as **absent / always-solid**. Rationale: a route
+sliders are modelled as **absent / always-solid**. A sliding bridge is
+a rigid group of slabs on one clock (ADR-038) and the graph never sees
+it sink; the law that keeps that honest lives at parse time — a span
+must fit inside the up window (`tiles × ROLL_TIME + TIMING_FLOOR ≤
+period × SLIDER_UP_FRACTION`), so if the graph says "walk across", the
+player can actually do it in one window. Rationale: a route
 that survives with sentinels absent and sliders always up is the *hardest
 *route question* (fewest resources to cross gaps); timing hazards add
 *waiting*, which never removes a route. So this solver proves route

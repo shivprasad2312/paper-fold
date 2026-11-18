@@ -1729,3 +1729,102 @@ unmodelled on purpose — a crevice the optimal line does not take is
 rejected, so what ships is a shortcut, always. Phase B is complete with
 this item; the remaining research debt is Phase C's slider/wind carves
 and the overuse-cap decision.
+
+### ADR-038 — Phase C: sliding bridges join the generator (the last carve)
+
+**Context.** Sliding bridges are the oldest timing hazard in the
+catalogue: L13 (the hand-made boss) ships two groups and the mechanic
+has been in every proof model since M1 as a *wait-out* hazard — a
+slab that is solid in the route graph and then periodically sinks
+under the cube. But the 51–200 generator never placed one: the hazard
+stage had no `slider` carve, `acts.js` had no `slider` probability and
+the density ratchet did not track it, so the whole 187-level campaign
+carried the mechanic on a single hand-authored level. Phase C's job
+was to close that gap with proof support, not to invent a mechanic.
+
+**Decision — a rigid group, one clock, one window law.**
+`sliders: [{ tiles: [[x,z], …], period?, phase? }]`. A group is a
+RIGID bridge: contiguous slabs at ONE height (`sliders[].h` records
+it), rising and sinking together. `period` ∈ [2.4, 8] s (default 3.2),
+`phase` ∈ [0, 1) (default 0); every tile of a group shares the clock,
+so a span can never shear itself apart. Break a group and a crossing
+is a staircase of coin flips.
+
+Two laws turned out to be missing, and both matter more than the
+carve:
+
+1. **One duty cycle.** `rules.sliderUp` had always said *up for 55%*
+   while `levelView.sliderUp` — the clock the game actually draws and
+   the cube actually dies to — said *up for 50%*. The proof therefore
+   credited the bridge with 5% of the cycle it never had, and the
+   drawn sink began a beat before the model expected it. Both sides
+   now read `SLIDER_UP_FRACTION = 0.55` from `rules.js`: one constant,
+   one cutoff, no second opinion.
+2. **The crossing fits the window.** The wait-out doctrine ("cross in
+   the up window") is only honest if one crossing fits inside it:
+   `tiles × ROLL_TIME + TIMING_FLOOR ≤ period × SLIDER_UP_FRACTION`.
+   This is now a *parse* law, so no level can reach a proof leaning on
+   an impossible span. A 3-tile span fits at the minimum period
+   (1.23 s inside 1.32 s); 4 tiles need period ≥ 2.68 s; the 8 s
+   ceiling still allows an 8-tile span. The rule scales instead of
+   capping bridge length arbitrarily.
+
+**Proof model.** Unchanged and deliberate: every slider tile is plain
+floor in `checkRoll`, so route, soft-lock, hazard, rescue and
+fair-crossing searches inherit the bridge with no new node type —
+"always solid" is the wait-out doctrine (timing adds waiting, never a
+route). The live consequence is what the audits guard: because the
+model never *sees* the sink, a level must never force the player to
+*stand* on a bridge. The late purity audit therefore rejects a bridge
+tile that carries another mechanic (pad, belt, crumble, piston,
+turntable…), the start, the goal, the key, a block or a shard — the
+same "no trap furniture on a timing hazard" law the pulsing gap and
+the turntable cross obey. `canPushBlock` never shoves a block onto a
+bridge, and `rescueTile` never benches the cube on one: a second
+chance that drops you into the void is worse than no chance.
+
+**Live law.** Already shipped with L13 and untouched: `sliderUp` reads
+the hazard clock, a press onto a tile that is down is refused
+(`isSolid`), and a cube left standing when the bridge lets go falls
+(`checkSunkGround` → cause `slider`, amber telegraph). What changed
+is only the clock the view reads (55%) and the parse-time guarantee
+that a crossing is physically possible.
+
+**Generator.** A content-hash carve in the hazard stage (never the
+shared rand stream, so arming it cannot reshuffle shipped
+candidates): a flat 2–3 tile straight run of the *proven walk* is
+claimed as one group, off the start and the goal, with plain waiting
+banks at both ends (the far bank at the same height, the near bank
+within one storey) and no mechanic within one tile of the run or its
+banks. Picks and phase come from an FNV hash of the path + start +
+goal (salts `#pick#`, `#phase#`, `#roll`); `force: { slider: n }`
+guarantees placement and a forced slot must be CROSSED by the proven
+route. The claimed tiles enter `mechSet`, which keeps shards, the key,
+patrols and every later carve off the bridge; the shard pool also
+filters the bridge set explicitly (shards had been landing on spans —
+a shard grabbable only in the up window is a trap). `mirrorDef`
+mirrors the tile set (`mirrorPts`) — period/phase are
+orientation-free; the curation score learns +1.5; the generator log
+learns `L`; `scripts/experience.mjs` fingerprints `L` so an act
+cannot become a slider monoculture. `acts.js` gives Acts 7–10
+probabilities 0.3 / 0.3 / 0.35 / 0.35 and the density ratchet tracks
+`slider` at 3 (only wind remains uncarved).
+
+**First slots (names preserved).** Teach **L133 "The Running Bridge"**
+(Act 7, shuttle-span, par 38, one sentinel — the bridge is the first
+thing the level asks for); test **L163 "Overload"** (Act 9, tower,
+par 52, two sentinels); twist **L194 "Overturned"** (Act 10, tower,
+par 51, two sentinels). Each landed through the full gate on a forced
+slot, and each re-cut is a census event: no ratchet floor moved down
+(door 16, pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy
+22, proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
+cling 3, slider 3). A 25-seed probe over 12 archetypes confirmed the
+carve is not archetype-locked: meridian 24/24 land-and-parse with 23
+crossed, switchback 20/20 & 15, descent 19/19 & 14, plaza 19/20 & 8,
+lattice 14/15 & 11.
+
+**Not yet.** The slider density arc (12+ teach→test→twist) is
+deferred like the lift/shrink/piston/turntable/cling arcs, and wind
+remains the one mechanic with no generator carve and no proof
+support — do not claim it generator-placeable. The ≤55%
+crumble/sentinel overuse cap is still an open removal decision.

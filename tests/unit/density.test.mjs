@@ -8,8 +8,9 @@
 // breaks the build here instead of shipping unnoticed. Raise a floor
 // only in the commit that raises the mechanic's actual count.
 //
-// Not tracked: sliders / wind (hand-authored campaign-1 mechanics the
-// generator cannot carve yet) and boss (act finales only, by design).
+// Not tracked: wind (a hand-authored level-wide force the generator
+// cannot carve yet) and boss (act finales only, by design). Sliding
+// bridges joined the generator in ADR-038 and are tracked below.
 // Light blocks joined the generator in ADR-032 and lifts in ADR-033;
 // both are tracked below at their shipped counts. Shrink pads (ADR-034)
 // and piston pushers (ADR-035) and turntable bridges (ADR-036) enter
@@ -35,6 +36,7 @@ const TRACKED = {
   piston: { count: (d) => (d.pistons || []).length, floor: 3 },
   turntable: { count: (d) => (d.turntables || []).length, floor: 3 },
   cling: { count: (d) => (d.clings || []).length, floor: 3 },
+  slider: { count: (d) => (d.sliders || []).length, floor: 3 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {

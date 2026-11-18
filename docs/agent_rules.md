@@ -74,7 +74,7 @@ session's memory.
   crumble: [[x, z]],                    // one-way slabs
   blocks: [[x, z]], nudge: N,           // telekinesis
   orbs: [{ path: [[x, z], ...], speed, phase? }],  // sentinels
-  sliders: [{ tiles: [[x, z]], period, phase }],   // bridges
+  sliders: [{ tiles: [[x, z]], period, phase }],   // rigid bridge: one height, period 2.4–8 s, up 55%
   shuttles: [{ a: [x, z], b: [x, z], wait? }],     // looping platform (gap 2–5, straight)
   ice: [[x, z]],                        // slabs that keep a rolling cube sliding
   springs: [[x, z]],                    // pads that launch a roll over void (≤3)

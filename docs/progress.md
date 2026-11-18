@@ -208,6 +208,34 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-038 (Phase C: sliding bridges join the generator — the last
+carve. `sliders: [{tiles, period?, phase?}]` is a RIGID group:
+contiguous slabs at one height, period in [2.4, 8] (default 3.2),
+phase in [0, 1), every tile on one clock. Two missing laws were
+found and fixed before the carve could be trusted: the view drew the
+bridge up for 50% of the cycle while the rules model priced 55%
+(a 5% window the player never got), so both sides now read
+`SLIDER_UP_FRACTION` from `rules.js`; and "cross in the up window"
+is only honest if a crossing fits, so parse now rejects a span whose
+`tiles × ROLL_TIME + TIMING_FLOOR` exceeds the up window (3 tiles fit
+at the 2.4 s floor; 4 need ≥ 2.68 s). Proofs keep the bridge always
+solid (the wait-out doctrine), which is exactly why the late purity
+audit may not let anything stand on one: no second mechanic,
+start/goal/key/block/shard, `canPushBlock` refuses the span and
+`rescueTile` never benches there. Generator: a content-hash carve
+claims a flat 2–3 tile run of the proven walk with clean waiting
+banks and no mechanic within a tile, forced slots must be crossed by
+the proven route, shards are filtered off the bridge, mirrors carry
+the tile set, curation +1.5, log char `L`, fingerprint `L`, Act 7–10
+probabilities 0.3/0.3/0.35/0.35, ratchet tracks slider at 3. First
+slots, names preserved: teach L133 'The Running Bridge' (Act 7,
+shuttle-span, par 38), test L163 'Overload' (Act 9, tower, par 52),
+twist L194 'Overturned' (Act 10, tower, par 51). Census after
+landing: every tracked mechanic at or above its floor (door 16,
+pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
+proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
+cling 3, slider 3). Slider density arc deferred; wind is the only
+mechanic still without a generator carve.)
 ADR-037 (Phase B item 5, the last verb: clinging — the hang-ledge.
 `clings: [[x,z]]` declares ONE void crevice between two plain slabs; a
 press INTO it from either bank catches the far face, hangs a beat and

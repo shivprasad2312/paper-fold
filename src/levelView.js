@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM, turntablePhase, turntableSolid, turntableDwellLeft } from './rules.js';
+import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM, turntablePhase, turntableSolid, turntableDwellLeft, SLIDER_UP_FRACTION } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -1276,12 +1276,19 @@ export function buildLevelView(level, actHue = null) {
     // the visual dip and sliderUp's logic read the same phase)
     for (const s of sliders) {
       const ph = ((clock.t / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
+      // the dip and the amber warning are keyed to the SAME cutoff the
+      // rules read (SLIDER_UP_FRACTION): the slab sags over the last 8% of
+      // the up window and is gone across the sink window, so "still solid"
+      // can never look sunk (ADR-038)
+      const up = SLIDER_UP_FRACTION;
+      const dip = up - 0.08;
+      const rise = 1 - 0.08;
       let off = 0;
-      if (ph >= 0.42 && ph < 0.5) off = -0.4 * smooth((ph - 0.42) / 0.08);
-      else if (ph >= 0.5 && ph < 0.92) off = -0.4;
-      else if (ph >= 0.92) off = -0.4 * (1 - smooth((ph - 0.92) / 0.08));
+      if (ph >= dip && ph < up) off = -0.4 * smooth((ph - dip) / 0.08);
+      else if (ph >= up && ph < rise) off = -0.4;
+      else if (ph >= rise) off = -0.4 * (1 - smooth((ph - rise) / 0.08));
       s.holder.position.y = off;
-      const warn = ph >= 0.34 && ph < 0.5 ? (ph - 0.34) / 0.16 : 0;
+      const warn = ph >= up - 0.16 && ph < up ? (ph - (up - 0.16)) / 0.16 : 0;
       s.mat.emissive.setRGB(warn * 0.55, warn * 0.18, 0);
       s.mat.emissiveIntensity = 1;
     }
@@ -1446,7 +1453,8 @@ export function buildLevelView(level, actHue = null) {
     for (const s of sliders) {
       if (s.tile.x === x && s.tile.z === z) {
         const ph = ((clock.t / s.gdef.period + s.gdef.phase) % 1 + 1) % 1;
-        return ph < 0.5;
+        // ADR-038: the SAME cutoff the rules model prices — 55%, not 50%.
+        return ph < SLIDER_UP_FRACTION;
       }
     }
     return true;

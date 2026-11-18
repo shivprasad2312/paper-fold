@@ -15,6 +15,7 @@ import {
   spawnProblems,
   canPushBlock,
   sliderUp,
+  rescueTile,
   key,
   MAX_DROP,
   MAX_CLIMB,
@@ -114,6 +115,60 @@ test('sliderUp: 55% duty cycle, per-group period/phase', () => {
   );
   assert.equal(sliderUp(ph, 0, 2, 0), false, 'phase 0.8 starts in the sink window');
   assert.equal(sliderUp(ph, 1.2, 2, 0), true, '…and rises again after the window');
+});
+
+test('sliders (ADR-038): a rigid bridge must be flat, joined and crossable', () => {
+  // one group, one height, contiguous — the shipped law
+  const ok = parseLevel(
+    def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[1, 0], [2, 0], [3, 0]], period: 3.2 }] }),
+  );
+  assert.equal(ok.sliders.length, 1);
+  assert.equal(ok.sliders[0].h, 1); // the map digit IS the bridge height
+  assert.equal(ok.sliders[0].period, 3.2);
+  assert.equal(ok.sliders[0].phase, 0);
+  assert.equal(ok.sliders[0].tileSet.size, 3);
+  // a bridge may not step height mid-span
+  assert.throws(
+    () => parseLevel(def({ map: ['1211'], goal: [3, 0], sliders: [{ tiles: [[1, 0], [2, 0]] }] })),
+    /not at the bridge height/,
+  );
+  // …nor leave an island behind
+  assert.throws(
+    () => parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[0, 0], [3, 0]] }] })),
+    /is not joined to the bridge/,
+  );
+  // period/phase bands
+  assert.throws(() => parseLevel(def({ map: ['111'], goal: [2, 0], sliders: [{ tiles: [[1, 0]], period: 2 }] })), /period/);
+  assert.throws(() => parseLevel(def({ map: ['111'], goal: [2, 0], sliders: [{ tiles: [[1, 0]], period: 9 }] })), /period/);
+  assert.throws(() => parseLevel(def({ map: ['111'], goal: [2, 0], sliders: [{ tiles: [[1, 0]], phase: 1 }] })), /phase/);
+});
+
+test('sliders (ADR-038): a span must fit inside the up window', () => {
+  // 3 tiles at the minimum period: 3 rolls + the reaction floor still fit
+  assert.doesNotThrow(() =>
+    parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[1, 0], [2, 0], [3, 0]], period: 2.4 }] })),
+  );
+  // 4 tiles at the minimum period do not — widen the period or lose a tile
+  assert.throws(
+    () => parseLevel(def({ map: ['111111'], goal: [5, 0], sliders: [{ tiles: [[1, 0], [2, 0], [3, 0], [4, 0]], period: 2.4 }] })),
+    /needs .*s to cross but the bridge is up only/,
+  );
+  assert.doesNotThrow(() =>
+    parseLevel(def({ map: ['111111'], goal: [5, 0], sliders: [{ tiles: [[1, 0], [2, 0], [3, 0], [4, 0]], period: 3.2 }] })),
+  );
+});
+
+test('sliders (ADR-038): a bridge tile carries nothing and benches nobody', () => {
+  assert.throws(
+    () => parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[2, 0]] }], shards: [[2, 0]] })),
+    /sliding bridge under a shard/,
+  );
+  assert.throws(
+    () => parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[2, 0]] }], freeze: [[2, 0]] })),
+    /stacked on another mechanic/,
+  );
+  const lvl = parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[2, 0]] }] }));
+  assert.notEqual(rescueTile(lvl), key(2, 0), 'the rescue bench never sits on a sinking bridge');
 });
 
 test('canPushBlock: blocks only slide onto plain slabs', () => {

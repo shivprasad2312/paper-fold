@@ -15,7 +15,17 @@ satisfy (enforced by `parseLevel` + verifier):
 - `shards`: exactly 3, on slabs, none on start/goal.
 - `orbs`: every path point on a slab; spawn point never on start/goal.
 - `crumble`: never on a sentinel patrol line or on a tile adjacent to one — a crumble on a crossing entry would force the player to wait for the crossing window on a slab that breaks (BUG-005). The generator enforces this; hand-authored levels are checked by the verifier.
-- `sliders`: groups of slabs; period ≥ ~1.5 s (human-readable timing).
+- `sliders`: `[{tiles: [[x,z],…], period?, phase?}]` — a RIGID sliding
+  bridge (ADR-038): contiguous slabs at ONE height that rise and sink
+  together. `period` ∈ [2.4, 8] s (default 3.2), `phase` ∈ [0, 1)
+  (default 0); `sliders[].h` records the bridge height. Two parse laws
+  keep it honest: a span must be crossable inside the up window
+  (`tiles × ROLL_TIME + TIMING_FLOOR ≤ period × SLIDER_UP_FRACTION`,
+  the same 55% cutoff the view draws), and a bridge tile may carry
+  nothing — no second mechanic, start, goal, key, block or shard.
+  Proofs price the bridge as always solid (wait out the sink beside
+  it); the rescue bench never lands on one and blocks are never
+  pushed onto one.
 - `shuttles`: `[{a: [x,z], b: [x,z], wait, twin}]` — a straight track of gap 2–5;
   the gap interior and the docks are void in the map (the parser
   solidifies the docks as `shuttle` tiles); the two structure ends may
@@ -176,6 +186,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Timed slab | 2.4 s fuse from first landing, then it falls | The crumble's slow sibling (plain crumble burns in 0.75 s): cross at a stroll, never dawdle — and the proof models break-on-leave, so the fuse is margin, not a requirement. |
 | Freeze shard | one grab, 3.2 s of frozen sentinels | The catalogue's first consumable timing tool: the proof counts it in presses (8-press budget from pickup to crossing exit), so a frozen crossing is provable without trusting real-time reflexes. |
 | Heavy block | pushed level or downhill only, 1 nudge per tile | Weight as a one-way valve: a heavy block shoved down a step can never be shoved back up, so its resting place is a commitment the proof models exactly (heaviness is part of the block's state identity). |
+| Sliding bridge | rigid group of slabs, up 55% of a 2.4–8 s cycle (default 3.2) | The bridge is a clock, not a hole: the whole span rises and sinks together, so a crossing is one timed commitment. The proof treats it as always solid and the parse law proves one crossing fits the up window — the wait-out doctrine, made checkable. |
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 | Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
 | Twin shuttle | second platform half a cycle out of phase | The ferry comes twice as often: the wait at the dock halves, and the proof never noticed — it models the one logical shuttle, so the twin is pure service. |

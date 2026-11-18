@@ -14,6 +14,14 @@ export const DIRS = {
 export const MAX_DROP = 2;
 /** Maximum height difference you are allowed to climb in one roll. */
 export const MAX_CLIMB = 1;
+
+/**
+ * Sliding bridges (ADR-038): the fraction of a group's period its slabs are
+ * UP. One clock, one cutoff — the view that draws the sink and the rules
+ * model that prices the crossing read this constant, so a bridge can never
+ * look solid for longer than the proof assumed (much less the reverse).
+ */
+export const SLIDER_UP_FRACTION = 0.55;
 /**
  * Seconds a TIMED slab (delayed crumble, M3 wave-1) holds after the
  * cube's first landing before it falls. The plain crumble's fuse is
@@ -246,16 +254,50 @@ export function parseLevel(def) {
   }
 
   // ---- sliding bridge tiles -------------------------------------------------
+  // A slider group is a RIGID bridge: contiguous slabs at ONE height that
+  // rise and sink together on a cycle. Proofs treat it as always solid (the
+  // wait-out doctrine — you cross in the up window), and the timing law is
+  // shared here so the view, the game and the bot read one clock.
   const sliderTiles = new Set();
-  const sliders = (def.sliders || []).map((g) => {
-    const tileSet = new Set(
-      g.tiles.map(([x, z]) => {
-        if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] slider tile ${x},${z} is not a slab`);
-        sliderTiles.add(key(x, z));
-        return key(x, z);
-      }),
-    );
-    return { tileSet, period: g.period || 3.2, phase: g.phase || 0 };
+  const sliders = (def.sliders || []).map((g, i) => {
+    const pts = (g.tiles || []).map(([x, z]) => {
+      if (!tiles.has(key(x, z))) throw new Error(`[${def.name}] slider ${i} tile ${x},${z} is not a slab`);
+      return { x, z, t: tiles.get(key(x, z)) };
+    });
+    if (!pts.length) throw new Error(`[${def.name}] slider ${i} has no tiles`);
+    const h0 = pts[0].t.h;
+    for (const p of pts) {
+      if (p.t.h !== h0) throw new Error(`[${def.name}] slider ${i} tile ${p.x},${p.z} is not at the bridge height ${h0}`);
+    }
+    // contiguous: every tile after the first touches another tile of the
+    // group (a rigid bridge may turn a corner, but it may not have islands)
+    for (let a = 1; a < pts.length; a++) {
+      const touches = pts.some((q, b) => b !== a && Math.abs(q.x - pts[a].x) + Math.abs(q.z - pts[a].z) === 1);
+      if (!touches) throw new Error(`[${def.name}] slider ${i} tile ${pts[a].x},${pts[a].z} is not joined to the bridge`);
+    }
+    const tileSet = new Set(pts.map((p) => key(p.x, p.z)));
+    for (const kk of tileSet) sliderTiles.add(kk);
+    const period = g.period === undefined ? 3.2 : g.period;
+    if (typeof period !== 'number' || !(period >= 2.4) || period > 8) {
+      throw new Error(`[${def.name}] slider ${i} period must be a number in [2.4, 8] (got ${g.period})`);
+    }
+    const phase = g.phase === undefined ? 0 : g.phase;
+    if (typeof phase !== 'number' || !(phase >= 0) || phase >= 1) {
+      throw new Error(`[${def.name}] slider ${i} phase must be a number in [0, 1) (got ${g.phase})`);
+    }
+    // The wait-out doctrine is only honest if ONE crossing fits inside the
+    // up window: every tile of the span takes a roll (ROLL_TIME), and the
+    // player must also commit to entering it (TIMING_FLOOR of reaction).
+    // A span that cannot be crossed in the window is a coin flip, not a
+    // puzzle — reject it at parse time, before any proof leans on it.
+    const crossing = pts.length * ROLL_TIME + TIMING_FLOOR;
+    const window = period * SLIDER_UP_FRACTION;
+    if (crossing > window) {
+      throw new Error(
+        `[${def.name}] slider ${i} span of ${pts.length} tiles needs ${crossing.toFixed(2)}s to cross but the bridge is up only ${window.toFixed(2)}s per cycle`,
+      );
+    }
+    return { tileSet, period, phase, h: h0, id: i };
   });
 
   // ---- shuttle platforms (moving bridges between structures) ---------------
@@ -690,6 +732,24 @@ export function parseLevel(def) {
     if (blockTiles.has(kk)) throw new Error(`[${def.name}] cling bank ${kk} is under a block`);
   }
 
+  // sliding bridges stay pure (ADR-038): a bridge tile IS a slab that
+  // sinks under the cube, so it may carry nothing (a pad would fire on a
+  // sinking tile, a crumble would fall out of a span), it may never be a
+  // tile the level starts or finishes on, and nothing may be parked on it.
+  // Checked LATE, after every mechanic has claimed its tiles.
+  for (const kk of sliderTiles) {
+    const t = tiles.get(kk);
+    if (!t) throw new Error(`[${def.name}] sliding bridge tile ${kk} is not a slab`);
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable) {
+      throw new Error(`[${def.name}] sliding bridge stacked on another mechanic at ${kk}`);
+    }
+    if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] sliding bridge on the start tile`);
+    if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] sliding bridge on the goal tile`);
+    if (gateKey && gateKey.x === t.x && gateKey.z === t.z) throw new Error(`[${def.name}] sliding bridge under the key at ${kk}`);
+    if (blockTiles.has(kk)) throw new Error(`[${def.name}] sliding bridge under a block at ${kk}`);
+    if (shards.some((s) => s.x === t.x && s.z === t.z)) throw new Error(`[${def.name}] sliding bridge under a shard at ${kk}`);
+  }
+
   const wind = def.wind || null;
   // one drift force per level (Phase B, ADR-035): a breeze and a piston
   // arm would fight over the same idle cube — never both. A turntable
@@ -1001,7 +1061,7 @@ export function sliderUp(level, t, x, z) {
   for (const g of level.sliders) {
     if (g.tileSet.has(k)) {
       const ph = (t / g.period + g.phase) % 1;
-      return ph < 0.55; // up ~55% of the cycle, sinking the rest
+      return ph < SLIDER_UP_FRACTION; // up 55% of the cycle, sinking the rest
     }
   }
   return true;
@@ -1374,7 +1434,7 @@ export function rescueTile(level) {
     // never a low tunnel or a size pad: the bench re-places the cube at
     // full size (ADR-034), so it must be a tile full size may stand on,
     // and standing there must not silently flip the cube's size
-    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k) && !t.turntable;
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k) && !t.turntable && !level.sliderTiles.has(k);
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {

@@ -496,15 +496,18 @@ floors completed (door →14, conveyor →14, twin →15 — every
 generator-placeable mechanic now ≥12); light blocks join the
 generator (2→10, teach L58 → twist L171); sawtooth relief is
 audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
-may run 6+ levels above its relief line). Remaining Phase C:
-wind/slider carve + proof support. **Phase B complete (ADR-033…ADR-037):**
+may run 6+ levels above its relief line). **Phase C slider carve shipped** (ADR-038): sliding bridges are
+generator-placeable (rigid one-height groups, content-hash carve of
+the proven walk, parse-time crossing-window law, purity audit, shards
+off the span), taught at L133 and tested/twisted at L163/L194; the
+density ratchet tracks slider at 3. Remaining Phase C: the wind carve
++ proof support. **Phase B complete (ADR-033…ADR-037):**
 lift platforms shipped (see Phase B item 1); shrink pads shipped
 (ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
 item 3); turntable bridges shipped (ADR-036, Phase B item 4); clinging
 shipped (ADR-037, Phase B item 5) — every Phase B verb has landed.
-Next: the deferred cadence work (Phase C slider/wind carves, the
-crumble/sentinel overuse cap, the Phase B 12+ density arcs) and Phase
-E meta.
+Next: the deferred cadence work (the wind carve, the crumble/sentinel
+overuse cap, the Phase B/slider 12+ density arcs) and Phase E meta.
 
 ---
 

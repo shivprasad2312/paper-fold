@@ -13,11 +13,11 @@
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
 //         heavy, blocks, pulse, proximity, twin, boss, lift, shrink,
-//         piston, turntable, cling } (per-mech. prob.) }
+//         piston, turntable, cling, slider } (per-mech. prob.) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
 //         timed?: n, freeze?: n, heavy?: n, blocks?: n, pulse?: n,
 //         proximity?: n, twin?: n, boss?: n, lift?: n, shrink?: n,
-//         piston?: n, turntable?: n, cling?: n }
+//         piston?: n, turntable?: n, cling?: n, slider?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 import { CLING_UP, CLING_DOWN } from '../src/rules.js';
@@ -903,8 +903,97 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placedCling && pCling > 0 && clingRoll('#roll') < pCling) convertCling();
   }
 
+  // --- sliding bridges (ADR-038): the campaign-1 mechanic joins the
+  // generator. A rigid 2-3 tile stretch of the proven walk is flagged as
+  // one bridge group: the slabs are already there (a slider is a slab that
+  // SINKS, not a hole), so the carve only claims them. Proofs keep pricing
+  // the bridge as always solid — the wait-out doctrine: cross in the up
+  // window — and the live law drops a cube that stands on one through the
+  // sweep. The run must be flat, plain, off start/goal, with clean waiting
+  // banks at both ends and no mechanic within one tile (a pad or a dock
+  // beside a sinking span is a trap the audits would reject). The pick
+  // comes from a content hash — never the shared rand stream — so arming
+  // the carve cannot reshuffle shipped candidates.
+  const sliderGroups = [];
+  {
+    const wantSlider = force.slider || 0;
+    const pSlider = (b.mech || {}).slider || 0;
+    const sliderSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const sRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + sliderSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const startK = `${start[0]},${start[1]}`;
+    const goalK = `${goal[0]},${goal[1]}`;
+    const nearMech = (x, z) => {
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oz = -1; oz <= 1; oz++) if (mechSet.has(`${x + ox},${z + oz}`)) return true;
+      }
+      return false;
+    };
+    const plain = (x, z) => map[z] !== undefined && map[z][x] > 0 && !carved.has(`${x},${z}`) && !mechSet.has(`${x},${z}`);
+    const findSliderSpots = () => {
+      const spots = [];
+      for (let i = 1; i + 1 < path.length; i++) {
+        const dx = Math.sign(path[i][0] - path[i - 1][0]);
+        const dz = Math.sign(path[i][1] - path[i - 1][1]);
+        if (!dx && !dz) continue;
+        for (let len = 3; len >= 2; len--) {
+          if (i + len >= path.length) continue;
+          const run = [];
+          let ok = true;
+          const h0 = map[path[i][1]][path[i][0]];
+          for (let t = i; t < i + len && ok; t++) {
+            const [x, z] = path[t];
+            if (t > i && (path[t][0] - path[t - 1][0] !== dx || path[t][1] - path[t - 1][1] !== dz)) ok = false;
+            if (map[z][x] !== h0) ok = false; // a rigid bridge is flat
+            if (!plain(x, z)) ok = false;
+            if (`${x},${z}` === startK || `${x},${z}` === goalK) ok = false;
+            run.push([x, z]);
+          }
+          if (!ok) continue;
+          // clean waiting banks: the tiles just before and just after the
+          // span must be plain slabs the cube can stand on while it waits
+          const before = path[i - 1];
+          const after = path[i + len];
+          if (!before || !after) continue;
+          if (!plain(before[0], before[1]) || !plain(after[0], after[1])) continue;
+          if (map[after[1]][after[0]] !== h0) continue;
+          if (Math.abs(map[before[1]][before[0]] - h0) > 1) continue;
+          // nothing already carved within one tile: keeps the door/piston/
+          // timed adjacency audits and the dock waits honest
+          if (run.some(([x, z]) => nearMech(x, z))) continue;
+          if (nearMech(before[0], before[1]) || nearMech(after[0], after[1])) continue;
+          spots.push(run);
+        }
+      }
+      return spots;
+    };
+    const convertSlider = () => {
+      const spots = findSliderSpots();
+      if (!spots.length) return false;
+      const run = spots[Math.floor(sRoll('#pick#' + sliderGroups.length) * spots.length)];
+      sliderGroups.push({ tiles: run, period: 3.2, phase: Math.floor(sRoll('#phase#' + sliderGroups.length) * 4) / 4 });
+      for (const [x, z] of run) markMech(x, z); // the bridge is mechanic space: no shard, key, crumble or patrol
+      return true;
+    };
+    let placedSlider = 0;
+    while (placedSlider < wantSlider) {
+      if (!convertSlider()) return null; // a forced slider must land
+      placedSlider++;
+    }
+    if (!placedSlider && pSlider > 0 && sRoll('#roll') < pSlider) convertSlider();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
-  const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
+  // a shard may not hover over a sliding bridge either (ADR-038): the
+  // bridge sinks, and a shard that is only grabbable in the up window is
+  // a trap. The slider set is empty on every level without one, so this
+  // filter cannot move a shipped level's shards.
+  const sliderSet = new Set(sliderGroups.flatMap((g) => g.tiles.map(([x, z]) => `${x},${z}`)));
+  const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`) && !sliderSet.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
   for (let i = 0; i < Math.min(b.shards[1], inner.length); i++) {
     const s = inner.splice(Math.floor(rand() * inner.length), 1)[0];
@@ -1218,6 +1307,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (pistons.length) def.pistons = pistons;
   if (turntables.length) def.turntables = turntables;
   if (clings.length) def.clings = clings;
+  if (sliderGroups.length) def.sliders = sliderGroups;
   if (shrinks.length) {
     def.shrink = shrinks;
     def.low = lows;

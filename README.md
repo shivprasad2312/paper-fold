@@ -222,7 +222,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   nudge: 2,                  // telekinesis charges
   // crumble: [[x, z]],      // cracked slabs
   // orbs: [{ path, speed, wake }], // sentinels; wake = sleeps until the cube is that near
-  // sliders: [{ tiles, period, phase }], // rising/sinking bridge groups
+  // sliders: [{ tiles, period, phase }], // a rigid one-height span: the whole group rises and sinks on one clock
   // shuttles: [{ a: [x,z], b: [x,z], twin }],  // looping platform that ferries across the gap; twin = a second platform half a cycle out
   // shrink: [[x, z]],       // shrink pad: landing makes the cube mini until a grow pad restores it
   // grow: [[x, z]],         // grow pad: landing restores full size
@@ -349,7 +349,8 @@ Notable details:
 * **Physics-lite mechanics.** Telekinesis shoves a dark cube one tile (the cube stays
   put, the block slides, a charge is spent — the solver tracks block positions and
   remaining pushes). Sliding bridges share the render clock, so what you see is
-  exactly what kills you; the same clock drives their amber warning flash. Wind
+  exactly what kills you; the same clock drives their amber warning flash, and
+  the rules model reads the same 55% duty window the view draws. Wind
   nudges the idle cube along a diagonal only when the landing tile is same-height or
   a small drop — it carries, it never lifts or flings. The sealed gate simply refuses
   the final roll (the cube rolls itself back) until the key is collected.

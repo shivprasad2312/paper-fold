@@ -218,6 +218,7 @@ function score(def, par, b) {
   if ((def.shuttles || []).some((sh) => sh.twin)) s += 1;
   if (def.boss) s += 2;
   if (def.ice) s += 1;
+  if (def.sliders) s += 1.5;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
   if (par >= b.par[0] + span * 0.3 && par <= b.par[1]) s += 1.5;
@@ -297,6 +298,9 @@ function mirrorDef(def, axis) {
   // turntable bridges (Phase B, ADR-036): the bar is axis-symmetric, the
   // pivot simply mirrors (a mirrored spin reads identically)
   if (def.turntables) out.turntables = def.turntables.map((tt) => ({ ...tt, at: T(tt.at) }));
+  // sliding bridges (ADR-038): a group is a set of tiles — mirror the set
+  // (the period/phase clock is orientation-free)
+  if (def.sliders) out.sliders = def.sliders.map((g) => ({ ...g, tiles: mirrorPts(g.tiles) }));
   // clinging (Phase B, ADR-037): a crevice is a point — the grip pair
   // mirrors with the board and both banks move with it
   if (def.clings) out.clings = mirrorPts(def.clings);
@@ -484,6 +488,14 @@ for (let id = FIRST; id <= LAST; id++) {
       const pth = shortestPath(lv);
       if (!pth || !pth.some((t) => lv.turntableCells.has(`${t.x},${t.z}`))) continue;
     }
+    // a forced slider must be CROSSED by the proven route (ADR-038): a
+    // bridge the optimal line walks around teaches nothing. The carve
+    // always takes the walk, but a shorter alternative may exist.
+    if ((allForce.slider || 0) > 0) {
+      const lv = parseLevel(cand);
+      const pth = shortestPath(lv);
+      if (!pth || !pth.some((t) => lv.sliderTiles.has(`${t.x},${t.z}`))) continue;
+    }
     // a forced cling must be CROSSED by the proven route (Phase B,
     // ADR-037): the grip crevice only teaches if the optimal line takes
     // it. A cling edge is a shortcut, so this is a strict par comparison
@@ -579,7 +591,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '') + (def.clings ? 'G' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '') + (def.clings ? 'G' : '') + (def.sliders ? 'L' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +
