@@ -283,6 +283,9 @@ function mirrorDef(def, axis) {
   if (def.blocks) out.blocks = mirrorPts(def.blocks);
   if (def.pulse) out.pulse = mirrorPts(def.pulse);
   if (def.lifts) out.lifts = def.lifts.map((l) => ({ ...l, at: T(l.at) }));
+  if (def.shrink) out.shrink = mirrorPts(def.shrink);
+  if (def.grow) out.grow = mirrorPts(def.grow);
+  if (def.low) out.low = mirrorPts(def.low);
   if (def.key) out.key = T(def.key);
   return out;
 }
@@ -442,6 +445,13 @@ for (let id = FIRST; id <= LAST; id++) {
       const lv = parseLevel(cand);
       const pth = shortestPath(lv);
       if (!pth || !pth.some((t) => t.lift)) continue;
+    }
+    // a forced shrink must be DUCKED THROUGH by the proven route — a
+    // tunnel the optimal line walks around teaches nothing (Phase B)
+    if ((allForce.shrink || 0) > 0) {
+      const lv = parseLevel(cand);
+      const pth = shortestPath(lv);
+      if (!pth || !pth.some((t) => t.low)) continue;
     }
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);

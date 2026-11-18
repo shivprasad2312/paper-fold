@@ -26,6 +26,9 @@ import {
   pulseUp,
   PULSE_PERIOD,
   DIRS,
+  resolveRollAt,
+  sizeAfter,
+  rescueTile,
 } from '../../src/rules.js';
 
 // --- shuttle ---------------------------------------------------------------
@@ -997,4 +1000,178 @@ test('spawn audit flags a sentinel on the dock and a slide feeding the shaft', (
   assert.ok(spawnProblems(patrolled).some((p) => p.includes('orb patrols a lift dock')));
   const fed = parseLevel({ ...liftDef(), ice: [[2, 1]] });
   assert.ok(spawnProblems(fed).some((p) => p.includes('fed by a slide')));
+});
+
+// --- shrink pads + low tunnels (Phase B, ADR-034): size is state ------------
+// A corridor the full cube cannot enter: pad -> tunnel -> grow -> goal.
+const shrinkDef = () => ({
+  name: 'shrink-test',
+  map: [
+    '.......',
+    '0000000',
+    '.......',
+  ],
+  start: [0, 1],
+  goal: [6, 1],
+  shrink: [[1, 1]],
+  low: [[3, 1], [4, 1]],
+  grow: [[5, 1]],
+});
+
+test('size pads parse as flagged tiles with registries; the level is a size level', () => {
+  const level = parseLevel(shrinkDef());
+  assert.equal(level.shrinkPads.get('1,1'), 'shrink');
+  assert.equal(level.shrinkPads.get('5,1'), 'grow');
+  assert.ok(level.lowTiles.has('3,1') && level.lowTiles.has('4,1'));
+  assert.ok(level.hasSize);
+  assert.equal(level.startMini, false);
+  const plain = parseLevel({ name: 'plain', map: ['00'], start: [0, 0], goal: [1, 0] });
+  assert.equal(plain.hasSize, false);
+});
+
+test('size parse rejects dead decoration and stacked mechanics', () => {
+  // pads with nothing to spend them on
+  assert.throws(() => parseLevel({ name: 'x', map: ['000'], start: [0, 0], goal: [2, 0], shrink: [[1, 0]] }), /no low tunnel/);
+  // a tunnel with no way in
+  assert.throws(() => parseLevel({ name: 'x', map: ['000'], start: [0, 0], goal: [2, 0], low: [[1, 0]] }), /no way to shrink/);
+  // ...unless the cube starts mini
+  assert.doesNotThrow(() => parseLevel({ name: 'x', map: ['000'], start: [0, 0], goal: [2, 0], low: [[1, 0]], startMini: true }));
+  assert.throws(() => parseLevel({ ...shrinkDef(), low: [[3, 1], [4, 1], [6, 1]] }), /low tile on the goal tile/);
+  assert.throws(() => parseLevel({ ...shrinkDef(), blocks: [[3, 1]], nudge: 1 }), /block inside a low tunnel/);
+  assert.throws(() => parseLevel({ ...shrinkDef(), grow: [[1, 1]] }), /stacked/);
+});
+
+test('checkRoll prices the size bit: a low tunnel is a wall at full size', () => {
+  const level = parseLevel(shrinkDef());
+  const mouth = level.tiles.get('2,1');
+  const tunnel = level.tiles.get('3,1');
+  assert.deepEqual(checkRoll(level, mouth, tunnel), { ok: false, kind: 'blocked' });
+  assert.equal(checkRoll(level, mouth, tunnel, true).ok, true);
+  // the pre-mechanic API keeps the full-size law
+  assert.equal(resolveRoll(level, mouth, DIRS.right), null);
+  assert.equal(resolveRollAt(level, mouth, DIRS.right, true), tunnel);
+});
+
+test('a pad fires on the landing: the press that steps on it ends small', () => {
+  const level = parseLevel(shrinkDef());
+  const start = level.tiles.get('0,1');
+  const pad = resolveRollAt(level, start, DIRS.right, false);
+  assert.equal(pad, level.tiles.get('1,1'));
+  assert.equal(sizeAfter(level, pad, false), true);
+  assert.equal(sizeAfter(level, level.tiles.get('5,1'), true), false); // grow restores
+  assert.equal(sizeAfter(level, level.tiles.get('2,1'), true), true); // plain tiles keep size
+});
+
+test('the tunnel route is the par: proofs carry the size bit end to end', () => {
+  const level = parseLevel(shrinkDef());
+  assert.equal(shortestRoute(level), 6); // pad, step, tunnel x2, grow, goal
+  assert.ok(reachable(level).has('6,1'));
+  assert.ok(canStillFinish(level).has('0,1'));
+  assert.equal(solveHazards(level).ok, true);
+  // the same corridor entered small from spawn (no pad needed)
+  const born = parseLevel({ ...shrinkDef(), shrink: [], startMini: true });
+  assert.equal(shortestRoute(born), 6);
+});
+
+test('growing where every exit is a tunnel mouth is a size soft-lock', () => {
+  // the grow pad ends a spur off the tunnel: roll in mini, stand up —
+  // and the only way out is the low mouth you came through
+  const sealed = parseLevel({
+    name: 'trap-test',
+    map: ['........', '00000000', '....0...'],
+    start: [0, 1],
+    goal: [7, 1],
+    shrink: [[1, 1]],
+    low: [[3, 1], [4, 1]],
+    grow: [[4, 2]],
+  });
+  assert.equal(reachable(sealed).has('4,2'), true); // reachable...
+  assert.equal(canStillFinish(sealed).has('4,2'), false); // ...but a trap
+  assert.equal(canStillFinish(sealed).has('1,1'), true);
+});
+
+test('blocks never enter a low tunnel or park on a pad', () => {
+  const level = parseLevel({ ...shrinkDef(), blocks: [[2, 1]], nudge: 3 });
+  const block = level.blocks[0];
+  assert.equal(canPushBlock(level, block, 1, 0), false); // into the tunnel
+  assert.equal(canPushBlock(level, block, -1, 0), false); // onto the shrink pad
+});
+
+test('spawn audit keeps the patrol line out of tunnels and off pads', () => {
+  const wide = parseLevel({
+    name: 'shrink-orb',
+    map: ['0000000', '0000000', '0000000'],
+    start: [0, 0],
+    goal: [6, 0],
+    shrink: [[1, 1]],
+    low: [[3, 1], [4, 1]],
+    grow: [[5, 1]],
+    orbs: [{ path: [[3, 0], [3, 2]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(wide).some((p) => p.includes('low tunnel tile 3,1')));
+  const onPad = parseLevel({
+    name: 'shrink-orb2',
+    map: ['0000000', '0000000', '0000000'],
+    start: [0, 0],
+    goal: [6, 0],
+    shrink: [[1, 1]],
+    low: [[3, 1], [4, 1]],
+    grow: [[5, 1]],
+    orbs: [{ path: [[1, 0], [1, 2]], speed: 1 }],
+  });
+  assert.ok(spawnProblems(onPad).some((p) => p.includes('size pad on a sentinel patrol line')));
+});
+
+test('a full-size spring launch flies over the tunnel mouth; a mini launch lands in it', () => {
+  const level = parseLevel({
+    name: 'shrink-spring',
+    map: ['......', '000000', '......'],
+    start: [0, 1],
+    goal: [5, 1],
+    springs: [[1, 1]],
+    low: [[2, 1]],
+    shrink: [[4, 1]],
+    grow: [[3, 1]],
+  });
+  const spring = level.tiles.get('1,1');
+  // full size: the low tile at (2,1) is overflown, landing on (3,1)
+  assert.equal(resolveRollAt(level, spring, DIRS.right, false), level.tiles.get('3,1'));
+  // mini: the first slab is a legal landing
+  assert.equal(resolveRollAt(level, spring, DIRS.right, true), level.tiles.get('2,1'));
+});
+
+test('an ice slide rests before the tunnel mouth; the mouth itself prices size', () => {
+  const level = parseLevel({
+    name: 'shrink-ice',
+    map: ['.......', '0000000', '.......'],
+    start: [0, 1],
+    goal: [6, 1],
+    ice: [[1, 1], [2, 1]],
+    low: [[4, 1]],
+    shrink: [[5, 1]],
+    grow: [[3, 1]],
+  });
+  const start = level.tiles.get('0,1');
+  // the slide runs the ice and rests on the first plain tile, (3,1)
+  assert.equal(resolveRollAt(level, start, DIRS.right, false), level.tiles.get('3,1'));
+  // from that rest tile the tunnel mouth refuses full size and admits mini
+  assert.equal(resolveRollAt(level, level.tiles.get('3,1'), DIRS.right, false), null);
+  assert.equal(resolveRollAt(level, level.tiles.get('3,1'), DIRS.right, true), level.tiles.get('4,1'));
+});
+
+test('the rescue bench never lands on a tunnel tile or a pad', () => {
+  const level = parseLevel({
+    name: 'shrink-bench',
+    map: ['.........', '000000000', '.........'],
+    start: [0, 1],
+    goal: [8, 1],
+    shrink: [[1, 1]],
+    low: [[4, 1]],
+    grow: [[7, 1]],
+  });
+  const bench = rescueTile(level);
+  assert.ok(bench, 'a bench exists on an 8-press level');
+  assert.equal(bench.low, undefined);
+  assert.equal(bench.shrink, undefined);
+  assert.equal(bench.grow, undefined);
 });

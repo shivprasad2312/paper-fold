@@ -1449,3 +1449,60 @@ ratchet tracks lifts at their shipped count (2).
 Phase C treatment) waits for a later cadence pass; twin lifts and
 mid-shaft exits to a third bank are deliberately unmodelled; the
 next Phase B verb is the shrink pad (mini-cube).
+
+## ADR-034 — Shrink pads: size is one more bit of cube state (2026-11-18)
+**Context:** Phase B item 2 (research §5, gap G4/G5). Lifts (ADR-033)
+gave towers a vertical verb; the horizontal structures still had no
+way to *gate by body* — EDGE's resizer pads make the same corridor
+two different levels depending on the cube's size, and KUBIK's flat
+route graph had no state to express that.
+**Decision:** `shrink: [[x,z]]` / `grow: [[x,z]]` pads and
+`low: [[x,z]]` tunnel tiles (plus `startMini: true`). Landing on a
+pad flips the cube's size — permanently, re-fireable on every
+landing, never a pickup — and a `low` tile is a tunnel mouth only
+the mini cube (0.55 scale) may stand on. (1) *One-law resolver:*
+`checkRoll(level, from, to, mini)` refuses a full-size roll into a
+low tile ('blocked', a bump), and `resolveRollAt(level, from, d,
+mini)` threads the size through ice/belt/spring follow-through,
+re-reading it after every landing (`sizeAfter`); a full-size spring
+launch flies over the tunnel mouth like it flies a doorway.
+`resolveRoll` keeps the full-size law, so every shipped level
+prices identically. (2) *Size is search state:* on `hasSize`
+levels, reachable / canStillFinish / shortest route+path /
+solveHazards / fairReachSet all carry (tile, size) states seeded
+from `startMini`, and key legs hand their arrival size to the goal
+leg (`fairReachStates` returns arrival sizes; timingProblems
+composes the join). Pad tiles prune phantom states (a shrink pad
+is only ever stood on mini, a grow pad only ever full) so growing
+inside a low room is caught as the size soft-lock it is. The
+rescue bench never lands on a low tile or a pad (the rescue
+re-places the cube at full size), and sentinel kills stay
+size-blind x/z geometry exactly as proven (the game compensates
+the mini mesh's floor-glue drop out of the kill height). (3)
+*Parse law:* pads stack on no other mechanic, never on
+start/goal/key/block/shard; low tiles are plain slabs only (a
+shard may end a tunnel niche, a block may never enter); pads and
+tunnels must co-occur (a shrink pad with nowhere to spend it, or a
+tunnel with no way to shrink, is rejected like a decorative
+lift); blocks never enter a tunnel or park on a pad
+(`canPushBlock`); no patrol line runs over a low tile or a pad
+(spawn audit — crossing bursts are size-blind geometry). (4)
+*Generator:* a content-hash carve in the hazard stage turns a
+straight, flat five-tile route run into pad → low → low → exit →
+grow and claims the segment in carved+mechSet; Acts 7–10 carry
+`shrink` probabilities; a forced shrink must be *ducked through*
+by the proven route. First slots, names preserved: teach L126
+"Tidegate" (Act 7 plaza, par 28), test L161 "Full Tide" (Act 9
+tower, with a lift, par 50) and twist L193 "The Final Angle" (Act
+10 citadel — shrink + lift + key + freeze + proximity, par 48;
+re-rolled with the freeze+proximity it replaced forced back in,
+so no Phase C ratchet floor moved). `mirrorDef` mirrors
+shrink/grow/low; the experience fingerprint learns 'M'; the
+density ratchet tracks shrink at 3. The live bot carries the
+size bit in its planner state (seeded from the real cube) and
+prices presses with resolveRollAt.
+**Not yet:** the shrink density arc (12+ teach→test→twist, the
+Phase C treatment) is deferred like the lift arc; low-ceiling
+*height* play (a mini cube under a high bank) is unmodelled — a
+low tile is a flat gate, not a clearance volume; the next Phase B
+verb is the piston pusher.

@@ -11,7 +11,9 @@
 // Not tracked: sliders / wind (hand-authored campaign-1 mechanics the
 // generator cannot carve yet) and boss (act finales only, by design).
 // Light blocks joined the generator in ADR-032 and lifts in ADR-033;
-// both are tracked below at their shipped counts.
+// both are tracked below at their shipped counts. Shrink pads (ADR-034)
+// enter at their three teach/test/twist slots; the 12+ density arc for
+// the Phase B mechanics is the deferred follow-up, as it was for lifts.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
@@ -28,6 +30,7 @@ const TRACKED = {
   proximity: { count: (d) => (d.orbs || []).some((o) => o.wake) ? 1 : 0, floor: 21 },
   blocks: { count: (d) => (d.blocks || []).length, floor: 10 },
   lift: { count: (d) => (d.lifts || []).length, floor: 2 },
+  shrink: { count: (d) => (d.shrink || []).length, floor: 3 },
 };
 
 for (const [name, { count, floor }] of Object.entries(TRACKED)) {

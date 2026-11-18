@@ -163,6 +163,7 @@ export function buildLevelView(level, actHue = null) {
   const beltChevrons = [];
   const doorRecs = [];
   const plateRecs = [];
+  const padChevrons = [];
   {
     const iceMat = new THREE.MeshStandardMaterial({
       color: 0xbfe8ff, emissive: 0x3f8fc4, emissiveIntensity: 0.6,
@@ -178,6 +179,16 @@ export function buildLevelView(level, actHue = null) {
     const doorMat = new THREE.MeshStandardMaterial({
       color: 0xd98a2b, emissive: 0x8a5200, emissiveIntensity: 0.5, roughness: 0.45,
     });
+    // SIZE PADS (Phase B, ADR-034): sky plate with inward chevrons shrinks,
+    // green plate with outward chevrons grows back (pulsed in update())
+    const shrinkMat = new THREE.MeshStandardMaterial({
+      color: 0x38b6ff, emissive: 0x0d5f9e, emissiveIntensity: 0.55, roughness: 0.35,
+    });
+    const growMat = new THREE.MeshStandardMaterial({
+      color: 0x7dd956, emissive: 0x3f7d1e, emissiveIntensity: 0.55, roughness: 0.35,
+    });
+    // LOW TUNNEL (Phase B): a slate gantry the mini cube passes under
+    const gantryMat = new THREE.MeshStandardMaterial({ color: 0x51606e, roughness: 0.55, metalness: 0.4 });
     const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a3f4a, roughness: 0.6, metalness: 0.35 });
     for (const tile of level.tiles.values()) {
       if (tile.ice || tile.spring) {
@@ -271,6 +282,41 @@ export function buildLevelView(level, actHue = null) {
           ];
           group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ghostMat));
         }
+      }
+      if (tile.shrink || tile.grow) {
+        // SIZE PAD (Phase B, ADR-034): a glowing plate; four chevrons
+        // point INWARD on a shrink pad, OUTWARD on a grow pad
+        const mat = tile.shrink ? shrinkMat : growMat;
+        const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.41, 0.06, 24), mat);
+        plate.position.set(tile.x, tile.h + 0.04, tile.z);
+        plate.receiveShadow = true;
+        group.add(plate);
+        const inward = tile.shrink ? 1 : -1;
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const chev = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.24, 4), mat);
+          // lay the cone flat, tip toward (shrink) or away from (grow) centre
+          chev.rotation.x = dz * (Math.PI / 2) * inward;
+          chev.rotation.z = -dx * (Math.PI / 2) * inward;
+          chev.position.set(tile.x + dx * 0.21, tile.h + 0.12, tile.z + dz * 0.21);
+          group.add(chev);
+          padChevrons.push({ mesh: chev, x: tile.x, z: tile.z, h: tile.h, dx, dz, inward });
+        }
+      }
+      if (tile.low) {
+        // LOW TUNNEL (Phase B, ADR-034): four posts and a ceiling beam at
+        // gantry height — the full cube visibly cannot fit, the mini can
+        for (const sx of [-1, 1]) {
+          for (const sz of [-1, 1]) {
+            const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.8, 0.09), frameMat);
+            post.position.set(tile.x + sx * 0.42, tile.h + 0.4, tile.z + sz * 0.42);
+            post.castShadow = true;
+            group.add(post);
+          }
+        }
+        const beam = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.13, 1.02), gantryMat);
+        beam.position.set(tile.x, tile.h + 0.83, tile.z);
+        beam.castShadow = true;
+        group.add(beam);
       }
     }
   }
@@ -922,6 +968,13 @@ export function buildLevelView(level, actHue = null) {
     for (const b of beltChevrons) {
       const off = (time * 0.9) % 0.55;
       b.mesh.position.set(b.x + b.dx * (off - 0.27), b.h + 0.16, b.z + b.dz * (off - 0.27));
+    }
+
+    // size-pad chevrons breathe: shrink chevrons drift inward, grow
+    // chevrons drift outward (Phase B, ADR-034)
+    for (const b of padChevrons) {
+      const off = ((time * 0.7) % 0.16) * b.inward;
+      b.mesh.position.set(b.x + b.dx * (0.21 - off), b.h + 0.12, b.z + b.dz * (0.21 - off));
     }
 
     // pressure plates + doors (M3 wave-1): a door stands open while the

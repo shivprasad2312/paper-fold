@@ -48,6 +48,7 @@ const {
   orbPositionFromDist,
   fairCrossingGraph,
   resolveRoll,
+  resolveRollAt,
   checkRoll,
   shuttleRide,
   ROLL_TIME,
@@ -197,6 +198,7 @@ async function snapLive() {
       freezeLeft: typeof g.freezeLeft === 'number' ? g.freezeLeft : 0,
       blocks: [...g.blocks.values()].map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy })),
       nudgeLeft: g.nudgeLeft,
+      mini: !!g.mini, // cube size rides the plan state (Phase B, ADR-034)
       collectedFreeze: (g.view.freezes || []).filter((f) => f.collected).map((f) => `${f.x},${f.z}`),
       anim: !!g.cube.anim,
       orbs: g.view.orbs.map((o) => [o.holder.position.x, o.holder.position.z]),
@@ -323,6 +325,13 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   const startBlocks = (Array.isArray(cube.blocks) ? cube.blocks : model.blocks)
     .map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy }));
   const startNudges = typeof cube.nudgeLeft === 'number' ? cube.nudgeLeft : model.nudge || 0;
+  // mini-cube size (ADR-034): a route's state carries the size bit (the
+  // pads it last touched are on it), so low corridors plan only while small
+  const startMini = !!cube.mini;
+  const padAfter = (k2, curMini) => {
+    const p = model.shrinkPads.get(k2);
+    return p === 'shrink' ? true : p === 'grow' ? false : curMini;
+  };
   const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z) + (b.heavy ? 'h' : '')).sort().join(';');
   // tripwire: a planned route may only reference real, non-line tiles
   // (line tiles appear only inside a crossing step's seq)
@@ -335,6 +344,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
     // rules.canPushBlock, the game's own push law.
     const bad = [];
     let simBlocks = startBlocks.map((b) => ({ ...b }));
+    let simMini = startMini;
     let simNudges = startNudges;
     for (let i = 0; i < r.tiles.length; i++) {
       const t = r.tiles[i];
@@ -360,7 +370,8 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
           bad.push(`press ${r.moves[i - 1]} from ${a.x},${a.z} rolls into a block`);
           continue;
         }
-        const land = resolveRoll(model, at, d);
+        const land = resolveRollAt(model, at, d, simMini);
+        if (land && land.x === t.x && land.z === t.z) simMini = padAfter(key(t.x, t.z), simMini);
         if (!land || land.x !== t.x || land.z !== t.z) {
           bad.push(`press ${r.moves[i - 1]} from ${a.x},${a.z} lands ${land ? land.x + ',' + land.z : 'NOWHERE'}, route says ${t.x},${t.z}`);
         }
@@ -392,13 +403,13 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
   // state = tile | freeze charge | block layout | nudges left. With no
   // blocks in play the last two fields are constant and the search is the
   // plain tile/charge Dijkstra it always was.
-  const sKey = (k2, ch, blocks, nudges) => `${k2}|${ch}|${blockSig(blocks)}|${nudges}`;
-  const startState = sKey(startK, frozenPresses, startBlocks, startNudges);
+  const sKey = (k2, ch, blocks, nudges, sm) => `${k2}|${ch}|${blockSig(blocks)}|${nudges}|${sm ? 'm' : 'n'}`;
+  const startState = sKey(startK, frozenPresses, startBlocks, startNudges, startMini);
   const dist = new Map([[startState, 0]]);
   const prev = new Map();
   const Q = [startState];
   const done = new Set();
-  const stateOf = new Map([[startState, { tile: startTile, charge: frozenPresses, blocks: startBlocks, nudges: startNudges }]]);
+  const stateOf = new Map([[startState, { tile: startTile, charge: frozenPresses, blocks: startBlocks, nudges: startNudges, mini: startMini }]]);
   const hOf = (t) => model.tiles.get(key(t.x, t.z));
   let targetState = startK === targetK ? startState : null;
   while (Q.length) {
@@ -407,7 +418,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       if ((dist.get(Q[i]) ?? 1e9) < (dist.get(Q[bestI]) ?? 1e9)) bestI = i;
     }
     const cs = Q.splice(bestI, 1)[0];
-    const { tile: cur, charge, blocks, nudges } = stateOf.get(cs);
+    const { tile: cur, charge, blocks, nudges, mini } = stateOf.get(cs);
     if (done.has(cs)) continue;
     done.add(cs);
     const ck = key(cur.x, cur.z);
@@ -418,11 +429,11 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
     const curH = hOf(cur);
     if (!curH) continue; // standing over void (dying) — replan will fix it
     // one press: freeze burns one unit, a pickup refreshes the charge
-    const pressTo = (to, nextBlocks = blocks, nextNudges = nudges) => {
+    const pressTo = (to, nextBlocks = blocks, nextNudges = nudges, nextMini) => {
       const k2 = key(to.x, to.z);
       let ch = Math.max(0, charge - 1);
       if (freezeHere(k2)) ch = FREEZE_PRESS_BUDGET;
-      return sKey(k2, ch, nextBlocks, nextNudges);
+      return sKey(k2, ch, nextBlocks, nextNudges, nextMini === undefined ? padAfter(k2, mini) : nextMini);
     };
     const occupied = new Set(blocks.map((b) => key(b.x, b.z)));
     // resolved off-line neighbours: ONE press may carry the cube several
@@ -438,17 +449,17 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
         if (nudges > 0 && canPushBlock(model, blocks[bi], dx, dz, occupied)
           && !broken.has(key(blocks[bi].x + dx, blocks[bi].z + dz))) {
           const nb = blocks.map((b, j) => (j === bi ? { ...b, x: b.x + dx, z: b.z + dz } : b));
-          const s2 = sKey(ck, Math.max(0, charge - 1), nb, nudges - 1);
+          const s2 = sKey(ck, Math.max(0, charge - 1), nb, nudges - 1, mini);
           if (d0 + 1 < (dist.get(s2) ?? 1e9)) {
             dist.set(s2, d0 + 1);
             prev.set(s2, { k: cs, seq: null, push: dirName(dx, dz) });
-            stateOf.set(s2, { tile: cur, charge: Math.max(0, charge - 1), blocks: nb, nudges: nudges - 1 });
+            stateOf.set(s2, { tile: cur, charge: Math.max(0, charge - 1), blocks: nb, nudges: nudges - 1, mini });
             Q.push(s2);
           }
         }
         continue;
       }
-      const to = resolveRoll(model, cur, { dx, dz });
+      const to = resolveRollAt(model, cur, { dx, dz }, mini);
       if (!to) continue;
       if (graph.line.has(key(to.x, to.z))) continue;
       const k2 = key(to.x, to.z);
@@ -468,7 +479,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
         // endpoints (L196's key route rides a belt west after a south
         // press — endpoint geometry says "left", the game needs "down")
         prev.set(s2, { k: cs, seq: null, press: dirName(dx, dz) });
-        stateOf.set(s2, { tile: to, charge: Number(s2.split('|')[1]), blocks, nudges });
+        stateOf.set(s2, { tile: to, charge: Number(s2.split('|')[1]), blocks, nudges, mini: padAfter(k2, mini) });
         Q.push(s2);
       }
     }
@@ -478,11 +489,11 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       const rideTo = shuttleRide(model, cur);
       if (rideTo) {
         const k2 = key(rideTo.x, rideTo.z);
-        const s2 = sKey(k2, charge, blocks, nudges); // a ride burns real seconds, not presses
+        const s2 = sKey(k2, charge, blocks, nudges, mini); // a ride burns real seconds, not presses
         if (!broken.has(k2) && d0 + 1 < (dist.get(s2) ?? 1e9)) {
           dist.set(s2, d0 + 1);
           prev.set(s2, { k: cs, seq: 'RIDE' });
-          stateOf.set(s2, { tile: rideTo, charge, blocks, nudges });
+          stateOf.set(s2, { tile: rideTo, charge, blocks, nudges, mini });
           Q.push(s2);
         }
       }
@@ -499,12 +510,13 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       // the burst rolls tile by tile: a block parked on any of them is a wall
       if ([...e.seq, e.to].some((t) => occupied.has(key(t.x, t.z)))) continue;
       const baseKey2 = isKeyNode ? k2 : key(e.to.x, e.to.z);
-      const s2 = sKey(baseKey2, e.freeze ? Math.max(0, charge - (e.seq.length + 1)) : charge, blocks, nudges);
+      const exitMini = isKeyNode ? mini : padAfter(key(e.to.x, e.to.z), mini);
+      const s2 = sKey(baseKey2, e.freeze ? Math.max(0, charge - (e.seq.length + 1)) : charge, blocks, nudges, exitMini);
       const cost = e.seq.length + 1;
       if (d0 + cost < (dist.get(s2) ?? 1e9)) {
         dist.set(s2, d0 + cost);
         prev.set(s2, { k: cs, seq: e.seq, freeze: !!e.freeze });
-        stateOf.set(s2, { tile: e.to, charge: Number(s2.split('|')[1]), blocks, nudges });
+        stateOf.set(s2, { tile: e.to, charge: Number(s2.split('|')[1]), blocks, nudges, mini: exitMini });
         Q.push(s2);
       }
     }

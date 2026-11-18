@@ -14,6 +14,8 @@ const DAILY_COLOR = 0xffd14d;
 const DROP_TIME = 0.11;
 const HALF = 0.5;
 const ORB_KILL_HEIGHT = 1.0;
+/** Mini-cube mesh scale on a shrink pad (Phase B, ADR-034). */
+const MINI_SCALE = 0.55;
 const WIND_PERIOD = 0.62; // seconds between breeze nudges
 
 const easeInOut = (t) => t * t * (3 - 2 * t);
@@ -186,6 +188,8 @@ export class Game {
 
   placeCubeAtStart() {
     const s = this.level.start;
+    this.mini = !!this.level.startMini; // size is run state (ADR-034)
+    this.sizeCur = this.mini ? MINI_SCALE : 1;
     this.cube = {
       x: s.x,
       z: s.z,
@@ -225,7 +229,7 @@ export class Game {
     this.gateLocked = !!this.level.gateKey;
     this.windTimer = WIND_PERIOD;
     this.view.setGoalLocked(this.gateLocked);
-    this.moveLog = [{ t: 0, x: this.level.start.x, z: this.level.start.z, h: this.level.start.h }];
+    this.moveLog = [{ t: 0, x: this.level.start.x, z: this.level.start.z, h: this.level.start.h, mini: !!this.level.startMini }];
     this.lastDeathCause = null;
     this.rescueUsed = false;
     this.rescuedRun = false;
@@ -340,7 +344,7 @@ export class Game {
     }
 
     const to = this.isSolid(toX, toZ);
-    const check = checkRoll(this.level, from, to);
+    const check = checkRoll(this.level, from, to, this.mini);
 
     if (!check.ok && check.kind === 'blocked') {
       this.cube.anim = {
@@ -422,16 +426,27 @@ export class Game {
 
     if (this.paused) return;
 
+    // mini-cube size (Phase B, ADR-034): ease the mesh between full and
+    // MINI_SCALE; the spawn pop composes multiplicatively on top
+    const sizeTarget = this.mini ? MINI_SCALE : 1;
+    if (this.sizeCur === undefined) this.sizeCur = sizeTarget;
+    this.sizeCur += (sizeTarget - this.sizeCur) * Math.min(1, dt * 7);
+    if (Math.abs(sizeTarget - this.sizeCur) < 0.002) this.sizeCur = sizeTarget;
     // intro pop
     if (this.spawnScale !== undefined && this.spawnScale < 1) {
       this.spawnScale = Math.min(1, this.spawnScale + dt * 5);
       const s = easeInOut(this.spawnScale);
-      this.cubeMesh.scale.setScalar(0.35 + 0.65 * s);
+      this.cubeMesh.scale.setScalar((0.35 + 0.65 * s) * this.sizeCur);
+    } else if (this.state !== 'won') {
+      this.cubeMesh.scale.setScalar(this.sizeCur);
     }
 
     if (this.state === 'playing') this.elapsed += dt;
 
     this.updateCube(dt, time);
+    // the shrunken mesh stays glued to its slab: drop it by the height
+    // the scale took away (kill tests compensate this back — ADR-034)
+    if (this.sizeCur < 0.999) this.cubeMesh.position.y -= (1 - this.sizeCur) * HALF;
     this.view.update(dt, time, this.cubeMesh.position);
     this.updateShuttleCarry(time);
     this.updateLiftCarry();
@@ -472,7 +487,7 @@ export class Game {
       this.cubeMesh.rotation.y += dt * 1.2;
       this.cubeMesh.position.y += dt * 0.35;
       const k = Math.min(1, this.winTimer * 0.75);
-      this.cubeMesh.scale.setScalar(Math.max(0.05, 1 - k * 0.9));
+      this.cubeMesh.scale.setScalar(Math.max(0.05, 1 - k * 0.9) * (this.sizeCur ?? 1));
       this.cubeGlow.material.opacity = 0.45 + Math.sin(time * 14) * 0.2;
     }
   }
@@ -602,6 +617,7 @@ export class Game {
       pz += d.dz;
       if (!cand) continue;
       if (cand.lift) continue; // a launch never lands on a lift: it flies the shaft over
+      if (cand.low && !this.mini) continue; // nor into a low tunnel at full size (ADR-034)
       if (this.view.isBroken(cand.x, cand.z)) continue; // a crater is not a floor
       const dh = cand.h - from.h;
       if (dh > 3 || dh < -3) return null;
@@ -653,7 +669,7 @@ export class Game {
     }
     if (target.ice) {
       const next = this.tileAt(target.x + d.dx, target.z + d.dz);
-      if (next && checkRoll(this.level, target, next).ok) {
+      if (next && checkRoll(this.level, target, next, this.mini).ok) {
         const axis = new THREE.Vector3(d.dz, 0, -d.dx).normalize();
         const pivot = new THREE.Vector3(target.x + d.dx * HALF, target.h, target.z + d.dz * HALF);
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
@@ -684,7 +700,7 @@ export class Game {
       // direction for any follow-through after it (mirrors resolveRoll).
       const bd = target.conveyor;
       const next = this.tileAt(target.x + bd.dx, target.z + bd.dz);
-      if (next && checkRoll(this.level, target, next).ok) {
+      if (next && checkRoll(this.level, target, next, this.mini).ok) {
         const axis = new THREE.Vector3(bd.dz, 0, -bd.dx).normalize();
         const pivot = new THREE.Vector3(target.x + bd.dx * HALF, target.h, target.z + bd.dz * HALF);
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
@@ -750,7 +766,8 @@ export class Game {
 
     if (target.crumble) this.view.breakAt(target.x, target.z);
     if (target.timed) this.view.armTimed(target.x, target.z);
-    this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h });
+    this.applyPad(target);
+    this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h, mini: this.mini });
     this.emit('land', target);
 
     if (target.x === this.level.goal.x && target.z === this.level.goal.z) {
@@ -764,6 +781,21 @@ export class Game {
     if (!this.cube.anim) this.pumpQueue();
   }
 
+  /**
+   * Size pads (Phase B, ADR-034): landing on a pad flips the cube's size
+   * — permanently until the opposite pad. The mesh eases to the new scale
+   * in update(); every roll law in this file prices `this.mini`.
+   */
+  applyPad(target) {
+    if (target.shrink && !this.mini) {
+      this.mini = true;
+      this.emit('shrink', target);
+    } else if (target.grow && this.mini) {
+      this.mini = false;
+      this.emit('grow', target);
+    }
+  }
+
   /** A breeze nudge: moves a tile without counting as a step. */
   finishDrift(target) {
     this.cube.anim = null;
@@ -774,7 +806,8 @@ export class Game {
     this.cubeMesh.quaternion.copy(this.cube.quat);
     if (target.crumble) this.view.breakAt(target.x, target.z);
     if (target.timed) this.view.armTimed(target.x, target.z);
-    this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h });
+    this.applyPad(target);
+    this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h, mini: this.mini });
     this.emit('drift', target);
     this.pumpQueue();
   }
@@ -932,11 +965,15 @@ export class Game {
   checkOrbs() {
     if (this.freezeLeft > 0) return; // frozen sentinels are inert (M3 wave-1)
     const p = this.cubeMesh.position;
+    // sentinel kills are size-blind (the fairness proofs are pure x/z
+    // geometry): price the cube at its logical centre, undoing the mini
+    // mesh's floor-glue drop (ADR-034)
+    const py = p.y + (1 - (this.sizeCur ?? 1)) * HALF;
     for (const o of this.view.orbs) {
       if (o.awake === false) continue; // a sleeping proximity sentinel is inert
       const dx = p.x - o.holder.position.x;
       const dz = p.z - o.holder.position.z;
-      const dy = p.y - o.holder.position.y;
+      const dy = py - o.holder.position.y;
       if (dx * dx + dz * dz < ORB_KILL_RADIUS * ORB_KILL_RADIUS && Math.abs(dy) < ORB_KILL_HEIGHT) {
         this.die('sentinel');
         return;
@@ -1012,6 +1049,8 @@ export class Game {
     // the breeze does not open doors: drifting into a doorway takes the
     // same press law as rolling (M3 wave-1, mirrors checkRoll)
     if (toTile.door && !(fromTile.x === toTile.door.x && fromTile.z === toTile.door.z)) return;
+    // nor squeeze the cube into a low tunnel at full size (ADR-034)
+    if (toTile.low && !this.mini) return;
     // the breeze carries, it does not lift: same height or a small fall only
     const dh = toTile.h - fromTile.h;
     if (dh > 0 || dh < -MAX_DROP) return;
@@ -1069,6 +1108,8 @@ export class Game {
       anim: null,
       quat: new THREE.Quaternion(),
     };
+    this.mini = false; // the bench re-places the cube at full size (ADR-034)
+    this.sizeCur = 1;
     this.cubeMesh.visible = true;
     this.cubeMesh.position.set(t.x, t.h + HALF, t.z);
     this.cubeMesh.quaternion.identity();
@@ -1143,6 +1184,8 @@ export class Game {
     if (t >= log[log.length - 1].t) {
       const last = log[log.length - 1];
       mesh.position.set(last.x, last.h + HALF, last.z);
+      mesh.scale.setScalar(last.mini ? MINI_SCALE : 1); // ghost replays size too (ADR-034)
+      if (last.mini) mesh.position.y -= (1 - MINI_SCALE) * HALF;
       mesh.material.opacity = Math.max(0.06, 0.2 - (t - last.t) * 0.02);
       return;
     }
@@ -1157,6 +1200,9 @@ export class Game {
       a.h + (b.h - a.h) * f + HALF,
       a.z + (b.z - a.z) * f,
     );
+    const ghostMini = f < 0.5 ? a.mini : b.mini;
+    mesh.scale.setScalar(ghostMini ? MINI_SCALE : 1);
+    if (ghostMini) mesh.position.y -= (1 - MINI_SCALE) * HALF;
     mesh.material.opacity = 0.2;
   }
 

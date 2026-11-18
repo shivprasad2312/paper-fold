@@ -287,7 +287,7 @@ structure, verbs, cadence, and meta.
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
 | G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
 | G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Only "roll"; novelty is tile-side | **Behind** |
-| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033); pistons/turntables pending | Partial |
+| G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034); pistons/turntables pending | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
 | G7 | Difficulty rhythm | Sawtooth + relief (§2.2) | Act bands rise ~monotonically; intra-act cliffs audited ≤16 | Partial |
 | G8 | Mastery meta | Ranks/ghosts/best-times (§2.5–2.6) | Par + medals only; no per-level grade, no ghost | **Behind** |
@@ -356,12 +356,15 @@ Ordered by proof-friendliness:*
    towers/crossings from Phase A. *First slots:* teach L131
    "The Wait" (Act 7, 1→3) and test L173 "Over the Edge" (Act 9
    tower, 2→4); density arc deferred to a later cadence pass.
-2. **Shrink pads ("mini-cube").** Rolling onto a pad halves the cube
-   until it exits a low gate arch or re-pads. Mini-cube fits 1-wide
-   *low tunnels* (tiles flagged `low` — impassable to full cube).
-   Resolver: size is cube state like freeze presses; route search
-   already carries small state (blocks/freeze) — one more bit, priced
-   in the proof. *First slot:* one vault level in Act 8.
+2. **Shrink pads ("mini-cube").** ✅ *Shipped (ADR-034).* Rolling
+   onto a pad halves the cube until a grow pad re-pads it. Mini-cube
+   fits *low tunnels* (tiles flagged `low` — impassable to full
+   cube). Resolver: size is cube state like freeze presses — one
+   more bit, priced in every proof (searches carry (tile, size);
+   pad states are pruned to the sizes that can be stood in).
+   *First slots:* teach L126 "Tidegate" (Act 7 plaza), test L161
+   "Full Tide" (Act 9 tower), twist L193 "The Final Angle" (Act 10
+   citadel); density arc deferred like the lift arc.
 3. **Piston pushers.** A block that periodically extends one tile,
    shoving the cube (like a conveyor with timing): crossing a piston
    corridor is a timing beat the crossing-window model already knows
@@ -472,8 +475,9 @@ generator (2→10, teach L58 → twist L171); sawtooth relief is
 audit law (`KUBIK_RELIEF` shortest-candidate settling; no act
 may run 6+ levels above its relief line). Remaining Phase C:
 wind/slider carve + proof support. **Phase B opened (ADR-033):**
-lift platforms shipped (see Phase B item 1). Next: shrink pads
-(mini-cube), then pistons, turntables, clinging.
+lift platforms shipped (see Phase B item 1); shrink pads shipped
+(ADR-034, Phase B item 2). Next: piston pushers, then turntables,
+clinging.
 
 ---
 

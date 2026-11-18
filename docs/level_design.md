@@ -38,6 +38,17 @@ satisfy (enforced by `parseLevel` + verifier):
   entered only by a deliberate press: no sentinel patrols the dock, no
   ice/spring/conveyor tile feeds it, no other mechanic stacks on it,
   blocks never park on it, and no platform dock touches another.
+- `shrink` / `grow`: `[[x,z]]` — size pads (Phase B, ADR-034): landing on
+  a shrink pad makes the cube mini (0.55 scale) until a grow pad restores
+  it; pads fire on every landing and are never consumed. `low`: `[[x,z]]`
+  — a low tunnel tile: only the mini cube may stand on it (a full-size
+  roll is a bump); rendered as a gantry the small cube passes under.
+  Pads and tunnels must co-occur (a tunnel needs a shrink pad or
+  `startMini: true`; pads need a tunnel to matter). Pads stack on no
+  mechanic and never sit on start/goal/key/block/shard or a patrol line;
+  low tiles are plain slabs (a shard may end a tunnel niche); blocks
+  never enter a tunnel or park on a pad. Proofs carry size as search
+  state; the rescue bench never lands on a low tile or pad.
 - `ice`: `[[x,z]]` — slabs that slide: a press onto ice continues in the
   same direction while it keeps landing on ice (one press, `resolveRoll`
   models the whole slide); never on a sentinel's clearance.

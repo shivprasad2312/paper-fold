@@ -395,6 +395,63 @@ export function parseLevel(def) {
     boss = { speed };
   }
 
+  // ---- shrink/grow pads + low tunnels (Phase B, ADR-034) -----------------
+  // Size is one more bit of cube state. Landing on a shrink pad makes the
+  // cube mini (half-size); landing on a grow pad restores it. Pads are
+  // permanent fixtures, not pickups — they fire on EVERY landing, so a
+  // route can shrink, tunnel, grow and come back. A `low` tile is a tunnel
+  // mouth: only the mini cube may ever stand on it (checkRoll prices the
+  // size bit; every search in this file carries it in its state when the
+  // level uses the mechanic). Pads and tunnels must co-occur — a size
+  // change nothing can spend, or a tunnel nothing can enter, is dead
+  // decoration and rejected like a lift that joins no two banks.
+  const shrinkPads = new Map(); // "x,z" -> 'shrink' | 'grow'
+  for (const [kind, list] of [['shrink', def.shrink || []], ['grow', def.grow || []]]) {
+    for (const [x, z] of list) {
+      const t = tiles.get(key(x, z));
+      if (!t) throw new Error(`[${def.name}] ${kind} pad ${x},${z} is not a slab`);
+      if (t.shrink || t.grow) throw new Error(`[${def.name}] size pads stacked at ${x},${z}`);
+      if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse) {
+        throw new Error(`[${def.name}] ${kind} pad on another mechanic at ${x},${z}`);
+      }
+      if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] ${kind} pad on the start tile`);
+      if (x === goalTile.x && z === goalTile.z) throw new Error(`[${def.name}] ${kind} pad on the goal tile`);
+      if (gateKey && gateKey.x === x && gateKey.z === z) throw new Error(`[${def.name}] ${kind} pad on the key`);
+      if (blockTiles.has(key(x, z))) throw new Error(`[${def.name}] ${kind} pad under a block at ${x},${z}`);
+      if (shards.some((s) => s.x === x && s.z === z)) throw new Error(`[${def.name}] ${kind} pad stacked on a shard at ${x},${z}`);
+      t[kind] = true;
+      shrinkPads.set(key(x, z), kind);
+    }
+  }
+  const lowTiles = new Set();
+  for (const [x, z] of def.low || []) {
+    const t = tiles.get(key(x, z));
+    if (!t) throw new Error(`[${def.name}] low tile ${x},${z} is not a slab`);
+    if (t.low) throw new Error(`[${def.name}] low tile listed twice at ${x},${z}`);
+    if (t.shrink || t.grow) throw new Error(`[${def.name}] low tile on a size pad at ${x},${z}`);
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse) {
+      throw new Error(`[${def.name}] low tile on another mechanic at ${x},${z}`);
+    }
+    if (x === startTile.x && z === startTile.z) throw new Error(`[${def.name}] low tile on the start tile`);
+    if (x === goalTile.x && z === goalTile.z) throw new Error(`[${def.name}] low tile on the goal tile`);
+    if (gateKey && gateKey.x === x && gateKey.z === z) throw new Error(`[${def.name}] low tile on the key`);
+    if (blockTiles.has(key(x, z))) throw new Error(`[${def.name}] block inside a low tunnel at ${x},${z}`);
+    // a tunnel cell must connect to the world (a shard niche at the end of
+    // one is fine design; a sealed cell can never be entered at any size)
+    if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dz]) => tiles.has(key(x + dx, z + dz)))) {
+      throw new Error(`[${def.name}] low tile ${x},${z} has no slab neighbour`);
+    }
+    t.low = true;
+    lowTiles.add(key(x, z));
+  }
+  const startMini = !!def.startMini;
+  const hasSize = lowTiles.size > 0;
+  if (hasSize && !startMini && ![...shrinkPads.values()].includes('shrink')) {
+    throw new Error(`[${def.name}] low tunnels but no way to shrink (no shrink pad, no mini start)`);
+  }
+  if (shrinkPads.size && !hasSize) throw new Error(`[${def.name}] size pads but no low tunnel to spend them on`);
+  if (startMini && !hasSize) throw new Error(`[${def.name}] starts mini but has no low tunnel`);
+
   const wind = def.wind || null;
   const nudge = def.nudge || 0;
 
@@ -426,6 +483,10 @@ export function parseLevel(def) {
     pulseTiles,
     boss,
     gateKey,
+    shrinkPads,
+    lowTiles,
+    startMini,
+    hasSize,
     wind,
     nudge,
   };
@@ -455,7 +516,7 @@ export function shuttleRide(level, tile) {
  */
 /** A spring launch from `pos` in direction d: fly over void up to 3 tiles,
  *  land on the first slab (height change up to 3). Null = a fall. */
-function springLaunch(level, pos, d) {
+function springLaunch(level, pos, d, mini = false) {
   let px = pos.x;
   let pz = pos.z;
   for (let k = 1; k <= 3; k++) {
@@ -465,6 +526,7 @@ function springLaunch(level, pos, d) {
     if (!cand) continue; // flew over void (or off the level)
     if (cand.door) continue; // a launch never lands on a door (M3 wave-1): it flies the doorway over
     if (cand.lift) continue; // nor on a lift (Phase B): it flies the shaft over
+    if (cand.low && !mini) continue; // nor into a low tunnel at full size: it flies the tunnel mouth over
     const dh = cand.h - pos.h;
     if (dh > 3 || dh < -3) return null; // wall too tall / drop too deep
     return cand;
@@ -472,10 +534,35 @@ function springLaunch(level, pos, d) {
   return null;
 }
 
+/** The cube's size after LANDING on `tile`, given the size it travelled
+ *  with: a pad fires on every landing (shrink → mini, grow → full), any
+ *  other tile keeps the travelling size (Phase B, ADR-034). */
+export function sizeAfter(level, tile, mini) {
+  const p = level.shrinkPads.get(key(tile.x, tile.z));
+  return p === 'shrink' ? true : p === 'grow' ? false : !!mini;
+}
+
 export function resolveRoll(level, from, d) {
+  return resolveRollAt(level, from, d, false);
+}
+
+/**
+ * One press by a cube of size `mini` (Phase B, ADR-034): `resolveRoll`
+ * priced for the travelling size. The size is re-read after EVERY landing
+ * inside the press (a pad fires the moment the cube rests on it), so an
+ * ice slide that ends on a shrink pad stops mini, and a mini slide stops
+ * at a tunnel mouth the full-size body cannot enter. At full size this is
+ * exactly `resolveRoll` — the 200 shipped levels never see a difference.
+ */
+export function resolveRollAt(level, from, d, mini = false) {
+  let size = !!mini;
+  const land = (t) => {
+    size = sizeAfter(level, t, size);
+    return t;
+  };
   const step = (pos, dir = d) => {
     const to = level.tiles.get(key(pos.x + dir.dx, pos.z + dir.dz));
-    if (!to || !checkRoll(level, pos, to).ok) return null;
+    if (!to || !checkRoll(level, pos, to, size).ok) return null;
     // Dock-to-dock rolls do not exist in real play: a cube standing on a
     // shuttle platform can only RIDE to the far dock (shuttleRide) or step
     // onto a slab. Stepping onto another dock tile needs THAT platform
@@ -491,12 +578,13 @@ export function resolveRoll(level, from, d) {
   let t;
   if (from.spring) {
     // the press STARTS on a spring: it launches instead of rolling
-    t = springLaunch(level, from, d);
+    t = springLaunch(level, from, d, size);
     if (!t) return null;
   } else {
     t = step(from);
     if (!t) return null;
   }
+  land(t);
   // Automatic follow-through: the same press keeps resolving until the
   // cube rests on a plain tile. Each mechanic hands over to the next with
   // its own direction law:
@@ -522,14 +610,15 @@ export function resolveRoll(level, from, d) {
       const kk = `P${t.x},${t.z}`;
       if (fired.has(kk)) return null;
       fired.add(kk);
-      t = springLaunch(level, t, dir);
+      t = springLaunch(level, t, dir, size);
       if (!t) return null;
+      land(t);
       continue;
     }
     if (t.ice) {
       const n = step(t, dir);
       if (!n) break;
-      t = n;
+      t = land(n);
       continue;
     }
     if (t.conveyor) {
@@ -539,7 +628,7 @@ export function resolveRoll(level, from, d) {
       const n = step(t, t.conveyor);
       if (!n) break;
       dir = t.conveyor;
-      t = n;
+      t = land(n);
       continue;
     }
     break;
@@ -575,8 +664,14 @@ export function mechanicTargets(level, tile) {
  * You may fall up to MAX_DROP, or climb up to MAX_CLIMB.
  * Returns { ok, kind } where kind is 'flat' | 'drop' | 'climb' | 'void' | 'blocked'.
  */
-export function checkRoll(level, from, to) {
+export function checkRoll(level, from, to, mini = false) {
   if (!to) return { ok: false, kind: 'void' };
+  // A low tunnel (Phase B, ADR-034) admits only the mini cube: at full
+  // size the press is a bump, exactly like rolling into a wall. The size
+  // bit rides the one roll predicate so every consumer (game, solver,
+  // bot) prices tunnels identically; callers that predate the mechanic
+  // get the full-size law by default.
+  if (to.low && !mini) return { ok: false, kind: 'blocked' };
   // A door is a wall to every press that does not START on its plate
   // (M3 wave-1). Putting the law here — the one "can the cube roll
   // from→to" predicate — means resolveRoll, the reachability searches,
@@ -661,6 +756,8 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
   if (to.timed) return false; // nor rest on a timed slab (M3 wave-1)
   if (to.pulse) return false; // nor on a pulsing gap — it would blink out under the block
   if (to.lift) return false; // nor on a lift platform (Phase B) — it would ride away under the block
+  if (to.low) return false; // nor into a low tunnel (Phase B): a block is full-size, it would never fit
+  if (to.shrink || to.grow) return false; // nor park on a size pad — pads stay clear for the cube
   if (to.x === level.goal.x && to.z === level.goal.z) return false;
   if ((occupied || level.blockTiles).has(key(to.x, to.z))) return false;
   if (to.crumble) return false;
@@ -676,16 +773,37 @@ export function canPushBlock(level, block, dx, dz, occupied = null) {
 /** Every tile reachable from the start, ignoring crumble timers and orbs. */
 export function reachable(level, blocked = null) {
   const seen = new Set([key(level.start.x, level.start.z)]);
-  const queue = [level.start];
+  if (!level.hasSize) {
+    const queue = [level.start];
+    while (queue.length) {
+      const cur = queue.shift();
+      const targets = rollTargets(level, cur);
+      for (const to of targets) {
+        const k = key(to.x, to.z);
+        if (blocked && blocked.has(k)) continue; // e.g. the sealed goal
+        if (!seen.has(k)) {
+          seen.add(k);
+          queue.push(to);
+        }
+      }
+    }
+    return seen;
+  }
+  // sized: the same flood over (tile, size) states, projected to tiles —
+  // a tile counts reachable when SOME size can stand on it
+  const s0 = `${key(level.start.x, level.start.z)}|${level.startMini ? 'm' : 'n'}`;
+  const states = new Set([s0]);
+  const queue = [{ tile: level.start, mini: level.startMini }];
   while (queue.length) {
-    const cur = queue.shift();
-    const targets = rollTargets(level, cur);
-    for (const to of targets) {
-      const k = key(to.x, to.z);
-      if (blocked && blocked.has(k)) continue; // e.g. the sealed goal
-      if (!seen.has(k)) {
+    const { tile, mini } = queue.shift();
+    for (const s of rollTargetsAt(level, tile, mini)) {
+      const k = key(s.to.x, s.to.z);
+      if (blocked && blocked.has(k)) continue;
+      const sk = `${k}|${s.mini ? 'm' : 'n'}`;
+      if (!states.has(sk)) {
+        states.add(sk);
         seen.add(k);
-        queue.push(to);
+        queue.push({ tile: s.to, mini: s.mini });
       }
     }
   }
@@ -709,11 +827,30 @@ export function rollTargets(level, cur) {
 }
 
 /**
+ * The sized transitions (Phase B, ADR-034): every landing one press (or a
+ * shuttle ride) can produce from `cur` travelled at size `mini`, each with
+ * the size the cube ENDS that press in — a pad on the landing tile has
+ * already fired. Searches on size levels carry (tile, size) states built
+ * from these; searches on plain levels never call this.
+ */
+export function rollTargetsAt(level, cur, mini = false) {
+  const out = [];
+  for (const d of Object.values(DIRS)) {
+    const to = resolveRollAt(level, cur, d, mini);
+    if (to) out.push({ to, mini: sizeAfter(level, to, mini) });
+  }
+  const ride = shuttleRide(level, cur);
+  if (ride) out.push({ to: ride, mini: !!mini }); // a ride never changes size
+  return out;
+}
+
+/**
  * Tiles from which the goal can still be reached (reverse walk).
  * Any reachable tile that is NOT in this set is a soft-lock: the player can
  * get there and never finish. We require zero of those.
  */
 export function canStillFinish(level) {
+  if (level.hasSize) return canStillFinishSized(level);
   const prev = new Map();
   for (const tile of level.tiles.values()) {
     for (const to of rollTargets(level, tile)) {
@@ -737,6 +874,47 @@ export function canStillFinish(level) {
 }
 
 /**
+ * The sized twin of canStillFinish: reverse-walk the (tile, size) graph
+ * from BOTH goal sizes (the level is finished by standing on the goal at
+ * either size), then project — a tile can still finish when at least one
+ * of its size states can.
+ */
+function canStillFinishSized(level) {
+  const prev = new Map(); // stateKey -> [stateKey]
+  const sKey = (t, m) => `${key(t.x, t.z)}|${m ? 'm' : 'n'}`;
+  for (const tile of level.tiles.values()) {
+    for (const m of [false, true]) {
+      if (tile.low && !m) continue; // an illegal state has no futures
+      // pads fire on landing, so some states can never be STOOD in: a
+      // shrink pad is only ever occupied mini, a grow pad only ever full.
+      // Their phantom futures must not paper over a real size soft-lock
+      // (grow inside a low room and every exit is a tunnel mouth).
+      if (tile.shrink && !m) continue;
+      if (tile.grow && m) continue;
+      for (const s of rollTargetsAt(level, tile, m)) {
+        const tk = sKey(s.to, s.mini);
+        if (!prev.has(tk)) prev.set(tk, []);
+        prev.get(tk).push(sKey(tile, m));
+      }
+    }
+  }
+  const seenStates = new Set([sKey(level.goal, false), sKey(level.goal, true)]);
+  const queue = [...seenStates];
+  while (queue.length) {
+    const cur = queue.shift();
+    for (const from of prev.get(cur) || []) {
+      if (!seenStates.has(from)) {
+        seenStates.add(from);
+        queue.push(from);
+      }
+    }
+  }
+  const seen = new Set([key(level.goal.x, level.goal.z)]);
+  for (const sk of seenStates) seen.add(sk.split('|')[0]);
+  return seen;
+}
+
+/**
  * Shortest number of rolls from start to goal (BFS over legal moves).
  * Used as the level's "par" — clearing in exactly this many rolls is a par run.
  *
@@ -746,6 +924,7 @@ export function canStillFinish(level) {
  * bare start→goal (which may cut straight through the sealed goal tile).
  */
 export function shortestRoute(level, start = level.start, goal = level.goal) {
+  const startMini = start === level.start ? level.startMini : false;
   const isFullJourney =
     level.gateKey &&
     start.x === level.start.x && start.z === level.start.z &&
@@ -753,31 +932,59 @@ export function shortestRoute(level, start = level.start, goal = level.goal) {
   if (isFullJourney) {
     const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
     if (keyTile) {
-      const a = bfsRolls(level, start, keyTile);
-      const b = bfsRolls(level, keyTile, goal);
-      return a < 0 || b < 0 ? -1 : a + b;
+      // the key leg hands its ARRIVAL size to the goal leg (the size bit
+      // composes across the pickup, ADR-034)
+      const a = bfsRolls(level, start, keyTile, startMini);
+      if (a.dist < 0) return -1;
+      const b = bfsRolls(level, keyTile, goal, a.endMini);
+      return b.dist < 0 ? -1 : a.dist + b.dist;
     }
   }
-  return bfsRolls(level, start, goal);
+  return bfsRolls(level, start, goal, startMini).dist;
 }
-function bfsRolls(level, start, goal) {
+/**
+ * BFS over presses from `start` (entered at size `startMini`) to `goal`.
+ * On size levels the state is (tile, size); on plain levels the size bit
+ * is constant and the search is the classic tile BFS. Returns
+ * { dist, endMini } — the size the cube stands in on arrival (-1 dist
+ * when unreachable, endMini then meaningless).
+ */
+function bfsRolls(level, start, goal, startMini = false) {
   const goalKey = key(goal.x, goal.z);
   const startKey = key(start.x, start.z);
-  if (startKey === goalKey) return 0;
-  const dist = new Map([[startKey, 0]]);
-  const queue = [start];
+  if (startKey === goalKey) return { dist: 0, endMini: !!startMini };
+  if (!level.hasSize) {
+    const dist = new Map([[startKey, 0]]);
+    const queue = [start];
+    while (queue.length) {
+      const cur = queue.shift();
+      const d = dist.get(key(cur.x, cur.z));
+      for (const to of rollTargets(level, cur)) {
+        const k = key(to.x, to.z);
+        if (dist.has(k)) continue;
+        dist.set(k, d + 1);
+        if (k === goalKey) return { dist: d + 1, endMini: false };
+        queue.push(to);
+      }
+    }
+    return { dist: -1, endMini: false };
+  }
+  const sKey = (k, m) => `${k}|${m ? 'm' : 'n'}`;
+  const dist = new Map([[sKey(startKey, startMini), 0]]);
+  const queue = [{ tile: start, mini: !!startMini }];
   while (queue.length) {
-    const cur = queue.shift();
-    const d = dist.get(key(cur.x, cur.z));
-    for (const to of rollTargets(level, cur)) {
-      const k = key(to.x, to.z);
-      if (dist.has(k)) continue;
-      dist.set(k, d + 1);
-      if (k === goalKey) return d + 1;
-      queue.push(to);
+    const { tile, mini } = queue.shift();
+    const d = dist.get(sKey(key(tile.x, tile.z), mini));
+    for (const s of rollTargetsAt(level, tile, mini)) {
+      const k = key(s.to.x, s.to.z);
+      const sk = sKey(k, s.mini);
+      if (dist.has(sk)) continue;
+      dist.set(sk, d + 1);
+      if (k === goalKey) return { dist: d + 1, endMini: s.mini };
+      queue.push({ tile: s.to, mini: s.mini });
     }
   }
-  return -1;
+  return { dist: -1, endMini: false };
 }
 
 /**
@@ -789,7 +996,9 @@ function bfsRolls(level, start, goal) {
 export function shortestPath(level, start = level.start, goal = level.goal, blocked = null) {
   // key-aware for the full journey (mirrors shortestRoute): on gateKey
   // levels the player must collect the key before the sealed gate opens, so
-  // the journey is start → key → goal
+  // the journey is start → key → goal. The key leg hands its arrival size
+  // to the goal leg (ADR-034), so the legs run through the sized engine.
+  const startMini = start === level.start ? level.startMini : false;
   const isFullJourney =
     level.gateKey && blocked == null &&
     start.x === level.start.x && start.z === level.start.z &&
@@ -797,34 +1006,51 @@ export function shortestPath(level, start = level.start, goal = level.goal, bloc
   if (isFullJourney) {
     const keyTile = level.tiles.get(key(level.gateKey.x, level.gateKey.z));
     if (keyTile) {
-      const a = shortestPath(level, start, keyTile, new Set([key(level.goal.x, level.goal.z)]));
-      const b = shortestPath(level, keyTile, goal);
-      if (a && b) return [...a, ...b.slice(1)];
+      const a = bfsPath(level, start, keyTile, startMini, new Set([key(level.goal.x, level.goal.z)]));
+      const b = a && bfsPath(level, keyTile, goal, a.endMini, null);
+      if (a && b) return [...a.path, ...b.path.slice(1)];
+      return null;
     }
   }
+  const r = bfsPath(level, start, goal, startMini, blocked);
+  return r ? r.path : null;
+}
+/**
+ * The sized path engine behind shortestPath: BFS over (tile, size) states
+ * (plain tile BFS when the level has no size mechanic). Returns
+ * { path, endMini } or null.
+ */
+function bfsPath(level, start, goal, startMini, blocked) {
   const goalKey = key(goal.x, goal.z);
   const startKey = key(start.x, start.z);
-  if (startKey === goalKey) return [start];
-  const prev = new Map([[startKey, null]]);
-  const queue = [start];
+  if (startKey === goalKey) return { path: [start], endMini: !!startMini };
+  const sKey = (k, m) => (level.hasSize ? `${k}|${m ? 'm' : 'n'}` : k);
+  const prev = new Map([[sKey(startKey, startMini), null]]);
+  const tileOf = new Map([[sKey(startKey, startMini), start]]);
+  const queue = [{ tile: start, mini: !!startMini }];
   while (queue.length) {
-    const cur = queue.shift();
-    const ck = key(cur.x, cur.z);
-    for (const to of rollTargets(level, cur)) {
-      const k = key(to.x, to.z);
-      if (prev.has(k)) continue;
+    const { tile, mini } = queue.shift();
+    const ck = sKey(key(tile.x, tile.z), mini);
+    const steps = level.hasSize
+      ? rollTargetsAt(level, tile, mini)
+      : rollTargets(level, tile).map((to) => ({ to, mini: false }));
+    for (const s of steps) {
+      const k = key(s.to.x, s.to.z);
+      const sk = sKey(k, s.mini);
+      if (prev.has(sk)) continue;
       if (blocked && blocked.has(k) && k !== goalKey) continue; // sealed gate
-      prev.set(k, ck);
+      prev.set(sk, ck);
+      tileOf.set(sk, s.to);
       if (k === goalKey) {
-        const path = [to];
+        const path = [s.to];
         let kk = ck;
         while (kk) {
-          path.push(level.tiles.get(kk));
+          path.push(tileOf.get(kk));
           kk = prev.get(kk);
         }
-        return path.reverse();
+        return { path: path.reverse(), endMini: s.mini };
       }
-      queue.push(to);
+      queue.push({ tile: s.to, mini: s.mini });
     }
   }
   return null;
@@ -860,7 +1086,10 @@ export function rescueTile(level) {
   const { line } = lineRuns(level);
   const isSafe = (t) => {
     const k = key(t.x, t.z);
-    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse;
+    // never a low tunnel or a size pad: the bench re-places the cube at
+    // full size (ADR-034), so it must be a tile full size may stand on,
+    // and standing there must not silently flip the cube's size
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
@@ -887,21 +1116,24 @@ export function solveHazards(level) {
   // them have different futures (M3 wave-1)
   const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z) + (b.heavy ? 'h' : '')).sort().join(';');
   const startBlocks = level.blocks.map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy }));
-  const startState = `${key(start.x, start.z)}|${blockSig(startBlocks)}|${level.nudge}|`;
-  const queue = [[start, new Set(), startBlocks, level.nudge]];
+  // the cube's size rides the state signature (Phase B, ADR-034): two
+  // visits of one tile at different sizes are different futures — one of
+  // them fits through the tunnel ahead
+  const startState = `${key(start.x, start.z)}|${blockSig(startBlocks)}|${level.nudge}|${level.startMini ? 'm' : 'n'}`;
+  const queue = [[start, new Set(), startBlocks, level.nudge, level.startMini]];
   const seen = new Set([startState]);
   let guard = 0;
   while (queue.length) {
     if (++guard > 400000) return { ok: false, capped: true };
-    const [tile, broken, blocks, left] = queue.shift();
+    const [tile, broken, blocks, left, mini] = queue.shift();
     if (tile.x === level.goal.x && tile.z === level.goal.z) return { ok: true };
     // riding the shuttle: one action, no roll law (the platform carries you)
     const ride = shuttleRide(level, tile);
     if (ride) {
-      const sig = `${key(ride.x, ride.z)}|${blockSig(blocks)}|${left}|`;
+      const sig = `${key(ride.x, ride.z)}|${blockSig(blocks)}|${left}|${mini ? 'm' : 'n'}`;
       if (!seen.has(sig)) {
         seen.add(sig);
-        queue.push([ride, broken, blocks, left]);
+        queue.push([ride, broken, blocks, left, mini]);
       }
     }
     for (const [name, d] of Object.entries(DIRS)) {
@@ -917,16 +1149,16 @@ export function solveHazards(level) {
         const occupied = new Set(blocks.map((p) => key(p.x, p.z)));
         if (!canPushBlock(level, b, d.dx, d.dz, occupied)) continue;
         const nb = blocks.map((p, i) => (i === blockIdx ? { ...p, x: b.x + d.dx, z: b.z + d.dz } : p));
-        const sig = `${key(tile.x, tile.z)}|${blockSig(nb)}|${left - 1}|`;
+        const sig = `${key(tile.x, tile.z)}|${blockSig(nb)}|${left - 1}|${mini ? 'm' : 'n'}`;
         if (seen.has(sig)) continue;
         seen.add(sig);
-        queue.push([tile, broken, nb, left - 1]);
+        queue.push([tile, broken, nb, left - 1, mini]);
         continue;
       }
 
       // resolve the press: ice slides / spring launches may carry the cube
       // several tiles in the same action
-      const to = resolveRoll(level, tile, d);
+      const to = resolveRollAt(level, tile, d, mini);
       if (!to) continue;
       const tk = key(to.x, to.z);
       if (broken.has(tk)) continue;
@@ -934,10 +1166,10 @@ export function solveHazards(level) {
       // step off it): real play grants TIMED_FUSE of standing/recrossing
       // grace, so the model stays the conservative side of the game
       const nextBroken = tile.crumble || tile.timed ? new Set([...broken, key(tile.x, tile.z)]) : broken;
-      const sig = `${tk}|${blockSig(blocks)}|${left}|`;
+      const sig = `${tk}|${blockSig(blocks)}|${left}|${sizeAfter(level, to, mini) ? 'm' : 'n'}`;
       if (seen.has(sig)) continue;
       seen.add(sig);
-      queue.push([to, nextBroken, blocks, left]);
+      queue.push([to, nextBroken, blocks, left, sizeAfter(level, to, mini)]);
     }
   }
   return { ok: false };
@@ -1145,6 +1377,19 @@ export function spawnProblems(level) {
           if (level.sliderTiles.has(nk)) probs.push(`timed slab at ${tk} beside a sliding bridge`);
         }
       }
+    }
+  }
+  // size pads and low tunnels vs the patrol line (Phase B, ADR-034): the
+  // fairness model simulates crossing bursts as pure geometry, so a pad
+  // sitting on the line would flip the cube's size mid-burst, and a line
+  // running through a low tunnel would promise full-size rolls the cube
+  // cannot make. Neither ever reaches the timing model.
+  {
+    const { line } = lineRuns(level);
+    for (const k of line) {
+      const t = level.tiles.get(k);
+      if (t && t.low) probs.push(`sentinel patrols a low tunnel tile ${k}`);
+      if (t && (t.shrink || t.grow)) probs.push(`size pad on a sentinel patrol line at ${k}`);
     }
   }
   // a pulsing gap holds for PULSE_ON of a cycle — like a timed slab it
@@ -1892,19 +2137,45 @@ function buildCrossingGraph(level) {
     // seconds would burn the freeze away).
     if (level.freezeTiles && level.freezeTiles.size && unfairCrossings.length) {
       const pickupTiles = [...level.freezeTiles].map((k) => level.tiles.get(k)).filter(Boolean);
+      // press distances in the frozen world. On size levels the state is
+      // (tile, size) — keyed `${k}|m|n` — and the pickup is seeded at BOTH
+      // sizes (the fixpoint below only needs one workable arrival size at
+      // the crossing entry; seeding both is the existential reading).
       const pressDistFrom = (from) => {
-        const dist = new Map([[key(from.x, from.z), 0]]);
-        const q = [from];
+        if (!level.hasSize) {
+          const dist = new Map([[key(from.x, from.z), 0]]);
+          const q = [from];
+          while (q.length) {
+            const cur = q.shift();
+            const d0 = dist.get(key(cur.x, cur.z));
+            for (const d of Object.values(DIRS)) {
+              const to = resolveRoll(level, cur, d);
+              if (!to) continue;
+              const k2 = key(to.x, to.z);
+              if (!dist.has(k2)) {
+                dist.set(k2, d0 + 1);
+                q.push(to);
+              }
+            }
+          }
+          return dist;
+        }
+        const dist = new Map();
+        const q = [];
+        for (const m of [false, true]) {
+          dist.set(`${key(from.x, from.z)}|${m ? 'm' : 'n'}`, 0);
+          q.push({ tile: from, mini: m });
+        }
         while (q.length) {
-          const cur = q.shift();
-          const d0 = dist.get(key(cur.x, cur.z));
+          const { tile: cur, mini } = q.shift();
+          const d0 = dist.get(`${key(cur.x, cur.z)}|${mini ? 'm' : 'n'}`);
           for (const d of Object.values(DIRS)) {
-            const to = resolveRoll(level, cur, d);
+            const to = resolveRollAt(level, cur, d, mini);
             if (!to) continue;
-            const k2 = key(to.x, to.z);
+            const k2 = `${key(to.x, to.z)}|${sizeAfter(level, to, mini) ? 'm' : 'n'}`;
             if (!dist.has(k2)) {
               dist.set(k2, d0 + 1);
-              q.push(to);
+              q.push({ tile: to, mini: sizeAfter(level, to, mini) });
             }
           }
         }
@@ -1931,7 +2202,10 @@ function buildCrossingGraph(level) {
         while (q.length) {
           const ct = q.shift();
           const tile = level.tiles.get(key(ct.x, ct.z)) || ct;
-          for (const to of rollTargets(level, tile)) {
+          const targets = level.hasSize
+            ? [...rollTargetsAt(level, tile, false), ...rollTargetsAt(level, tile, true)].map((s) => s.to)
+            : rollTargets(level, tile);
+          for (const to of targets) {
             if (!line.has(key(to.x, to.z))) seed(to);
           }
           for (const e of edges.get(key(ct.x, ct.z)) || []) {
@@ -1949,7 +2223,17 @@ function buildCrossingGraph(level) {
           for (let pi = 0; pi < pickupTiles.length; pi++) {
             const pk = key(pickupTiles[pi].x, pickupTiles[pi].z);
             if (!reach.has(pk)) continue;
-            const d = distMaps[pi].get(key(c.entry.x, c.entry.z));
+            // the burst keeps its entry size until the exit landing, so a
+            // low exit can only be burst into while mini (ADR-034)
+            const exitTile = level.tiles.get(key(c.exit.x, c.exit.z));
+            const entryK = key(c.entry.x, c.entry.z);
+            const d = !level.hasSize
+              ? distMaps[pi].get(entryK)
+              : Math.min(
+                  ...[false, true]
+                    .filter((m) => !exitTile || !exitTile.low || m)
+                    .map((m) => distMaps[pi].get(`${entryK}|${m ? 'm' : 'n'}`) ?? Infinity),
+                );
             if (d !== undefined && d + c.seq.length + 1 <= FREEZE_PRESS_BUDGET) {
               addEdge(c.entry, c.exit, c.seq, true);
               pending.delete(c);
@@ -1975,7 +2259,8 @@ function buildCrossingGraph(level) {
  * "key:x,z" for the key node). Used by the timing gate (start → goal)
  * and by the rescue-bench proof (bench → goal).
  */
-export function fairReachSet(level, from, keySeed = false, blocked = null) {
+export function fairReachSet(level, from, keySeed = false, blocked = null, seedSizes = null) {
+  if (level.hasSize) return new Set(fairReachStates(level, from, keySeed, blocked, seedSizes).keys());
   const { line, edges } = fairCrossingGraph(level);
   const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
   const isBlocked = (tk) => blocked && !tk.startsWith('key:') && blocked.has(tk);
@@ -2029,6 +2314,71 @@ export function fairReachSet(level, from, keySeed = false, blocked = null) {
     return seen;
 }
 
+/**
+ * The sized fair-reach engine (Phase B, ADR-034): BFS over (node, size)
+ * states on the fair-crossing graph, returning a Map of node id → the set
+ * of sizes ('m' | 'n') the node is reachable IN. A crossing edge keeps the
+ * cube's size until its exit landing (burst tiles are never pads or low —
+ * the spawn audit keeps them off the line), so an edge is traversable at
+ * size s exactly when its exit is enterable at s; plain presses expand
+ * through rollTargetsAt. The key→goal half of the timing gate composes
+ * through this map: it is seeded with precisely the sizes the key itself
+ * was reached in, which is what makes the composed proof a play that
+ * exists rather than two plays that merely coexist.
+ */
+export function fairReachStates(level, from, keySeed = false, blocked = null, seedSizes = null) {
+  const { line, edges } = fairCrossingGraph(level);
+  const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
+  const isBlocked = (tk) => blocked && !tk.startsWith('key:') && blocked.has(tk);
+  const sizesAt = new Map(); // id -> Set<'m'|'n'>
+  const seenStates = new Set();
+  const q = [];
+  const sizes = seedSizes && seedSizes.length
+    ? seedSizes.map((b) => !!b)
+    : keySeed
+      ? [false, true] // arriving at the key in either size is a composition question
+      : [from.x === level.start.x && from.z === level.start.z ? level.startMini : false];
+  const seedState = (t, mini) => {
+    if (!t.isKeyNode) {
+      const tt = level.tiles.get(key(t.x, t.z)) || t;
+      if (tt.low && !mini) return; // an illegal state is never created
+    }
+    const id = idOf(t);
+    if (isBlocked(id)) return;
+    const sk = `${id}|${mini ? 'm' : 'n'}`;
+    if (seenStates.has(sk)) return;
+    seenStates.add(sk);
+    if (!sizesAt.has(id)) sizesAt.set(id, new Set());
+    sizesAt.get(id).add(mini ? 'm' : 'n');
+    q.push({ t, mini });
+  };
+  const entryK = keySeed ? `key:${from.x},${from.z}` : idOf(from);
+  if (!from.isKeyNode && line.has(key(from.x, from.z))) {
+    // a start (or the key) sitting on the line seeds only through fair
+    // escape edges, once per seedable size
+    for (const s of sizes) {
+      for (const e of edges.get(entryK) || []) {
+        seedState(e.to, e.to.isKeyNode ? s : sizeAfter(level, e.to, s));
+      }
+    }
+  } else {
+    for (const s of sizes) seedState(from, s);
+  }
+  while (q.length) {
+    const { t: ct, mini } = q.shift();
+    for (const e of edges.get(idOf(ct)) || []) {
+      seedState(e.to, e.to.isKeyNode ? mini : sizeAfter(level, e.to, mini));
+    }
+    if (ct.isKeyNode) continue;
+    const tile = level.tiles.get(key(ct.x, ct.z)) || ct;
+    for (const s of rollTargetsAt(level, tile, mini)) {
+      if (line.has(key(s.to.x, s.to.z))) continue; // off-line landings only
+      seedState(s.to, s.mini);
+    }
+  }
+  return sizesAt;
+}
+
 export function timingProblems(level) {
   if (!level.orbs.length) return [];
   const { line, edges, bestWindow, anyCandidate } = fairCrossingGraph(level);
@@ -2048,6 +2398,21 @@ export function timingProblems(level) {
     // rejects any roll onto it. The start→key route may not pass through
     // the goal tile; a route that only exists by cutting the sealed gate
     // is a route no player can play.
+    if (level.hasSize) {
+      // the key leg hands its ARRIVAL sizes to the goal leg (ADR-034):
+      // two fair halves only compose when a size exists that finishes
+      // the first and starts the second
+      const sealedStates = fairReachStates(level, level.start, false, new Set([goalK]), [level.startMini]);
+      const keySizes = sealedStates.get(keyOnLine ? `key:${keyK}` : keyK);
+      if (!keySizes) {
+        return ['gate key is only reachable through the sealed goal or an unfair sentinel crossing'];
+      }
+      const fromKey = fairReachStates(level, level.gateKey, keyOnLine, null, [...keySizes].map((c) => c === 'm'));
+      if (!fromKey.has(goalK)) {
+        return ['goal is only reachable from the key through an unfair sentinel crossing'];
+      }
+      return [];
+    }
     const reachSealed = fairReachSet(level, level.start, false, new Set([goalK]));
     if (!reachSealed.has(keyOnLine ? `key:${keyK}` : keyK)) {
       return ['gate key is only reachable through the sealed goal or an unfair sentinel crossing'];

@@ -12,10 +12,10 @@
 //
 // band: { W, H, hMin, hMax, par, orbs, crumble, speed, shards, fill, keyP,
 //         mech: { ice, spring, shuttle, conveyor, door, timed, freeze,
-//         heavy, blocks, pulse, proximity, twin, boss, lift } (per-mech. prob.) }
+//         heavy, blocks, pulse, proximity, twin, boss, lift, shrink } (per-mech. prob.) }
 // force: { shuttle?: n, spring?: n, ice?: n, conveyor?: n, door?: n,
 //         timed?: n, freeze?: n, heavy?: n, blocks?: n, pulse?: n,
-//         proximity?: n, twin?: n, boss?: n, lift?: n }
+//         proximity?: n, twin?: n, boss?: n, lift?: n, shrink?: n }
 //         (archetypes that ARE a mechanic); missing one fails the candidate.
 // ---------------------------------------------------------------------------
 
@@ -549,6 +549,72 @@ export function applyHazards(layout, b, rand, opts = {}) {
     if (!placedLift && pLift > 0 && liftRoll('#roll') < pLift) convertLift();
   }
 
+  // --- shrink pads + low tunnels (Phase B, ADR-034): a straight, flat
+  // five-tile run of the route becomes pad -> low -> low -> exit -> grow,
+  // so the proven route shrinks, ducks through the tunnel and stands back
+  // up on the far side. The segment tiles join carved + mechSet, so
+  // shards, sentinels, crumble and the key keep the standing mechanic
+  // distance. The pick comes from a content hash — never the shared rand
+  // stream — so arming the carve cannot reshuffle shipped candidates.
+  const shrinks = [];
+  const grows = [];
+  const lows = [];
+  {
+    const wantShrink = force.shrink || 0;
+    const pShrink = (b.mech || {}).shrink || 0;
+    const shrinkSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const shrinkRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + shrinkSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    const findShrinkSegs = () => {
+      const segs = [];
+      const startK = `${start[0]},${start[1]}`;
+      const goalK = `${goal[0]},${goal[1]}`;
+      for (let i = 1; i + 4 <= path.length - 2; i++) {
+        const seg = [0, 1, 2, 3, 4].map((s2) => path[i + s2]);
+        const dx = Math.sign(seg[1][0] - seg[0][0]);
+        const dz = Math.sign(seg[1][1] - seg[0][1]);
+        if (!dx && !dz) continue;
+        let ok = true;
+        const h0 = map[seg[0][1]][seg[0][0]];
+        if (!h0) continue;
+        for (let s2 = 1; s2 < 5 && ok; s2++) {
+          if (seg[s2][0] - seg[s2 - 1][0] !== dx || seg[s2][1] - seg[s2 - 1][1] !== dz) ok = false;
+          else if (map[seg[s2][1]][seg[s2][0]] !== h0) ok = false;
+        }
+        if (!ok) continue;
+        for (const [x, z] of seg) {
+          const kk = `${x},${z}`;
+          if (carved.has(kk) || mechSet.has(kk) || kk === startK || kk === goalK) { ok = false; break; }
+        }
+        if (ok) segs.push(seg);
+      }
+      return segs;
+    };
+    const convertShrink = () => {
+      const segs = findShrinkSegs();
+      if (!segs.length) return false;
+      const seg = segs[Math.floor(shrinkRoll('#pick') * segs.length)];
+      shrinks.push(seg[0]);
+      lows.push(seg[1], seg[2]);
+      grows.push(seg[4]);
+      for (const [x, z] of seg) {
+        carved.add(`${x},${z}`);
+        markMech(x, z);
+      }
+      return true;
+    };
+    let placedShrink = 0;
+    while (placedShrink < wantShrink) {
+      if (!convertShrink()) return null; // a forced shrink must land
+      placedShrink++;
+    }
+    if (!placedShrink && pShrink > 0 && shrinkRoll('#roll') < pShrink) convertShrink();
+  }
+
   // --- shards on the route (never start/goal, never on a carved tile) -------
   const inner = path.filter(([x, z]) => !carved.has(`${x},${z}`)).slice(1, -1);
   const shards = [];
@@ -860,6 +926,11 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (keyPos) def.key = keyPos;
   if (shuttles.length) def.shuttles = shuttles;
   if (lifts.length) def.lifts = lifts;
+  if (shrinks.length) {
+    def.shrink = shrinks;
+    def.low = lows;
+    def.grow = grows;
+  }
   if (springs.length) def.springs = springs;
   if (ice.length) def.ice = ice;
   if (conveyors.length) def.conveyors = conveyors;

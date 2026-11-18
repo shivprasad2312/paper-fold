@@ -208,6 +208,20 @@ above the relief line; relief landed at L94/L97 (Act 5),
 L136 (Act 7) and L147/L149/L151 (Act 8, with the L148 tower
 slot re-cut to repair the relief cliff — audits unweakened);
 21 slots re-cut, names preserved.)
+ADR-034 (Phase B item 2: shrink pads — size is one more bit of cube
+state. `shrink`/`grow` pads flip the cube mini/full on every landing;
+`low` tiles are tunnel mouths only the mini cube may enter;
+`checkRoll`/`resolveRollAt` price the size bit and every search
+carries (tile, size) states with the key-leg size join; phantom pad
+states pruned so grow-in-a-low-room is a proven soft-lock; rescue
+bench never lands low/pad and sentinel kills stay size-blind.
+Generator gains a content-hash five-tile tunnel carve (forced
+shrink must be ducked through by the proven route); first slots
+teach L126 'Tidegate' (Act 7 plaza, par 28), test L161 'Full Tide'
+(Act 9 tower, par 50) and twist L193 'The Final Angle' (Act 10
+citadel, par 48 — re-rolled with its freeze+proximity restored, no
+ratchet floor moved); ratchet tracks shrink at 3; bot plans with
+the size bit. Next Phase B verb: piston pushers.)
 ADR-033 (Phase B opens: lift platforms — a shuttle turned vertical.
 `lifts: [{at, low, high, wait}]`; `checkRoll` prices steps against
 either dwell so every proof inherits lift crossings, while live
