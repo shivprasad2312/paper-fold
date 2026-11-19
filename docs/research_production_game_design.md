@@ -414,8 +414,13 @@ live bot's crossing model, README/`level_design.md` + a new ADR each.
 *No new code systems — the generator learns scheduling.*
 
 1. **Density floors:** every shipped mechanic appears in ≥ 12 levels
-   (doors/timed/pulse/heavy/conveyor/freeze/wind go from 1–5 to 12+);
-   no mechanic exceeds 55% of levels (crumble 131 → cap).
+   (doors/timed/pulse/heavy/conveyor/freeze/wind go from 1–5 to 12+).
+   ~~No mechanic exceeds 55% of levels (crumble 131 → cap).~~ The
+   overuse cap was **retired in ADR-042**: it was a screening heuristic
+   from this survey rather than a measured threshold, crumble (62%) and
+   patrols (75%) are stage hazards rather than chosen verbs, and the
+   readability it guarded is now measured per level by `MECH_CAP = 9`
+   plus the experience audit.
 2. **Introduction arcs in `acts.js`:** when a mechanic debuts in an act,
    its next 3 appearances are scheduled: teach (solo, easy context),
    test (paired with the act's terrain), twist (combined or inverted) —
@@ -524,7 +529,8 @@ turntable 14, cling 15, slider 12, wind 12 — with the twin/proximity
 ratchet floors restored by force-carving rather than lowered, and the
 generator now mirrors BEFORE it proves (a piston mirror-law bug under
 Act 8's z-flip had been shipping layouts the verifier never saw).
-Next: the crumble/sentinel overuse-cap decision, then Phase E meta.
+The crumble/sentinel overuse cap was retired (ADR-042). Next: Phase E
+meta.
 
 ---
 

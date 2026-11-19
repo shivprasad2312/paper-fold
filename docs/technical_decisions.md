@@ -2121,3 +2121,58 @@ the 16-roll intra-act cap. The final pair steps 50→46, and Act 9's band
 (20/20 with the daily, zero page errors)**, then the full pre-commit
 gate. The seven density arcs are closed; the ≤55% crumble/sentinel
 overuse-cap decision and Phase E meta are what remain in Phase C/E.
+
+### ADR-042 — Retiring the ≤55% crumble/sentinel overuse cap
+
+**Decision.** The ≤55%-of-levels cap on crumble slabs and sentinel
+patrols — carried as an open item since ADR-031 and re-stated as
+"pending" in ADR-032, ADR-039 and ADR-040 — is **retired, not
+enforced**. The catalogue stays as it is: crumble appears on 93 of the
+150 generated levels (62%) and patrols on 112 (75%).
+
+**Why it was there.** The cap came out of the research pass, not out of
+play: the production-design survey (research §6, Phase C item 1) noted
+that a hazard present on more than about half the boards stops reading
+as an event and becomes wallpaper, and pencilled 55% as the screening
+line. At decision time crumble was on 131 levels, so the line looked
+like a serious finding.
+
+**Why it is retired.**
+
+1. *The number was a screening heuristic, not a measured threshold.*
+   No playtest or telemetry ever located the point where crumble turns
+   into wallpaper; 55% was a round number chosen to start a
+   conversation. Shipping a 40-level content cut on it would be
+   enforcing a guess with the most expensive tool available.
+2. *Crumble and patrols are stage, not verbs.* Every mechanic the
+   player can **choose** — lift, shrink, piston, turntable, cling,
+   slider, wind — is now governed by the density ratchet (floors) and,
+   above it, by `MECH_CAP = 9` (ceiling). Crumble and sentinels are the
+   board's weather: the player reacts to them, never selects them. The
+   thing the cap was protecting — a level that is a pile of unrelated
+   hazards — is what the ceiling and `experienceProblems` now measure
+   directly, per level, instead of estimating by catalogue frequency.
+3. *Frequency is the teaching mechanism for timing.* Crumble is how a
+   player learns to commit to a press; patrols are how they learn to
+   read a clock. Cutting a quarter of the boards that carry them would
+   remove rehearsal from the two skills the campaign spends 200 levels
+   on. The density floors exist because *more* reps is the fix for a
+   mechanic that feels rare — the same logic applies here.
+4. *The audits that remain are the ones with a proof behind them.*
+   `experienceProblems` (par curve, mechanic signature, act diversity,
+   the ceiling), the density ratchet, and the timing-fairness gate all
+   fail the build on a concrete, checkable claim. The cap was the only
+   rule in the level pipeline that could not be proved — only counted.
+
+**What replaces it.** Nothing new: the ceiling plus the per-level
+experience audit carry the readability load, and the density ratchet
+carries the "does this mechanic recur" load. If a future playtest shows
+crumble fatigue at a particular point in the campaign, that is a
+targeted level-design fix with a measured number behind it — not a
+catalogue-wide quota.
+
+**Consequences.** No content churn, no re-cuts, no gate risk. The
+research doc's Phase C checklist marks the item retired rather than
+done; the "pending" notes in ADR-031/032/039/040 stay as written (they
+are the record of what was open at the time) and this ADR is the
+resolution they point to.

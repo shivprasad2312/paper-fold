@@ -236,6 +236,16 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-042 (Retiring the ≤55% crumble/sentinel overuse cap. The cap had
+been an open removal decision since ADR-031: crumble sits on 93 of the
+150 generated levels (62%) and patrols on 112 (75%), both over the
+line. It is retired rather than enforced. The 55% figure was a
+screening heuristic from the research pass, never a measured
+threshold; crumble and patrols are stage hazards the player reacts to,
+never chosen verbs, so the readability risk the cap stood in for is
+now measured per level by `MECH_CAP = 9` and the experience audit;
+and frequency is precisely how those two skills are rehearsed across
+200 levels. No content churn, no re-cuts.)
 ADR-041 (Phase C batch 4: the density arcs close, and the mirror law
 gets a proof. Nineteen slots re-cut across Acts 7/8/9/10 — the seven
 scarce mechanics reach 12+ in the catalogue: lift 13, shrink 17,
@@ -313,7 +323,7 @@ citadel, par 47), twist L184 'Unmaking' (Act 10 tower, par 48, +grip).
 Census after landing: door 18→19, conveyor 16→18, shrink 3→4,
 cling 3→4, wind 0→3; every floor holds. Wind density arc deferred;
 the remaining Phase C item is the crumble/sentinel overuse-cap
-decision, not a carve.)
+decision, not a carve — later retired by ADR-042.)
 ADR-037 (Phase B item 5, the last verb: clinging — the hang-ledge.
 `clings: [[x,z]]` declares ONE void crevice between two plain slabs; a
 press INTO it from either bank catches the far face, hangs a beat and
