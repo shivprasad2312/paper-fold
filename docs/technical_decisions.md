@@ -2272,3 +2272,110 @@ mechanic.
 phase, first-try clear rates, quit points) is the remaining planned
 work; the ghost could still gain a "race your best" toggle on the win
 panel (it arms automatically today).
+
+### ADR-044 — Phase F: the playtest instrument, the report, and the proxy
+
+**Context.** Every phase before this one was proved by machines: the
+verifier proves a level can be finished, the bot proves it can be finished
+*by pressing keys*, and the density/experience audits prove the sequence
+is paced. None of them can say whether a human being enjoys it, where
+they stop reading the board, or which level they walk away from. Phase F
+is the research pass's answer — five fresh players per phase, measuring
+first-try clear rate, deaths, time against par and quit points — and this
+ADR ships the half of it that belongs in a repository.
+
+**The instrument.** `src/telemetry.js` records one **attempt** per
+level-visit: level id, attempt number, par, outcome (`win` / `abandon`),
+cause (`restart` / `leave` / `unload`), moves, deaths, shards, whether a
+rescue was used, and the real milliseconds spent in the level.
+
+Four rules keep it honest:
+
+1. **Opt-in.** Recording happens only with `?playtest=1`. A normal player
+   writes nothing; the save is untouched.
+2. **A separate key** (`kubik.playtest.v1`), so a session can be exported
+   or wiped without touching progress, and a quota failure cannot corrupt
+   a save.
+3. **Bounded** at 1500 attempts, oldest dropped — an all-afternoon session
+   must not fill the quota.
+4. **An attempt is written when it ENDS, not when it starts.** A
+   half-finished attempt has no outcome, and recording one would corrupt
+   every rate in the report. The open attempt lives in memory; a
+   `pagehide` listener closes it with cause `unload`, because closing the
+   tab is the most honest quit signal a session carries.
+
+The recorder is visible only in playtest mode as a chip on the level
+select (session id, attempt count, click to export), and the JSON is also
+reachable as `__kubik.playtest.json()`.
+
+**The report.** `scripts/playtest-report.mjs` pools one or more exports
+into a cohort and prints the protocol's numbers; the arithmetic lives in
+`src/playtestStats.js` so it is unit-testable, and the CLI has a
+five-player fixture cohort under `tests/fixtures/playtest/` (including a
+deliberately malformed file, which must be skipped with a warning rather
+than losing the other four sessions).
+
+Three definitions had to be fixed, and each one is a way the report could
+have lied:
+
+- **First-try clear is per player-level, not per event.** One player who
+  restarts twice and then clears has missed the first try *once*. Counting
+  events would make a stubborn player look like two extra attempts and a
+  patient one look perfect.
+- **The quit rate's denominator is the players who REACHED the level.**
+  A level nobody got to is not a level everybody quit. (The alternative —
+  dividing by the whole cohort — makes late levels look safe for the
+  worst reason.)
+- **Moves and time against par are medians over the CLEAR runs.** A quit
+  has no clear time; folding its duration into the pacing number mixes
+  "slow" with "abandoned", which is exactly the distinction the report
+  exists to draw.
+
+Two flags are hard (L1 first-try must be 100%; no level over 25% quit),
+and a third warns when the cohort is thinner than five. Everything else is
+a reading.
+
+**The proxy.** A human cohort takes a week and people; the loop needs
+something today. `scripts/naive-player.mjs` walks every level with a
+greedy, non-planning policy — take the legal roll that pulls you closer to
+the gate, never deliberately backtrack, give up after four visits to the
+same tile — over deterministic seeds. It models navigation only: no
+sentinels, no crumble, no clocks, so it never dies and understates
+difficulty. Its one question is *does following the obvious line get you
+there?*
+
+The reading it produced is a real design statement, and it is the reason
+the proxy was worth building:
+
+- act 1: **99%** — the onboarding promise (*a first-time player can
+  follow the visible route*) holds, with L11 *Gauntlet* the only level
+  under 90%;
+- the obvious line **first fails at L23 *Crossfire***, in act 2;
+- from act 5 the line mostly stops working (29–41%) and by acts 9–10 it
+  never does — which is the designed escalation, and the exact boundary a
+  real cohort should be inspected across.
+
+It is deliberately **not** a gate: nothing blocks a commit on a greedy
+walk, because a walk is not a player.
+
+**What is NOT claimed.** No human has played this build under the
+protocol. The targets are unmeasured, `docs/playtest_protocol.md` says so
+in as many words, and the report's cohort flag fires on any cohort under
+five so the numbers cannot be mistaken for a result. The honest status is
+"instrument shipped, cohort pending" — not "playtested".
+
+**Verification.** Unit **190/190** (14 new recorder/report pins, including
+the CLI against the fixture cohort), live browser check of the recorder
+path (real key presses → win event with `moves: 2, par: 2` → restart and
+leave producing `abandon/restart` and `abandon/leave` → export parsed by
+the report), and the full gate.
+
+The "writes nothing" promise is pinned in two separate browser profiles,
+because an earlier sighting of the playtest key on a normal page could
+have been either a leak or a shared profile. Each profile played level 1
+to a win and switched levels: the normal profile ends with
+`kubik.save.v1` as its only key, `events: 0`, and the same key set after
+a reload; the `?playtest=1` profile ends with both keys, the recorded
+events, and a chip reading "1 attempt · 1 level" on the level select —
+matching storage exactly. So the key never appears outside playtest mode,
+and the chip does not overstate the record.

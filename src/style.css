@@ -855,6 +855,27 @@ body.light /* Mastery seal (Phase E, ADR-043): three notches — CLEAR / SWIFT /
 .vault-card .vault-lock { position: absolute; top: 10px; right: 11px; font-size: 10px; color: #55658a; }
 .vault-card .ldesc { font-size: 8px; letter-spacing: 0.06em; color: #6c80a4; line-height: 1.35; text-align: left; }
 
+.levels-head-right { display: flex; align-items: center; gap: 10px; }
+
+/* Playtest recorder (Phase F, ADR-044): visible only with ?playtest=1, and
+   clickable — the session exports from here. */
+.playtest-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 63, 116, 0.55);
+  background: rgba(255, 63, 116, 0.08);
+  color: #ff9db8;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+  user-select: none;
+}
+.playtest-chip span { color: #ff3f74; font-weight: 700; letter-spacing: 0.2em; }
+.playtest-chip:hover { border-color: #ff3f74; background: rgba(255, 63, 116, 0.16); }
+
 .level-card.locked { background: rgba(190, 199, 212, 0.55); }
 body.light .level-card.locked .num { color: #8b98ad; }
 body.light .overlay { background: rgba(215, 224, 238, 0.55); }

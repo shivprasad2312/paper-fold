@@ -21,7 +21,9 @@
     "shots": "node scripts/shoot.mjs",
     "hooks": "node scripts/hooks/install.mjs",
     "test:play:all": "node scripts/test-levels-playable.mjs",
-    "test:full": "npm run test:unit && npm run verify && URL=$KUBIK_URL npm run test:play:all"
+    "test:full": "npm run test:unit && npm run verify && URL=$KUBIK_URL npm run test:play:all",
+    "playtest:report": "node scripts/playtest-report.mjs",
+    "playtest:proxy": "node scripts/naive-player.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

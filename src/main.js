@@ -6,6 +6,10 @@ import { loadSave, writeSave, recordWin, recordGhost, recordDaily, medalFor, fmt
 import {
   GRADE_LABEL, gradeFor, savedGrade, streakInfo, vaultProgress, VAULT_SHARD_STEP,
 } from './meta.js';
+import {
+  newSession, beginAttempt, finishAttempt, appendEvent, summarise,
+  loadSession, saveSession, exportJson,
+} from './telemetry.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -26,6 +30,7 @@ const el = {
   hudMech: $('hud-mech'),
   winSteps: $('win-steps'),
   winMedal: $('win-medal'),
+  playtestChip: $('playtest-chip'),
   winGrade: $('win-grade'),
   hint: $('hint'),
   menu: $('menu'),
@@ -47,6 +52,105 @@ const el = {
   btnCamL: $('btn-cam-l'),
   btnCamR: $('btn-cam-r'),
 };
+
+// ------------------------------------------------------- playtest recorder ---
+// Phase F (ADR-044): a session is recorded ONLY when the page is opened with
+// ?playtest=1. A normal player writes nothing. The recording is one attempt
+// per level-visit, with the numbers the protocol asks for — moves, deaths,
+// shards, and how the attempt ENDED, because "left at L64 after 40 moves" is
+// the quit point, and a win is just the other ending.
+// Runbook: docs/playtest_protocol.md. Report: scripts/playtest-report.mjs.
+const PLAYTEST = new URLSearchParams(location.search).get('playtest') === '1';
+const playtest = PLAYTEST
+  ? { session: loadSession(localStorage) || newSession(), storage: localStorage }
+  : null;
+let openAttempt = null;
+
+/** Campaign levels use their id; the daily challenge is recorded as 0. */
+function playtestLevelId(def) {
+  return def && typeof def.id === 'number' ? def.id : 0;
+}
+
+function persistTelemetry() {
+  if (!playtest) return;
+  saveSession(playtest.storage, playtest.session);
+  updatePlaytestChip();
+}
+
+function updatePlaytestChip() {
+  if (!el.playtestChip || !playtest) return;
+  const s = summarise(playtest.session);
+  el.playtestChip.classList.toggle('hidden', false);
+  const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+  el.playtestChip.innerHTML = `<span>PLAYTEST</span> ${plural(s.attempts, 'attempt')} · ${plural(s.levels, 'level')}`;
+  el.playtestChip.title = `Session ${playtest.session.id} — click to export JSON`;
+  el.playtestChip.onclick = () => {
+    audio.sfx('ui');
+    downloadTelemetry();
+  };
+}
+
+/** Close an attempt the player walked away from (restart, leave, tab close). */
+function abandonOpenAttempt(cause) {
+  if (!playtest || !openAttempt) return;
+  const ev = finishAttempt(openAttempt, {
+    outcome: 'abandon',
+    cause,
+    moves: game.moves || 0,
+    deaths: game.deaths || 0,
+    shards: game.shardsCollected || 0,
+    total: game.totalShards || 0,
+    rescued: !!game.rescuedRun,
+    now: Date.now(),
+  });
+  openAttempt = null;
+  if (ev) {
+    appendEvent(playtest.session, ev);
+    persistTelemetry();
+  }
+}
+
+function beginAttemptFor(def, par) {
+  if (!playtest) return;
+  const id = playtestLevelId(def);
+  // the attempt number is per player-level and counts earlier visits,
+  // so "first try" means the same thing to the report and to the player
+  const n = playtest.session.events.filter((e) => e.level === id).length + 1;
+  openAttempt = beginAttempt({ levelId: id, par, attempt: n, now: Date.now() });
+}
+
+function recordWinAttempt(res) {
+  if (!playtest || !openAttempt) return;
+  const ev = finishAttempt(openAttempt, {
+    outcome: 'win',
+    moves: res.moves,
+    deaths: res.deaths || 0,
+    shards: res.shards,
+    total: res.total,
+    rescued: !!res.rescued,
+    now: Date.now(),
+  });
+  openAttempt = null;
+  if (ev) {
+    appendEvent(playtest.session, ev);
+    persistTelemetry();
+  }
+}
+
+/** The export the report ingests: one JSON file per player session. */
+function telemetryJson() {
+  return playtest ? exportJson(playtest.session) : '{}';
+}
+
+function downloadTelemetry() {
+  if (!playtest) return;
+  const blob = new Blob([telemetryJson()], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `kubik-playtest-${playtest.session.id}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 
 function todayStr() {
   const d = new Date();
@@ -295,6 +399,7 @@ function armGhost(id) {
 }
 
 function startLevel(index, { animate = true } = {}) {
+  abandonOpenAttempt('leave');
   index = Math.max(0, Math.min(ALL_LEVELS.length - 1, index));
   unlockAudio();
   audio.setLevel(index);
@@ -308,6 +413,7 @@ function startLevel(index, { animate = true } = {}) {
   const def = game.load(index);
   game.setPaused(false);
   armGhost(def.id);
+  beginAttemptFor(def, game.par);
 
   el.index.textContent = levelTag(def);
   el.name.textContent = def.name;
@@ -333,6 +439,7 @@ function startLevel(index, { animate = true } = {}) {
 
 /** The daily challenge: seeded by today's date, verified solvable, same for everyone. */
 function startDaily() {
+  abandonOpenAttempt('leave');
   unlockAudio();
   audio.setLevel(13);
   clearTimeout(winShowTimer);
@@ -346,6 +453,7 @@ function startDaily() {
   const def = game.loadDaily(dateStr);
   game.setPaused(false);
   armGhost(`daily:${dateStr}`);
+  beginAttemptFor(def, game.par);
 
   el.index.textContent = 'DAILY';
   el.name.textContent = `${def.name} · ${dateStr.slice(5)}`;
@@ -364,6 +472,7 @@ function startDaily() {
 }
 
 function openMenu() {
+  abandonOpenAttempt('leave');
   clearTimeout(winShowTimer);
   hide(el.hud);
   hide(el.pad);
@@ -378,6 +487,7 @@ function openMenu() {
 }
 
 function openLevels() {
+  abandonOpenAttempt('leave');
   clearTimeout(winShowTimer);
   hide(el.menu);
   hide(el.win);
@@ -595,11 +705,13 @@ function currentRunId() {
 }
 
 function restartLevel() {
+  abandonOpenAttempt('restart');
   clearTimeout(winShowTimer); // a late win panel must not pop over the new run
   hide(el.pause);
   hide(el.win);
   game.restart();
   armGhost(currentRunId());
+  beginAttemptFor(game.def, game.par);
   game.setPaused(false);
   show(el.hud);
   if (isTouch) show(el.pad);
@@ -904,6 +1016,7 @@ game.on('win', (res) => {
   const medal = medalFor(res);
   const grade = gradeFor(res);
   const log = game.getMoveLog();
+  recordWinAttempt(res);
 
   // A rescued clear counts as a clear, but its time/route don't enter the
   // rankings — medal purity (ADR-014)
@@ -966,6 +1079,10 @@ game.on('level', ({ def }) => {
 });
 
 // --------------------------------------------------------------- lifecycle --
+// Closing the tab mid-level is the most honest quit signal a session carries:
+// it is recorded as an abandon before the page goes away.
+window.addEventListener('pagehide', () => abandonOpenAttempt('unload'));
+
 document.addEventListener('visibilitychange', () => {
   if (document.hidden && game.state === 'playing' && !game.paused) pauseGame();
 });
@@ -990,4 +1107,7 @@ updateMechanicHud();
 tickUI();
 
 // handy for debugging from the console
-window.__kubik = { game, startLevel, startDaily, restartLevel, openLevels, openMenu, save };
+window.__kubik = {
+  game, startLevel, startDaily, restartLevel, openLevels, openMenu, save,
+  playtest: playtest ? { session: playtest.session, json: telemetryJson, download: downloadTelemetry } : null,
+};

@@ -1,0 +1,54 @@
+{
+  "app": "kubik",
+  "kind": "playtest",
+  "v": 1,
+  "session": {
+    "v": 1,
+    "id": "s-0001",
+    "startedAt": 1760000000000,
+    "events": [
+      {
+        "level": 1,
+        "attempt": 1,
+        "par": 5,
+        "outcome": "win",
+        "cause": null,
+        "moves": 5,
+        "deaths": 0,
+        "shards": 2,
+        "total": 2,
+        "rescued": false,
+        "ms": 20000,
+        "at": 1
+      },
+      {
+        "level": 2,
+        "attempt": 1,
+        "par": 8,
+        "outcome": "win",
+        "cause": null,
+        "moves": 8,
+        "deaths": 0,
+        "shards": 2,
+        "total": 2,
+        "rescued": false,
+        "ms": 20000,
+        "at": 2
+      },
+      {
+        "level": 3,
+        "attempt": 1,
+        "par": 9,
+        "outcome": "win",
+        "cause": null,
+        "moves": 9,
+        "deaths": 0,
+        "shards": 2,
+        "total": 2,
+        "rescued": false,
+        "ms": 20000,
+        "at": 3
+      }
+    ]
+  }
+}

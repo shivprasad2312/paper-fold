@@ -236,6 +236,31 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-044 (Phase F: the playtest instrument, the report, the proxy.
+Phase F is the research pass's human step — five fresh players per
+phase, first-try clear rate, deaths per level, time to clear vs par and
+quit points — and this ships the half of it that belongs in a repo.
+`src/telemetry.js` records one attempt per level-visit (outcome
+win/abandon, cause restart/leave/unload, moves, deaths, shards, rescue,
+real ms) under its own key and only with `?playtest=1`, so a normal
+player writes nothing; attempts are written when they END, and a
+`pagehide` closes an in-flight one because closing the tab is the
+honest quit. `scripts/playtest-report.mjs` + `src/playtestStats.js`
+pool exports into a cohort: first-try rate per player-level, quit rate
+over the players who REACHED the level, medians over clears only, an
+act table, quit points, and three flags (L1 must be 100% first-try, no
+level over 25% quit, cohort under five warns). A five-player fixture
+cohort and a malformed file pin the CLI. The proxy —
+`scripts/naive-player.mjs`, a greedy non-planning walker over
+deterministic seeds — gives the pre-human reading: act 1 99%
+(onboarding holds, L11 84% the only wobble), the obvious line first
+fails at L23 Crossfire in act 2, and from act 5 it mostly stops
+working (29–41%) until acts 9–10 where it never does — the designed
+escalation, and the boundary a real cohort should be inspected across.
+The proxy is a reading, not a gate. Status: instrument shipped, human
+cohort pending — the targets are unmeasured and the docs say so.
+Unit 190/190, live recorder check (real presses → win/restart/leave
+events → export → report), full gate.)
 ADR-043 (Phase E: mastery meta. Three quarters shipped. Grades are
 a three-notch seal — CLEAR / SWIFT (≤ par) / FLAWLESS (par, every
 shard, no death) — on every level card and the win panel, a separate

@@ -534,8 +534,15 @@ shipped** (ADR-043): per-level mastery grades (CLEAR / SWIFT /
 FLAWLESS, a three-notch seal), the Vault (ten shard-unlocked rooms
 201–210, generated and proved by the campaign's own gate), and the daily
 streak with its perfect-week badge. The ghost shipped earlier (M2.5).
-Next: Phase F — the playtest protocol (five fresh players per phase,
-first-try clear rate, deaths per level, quit points).
+**Phase F instrument shipped** (ADR-044): the playtest recorder
+(`?playtest=1`, exports a session JSON), the cohort report
+(`scripts/playtest-report.mjs`: first-try clear, quit rate over players
+who reached a level, deaths and moves/par, act table, quit points, the
+L1 and 25%-quit flags) and a greedy-player proxy for the pre-human
+reading (act 1 99%, first failure at L23, acts 5+ mostly non-obvious by
+design). The **human cohort is still pending** — this repository has no
+players, so the research targets remain unmeasured; the runbook is
+`docs/playtest_protocol.md`.
 
 ---
 

@@ -48,6 +48,8 @@ Other commands:
 | `npm run validate:levels` | full level gate in one command (unit + verifier + playable bot) |
 | `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
 | `npm run autoplay` | plays all 200 levels + the Vault end to end in a headless browser |
+| `npm run playtest:report -- <dir>` | pools exported playtest sessions into a cohort report (see `docs/playtest_protocol.md`) |
+| `npm run playtest:proxy` | the greedy-player reading: does following the obvious line reach the gate? |
 | `npm run hooks` | install the pre-commit test gate into this clone |
 
 The browser-based scripts drive Chromium through `puppeteer-core`; point them at a
@@ -192,6 +194,17 @@ rotate the whole board so the fall keeps changing direction.
 Plus a **Daily Challenge**: a fresh layout generated from the date (seeded, then run
 through the same solvability verifier — always solvable, never a spawn-kill), the same
 for everyone, with its own best time and medal.
+
+### Playtesting
+
+Open the game with `?playtest=1` to record a session (a normal page writes
+nothing). The level select then shows a session chip that exports a JSON
+file; `npm run playtest:report -- sessions/` pools a cohort into the
+numbers the protocol asks for — first-try clear rate, deaths, moves against
+par, and quit points. The full runbook, the two hard targets and the
+decision rules are in `docs/playtest_protocol.md`. No human cohort has run
+yet; that document says so, and the report refuses to read a cohort of
+fewer than five as a result.
 
 All 200 campaign levels are open from the start — pick any of them from the level select. The ten **Vault** rooms below them are the one exception: each opens with 60 total shards.
 Best times, shard counts, medals and ghost runs are stored in `localStorage`;
