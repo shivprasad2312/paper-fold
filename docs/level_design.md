@@ -203,6 +203,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 | Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
 | Twin shuttle | second platform half a cycle out of phase | The ferry comes twice as often: the wait at the dock halves, and the proof never noticed — it models the one logical shuttle, so the twin is pure service. |
+| Complexity ceiling | ≤ 9 distinct mechanics per level | Density belongs to the campaign, not the board: a level is a place to learn one thing and practise two. The ceiling is the shipped catalogue's own maximum, so it only ever rejects new drift — the curation score rewards variety and would otherwise build eleven-mechanic par-38 boards. |
 | Boss arena | key grab wakes `wave: 2` sentinels, all patrols ×1.35 | The boss is the level itself: the key run is the quiet first phase, the escape is the loud one — and the proof simply always assumed the loud phase. |
 
 ## 3. Hand levels (1–13) — the teaching spine

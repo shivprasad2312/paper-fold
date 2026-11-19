@@ -53,6 +53,17 @@ const MECH_FIELDS = [
   ['boss', 'B', (d) => !!d.boss],
 ];
 
+/**
+ * Complexity ceiling (Phase C batch 3, ADR-040): how many DISTINCT mechanics
+ * one level may present. The shipped catalogue's own maximum is nine, so the
+ * ceiling never removes shipped content — it stops the density work from
+ * drifting into kitchen sinks (a re-cut slot, scored for variety, will
+ * happily stack eleven mechanics on one par-38 board and stop reading as
+ * any particular mechanic's level). Density is a property of the CAMPAIGN;
+ * a level is a place to learn one thing and practise two.
+ */
+export const MECH_CAP = 9;
+
 /** The mechanic set a level presents, as a compact signature ('IPSK', '-'). */
 export function mechanicSignature(def) {
   const sig = MECH_FIELDS.filter(([, , has]) => has(def)).map(([, ch]) => ch).join('');
@@ -138,6 +149,15 @@ export function experienceProblems(defs, parById = new Map()) {
   const fps = defs.map((def) => experienceFingerprint(def, parById.get(def.id) ?? null));
   const problems = [];
   const where = (i) => `L${fps[i].id ?? i + 1}`;
+
+  // — per-level complexity ceiling (ADR-040): a board may present at most
+  //   MECH_CAP distinct mechanics. Checked here (not at parse) because it
+  //   is a curation law about the catalogue, not about a level's geometry.
+  for (const f of fps) {
+    if (f.mech !== '-' && f.mech.length > MECH_CAP) {
+      problems.push(`${where(fps.indexOf(f))}: ${f.mech.length} distinct mechanics (${f.mech}) — over the complexity cap of ${MECH_CAP}`);
+    }
+  }
 
   // — local sequence: no triple-identical experience, no six-in-a-row
   //   mechanic monoculture anywhere in the run (act boundaries included:

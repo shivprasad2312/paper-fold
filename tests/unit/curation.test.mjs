@@ -11,6 +11,7 @@ import {
   experienceFingerprint,
   sequenceProblems,
   experienceProblems,
+  MECH_CAP,
 } from '../../scripts/experience.mjs';
 
 const def = (id, extra = {}) => ({
@@ -67,4 +68,36 @@ test('curation: audit flags an intra-act par cliff (boss spikes exempt)', () => 
 
 test('curation: the shipped 200-level catalogue passes the diversity audit', () => {
   assert.deepEqual(experienceProblems(LEVELS), []);
+});
+
+test('curation: the complexity ceiling is 9 and the shipped catalogue obeys it', () => {
+  assert.equal(MECH_CAP, 9);
+  // one board may not present every mechanic at once: the density carves
+  // score variety, and without a ceiling a re-cut slot stacks ten
+  const crowded = def(900, {
+    ice: [[1, 1]],
+    springs: [[2, 2]],
+    conveyors: [[1, 2, 1, 0]],
+    doors: [{ plate: [0, 1], at: [2, 1] }],
+    shuttles: [{ a: [0, 0], b: [2, 0] }],
+    lifts: [{ at: [3, 3], low: 0, high: 2 }],
+    shrink: [[1, 0]],
+    grow: [[2, 3]],
+    low: [[1, 3]],
+    pistons: [{ at: [0, 2], dx: 1, dz: 0 }],
+    turntables: [{ at: [3, 1] }],
+    timed: [[0, 0]],
+    freeze: [[2, 0]],
+    heavy: [[3, 2]],
+    pulse: [[3, 0]],
+  });
+  assert.ok(mechanicSignature(crowded).length > MECH_CAP);
+  const problems = experienceProblems([crowded]);
+  assert.ok(problems.some((p) => /over the complexity cap/.test(p)), problems.join(' / '));
+  // the real catalogue never trips it — the ceiling was set at the shipped
+  // maximum, so it can only ever reject NEW drift
+  for (const lvl of LEVELS) {
+    const n = mechanicSignature(lvl).length;
+    assert.ok(n <= MECH_CAP, `L${lvl.id} presents ${n} mechanics (cap ${MECH_CAP})`);
+  }
 });

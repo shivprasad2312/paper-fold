@@ -1946,3 +1946,92 @@ patrols off wind levels rather than pretending the crossing proof
 handles them; a wind-aware crossing model is the follow-up that would
 let the two coexist. Phase C's remaining item is the ≤55%
 crumble/sentinel overuse-cap decision, not a carve.
+
+### ADR-040 — Phase C batch 3: the density arcs, and the complexity ceiling
+
+**Context.** ADR-031/032 set density floors for the wave-1 mechanics and
+scheduled teach→test→twist triples for them. The Phase B verbs and the
+two Phase C carves arrived afterwards with *first slots only* — one
+teach, one test, one twist each — so the shipped catalogue carried
+lifts on 4 levels, shrinks on 4, pistons on 3, turntables on 3, grips on
+4, sliding bridges on 3 and wind on 3. A mechanic the player meets
+three times in 200 levels is a curiosity, not a vocabulary. This batch
+is the density arc: one **context slot** per scarce mechanic in each of
+Acts 7, 9 and 10, so every one of them recurs across three acts in
+rising company.
+
+**The slot schedule.** Acts 7/9/10 each received one slot per mechanic,
+in ascending level order, each with the mechanic forced through
+`KUBIK_FORCE_MECH` and an archetype chosen by probe:
+
+| mechanic | Act 7 | Act 8 | Act 9 | Act 10 |
+|---|---|---|---|---|
+| lift | L121 The Ferry | — | L162 The Squeeze | L181 The Last Rung |
+| piston | L123 The Slow Boat | — | L165 Breaking Strain | L182 Over the Line |
+| turntable | L125 The Passage | — | L166 The Load | L183 The Breakline Crossed |
+| slider | L127 The Drift | — | L168 The Jam | L185 The Final Weave |
+| shrink | L128 Over the Water | — | L170 The Wedge | L188 The Seams |
+| cling | L130 Bridgemind | — | L171 All Hands | L190 Edge of the World |
+| wind | — | L152 Iron Seal | L172 The Grind | L192 The Quiet Part |
+
+Act 8 took only the wind slot, deliberately: its key ratio sits exactly
+on the 40% audit line (8 of 20), and a wind level can never carry a key
+(the breeze is banned from sealed gates), so every other Act 8 re-cut
+would risk pushing the act under it. The wind slot went to L152, a
+non-keyed slot, leaving the ratio untouched.
+
+**Census, before → after (catalogue 51–200).** lift 4→11, shrink 4→13,
+piston 3→8, turntable 3→9, cling 4→11, slider 3→8, wind 3→7. The
+re-cuts also re-rolled the surrounding hazard stage, so the wave-1
+counts moved up with them: door 19→22, pulse 22→24, timed 22→24,
+conveyor 18→25, freeze 22→26, heavy 22→25, blocks 14→16. One
+fluctuation went the other way — proximity 23→22, a single re-cut
+level that no longer spawns a proximity sentinel; the ratchet floor
+(21) still holds and the change is recorded here rather than absorbed
+silently. Twin platforms are unchanged at 15.
+
+**Two verifier catches, and what they cost.** The first pass failed
+three audits, all of them real design conflicts rather than generator
+noise:
+
+1. *Act identity.* Act 7's declared identity is a forced shuttle on
+   every level (acts.js `gen.force`). Wind can never share a level with
+   a shuttle, so a wind slot in Act 7 is not a hard carve — it is a
+   contradiction. The slot was restored to its shipped layout and the
+   breeze moved to Act 8. This is worth stating as a rule: a forced act
+   identity is a *constraint on which mechanics an act can host*, and
+   the carve schedule has to respect it before it runs.
+2. *The par cliff and the sawtooth.* The first turntable and shrink
+   carves landed at par 52 and 56 beside L169's par 39 (a 17-roll jump,
+   over the 16 cap), and the run L163–L168 lost its breathing slot
+   entirely (six consecutive levels above the act's relief line). Both
+   are the ADR-032 sawtooth law doing its job. L166 was re-cut under
+   `KUBIK_RELIEF` and settled at par 36 — the act's breathing slot —
+   and L170 settled at 46 beside L169's 39 (a 7-roll step).
+
+**The complexity ceiling (the batch's one new law).** Re-cutting slots
+with the curation score's +1.5-per-mechanic reward exposed a failure
+mode the audit did not cover: a candidate at par 38 collected *eleven*
+distinct mechanics (lift + shrink + piston + turntable + grip + slider +
+shuttle + conveyor + heavy + springs + blocks). The board was provable,
+playable and unique — and completely unreadable as a level. The shipped
+catalogue's own maximum is nine distinct mechanics, so the ceiling was
+set there: `MECH_CAP = 9` in `scripts/experience.mjs`, enforced in
+`experienceProblems` (so the verifier fails any level over it), in the
+generator's candidate gate (so a re-cut cannot produce one), and pinned
+by a unit test that also asserts every shipped level obeys it. Density
+is a property of the *campaign*; a level is a place to learn one thing
+and practise two. L127 (10 mechanics) and L170 (11) were re-cut under
+the cap; the catalogue maximum is now 9, the same as before the batch.
+
+**Verification.** Unit **158/158** (the new cap test included), file
+gate **200 levels + 14 dailies**, live play of all **21 changed levels
+(21/21, zero page errors)**, then the full pre-commit gate. Nothing in
+this batch touched a level outside the schedule.
+
+**Not yet.** Density still falls short of the 12+ target for the
+Phase B verbs: lift 11, turntable 9, piston 8, shrink 13, grip 11,
+slider 8, wind 7 (whole-game counts are higher — 24/20/18/26/22/19/15).
+A fourth batch schedules the remaining slots; the ceiling makes that
+safe to do in bulk. The ≤55% crumble/sentinel overuse-cap decision is
+still open.

@@ -33,7 +33,7 @@ import {
 } from '../src/rules.js';
 import { ARCHETYPES } from './archetypes.mjs';
 import { applyHazards } from './hazards.mjs';
-import { experienceFingerprint, sequenceProblems } from './experience.mjs';
+import { experienceFingerprint, sequenceProblems, mechanicSignature, MECH_CAP } from './experience.mjs';
 import { ACTS, actForId, isActEnd } from '../src/acts.js';
 import { CAMPAIGN } from '../src/campaign.js';
 import { writeFileSync } from 'node:fs';
@@ -155,6 +155,11 @@ function verify(def, b, minOrbs) {
     const p0 = shortestRoute(parseLevel({ ...def, clings: undefined }));
     if (!(par > 0) || !(p0 > par)) problems.push(`cling does not shorten the route (${p0} → ${par})`);
   }
+  // the complexity ceiling (ADR-040): candidates over the cap are rejected
+  // here, while the generator still has a choice — the file-level audit is
+  // the backstop, this is what keeps the density carves readable
+  const mechN = mechanicSignature(def).length;
+  if (mechN > MECH_CAP) problems.push(`${mechN} distinct mechanics (cap ${MECH_CAP})`);
   for (const orb of level.orbs) {
     for (const [x, z] of orb.path) {
       if (!level.tiles.has(key(Math.round(x), Math.round(z)))) problems.push(`orb over void ${x},${z}`);

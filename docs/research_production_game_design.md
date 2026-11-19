@@ -512,9 +512,15 @@ lift platforms shipped (see Phase B item 1); shrink pads shipped
 (ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
 item 3); turntable bridges shipped (ADR-036, Phase B item 4); clinging
 shipped (ADR-037, Phase B item 5) — every Phase B verb has landed.
-Next: the deferred cadence work (the crumble/sentinel overuse-cap
-decision and the 12+ density arcs for the Phase B verbs, sliders and
-wind) and Phase E meta.
+**Phase C batch 3 shipped** (ADR-040): the density arcs received 21
+context slots (one per scarce mechanic per act, Acts 7/9/10), lifting
+lift 4→11, shrink 4→13, cling 4→11, turntable 3→9, piston 3→8,
+slider 3→8 and wind 3→7 (catalogue 51–200), and the batch added the
+complexity ceiling `MECH_CAP = 9` — the shipped maximum — so bulk
+density work can never produce an unreadable eleven-mechanic board.
+Next: the fourth density batch (the remaining slots toward 12+ for the
+Phase B verbs), the crumble/sentinel overuse-cap decision, and Phase
+E meta.
 
 ---
 

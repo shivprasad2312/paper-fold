@@ -236,6 +236,33 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-040 (Phase C batch 3: the density arcs, and the complexity
+ceiling. The Phase B verbs and the two Phase C carves shipped with
+first slots only — lifts on 4 levels, shrinks 4, pistons 3,
+turntables 3, grips 4, sliders 3, wind 3 — so every one of them
+received one CONTEXT SLOT per act in Acts 7, 9 and 10: lift
+L121/L162/L181, piston L123/L165/L182, turntable L125/L166/L183,
+slider L127/L168/L185, shrink L128/L170/L188, cling L130/L171/L190,
+wind L152 (Act 8) /L172/L192. Act 8 took only the breeze: its key
+ratio sits on the 40% audit line and a wind level can never carry a
+key. Census 51–200 before→after: lift 4→11, shrink 4→13, piston 3→8,
+turntable 3→9, cling 4→11, slider 3→8, wind 3→7; the re-rolls also
+lifted door 19→22, pulse 22→24, timed 22→24, conveyor 18→25, freeze
+22→26, heavy 22→25, blocks 14→16, while proximity drifted 23→22 (one
+re-cut lost its proximity sentinel; floor 21 holds, recorded not
+absorbed). The verifier caught three real conflicts: Act 7's forced
+shuttle identity makes wind impossible in that act (the slot was
+restored, the breeze moved to Act 8); the first turntable/shrink
+carves landed at par 52/56 beside L169's 39 (a 17-roll jump over the
+16 cap) and erased Act 9's breathing slot, fixed by re-cutting L166
+under KUBIK_RELIEF (par 36) and settling L170 at 46. The batch's one
+new law: MECH_CAP = 9 in experience.mjs — a level may present at most
+nine distinct mechanics, enforced in the verifier, in the generator's
+candidate gate and by a unit test. It was needed because the curation
+score's +1.5-per-mechanic reward built an eleven-mechanic par-38
+board: provable, playable, unique, and unreadable. L127 and L170 were
+re-cut under the cap; the catalogue maximum is 9, as before the batch.
+Unit 158/158, verify 200 + 14, live 21/21 changed levels.)
 ADR-039 (Phase C: the breeze joins the generator — the last mechanic.
 Wind only ever moves a cube that STANDS STILL (the live loop restarts
 its timer on every animation), so a press route is never invalidated
