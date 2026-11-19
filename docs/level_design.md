@@ -13,6 +13,18 @@ satisfy (enforced by `parseLevel` + verifier):
 - `map`: row strings, digit = slab height (0–9), `.` = void.
 - `start` / `goal`: on slabs; start not a crumble slab; start ≠ goal.
 - `shards`: exactly 3, on slabs, none on start/goal.
+- `wind`: `{x: ±1, z: ±1}` — a level-wide breeze (ADR-039) that carries
+  an IDLE cube one tile per `WIND_PERIOD` (0.62 s). Rolling is never
+  disturbed (the timer restarts on every animation), the drift is only
+  ever level or a small fall (never a climb, never more than `MAX_DROP`),
+  and it refuses doorways the cube cannot pass, low tunnels at full size
+  and blocked landing tiles. A wind level is a ROLLING level by parse
+  law: it may not carry sentinels, shuttles, lifts, sliding bridges,
+  pulsing gaps, turntables, pistons, crumble/timed slabs, blocks, freeze
+  shards or a sealed gate — all of those ask the player to stand still,
+  which is exactly what the breeze will not allow. Proofs require every
+  drift landing to be able to finish (`windLockProblems`) and require
+  the breeze to move the proven route at two or more tiles.
 - `orbs`: every path point on a slab; spawn point never on start/goal.
 - `crumble`: never on a sentinel patrol line or on a tile adjacent to one — a crumble on a crossing entry would force the player to wait for the crossing window on a slab that breaks (BUG-005). The generator enforces this; hand-authored levels are checked by the verifier.
 - `sliders`: `[{tiles: [[x,z],…], period?, phase?}]` — a RIGID sliding
@@ -187,6 +199,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Freeze shard | one grab, 3.2 s of frozen sentinels | The catalogue's first consumable timing tool: the proof counts it in presses (8-press budget from pickup to crossing exit), so a frozen crossing is provable without trusting real-time reflexes. |
 | Heavy block | pushed level or downhill only, 1 nudge per tile | Weight as a one-way valve: a heavy block shoved down a step can never be shoved back up, so its resting place is a commitment the proof models exactly (heaviness is part of the block's state identity). |
 | Sliding bridge | rigid group of slabs, up 55% of a 2.4–8 s cycle (default 3.2) | The bridge is a clock, not a hole: the whole span rises and sinks together, so a crossing is one timed commitment. The proof treats it as always solid and the parse law proves one crossing fits the up window — the wait-out doctrine, made checkable. |
+| Wind | one tile per 0.62 s on an idle cube, diagonal, level or down | A tax on standing still: keep moving and it never touches you, stop and it takes the decision away — and because it only ever drops you, the proof's job is to guarantee no drift is a one-way pocket. |
 | Pulsing gap | sealed 40% of a 4.0 s cycle, diagonal sweep | A hole that blinks shut: you wait beside it, never on it — the proof treats it as a wait-out timing hazard (like a sliding bridge) and the audit keeps it out of every waiting spot. |
 | Proximity sentinel | sleeps until the cube is within `wake` tiles | Kindness as a mechanic: the proof assumes it is already awake, so a sleeping patrol is a pure gift — the tension is knowing it wakes as you close in. |
 | Twin shuttle | second platform half a cycle out of phase | The ferry comes twice as often: the wait at the dock halves, and the proof never noticed — it models the one logical shuttle, so the twin is pure service. |

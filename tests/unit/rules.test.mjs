@@ -15,6 +15,8 @@ import {
   spawnProblems,
   canPushBlock,
   sliderUp,
+  windTarget,
+  windLockProblems,
   rescueTile,
   key,
   MAX_DROP,
@@ -54,7 +56,7 @@ test('parseLevel: rejects start/goal/shard off the slabs (fail at parse, not in 
   assert.ok(spawnProblems(keyStart).some((p) => p.includes('key on start')));
 });
 
-test('parseLevel: crumble flags, blocks, sliders, wind, nudge all land', () => {
+test('parseLevel: crumble flags, blocks, sliders, nudge all land', () => {
   const level = parseLevel(
     def({
       map: ['11111'],
@@ -62,14 +64,12 @@ test('parseLevel: crumble flags, blocks, sliders, wind, nudge all land', () => {
       crumble: [[2, 0]],
       blocks: [[3, 0]],
       nudge: 1,
-      wind: { x: -1, z: 1 },
       sliders: [{ tiles: [[1, 0]], period: 3, phase: 0 }],
     }),
   );
   assert.equal(tile(level, 2, 0).crumble, true);
   assert.equal(level.blocks.length, 1);
   assert.equal(level.nudge, 1);
-  assert.deepEqual(level.wind, { x: -1, z: 1 });
   assert.equal(level.sliderTiles.has(key(1, 0)), true);
 });
 
@@ -169,6 +169,62 @@ test('sliders (ADR-038): a bridge tile carries nothing and benches nobody', () =
   );
   const lvl = parseLevel(def({ map: ['11111'], goal: [4, 0], sliders: [{ tiles: [[2, 0]] }] }));
   assert.notEqual(rescueTile(lvl), key(2, 0), 'the rescue bench never sits on a sinking bridge');
+});
+
+test('windTarget (ADR-039): the breeze carries level or down, never up', () => {
+  const flat = parseLevel(
+    def({ map: ['111', '111'], start: [0, 0], goal: [2, 0], wind: { x: 1, z: 1 } }),
+  );
+  assert.equal(key(...Object.values(windTarget(flat, tile(flat, 0, 0))).slice(0, 2)), key(1, 1), 'flat step is a drift');
+  // a climb is refused: the breeze carries, it never lifts
+  const up = parseLevel(def({ map: ['11', '12'], start: [0, 0], goal: [1, 0], wind: { x: 1, z: 1 } }));
+  assert.equal(windTarget(up, tile(up, 0, 0)), null, 'no drift uphill');
+  // a drop of 2 is a drift; a drop of 3 is a fall the breeze will not do
+  const d2 = parseLevel(def({ map: ['20', '11'], start: [0, 0], goal: [1, 0], wind: { x: 1, z: 1 } }));
+  assert.ok(windTarget(d2, tile(d2, 0, 0)), 'drop 2 is carried');
+  const d3 = parseLevel(def({ map: ['41', '11'], start: [0, 0], goal: [1, 0], wind: { x: 1, z: 1 } }));
+  assert.equal(windTarget(d3, tile(d3, 0, 0)), null, 'drop 3 is not carried');
+  // a low tunnel admits only the mini cube
+  const low = parseLevel({
+    name: 'unit', map: ['111', '111'], start: [0, 0], goal: [2, 0], shards: [],
+    shrink: [[0, 1]], grow: [[2, 1]], low: [[1, 1]], wind: { x: 1, z: 1 },
+  });
+  assert.equal(windTarget(low, tile(low, 0, 0)), null, 'full size cannot be blown into a tunnel');
+  assert.ok(windTarget(low, tile(low, 0, 0), { mini: true }), 'the mini cube can');
+});
+
+test('wind (ADR-039): the breeze never shares a level with a waiting mechanic', () => {
+  const base = { name: 'unit', map: ['111', '111'], start: [0, 0], goal: [2, 0], shards: [], wind: { x: 1, z: 1 } };
+  assert.doesNotThrow(() => parseLevel(base));
+  for (const [over, what] of [
+    [{ orbs: [{ path: [[1, 0], [1, 1]], speed: 2 }] }, /sentinels/],
+    [{ crumble: [[1, 0]] }, /crumble/],
+    [{ blocks: [[1, 0]] }, /blocks/],
+    [{ key: [1, 1] }, /sealed gate/],
+    [{ freeze: [[1, 0]] }, /freeze|sentinels/],
+  ]) {
+    assert.throws(() => parseLevel({ ...base, ...over }), what);
+  }
+});
+
+test('windLockProblems (ADR-039): a drift into a dead pocket is a trap', () => {
+  // the breeze drops the cube from (1,0) into an h0 pit walled by h2 —
+  // it can never climb out, so thinking on the route is a lock
+  const trap = parseLevel({
+    name: 'unit', map: ['2222', '2202'], start: [0, 0], goal: [3, 0], shards: [],
+    wind: { x: 1, z: 1 },
+  });
+  const problems = windLockProblems(trap);
+  assert.equal(problems.length, 1);
+  assert.match(problems[0], /breeze carries the cube from 1,0 to 2,1/);
+  // make the pit floor walkable and the same breeze is harmless
+  const safe = parseLevel({
+    name: 'unit', map: ['2222', '2222'], start: [0, 0], goal: [3, 0], shards: [],
+    wind: { x: 1, z: 1 },
+  });
+  assert.deepEqual(windLockProblems(safe), []);
+  // a level without wind can never have a wind lock
+  assert.deepEqual(windLockProblems(parseLevel(def({ map: ['111'], goal: [2, 0] }))), []);
 });
 
 test('canPushBlock: blocks only slide onto plain slabs', () => {

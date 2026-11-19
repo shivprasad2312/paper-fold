@@ -79,7 +79,7 @@ session's memory.
   ice: [[x, z]],                        // slabs that keep a rolling cube sliding
   springs: [[x, z]],                    // pads that launch a roll over void (≤3)
   key: [x, z],                          // sealed gate (finale only)
-  wind: { x: ±1, z: ±1 },               // diagonal breeze
+  wind: { x: ±1, z: ±1 },               // diagonal breeze (rolling-only: no clocked hazard, patrol, one-way slab, block, freeze or key)
 }
 ```
 

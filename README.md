@@ -240,7 +240,7 @@ each character is a column, and the digit is the slab's top height. `.` is the v
   // pulse: [[x, z]],         // pulsing gaps: void cells a phantom slab seals on a cycle — cross on the blink
   // key: [x, z],            // unlocks the sealed gate
   // boss: { speed: 1.35 },   // boss arena: grabbing the key wakes wave: 2 orbs and speeds every patrol up
-  // wind: { x: -1, z: -1 }, // diagonal breeze
+  // wind: { x: -1, z: -1 }, // diagonal breeze: moves an IDLE cube one tile per 0.62 s (rolling is never disturbed)
 }
 ```
 
@@ -350,7 +350,10 @@ Notable details:
   put, the block slides, a charge is spent — the solver tracks block positions and
   remaining pushes). Sliding bridges share the render clock, so what you see is
   exactly what kills you; the same clock drives their amber warning flash, and
-  the rules model reads the same 55% duty window the view draws. Wind
+  the rules model reads the same 55% duty window the view draws. The breeze only
+  touches a cube that stands still — roll and it never moves you, wait and it
+  carries you one tile, level or down, and the proof guarantees no drift is a
+  one-way pocket. Wind
   nudges the idle cube along a diagonal only when the landing tile is same-height or
   a small drop — it carries, it never lifts or flings. The sealed gate simply refuses
   the final roll (the cube rolls itself back) until the key is collected.

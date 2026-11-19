@@ -124,6 +124,18 @@ that survives with sentinels absent and sliders always up is the *hardest
 *route question* (fewest resources to cross gaps); timing hazards add
 *waiting*, which never removes a route. So this solver proves route
 existence under the strictest static reading.
+**The breeze (ADR-039) is the one hazard the graph cannot absorb**, so
+it is priced by its own audit. Wind only moves an IDLE cube, so it can
+never invalidate a press route — the player can always keep rolling.
+What it can do is displace a waiting cube level-or-down, and a
+displacement that cannot be undone in height is a potential soft-lock.
+`windLockProblems` therefore walks the press-reachable set, follows
+each tile's drift target (and that tile's, and so on), and fails any
+landing the press-only finish proof cannot escape. Because the static
+model has no notion of waiting, the parse law keeps every mechanic
+that *forces* a wait out of a wind level, which is what makes the
+audit exact rather than merely cautious.
+
 **Fairness of that waiting is a separate question the static solver
 does NOT answer** — a periodic hazard can leave every crossing
 window too narrow to cross at roll speed (this is exactly the L46

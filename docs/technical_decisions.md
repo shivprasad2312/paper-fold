@@ -1828,3 +1828,121 @@ deferred like the lift/shrink/piston/turntable/cling arcs, and wind
 remains the one mechanic with no generator carve and no proof
 support — do not claim it generator-placeable. The ≤55%
 crumble/sentinel overuse cap is still an open removal decision.
+
+### ADR-039 — Phase C: the breeze joins the generator (the last mechanic)
+
+**Context.** Wind has been in KUBIK since the hand-made campaign: a
+level-wide diagonal force that nudges the *idle* cube one tile at a
+time (L8 "Cascade" is its teaching level). Unlike every other
+catalogue mechanic it was never carved by the 51–200 generator and
+never priced by a proof, so the density ratchet could not track it and
+the research doc had to say so out loud. Phase C's last item was to
+either make wind generator-placeable with proof support or keep
+declaring it hand-authored. This ADR does the former — and the work
+turned up two latent bugs that only a generated population of wind
+levels would have surfaced.
+
+**The law that makes a proof possible.** A breeze never touches a
+moving cube: the live loop restarts its timer whenever an animation
+runs, so only a cube that stands still for `WIND_PERIOD` (0.62 s) is
+moved. That single sentence is the whole design space:
+
+- a press route is never invalidated by wind — the player can always
+  keep rolling;
+- what wind can do is *displace a waiting cube*, and since it only
+  carries the cube level or DOWN (`dh ≤ 0`, `dh ≥ -MAX_DROP`), a
+  displacement is irreversible in height. Wind's only real hazard is
+  therefore a **soft-lock**: being carried into a pocket the press law
+  cannot climb out of.
+
+So the proof support has two halves, both in `rules.js`:
+
+1. **One drift predicate.** `windTarget(level, from, opts)` is the
+   single law the game and the proofs read (the same doctrine the
+   sliders, turntables and clinging follow). It carries a cube only
+   when the landing slab exists, is not a doorway the cube cannot
+   pass, is not a low tunnel at full size, carries no block, and sits
+   at most `MAX_DROP` below. `game.js::updateWind` now calls it (it
+   used to inline the same five checks — a second copy that no proof
+   could see); the live call adds `solid(x, z)` so a dock, bridge or
+   lift is priced by the clock it is actually showing.
+2. **The wind-lock audit.** `windLockProblems(level)` walks the
+   press-reachable set, follows every tile's drift target and that
+   tile's in turn (an idle cube drifts every period), and fails any
+   landing the press-only finish proof cannot escape. A player is
+   allowed to stand still and think; a mechanic that punishes that
+   with an inescapable pocket is a hidden death, which the design
+   rules forbid. `scripts/verify-levels.mjs` and the generator both
+   run it.
+
+**The identity law — a breeze is a ROLLING hazard.** The static route
+proof is exact only while nothing in the level forces the player to
+*wait on a particular tile*. So `parseLevel` now refuses a wind level
+that carries any clocked hazard (shuttles, lifts, sliding bridges,
+pulsing gaps, turntables, pistons), any patrol (sentinels — a crossing
+needs its window), any one-way slab a drift could burn (crumble,
+timed), any block a drift could shove through, a freeze shard with
+nothing to freeze, or a sealed gate a drift could park the cube on.
+What remains is the pure movement kit — ice, springs, conveyors,
+doorways, size pads, grips, shards — which is exactly L8's identity:
+*you move, or the world does.* This is a design law, not a temporary
+limitation: the wind carves that also carry a belt or a grip read as
+"the river and the breeze", never as "wait here".
+
+**Two bugs the carve surfaced (both fixed here).**
+
+- **The breeze never scored the goal.** `finishDrift` handled pads and
+  crumble but never checked the goal tile, so a cube carried onto the
+  goal simply stood there and the level never completed. Drift landings
+  now win exactly like roll landings, and a drift toward a *sealed*
+  goal is refused (the gate refuses presses too).
+- **The mirror law skipped the wind vector.** `mirrorDef` mirrors every
+  coordinate-carrying field; wind was the one field it quietly dropped,
+  so a mirrored wind level would have been proven in the opposite
+  direction. The vector now negates its x on an x-flip and its z on a
+  z-flip.
+
+**Generator.** The breeze is decided at the top of the hazard stage
+from a content hash (salts `#roll`, `#dir`) — never the shared rand
+stream — so arming it cannot reshuffle a shipped candidate. Once it
+lands the candidate loses every mechanic in the ban list above
+(`orbCount` is forced to 0, the carve plan skips shuttle/timed/pulse,
+the later blocks are skipped), which is why a wind slot is a
+*designed pure-movement exception*: when `KUBIK_FORCE_MECH` names
+`wind`, the slot drops the act's identity forces instead of failing
+every candidate against them. A forced breeze must move the proven
+route at two or more tiles — decoration is rejected, the same
+"never decoration" law clinging obeys. `mirrorDef` mirrors the
+vector, the curation score learns +1.5, the generator log and the
+experience fingerprint use `A` for the breeze (`W` already belongs to
+twin platforms — one char per mechanic is what keeps the diversity
+audit honest), Acts 7–10 carry a wind probability of 0.15, and the density ratchet tracks wind at 3.
+
+**First slots (names preserved).** Teach **L148 "The Fee"** (Act 8,
+citadel, par 39, breeze + doorway); test **L167 "Bottleneck"** (Act 9,
+citadel, par 47, breeze + belt + doorway); twist **L184 "Unmaking"**
+(Act 10, tower, par 48, breeze + belt + doorway + one grip). Act 7 was
+considered for the teach and rejected: its declared identity is the
+shuttle, and the experience audit rightly fails an act whose identity
+mechanic is missing from one of its levels. No ratchet floor moved
+down — the census after landing reads door 18→19, conveyor 16→18,
+shrink 3→4, cling 3→4, wind 0→3, every other tracked mechanic
+unchanged and above its floor.
+
+**Verification.** Unit: `windTarget` (flat / climb refused / drop 2
+carried / drop 3 refused / low tunnel at full size vs mini), the parse
+ban list, and `windLockProblems` (a drift into an h0 pit walled by h2
+is reported; the same breeze over a walkable floor is clean). File
+gate: all 200 levels + 14 dailies re-proven, including the new
+"breeze must move the route" and lock audits. Live: L8, L148, L167 and
+L184 played to completion with hazards running (5/5 with the daily),
+and a page smoke confirmed the idle cube really is carried one tile
+per period while a rolling cube is never displaced diagonally.
+
+**Not yet.** The wind density arc (12+ teach→test→twist) is deferred
+like the other Phase C arcs. The breeze is not modelled in the
+sentinel-crossing timing model — which is why the parse law keeps
+patrols off wind levels rather than pretending the crossing proof
+handles them; a wind-aware crossing model is the follow-up that would
+let the two coexist. Phase C's remaining item is the ≤55%
+crumble/sentinel overuse-cap decision, not a carve.

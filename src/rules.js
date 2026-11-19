@@ -22,6 +22,15 @@ export const MAX_CLIMB = 1;
  * look solid for longer than the proof assumed (much less the reverse).
  */
 export const SLIDER_UP_FRACTION = 0.55;
+
+/**
+ * The breeze (ADR-039): seconds an IDLE cube stands before the wind moves
+ * it one tile. A rolling cube is never touched — the live loop restarts
+ * the timer on every animation — so the breeze is a tax on standing
+ * still, not a force on movement. That single fact is what the whole
+ * wind law rests on, so it lives here with the rest of the timing law.
+ */
+export const WIND_PERIOD = 0.62;
 /**
  * Seconds a TIMED slab (delayed crumble, M3 wave-1) holds after the
  * cube's first landing before it falls. The plain crumble's fuse is
@@ -751,11 +760,39 @@ export function parseLevel(def) {
   }
 
   const wind = def.wind || null;
-  // one drift force per level (Phase B, ADR-035): a breeze and a piston
-  // arm would fight over the same idle cube — never both. A turntable
-  // turns the floor itself; a breeze over it is the same fight.
-  if (wind && (pistons.length || turntables.length)) {
-    throw new Error(`[${def.name}] wind never shares a level with pistons or turntables`);
+  // ---- the breeze is a ROLLING hazard (ADR-039) ------------------------
+  // The wind only ever moves a cube that stands still, and every proof
+  // here is static: a route is a sequence of presses with hazards
+  // modelled at their worst. That reading is only honest while nothing in
+  // the level requires the player to WAIT on a particular tile — so a
+  // wind level may not carry any clocked hazard, any patrol, any one-way
+  // slab the breeze could burn, any block it could shove through, or a
+  // sealed gate it could park the cube on. What is left is the pure
+  // movement kit (ice, springs, conveyors, doors, freeze, size pads,
+  // grips, shards), which is exactly the L8 "Cascade" identity: you move,
+  // or the world does.
+  if (wind) {
+    const banned = [
+      [(def.orbs || []).length, 'sentinels'],
+      [shuttles.length, 'shuttles'],
+      [lifts.length, 'lifts'],
+      [sliders.length, 'sliding bridges'],
+      [pulses.length, 'pulsing gaps'],
+      [turntables.length, 'turntables'],
+      [pistons.length, 'pistons'],
+      [blocks.length, 'blocks'],
+      [(def.crumble || []).length, 'crumble slabs'],
+      [timedTiles.size, 'timed slabs'],
+      [(def.freeze || []).length, 'freeze shards'],
+      [gateKey ? 1 : 0, 'a sealed gate'],
+    ];
+    for (const [n, what] of banned) {
+      if (n) {
+        throw new Error(
+          `[${def.name}] wind never shares a level with ${what} — the breeze only moves an idle cube, so nothing may ask the player to stand still`,
+        );
+      }
+    }
   }
   const nudge = def.nudge || 0;
 
@@ -1078,6 +1115,75 @@ export function pulsePhase(t, x, z) {
 export function pulseUp(level, t, x, z) {
   if (!level.pulseTiles.has(key(x, z))) return true;
   return pulsePhase(t, x, z) < PULSE_ON;
+}
+
+/**
+ * The breeze law (ADR-039) — the ONE predicate the game and the proofs
+ * share, so the wind can never move the cube somewhere the proof did not
+ * price.
+ *
+ * An IDLE cube at `from` is carried one tile along the level's diagonal
+ * wind when that landing is legal under the same conditions the game
+ * applies: a slab is there, it is not a doorway the cube cannot pass, it
+ * is not a low tunnel at full size, no block is parked on it, and the
+ * step is level or a small fall (the breeze carries, it never lifts).
+ *
+ * Returns the landing tile, or null when the breeze cannot move the cube.
+ * `opts.solid(x, z)` lets the live game price the clock (a dock, a bridge,
+ * a lift); the proofs call it bare, where the static map is the truth —
+ * exact for wind levels, which by parse law carry no clocked hazard.
+ */
+export function windTarget(level, from, opts = {}) {
+  const w = level.wind;
+  if (!w) return null;
+  const solid = opts.solid || ((x, z) => level.tiles.get(key(x, z)) || null);
+  const mini = !!opts.mini;
+  const to = solid(from.x + w.x, from.z + w.z);
+  if (!to) return null;
+  if (to.door && !(from.x === to.door.x && from.z === to.door.z)) return null;
+  if (to.low && !mini) return null;
+  if (level.blockTiles && level.blockTiles.has(key(to.x, to.z))) return null;
+  const dh = to.h - from.h;
+  if (dh > 0 || dh < -MAX_DROP) return null;
+  return to;
+}
+
+/**
+ * Wind lock audit (ADR-039): the breeze may never strand the cube.
+ *
+ * A player may stand still at ANY reachable tile — reading the board,
+ * lining up a press — and the wind will move them on. Everywhere the
+ * drift chain can put the cube must therefore still be able to finish;
+ * otherwise thinking for a second is a trap, and a trap on a mechanic
+ * the player does not control is exactly the hidden death the design
+ * rules forbid. The audit walks the press-reachable set, follows each
+ * tile's drift target (and that tile's, and so on — an idle cube drifts
+ * every period), and reports any landing the press-only finish proof
+ * cannot escape.
+ */
+export function windLockProblems(level) {
+  if (!level.wind) return [];
+  const finish = canStillFinish(level);
+  const seen = new Set(reachable(level));
+  const queue = [...seen];
+  const problems = [];
+  while (queue.length) {
+    const k = queue.pop();
+    const [x, z] = k.split(',').map(Number);
+    const t = level.tiles.get(k);
+    if (!t) continue;
+    const d = windTarget(level, t);
+    if (!d) continue;
+    const dk = key(d.x, d.z);
+    if (!finish.has(dk)) {
+      problems.push(`the breeze carries the cube from ${x},${z} to ${d.x},${d.z}, where it cannot finish`);
+    }
+    if (!seen.has(dk)) {
+      seen.add(dk);
+      queue.push(dk);
+    }
+  }
+  return problems;
 }
 
 /**

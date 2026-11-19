@@ -26,6 +26,8 @@ import {
   shortestPath,
   rescueTile,
   fairReachSet,
+  windTarget,
+  windLockProblems,
   key,
   ROLL_TIME,
 } from '../src/rules.js';
@@ -158,6 +160,15 @@ function verify(def, b, minOrbs) {
       if (!level.tiles.has(key(Math.round(x), Math.round(z)))) problems.push(`orb over void ${x},${z}`);
     }
   }
+  // the breeze (ADR-039): it must actually move the proven route (never
+  // decoration) and it may never strand the cube — the same audit the
+  // file-level verifier runs, so a generated level cannot outrun it
+  if (level.wind) {
+    const pth = shortestPath(level) || [];
+    const moved = pth.filter((t) => windTarget(level, t)).length;
+    if (moved < 2) problems.push(`wind only moves the cube at ${moved} route tile(s) — decoration`);
+    for (const p of windLockProblems(level)) problems.push(p);
+  }
   if ((level.orbs || []).length < minOrbs) problems.push(`too few sentinels (band wants ≥ ${minOrbs})`);
   for (const sh of level.shuttles) {
     if (sh.wait < ROLL_TIME * 2.2) problems.push('shuttle dwell too short to board');
@@ -219,6 +230,7 @@ function score(def, par, b) {
   if (def.boss) s += 2;
   if (def.ice) s += 1;
   if (def.sliders) s += 1.5;
+  if (def.wind) s += 1.5;
   if (def.key) s += 2;
   const span = b.par[1] - b.par[0];
   if (par >= b.par[0] + span * 0.3 && par <= b.par[1]) s += 1.5;
@@ -304,6 +316,15 @@ function mirrorDef(def, axis) {
   // clinging (Phase B, ADR-037): a crevice is a point — the grip pair
   // mirrors with the board and both banks move with it
   if (def.clings) out.clings = mirrorPts(def.clings);
+  // the breeze (ADR-039) is a VECTOR: an x-flip reverses dx, a z-flip dz
+  // (a wind level mirrored without this would be proven in the wrong
+  // direction — the mirror law applies to every coordinate-carrying field)
+  if (def.wind) {
+    out.wind = {
+      x: axis === 'x' ? -def.wind.x : def.wind.x,
+      z: axis === 'z' ? -def.wind.z : def.wind.z,
+    };
+  }
   if (def.shrink) out.shrink = mirrorPts(def.shrink);
   if (def.grow) out.grow = mirrorPts(def.grow);
   if (def.low) out.low = mirrorPts(def.low);
@@ -396,7 +417,7 @@ for (let id = FIRST; id <= LAST; id++) {
   // (fixed 2026-11-12: passing the force object bare made opts.force
   // undefined, so no forced carve ever happened and the mechanic acts
   // silently shipped mechanic-free).
-  const allForce = { ...(act.gen.force || {}), ...force };
+  let allForce = { ...(act.gen.force || {}), ...force };
   // introduction knob (sibling of KUBIK_FORCE_ARCH): force a mechanic
   // carve on ONE slot, e.g. KUBIK_FORCE_MECH=175=conveyor — how a new
   // mechanic enters the shipped campaign: one proven slot at a time,
@@ -406,7 +427,15 @@ for (let id = FIRST; id <= LAST; id++) {
     // a '+' list forces a combination on the slot (Phase C twist slots:
     // teach solo, test in context, twist paired — ADR-031)
     if (Number(fId) === id && fMech) {
-      for (const m of fMech.split('+')) allForce[m] = (allForce[m] || 0) + 1;
+      const list = fMech.split('+');
+      // a wind slot is a designed pure-movement exception (ADR-039): the
+      // breeze cannot share a level with the act's clocked identity
+      // mechanic, so a forced wind slot drops the ACT's identity forces
+      // (never the ones the caller explicitly paired with it)
+      if (list.includes('wind')) {
+        for (const m of Object.keys(act.gen.force || {})) delete allForce[m];
+      }
+      for (const m of list) allForce[m] = (allForce[m] || 0) + 1;
     }
   }
   // per-act attempt budget (acts.js gen band `attempts`); the act's slot
@@ -430,7 +459,9 @@ for (let id = FIRST; id <= LAST; id++) {
   // attempts, all orbs=0, all in the phase-3 window, so it failed at 220
   // attempts yet passed at 60. Now: verify once with minOrbs=0 and PREFER
   // full-orb candidates explicitly (rank = orb count, then score).
-  const wantOrbs = bEff.orbs[0];
+  // a wind slot is a pure-movement level: it carries no patrol by parse law
+  // (ADR-039), so its orb target is zero by design, not by starvation
+  const wantOrbs = allForce.wind ? 0 : bEff.orbs[0];
   const rankOf = (c, s) => (c.orbs || []).length * 100000 + s;
   // sawtooth relief slot (Phase C, ADR-032): KUBIK_RELIEF=<id> settles
   // this slot on its SHORTEST proven candidate instead of the
@@ -591,7 +622,7 @@ for (let id = FIRST; id <= LAST; id++) {
 
   out.push(def);
   const mech =
-    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '') + (def.clings ? 'G' : '') + (def.sliders ? 'L' : '');
+    (def.shuttles ? 'S' : '') + (def.springs ? 'P' : '') + (def.ice ? 'I' : '') + (def.conveyors ? 'C' : '') + (def.doors ? 'D' : '') + (def.timed ? 'T' : '') + (def.freeze ? 'F' : '') + (def.heavy ? 'H' : '') + (def.pulse ? 'U' : '') + ((def.orbs || []).some((o) => o.wake) ? 'X' : '') + ((def.shuttles || []).some((sh) => sh.twin) ? 'W' : '') + (def.boss ? 'B' : '') + (def.key ? 'K' : '') + (def.clings ? 'G' : '') + (def.sliders ? 'L' : '') + (def.wind ? 'A' : '');
   console.log(
     `${String(id).padStart(3)} [${act.name.slice(0, 8).padEnd(8)}] ${arch.padEnd(13)} ${def.name.padEnd(24)} ` +
       `par ${String(report.par).padStart(2)} · orbs ${(def.orbs || []).length} · crumble ${(def.crumble || []).length}` +

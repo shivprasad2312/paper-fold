@@ -500,14 +500,21 @@ may run 6+ levels above its relief line). **Phase C slider carve shipped** (ADR-
 generator-placeable (rigid one-height groups, content-hash carve of
 the proven walk, parse-time crossing-window law, purity audit, shards
 off the span), taught at L133 and tested/twisted at L163/L194; the
-density ratchet tracks slider at 3. Remaining Phase C: the wind carve
-+ proof support. **Phase B complete (ADR-033…ADR-037):**
+density ratchet tracks slider at 3. **Phase C wind carve shipped**
+(ADR-039, the last carve): the breeze now has one rules-side drift
+predicate, a wind-lock audit that forbids unescapable drift pockets,
+and a parse law that keeps every waiting mechanic out of its levels —
+wind is a rolling-only modifier, taught at L148 and tested/twisted at
+L167/L184. Every mechanic in the catalogue is now generator-placeable
+and tracked by the density ratchet; only the ≤55% crumble/sentinel
+overuse-cap decision remains from Phase C. **Phase B complete (ADR-033…ADR-037):**
 lift platforms shipped (see Phase B item 1); shrink pads shipped
 (ADR-034, Phase B item 2); piston pushers shipped (ADR-035, Phase B
 item 3); turntable bridges shipped (ADR-036, Phase B item 4); clinging
 shipped (ADR-037, Phase B item 5) — every Phase B verb has landed.
-Next: the deferred cadence work (the wind carve, the crumble/sentinel
-overuse cap, the Phase B/slider 12+ density arcs) and Phase E meta.
+Next: the deferred cadence work (the crumble/sentinel overuse-cap
+decision and the 12+ density arcs for the Phase B verbs, sliders and
+wind) and Phase E meta.
 
 ---
 

@@ -40,7 +40,10 @@ const MECH_FIELDS = [
   ['key', 'K', (d) => !!d.key],
   ['blocks', 'B', (d) => (d.blocks || []).length > 0],
   ['sliders', 'L', (d) => (d.sliders || []).length > 0],
-  ['wind', 'W', (d) => !!d.wind],
+  // 'A' (air) — NOT 'W': twin platforms already own 'W', and two
+  // mechanics sharing a char would let a wind level masquerade as a twin
+  // level in the diversity audit's signature
+  ['wind', 'A', (d) => !!d.wind],
   ['timed', 'T', (d) => (d.timed || []).length > 0],
   ['freeze', 'F', (d) => (d.freeze || []).length > 0],
   ['heavy', 'H', (d) => (d.heavy || []).length > 0],

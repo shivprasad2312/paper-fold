@@ -26,7 +26,9 @@ const def = (id, extra = {}) => ({
 test('curation: mechanic signature reads the presented mechanic set', () => {
   assert.equal(mechanicSignature(def(1)), '-');
   assert.equal(mechanicSignature(def(2, { ice: [[1, 1]], springs: [[2, 2]], key: [3, 3] })), 'IPK');
-  assert.equal(mechanicSignature(def(3, { shuttles: [{ a: [0, 0], b: [2, 0] }], wind: { x: 1, z: 1 } })), 'SW');
+  assert.equal(mechanicSignature(def(3, { shuttles: [{ a: [0, 0], b: [2, 0] }], wind: { x: 1, z: 1 } })), 'SA');
+  // one char per mechanic: the breeze is 'A' (air), a twin platform is 'W'
+  assert.equal(mechanicSignature(def(4, { shuttles: [{ a: [0, 0], b: [2, 0], twin: true }] })), 'SW');
 });
 
 test('curation: fingerprint bands par, sentinel speed and direction', () => {

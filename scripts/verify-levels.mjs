@@ -16,6 +16,9 @@ import {
   shortestRoute as provenRoute,
   rescueTile,
   fairReachSet,
+  windTarget,
+  windLockProblems,
+  shortestPath,
   key,
 } from '../src/rules.js';
 import { experienceProblems } from './experience.mjs';
@@ -114,9 +117,17 @@ function checkLevel(label, def) {
     fail(`key at ${level.gateKey.x},${level.gateKey.z} unreachable`);
   }
 
-  // 7. wind direction must be a diagonal unit vector
-  if (level.wind && (Math.abs(level.wind.x) !== 1 || Math.abs(level.wind.z) !== 1)) {
-    fail('wind direction must be a diagonal unit vector');
+  // 7. wind (ADR-039): a diagonal unit vector, a breeze that actually
+  // moves the proven route (never decoration), and no drift that strands
+  // the cube — a player may stand still anywhere the route can reach
+  if (level.wind) {
+    if (Math.abs(level.wind.x) !== 1 || Math.abs(level.wind.z) !== 1) {
+      fail('wind direction must be a diagonal unit vector');
+    }
+    const path = shortestPath(level) || [];
+    const moved = path.filter((t) => windTarget(level, t)).length;
+    if (moved < 2) fail(`wind only moves the cube at ${moved} route tile(s) — decoration, not a mechanic`);
+    for (const p of windLockProblems(level)) fail(p);
   }
 
   // 8. clinging (Phase B, ADR-037): a declared grip crevice must SHORTEN

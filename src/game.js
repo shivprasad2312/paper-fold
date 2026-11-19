@@ -5,7 +5,7 @@ import { buildLevelView } from './levelView.js';
 import { LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
 import { getDailyLevel } from './daily.js';
-import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, MAX_DROP, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME, clingTarget } from './rules.js';
+import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME, clingTarget, windTarget, WIND_PERIOD } from './rules.js';
 import { glowTexture, disposeTree } from './textures.js';
 
 // Vivid cube colour per level, like EDGE's recolouring between stages.
@@ -16,7 +16,6 @@ const HALF = 0.5;
 const ORB_KILL_HEIGHT = 1.0;
 /** Mini-cube mesh scale on a shrink pad (Phase B, ADR-034). */
 const MINI_SCALE = 0.55;
-const WIND_PERIOD = 0.62; // seconds between breeze nudges
 
 const easeInOut = (t) => t * t * (3 - 2 * t);
 
@@ -914,6 +913,13 @@ export class Game {
     this.applyPad(target);
     this.moveLog.push({ t: this.elapsed, x: target.x, z: target.z, h: target.h, mini: this.mini });
     this.emit('drift', target);
+    // the breeze can carry the cube home: drift lands are wins just like
+    // rolls (ADR-039 found this missing — a drifted cube stood on the goal
+    // and the level never completed)
+    if (target.x === this.level.goal.x && target.z === this.level.goal.z) {
+      this.win();
+      return;
+    }
     this.pumpQueue();
   }
 
@@ -1204,19 +1210,22 @@ export class Game {
     this.windTimer -= dt;
     if (this.windTimer > 0) return;
     this.windTimer = WIND_PERIOD;
-    const w = this.level.wind;
+    // ONE law (ADR-039): the breeze is priced by rules.windTarget, the
+    // same predicate the wind-lock audit walks — the live game only adds
+    // the clock (a dock/bridge/lift that is solid right now). A second
+    // inline copy is how a mechanic drifts out of proof.
     const fromTile = this.tileAt(this.cube.x, this.cube.z);
-    const toTile = this.tileAt(this.cube.x + w.x, this.cube.z + w.z);
-    if (!fromTile || !toTile) return;
-    if (!this.isSolid(this.cube.x + w.x, this.cube.z + w.z)) return;
-    // the breeze does not open doors: drifting into a doorway takes the
-    // same press law as rolling (M3 wave-1, mirrors checkRoll)
-    if (toTile.door && !(fromTile.x === toTile.door.x && fromTile.z === toTile.door.z)) return;
-    // nor squeeze the cube into a low tunnel at full size (ADR-034)
-    if (toTile.low && !this.mini) return;
-    // the breeze carries, it does not lift: same height or a small fall only
-    const dh = toTile.h - fromTile.h;
-    if (dh > 0 || dh < -MAX_DROP) return;
+    if (!fromTile) return;
+    const toTile = windTarget(this.level, fromTile, {
+      solid: (x, z) => this.isSolid(x, z),
+      mini: this.mini,
+    });
+    if (!toTile) return;
+    // a SEALED gate refuses a landing just as it refuses a press: the
+    // breeze slides the cube along the gate, it does not score it. (Only
+    // a keyed goal is sealed — an open goal is a win, see finishDrift.)
+    if (this.level.gateKey && !this.hasKey && toTile.x === this.level.goal.x && toTile.z === this.level.goal.z) return;
+    const w = this.level.wind;
     this.cube.anim = {
       type: 'drift',
       t: 0,

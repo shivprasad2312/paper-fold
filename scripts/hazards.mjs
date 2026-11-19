@@ -54,6 +54,47 @@ export function applyHazards(layout, b, rand, opts = {}) {
   const doors = [];
   const timed = [];
 
+  // --- wind (ADR-039): the breeze is a ROLLING hazard ----------------------
+  // The wind only ever moves a cube that STANDS STILL, and every proof in
+  // this repo is a static route proof: a route is a sequence of presses,
+  // with hazards priced at their worst. That reading is exact only while
+  // nothing in the level forces the player to wait — so the moment a
+  // candidate takes the breeze it loses every clocked hazard, every
+  // patrol, every one-way slab the drift could burn, every block it could
+  // shove through and the sealed gate (rules.parseLevel enforces the same
+  // list, so the carve and the law cannot drift apart). What remains is
+  // the pure movement kit — ice, springs, belts, doorways, size pads,
+  // grips — which is the L8 "Cascade" identity: you move, or the world
+  // does. The direction is a content hash, never the shared rand stream,
+  // so arming the carve cannot reshuffle a shipped candidate.
+  let wind = null;
+  {
+    const wantWind = force.wind || 0;
+    const pWind = (b.mech || {}).wind || 0;
+    const windSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
+    const windRoll = (salt) => {
+      let h = 2166136261;
+      const str = salt + windSeed;
+      for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); }
+      return (h >>> 0) / 4294967296;
+    };
+    // an unforced breeze only rolls on a slot whose forced mechanics can
+    // live with it: a forced clocked carve and a breeze are a parse-time
+    // contradiction, so the roll must not steal those slots
+    const WINDLESS_FORCES = ['shuttle', 'timed', 'pulse', 'blocks', 'heavy', 'lift', 'slider', 'turntable', 'piston', 'boss', 'twin', 'proximity', 'freeze', 'key'];
+    const conflicts = WINDLESS_FORCES.some((m) => (force[m] || 0) > 0);
+    const want = wantWind > 0 || (!conflicts && pWind > 0 && windRoll('#roll') < pWind);
+    if (want) {
+      const dirs = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+      const d = dirs[Math.floor(windRoll('#dir') * 4) % 4];
+      wind = { x: d[0], z: d[1] };
+    }
+  }
+  // a wind slot is a designed exception: it may not carry the act's
+  // identity mechanic, so a forced clocked mechanic alongside a forced
+  // breeze is a contradiction, not a starved candidate
+  const WIND_BANNED_CARVES = new Set(['shuttle', 'timed', 'pulse']);
+
   // straight runs of ≥3 SOLID, consecutive walk tiles — indices into `path`.
   // Both orientations: sentinels patrol any straight line (tile-position
   // based, orientation-agnostic), so vertical corridors get guards too.
@@ -392,6 +433,11 @@ export function applyHazards(layout, b, rand, opts = {}) {
     ['timed', force.timed || 0, (b.mech || {}).timed || 0],
     ['pulse', force.pulse || 0, (b.mech || {}).pulse || 0],
   ];
+  if (wind) {
+    for (const [m, forced] of carvePlan) {
+      if (forced > 0 && WIND_BANNED_CARVES.has(m)) return null;
+    }
+  }
   const carveByName = { shuttle: tryShuttle, spring: trySpring, ice: tryIce, conveyor: tryConveyor, door: tryDoor, timed: tryTimed, pulse: tryPulse };
   // Carve law (fixed 2026-11-12, M2.5 — the mechanic blackout): the FORCED
   // quota (n < forced) is always attempted — a forced mechanic that cannot
@@ -404,6 +450,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // shipped with effectively no ice/springs/shuttles.
   const got = { shuttle: 0, spring: 0, ice: (layout.forceIce || []).length, conveyor: 0, door: 0, timed: 0, pulse: 0 };
   for (const [m, forced, p] of carvePlan) {
+    if (wind && WIND_BANNED_CARVES.has(m)) continue;
     let n = got[m];
     for (let t = 0; t < 4; t++) {
       if (n >= forced) {
@@ -465,7 +512,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // comes from a content hash — never the shared rand stream — so arming
   // the carve cannot reshuffle already-shipped candidate streams.
   const lifts = [];
-  {
+  if (!wind) {
     const wantLift = force.lift || 0;
     const pLift = (b.mech || {}).lift || 0;
     const liftSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
@@ -628,7 +675,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // the shared rand stream — so arming the carve cannot reshuffle shipped
   // candidates. A wind level never gains a piston (one drift force each).
   const pistons = [];
-  {
+  if (!wind) {
     const wantPiston = force.piston || 0;
     const pPiston = (b.mech || {}).piston || 0;
     const pistonSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
@@ -699,7 +746,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // the pick comes from a content hash — never the shared rand stream —
   // so arming the carve cannot reshuffle shipped candidates.
   const turntables = [];
-  {
+  if (!wind) {
     const wantTurntable = force.turntable || 0;
     const pTurntable = (b.mech || {}).turntable || 0;
     const ttSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
@@ -915,7 +962,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // comes from a content hash — never the shared rand stream — so arming
   // the carve cannot reshuffle shipped candidates.
   const sliderGroups = [];
-  {
+  if (!wind) {
     const wantSlider = force.slider || 0;
     const pSlider = (b.mech || {}).slider || 0;
     const sliderSeed = path.map((pt) => pt.join(',')).join(';') + '|' + start + '|' + goal;
@@ -1073,7 +1120,9 @@ export function applyHazards(layout, b, rand, opts = {}) {
     }
   }
   const orbs = [];
-  const orbCount = int(b.orbs[0], b.orbs[1]);
+  // the breeze never shares a level with a patrol (ADR-039): a crossing
+  // needs a wait for its window, and the wind does not let you wait
+  const orbCount = wind ? 0 : int(b.orbs[0], b.orbs[1]);
   const usedRuns = new Set();
   for (let o = 0; o < orbCount; o++) {
     for (let ri = 0; ri < runs.length; ri++) {
@@ -1194,7 +1243,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // completes inside the nudge budget granted here. Off the patrol line
   // and clear of every mechanic, like the freeze shard.
   const heavies = [];
-  {
+  if (!wind) {
     const wantHeavy = force.heavy || 0;
     const pHeavy = (b.mech || {}).heavy || 0;
     const placeHeavy = () => {
@@ -1233,7 +1282,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   // AND uphill, so there is no climb restriction on the push-forward;
   // solveHazards proves the level still completes inside the budget.
   const blocks = [];
-  {
+  if (!wind) {
     const wantBlocks = force.blocks || 0;
     const pBlocks = (b.mech || {}).blocks || 0;
     const placeBlock = () => {
@@ -1262,7 +1311,8 @@ export function applyHazards(layout, b, rand, opts = {}) {
   }
 
   // --- crumble slabs on the route (solver proves the route survives) --------
-  const wantCrumble = int(b.crumble[0], b.crumble[1]);
+  // a one-way slab under a breeze is a trap: the drift burns it (ADR-039)
+  const wantCrumble = wind ? 0 : int(b.crumble[0], b.crumble[1]);
   const crumble = [];
   const crumbleCands = inner.filter(([cx, cz]) => {
     if (lineSet.has(`${cx},${cz}`)) return false;
@@ -1280,7 +1330,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
 
   // --- the key: an off-route deck slab (fill), off the patrol line ----------
   let keyPos = null;
-  if (b.keyP != null && rand() < b.keyP) {
+  if (!wind && b.keyP != null && rand() < b.keyP) {
     const candidates = solidSlabs.filter((t) => {
       const [fx, fz] = t.split(',').map(Number);
       if (!map[fz][fx]) return false; // carve stages since the snapshot may have voided it
@@ -1308,6 +1358,7 @@ export function applyHazards(layout, b, rand, opts = {}) {
   if (turntables.length) def.turntables = turntables;
   if (clings.length) def.clings = clings;
   if (sliderGroups.length) def.sliders = sliderGroups;
+  if (wind) def.wind = wind;
   if (shrinks.length) {
     def.shrink = shrinks;
     def.low = lows;

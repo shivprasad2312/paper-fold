@@ -236,6 +236,34 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-039 (Phase C: the breeze joins the generator — the last mechanic.
+Wind only ever moves a cube that STANDS STILL (the live loop restarts
+its timer on every animation), so a press route is never invalidated
+and wind's only real hazard is a displacement that cannot be undone in
+height — a soft-lock. Proof support is two rules-side pieces: the ONE
+drift predicate `windTarget` (slab exists, door law, low tunnel at
+full size, no block, level or ≤2 down), now called by the live game
+too, and `windLockProblems`, which walks the press-reachable set and
+its drift closure and fails any landing the finish proof cannot
+escape (a player may think for a second without being trapped).
+`parseLevel` also makes wind a ROLLING hazard by law: it never shares
+a level with clocked hazards, patrols, crumble/timed slabs, blocks,
+freeze shards or a sealed gate — what ships is L8's identity, "you
+move or the world does". The carve surfaced two latent bugs, both
+fixed: a drift onto the goal never scored (finishDrift had no goal
+check), and `mirrorDef` silently dropped the wind vector (a mirrored
+wind level would have been proven backwards). Generator: content-hash
+breeze (`#roll`/`#dir`), candidates lose the banned mechanics, a
+forced wind slot drops the act's identity forces by design, the
+breeze must move the proven route at ≥2 tiles (never decoration),
+`A` (air) in the log and the experience fingerprint (`W` is twin platforms'), wind 0.15 in Acts 7–10,
+ratchet tracks wind at 3. First slots, names preserved: teach L148
+'The Fee' (Act 8 citadel, par 39), test L167 'Bottleneck' (Act 9
+citadel, par 47), twist L184 'Unmaking' (Act 10 tower, par 48, +grip).
+Census after landing: door 18→19, conveyor 16→18, shrink 3→4,
+cling 3→4, wind 0→3; every floor holds. Wind density arc deferred;
+the remaining Phase C item is the crumble/sentinel overuse-cap
+decision, not a carve.)
 ADR-037 (Phase B item 5, the last verb: clinging — the hang-ledge.
 `clings: [[x,z]]` declares ONE void crevice between two plain slabs; a
 press INTO it from either bank catches the far face, hangs a beat and
