@@ -518,9 +518,13 @@ lift 4→11, shrink 4→13, cling 4→11, turntable 3→9, piston 3→8,
 slider 3→8 and wind 3→7 (catalogue 51–200), and the batch added the
 complexity ceiling `MECH_CAP = 9` — the shipped maximum — so bulk
 density work can never produce an unreadable eleven-mechanic board.
-Next: the fourth density batch (the remaining slots toward 12+ for the
-Phase B verbs), the crumble/sentinel overuse-cap decision, and Phase
-E meta.
+**Phase C batch 4 shipped** (ADR-041): 19 further slots close all
+seven arcs at 12+ in the catalogue — lift 13, shrink 17, piston 12,
+turntable 14, cling 15, slider 12, wind 12 — with the twin/proximity
+ratchet floors restored by force-carving rather than lowered, and the
+generator now mirrors BEFORE it proves (a piston mirror-law bug under
+Act 8's z-flip had been shipping layouts the verifier never saw).
+Next: the crumble/sentinel overuse-cap decision, then Phase E meta.
 
 ---
 

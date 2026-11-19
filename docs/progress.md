@@ -236,6 +236,29 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-041 (Phase C batch 4: the density arcs close, and the mirror law
+gets a proof. Nineteen slots re-cut across Acts 7/8/9/10 — the seven
+scarce mechanics reach 12+ in the catalogue: lift 13, shrink 17,
+piston 12, turntable 14, cling 15, slider 12, wind 12, every one up
+from ADR-040's 11/13/8/9/11/8/7. The ratchet caught the re-rolls
+first: twin fell 15→13 and proximity 21→18, and neither floor was
+lowered — the affected slots were re-cut with `force.twin` /
+`force.proximity` (L195, L150 as turntable+twin; L150/L195/L196/L177
+with +proximity), restoring twin 15 and proximity 21. L149 exposed the
+batch's real bug: the piston mirror negated `dx` unconditionally, so
+under Act 8's z-flip the arm pushed into a void cell and the level
+would not parse. The generator had been proving the PRE-mirror carve
+and trusting the symmetry, so the fix is structural — the candidate is
+now mirrored FIRST and the whole verifier gate runs on the shipped
+def (byte-identical regeneration of L149 confirms no content churn).
+The symmetry is not exact anyway: shuttle dock height comes from an
+ordered neighbour scan, so L38 x-mirrored is unsolvable (par −1);
+hand-authored levels are never mirrored, which is precisely why the
+mirrored def must be proven, not reasoned about. The mirror law moved
+to `scripts/mirror.mjs` and is pinned by `tests/unit/mirror.test.mjs`
+(direction law per axis, involution, and equal par for both mirrors
+of all 150 generated levels); direction negation normalises −0.
+Unit 163/163, verify 200 + 14, live 20/20 changed levels + daily.)
 ADR-040 (Phase C batch 3: the density arcs, and the complexity
 ceiling. The Phase B verbs and the two Phase C carves shipped with
 first slots only — lifts on 4 levels, shrinks 4, pistons 3,

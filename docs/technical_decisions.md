@@ -2035,3 +2035,89 @@ slider 8, wind 7 (whole-game counts are higher — 24/20/18/26/22/19/15).
 A fourth batch schedules the remaining slots; the ceiling makes that
 safe to do in bulk. The ≤55% crumble/sentinel overuse-cap decision is
 still open.
+
+### ADR-041 — Phase C batch 4: the density arcs close, and the mirror law gets a proof
+
+**Context.** ADR-040 closed batch 3 with the Phase B verbs still short of
+the 12+ target: in the catalogue (51–200) lift stood at 11, turntable 9,
+piston 8, cling 11, slider 8 and wind 7. Batch 4 schedules the remaining
+slots so every scarce mechanic reaches 12 — the point where a mechanic
+recurs often enough to be a habit rather than an event.
+
+**The slot schedule (19 re-cuts, one mechanic forced per slot).**
+
+| act | slots | mechanics |
+|---|---|---|
+| 7 (121–140) | L122 Crossing Time, L124 Ropewalk, L135 The Span, L136 Loosemooring | slider, turntable, lift, piston |
+| 8 (141–160) | L141 The Toll, L142 Lockbox, L145 The Ransom, L149 Lockpick Alley, L150 The Vault Door, L154 Custody, L155 The Gatehouse | wind ×3, piston, turntable, slider, cling |
+| 9 (161–180) | L174 The Pileup, L175 Strainpoint, L177 Crammed, L178 The Bottleneck | wind, piston, slider, turntable |
+| 10 (181–200) | L195 The Last Step, L196 The Ascent Complete, L197 Beyond the Line, L198 The Spire Reclimbed | turntable, piston, wind, slider |
+
+**Census after the batch (catalogue 51–200).** lift 13, shrink 17,
+piston 12, turntable 14, cling 15, slider 12, wind 12 — every Phase C
+arc at or above 12, up from 11/13/8/9/11/8/7. The surrounding stage
+moved with the re-cuts: door 25, pulse 24, timed 26, conveyor 25, twin
+15, freeze 24, heavy 27, proximity 21, blocks 16. Whole-game counts
+(1–200) are lift 26, shrink 34, piston 24, turntable 28, cling 30,
+slider 25, wind 25.
+
+**The ratchet caught the re-rolls, twice.** The first batch-4 pass
+stripped *twin* platforms from L195 and dropped *proximity* sentinels
+from six re-cut slots; the density ratchet failed at twin 13 (floor 15)
+and proximity 18 (floor 21). Neither floor was lowered. The floors name
+content the campaign actually had, so the content was re-cut back:
+`force.twin` and `force.proximity` are ordinary force keys, and
+re-running the affected slots with them — L195 and L150 as
+`turntable+twin`, L150/L195/L196/L177 as `…+proximity` — restored twin
+15 and proximity 21. This is the ratchet doing exactly what ADR-031
+asked: a regeneration that silently removes a mechanic breaks the build
+instead of shipping.
+
+**The mirror law (the batch's real find).** L149 would not parse:
+`piston 0 strike cell 7,9 is not a slab`. The piston's push direction
+was mirrored as `dx: -dx` unconditionally — correct for an x-flip
+(east-west), wrong for Act 8's z-flip (north-south), where the arm must
+mirror to `dz: -dz` and keep `dx`. The mirrored level therefore pushed
+into a void cell. Two consequences, in order of importance:
+
+1. **The generator proved the wrong board.** It verified the
+   *pre-mirror* carve and trusted the mirror to be a true symmetry, so a
+   mirror bug could ship a level that was never proven. The fix is
+   structural: **mirror first, then prove.** `gen-campaign2.mjs` now
+   mirrors the candidate immediately after the hazard stage and runs the
+   entire verifier gate on the def as shipped. The symmetry argument is
+   no longer load-bearing; the generated layout is the verified layout.
+   Byte-identical regeneration of L149 confirmed the change is
+   behaviour-preserving on the current catalogue while making the
+   guarantee sound.
+2. **The symmetry is not exact even where it parses.** `parseLevel`
+   derives a shuttle dock's platform height from the *first* solid
+   neighbour in a fixed order (west, east, north, south). That scan is
+   not mirror-invariant: L38's dock has a height-1 neighbour west and a
+   height-3 neighbour east, so the platform flies at 2; x-mirrored it
+   flies at 3 and the level is unsolvable (par −1). Hand-authored levels
+   are never mirrored at runtime, so nothing shipped is broken — but it
+   is the standing reason the generator must prove the mirrored board
+   rather than reason about it. The parser's dock-height rule is left
+   alone deliberately: changing it would re-price every shipped shuttle
+   level for a case the game never exercises.
+
+The mirror machinery moved to `scripts/mirror.mjs` so the law can be
+tested without importing (and thereby running) the generator:
+`tests/unit/mirror.test.mjs` pins the direction law for conveyors,
+pistons and wind under both axes, involution (flip twice = identity),
+and — over all 150 generated levels — that either mirror parses and
+keeps the same par and mechanic signature. Direction negation is
+normalised (`rev(0) === 0`) so a mirrored `0` component is not `-0`, a
+value that serialises identically to `0` but fails strict equality.
+
+**The par cliff, again.** Re-cutting L149 and L150 pushed the pair to
+par 50 and 46; the earlier L150 (par 32) sat 18 rolls below L149, over
+the 16-roll intra-act cap. The final pair steps 50→46, and Act 9's band
+([36,58]) holds across the batch.
+
+**Verification.** Unit **163/163** (five new mirror tests), file gate
+**200 levels + 14 dailies**, live play of all **19 changed levels
+(20/20 with the daily, zero page errors)**, then the full pre-commit
+gate. The seven density arcs are closed; the ≤55% crumble/sentinel
+overuse-cap decision and Phase E meta are what remain in Phase C/E.

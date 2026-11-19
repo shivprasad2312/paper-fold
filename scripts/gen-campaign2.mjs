@@ -33,6 +33,7 @@ import {
 } from '../src/rules.js';
 import { ARCHETYPES } from './archetypes.mjs';
 import { applyHazards } from './hazards.mjs';
+import { mirrorDef } from './mirror.mjs';
 import { experienceFingerprint, sequenceProblems, mechanicSignature, MECH_CAP } from './experience.mjs';
 import { ACTS, actForId, isActEnd } from '../src/acts.js';
 import { CAMPAIGN } from '../src/campaign.js';
@@ -267,76 +268,6 @@ function isUnique(def, seenSigs, recentTileSets) {
   return { sig: h, ts };
 }
 
-/**
- * Mirror a PROVEN level def about the 'x' (east-west) or 'z' (north-south)
- * axis — the M2.5 orientation rotation (acts.js `flip`). Every move rule is
- * mirror-symmetric (climb 1 / drop 2, patrols, spring/ice resolves, shuttle
- * docks, the sealed goal), so the verifier's proof carries over unchanged;
- * the file-level verifier (scripts/verify-levels.mjs) re-proves it anyway.
- */
-function mirrorDef(def, axis) {
-  const H = def.map.length;
-  const W = def.map[0].length;
-  const T = ([x, z]) => (axis === 'x' ? [W - 1 - x, z] : [x, H - 1 - z]);
-  const mirrorPts = (pts) => pts.map(([x, z]) => T([x, z]));
-  const out = {
-    ...def,
-    map: axis === 'z' ? [...def.map].reverse() : def.map.map((row) => [...row].reverse().join('')),
-    start: T(def.start),
-    goal: T(def.goal),
-  };
-  if (def.shards) out.shards = mirrorPts(def.shards);
-  if (def.crumble) out.crumble = mirrorPts(def.crumble);
-  if (def.orbs) out.orbs = def.orbs.map((o) => ({ ...o, path: mirrorPts(o.path) }));
-  if (def.shuttles) out.shuttles = def.shuttles.map((s) => ({ ...s, a: T(s.a), b: T(s.b) }));
-  if (def.springs) out.springs = mirrorPts(def.springs);
-  if (def.ice) out.ice = mirrorPts(def.ice);
-  if (def.conveyors) {
-    // belt directions mirror with the board: an x-flip reverses dx, a
-    // z-flip reverses dz (the belt still points along the mirrored run)
-    out.conveyors = def.conveyors.map(([x, z, dx, dz]) => {
-      const [mx, mz] = T([x, z]);
-      return [mx, mz, axis === 'x' ? -dx : dx, axis === 'z' ? -dz : dz];
-    });
-  }
-  if (def.doors) {
-    // plate and doorway mirror together — the pairing is positional, so
-    // the mirrored plate still sits beside the mirrored doorway
-    out.doors = def.doors.map((d) => ({ plate: T(d.plate), at: T(d.at) }));
-  }
-  if (def.timed) out.timed = mirrorPts(def.timed);
-  if (def.freeze) out.freeze = mirrorPts(def.freeze);
-  if (def.heavy) out.heavy = mirrorPts(def.heavy);
-  if (def.blocks) out.blocks = mirrorPts(def.blocks);
-  if (def.pulse) out.pulse = mirrorPts(def.pulse);
-  if (def.lifts) out.lifts = def.lifts.map((l) => ({ ...l, at: T(l.at) }));
-  // piston pushers (Phase B, ADR-035): base mirrors, the push reverses
-  if (def.pistons) out.pistons = def.pistons.map((pn) => ({ ...pn, at: T(pn.at), dx: -pn.dx }));
-  // turntable bridges (Phase B, ADR-036): the bar is axis-symmetric, the
-  // pivot simply mirrors (a mirrored spin reads identically)
-  if (def.turntables) out.turntables = def.turntables.map((tt) => ({ ...tt, at: T(tt.at) }));
-  // sliding bridges (ADR-038): a group is a set of tiles — mirror the set
-  // (the period/phase clock is orientation-free)
-  if (def.sliders) out.sliders = def.sliders.map((g) => ({ ...g, tiles: mirrorPts(g.tiles) }));
-  // clinging (Phase B, ADR-037): a crevice is a point — the grip pair
-  // mirrors with the board and both banks move with it
-  if (def.clings) out.clings = mirrorPts(def.clings);
-  // the breeze (ADR-039) is a VECTOR: an x-flip reverses dx, a z-flip dz
-  // (a wind level mirrored without this would be proven in the wrong
-  // direction — the mirror law applies to every coordinate-carrying field)
-  if (def.wind) {
-    out.wind = {
-      x: axis === 'x' ? -def.wind.x : def.wind.x,
-      z: axis === 'z' ? -def.wind.z : def.wind.z,
-    };
-  }
-  if (def.shrink) out.shrink = mirrorPts(def.shrink);
-  if (def.grow) out.grow = mirrorPts(def.grow);
-  if (def.low) out.low = mirrorPts(def.low);
-  if (def.key) out.key = T(def.key);
-  return out;
-}
-
 // ---------------------------------------------------------------------------
 // seed the uniqueness set with the shipped levels (1–50)
 const seenSigs = new Set();
@@ -480,6 +411,16 @@ for (let id = FIRST; id <= LAST; id++) {
     let cand = applyHazards(layout, bEff, rand, { force: allForce });
     if (!cand) continue;
     cand = { ...cand, id, name: '', hint: act.gen.hint };
+    // MIRROR FIRST, THEN PROVE (ADR-041). The shipped layout is the mirrored
+    // one, so it — not the pre-mirror carve — is what the gate must accept.
+    // The old order proved the carve and trusted the mirror to be a true
+    // symmetry; that trust is unwarranted: a shuttle dock's height is
+    // derived from an ORDERED neighbour scan (west, east, north, south), so
+    // an x-flip can land the platform a storey off and the mirrored level is
+    // no longer the level that was proven. L38 (hand-authored) is the
+    // standing example: x-mirrored it is unsolvable. Mirror-then-verify
+    // makes the symmetry argument unnecessary.
+    if (act.gen.flip) cand = mirrorDef(cand, act.gen.flip);
     let rep = verify(cand, bEff, 0);
     if (process.env.KUBIK_PROBE && rep && !rep.ok && attempt < 4) {
       console.error(`  probe L${id} attempt ${attempt}: orbs=${(cand.orbs||[]).length} ${JSON.stringify((rep.problems||[]).slice(0,3))}`);
@@ -547,9 +488,9 @@ for (let id = FIRST; id <= LAST; id++) {
     const uniq = isUnique(cand, seenSigs, recentTileSets);
     const s = score(cand, rep.par, bEff);
     const o = (cand.orbs || []).length;
-    // experience fingerprint of the level as the player will meet it
-    // (post-mirror), and whether it keeps the local sequence diverse
-    const expFp = experienceFingerprint(act.gen.flip ? mirrorDef(cand, act.gen.flip) : cand, rep.par);
+    // experience fingerprint of the level as the player will meet it —
+    // the def is already mirrored, so this is the shipped layout
+    const expFp = experienceFingerprint(cand, rep.par);
     const expOk = sequenceProblems(expFp, recentExperience).length === 0;
     if (uniq && expOk && (!best || rankRelief(cand, s, rep.par) > rankRelief(best.cand, best.s, best.rep.par))) best = { cand, rep, s, uniq, expFp };
     if (!bestAny || rankRelief(cand, s, rep.par) > rankRelief(bestAny.cand, bestAny.s, bestAny.rep.par)) bestAny = { cand, rep, s, uniq, expFp };
@@ -619,7 +560,6 @@ for (let id = FIRST; id <= LAST; id++) {
   }
 
   // orientation rotation (M2.5): mirror the proven level per act budget
-  if (act.gen.flip) def = mirrorDef(def, act.gen.flip);
 
   // remember the archetype (rotation window: last 2 in this act)
   archRecent[act.id] = [...(archRecent[act.id] || []), arch].slice(-2);
