@@ -1,7 +1,7 @@
 # KUBIK nightly full-play — the backstop of the stratified gate (ADR-015, M2).
 #
 # Every commit plays the CHANGED levels plus a rotating 50-level quarter;
-# this job plays ALL 200 levels in a real browser, daily at 02:00 UTC and
+# this job plays ALL 200 campaign levels + the 10 Vault rooms in a real browser, daily at 02:00 UTC and
 # on demand, so anything the rotation has not yet reached is still checked
 # at least once a day.
 name: Nightly full play
@@ -37,8 +37,8 @@ jobs:
             sleep 1
           done
 
-      - name: Verify (pure-Node solvability proof, all 200)
+      - name: Verify (pure-Node solvability proof, all 200 + Vault)
         run: npm run verify
 
-      - name: Play ALL 200 levels in a real browser
+      - name: Play ALL 210 levels in a real browser
         run: URL=http://127.0.0.1:4173/ npm run test:play:all

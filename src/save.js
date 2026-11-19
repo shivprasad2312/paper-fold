@@ -1,3 +1,5 @@
+import { gradeFor, betterGrade, GRADE } from './meta.js';
+
 const KEY = 'kubik.save.v1';
 
 const DEFAULTS = {
@@ -63,14 +65,17 @@ export function betterMedal(a, b) {
   return (MEDAL_RANK[b] || 0) > (MEDAL_RANK[a] || 0) ? b : a;
 }
 
-export function recordWin(data, id, time, shards, moves, { par = null, total = 0 } = {}) {
+export function recordWin(data, id, time, shards, moves, { par = null, total = 0, deaths = 0 } = {}) {
   const medal = medalFor({ time, shards, total, moves, par });
-  const prev = data.best[id] || { time: Infinity, shards: 0, moves: Infinity, medal: 'none' };
+  const grade = gradeFor({ moves, par, shards, total, deaths });
+  const prev = data.best[id] || { time: Infinity, shards: 0, moves: Infinity, medal: 'none', grade: GRADE.none };
   data.best[id] = {
     time: Math.min(prev.time, time),
     shards: Math.max(prev.shards, shards),
     moves: Math.min(prev.moves ?? Infinity, moves ?? Infinity),
     medal: betterMedal(prev.medal || 'none', medal),
+    // mastery is monotone: one sloppy run never erases a FLAWLESS seal
+    grade: betterGrade(prev.grade || GRADE.none, grade),
   };
   data.unlocked = Math.max(data.unlocked, id + 1);
   data.lastLevel = Math.min(id + 1, data.unlocked);

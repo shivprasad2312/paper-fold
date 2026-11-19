@@ -1,8 +1,11 @@
 import { Game } from './game.js';
-import { LEVELS } from './levels.js';
+import { LEVELS, VAULT_LEVELS, ALL_LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
 import { AudioEngine } from './audio.js';
 import { loadSave, writeSave, recordWin, recordGhost, recordDaily, medalFor, fmtTime } from './save.js';
+import {
+  GRADE_LABEL, gradeFor, savedGrade, streakInfo, vaultProgress, VAULT_SHARD_STEP,
+} from './meta.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -23,6 +26,7 @@ const el = {
   hudMech: $('hud-mech'),
   winSteps: $('win-steps'),
   winMedal: $('win-medal'),
+  winGrade: $('win-grade'),
   hint: $('hint'),
   menu: $('menu'),
   levels: $('levels'),
@@ -291,7 +295,7 @@ function armGhost(id) {
 }
 
 function startLevel(index, { animate = true } = {}) {
-  index = Math.max(0, Math.min(LEVELS.length - 1, index));
+  index = Math.max(0, Math.min(ALL_LEVELS.length - 1, index));
   unlockAudio();
   audio.setLevel(index);
   clearTimeout(winShowTimer);
@@ -305,7 +309,7 @@ function startLevel(index, { animate = true } = {}) {
   game.setPaused(false);
   armGhost(def.id);
 
-  el.index.textContent = String(def.id).padStart(2, '0');
+  el.index.textContent = levelTag(def);
   el.name.textContent = def.name;
   el.timer.textContent = fmtTime(0);
   updateShardHud();
@@ -368,7 +372,7 @@ function openMenu() {
   hide(el.levels);
   hideHint();
   show(el.menu);
-  game.load(Math.max(0, Math.min(LEVELS.length - 1, (save.lastLevel || 1) - 1)));
+  game.load(Math.max(0, Math.min(ALL_LEVELS.length - 1, (save.lastLevel || 1) - 1)));
   game.setPaused(true);
   audio.stopMusic();
 }
@@ -384,6 +388,27 @@ function openLevels() {
   renderLevelGrid();
 }
 
+/**
+ * The Vault's rooms are numbered V01–V10 in the HUD and the grid; the
+ * campaign keeps its own 01–200. Two namespaces, one level list.
+ */
+function levelTag(def) {
+  return def.id > 200 ? `V${String(def.id - 200).padStart(2, '0')}` : String(def.id).padStart(2, '0');
+}
+
+/**
+ * The mastery seal (Phase E, ADR-043): three notches — CLEAR, SWIFT,
+ * FLAWLESS. Empty notches are drawn, not hidden: a card with two of three
+ * lights is an invitation, and a card with none still shows what is there
+ * to win.
+ */
+function gradeSeal(grade, { size = '' } = {}) {
+  const g = grade || 0;
+  const label = GRADE_LABEL[g] || GRADE_LABEL[0];
+  return `<span class="seal${size ? ` seal-${size}` : ''}" title="Mastery — ${label}" aria-label="${label}">`
+    + `<i class="${g >= 1 ? 'on' : ''}"></i><i class="${g >= 2 ? 'on' : ''}"></i><i class="${g >= 3 ? 'on' : ''}"></i></span>`;
+}
+
 function medalBadge(medal) {
   if (!medal || medal === 'none') return '';
   return `<span class="medal medal-${medal}" title="${medal} medal">${medal[0].toUpperCase()}</span>`;
@@ -395,6 +420,10 @@ function renderLevelGrid() {
   // Daily challenge card, pinned to the top of the select screen.
   const dateStr = todayStr();
   const dailyPrev = save.daily[dateStr];
+  const streak = streakInfo(save.daily);
+  const streakLine = streak.current > 0
+    ? `streak ${streak.current}${streak.perfectWeek ? ' · perfect week' : ''}`
+    : 'start a streak today';
   const dailyCard = document.createElement('button');
   dailyCard.className = 'level-card daily-card';
   dailyCard.innerHTML = `
@@ -402,7 +431,8 @@ function renderLevelGrid() {
     ${medalBadge(dailyPrev?.medal)}
     ${dailyPrev ? `<span class="best">${fmtTime(dailyPrev.time)}</span>` : ''}
     <span class="lname">Daily Challenge</span>
-    <span class="ldesc">${dateStr.slice(5)} · fresh each day</span>
+    <span class="ldesc">${dateStr.slice(5)} · ${streakLine}</span>
+    ${streak.current > 0 ? `<span class="streak${streak.perfectWeek ? ' week' : ''}" title="${streak.current} day streak">${streak.current}</span>` : ''}
   `;
   dailyCard.addEventListener('click', () => {
     audio.sfx('ui');
@@ -462,6 +492,7 @@ function renderLevelGrid() {
         <span class="lname">${def.name}</span>
         <span class="dots">${Array.from({ length: totalShards }, (_, d) =>
           `<i class="dot${d < got ? ' on' : ''}"></i>`).join('')}</span>
+        ${gradeSeal(savedGrade(best))}
       `;
       card.addEventListener('click', () => {
         audio.sfx('ui');
@@ -470,6 +501,73 @@ function renderLevelGrid() {
       el.grid.appendChild(card);
     }
   }
+
+  renderVaultSection();
+}
+
+/**
+ * The Vault (Phase E, ADR-043): ten bonus rooms outside the campaign,
+ * sealed by TOTAL SHARDS — the completionist's ladder. The campaign's 200
+ * stay open from the start (the all-open rule is untouched); these are the
+ * only locked content in the game, and the lock is bought with play, never
+ * with progression.
+ */
+function renderVaultSection() {
+  const progress = vaultProgress(save.best, VAULT_LEVELS.length);
+  const C = 2 * Math.PI * 15.5;
+  const pct = VAULT_LEVELS.length ? progress.open / VAULT_LEVELS.length : 0;
+
+  const header = document.createElement('div');
+  header.className = 'act-header vault-header';
+  header.innerHTML = `
+    <svg class="act-ring" viewBox="0 0 36 36" aria-hidden="true">
+      <circle class="act-ring-bg" cx="18" cy="18" r="15.5"></circle>
+      <circle class="act-ring-fg" cx="18" cy="18" r="15.5"
+        stroke-dasharray="${C.toFixed(1)}"
+        stroke-dashoffset="${(C * (1 - pct)).toFixed(1)}"></circle>
+    </svg>
+    <div class="act-meta">
+      <span class="act-no">THE VAULT</span>
+      <span class="act-name">Bonus rooms</span>
+      <span class="act-tag">${progress.nextAt == null
+        ? 'every room open'
+        : `${progress.toNext} shards to the next seal · ${progress.shards} total`}</span>
+    </div>
+    <span class="act-count">${progress.open}/${VAULT_LEVELS.length}</span>
+  `;
+  el.grid.appendChild(header);
+
+  VAULT_LEVELS.forEach((def, vi) => {
+    const open = vi < progress.open;
+    const best = save.best[def.id];
+    const card = document.createElement('button');
+    card.className = 'level-card vault-card' + (open ? '' : ' locked') + (def.boss ? ' boss-arena' : '');
+    const totalShards = (def.shards || []).length;
+    const got = best ? best.shards : 0;
+    card.innerHTML = `
+      <span class="num">${levelTag(def)}</span>
+      ${open ? medalBadge(best?.medal) : '<span class="vault-lock" aria-hidden="true">✕</span>'}
+      ${open && best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
+      <span class="lname">${open ? def.name : 'Sealed'}</span>
+      <span class="ldesc">${open
+        ? def.hint
+        : `${(vi + 1) * VAULT_SHARD_STEP} shards to open`}</span>
+      ${open
+        ? `<span class="dots">${Array.from({ length: totalShards }, (_, d) =>
+            `<i class="dot${d < got ? ' on' : ''}"></i>`).join('')}</span>${gradeSeal(savedGrade(best))}`
+        : ''}
+    `;
+    if (open) {
+      card.addEventListener('click', () => {
+        audio.sfx('ui');
+        startLevel(LEVELS.length + vi);
+      });
+    } else {
+      card.disabled = true;
+      card.setAttribute('aria-disabled', 'true');
+    }
+    el.grid.appendChild(card);
+  });
 }
 
 function pauseGame() {
@@ -517,7 +615,7 @@ function nextLevel() {
     return;
   }
   const next = game.levelIndex + 1;
-  if (next < LEVELS.length) startLevel(next);
+  if (next < ALL_LEVELS.length) startLevel(next);
   else openLevels();
 }
 
@@ -659,7 +757,7 @@ function toggleSound() {
 // ------------------------------------------------------------------ wiring --
 $('btn-play').addEventListener('click', () => {
   audio.sfx('ui');
-  startLevel(Math.max(0, Math.min(LEVELS.length - 1, (save.lastLevel || 1) - 1)));
+  startLevel(Math.max(0, Math.min(ALL_LEVELS.length - 1, (save.lastLevel || 1) - 1)));
 });
 $('btn-levels').addEventListener('click', () => {
   audio.sfx('ui');
@@ -804,6 +902,7 @@ game.on('win', (res) => {
   const isDaily = !!res.daily;
   const id = isDaily ? `daily:${res.daily}` : game.def.id;
   const medal = medalFor(res);
+  const grade = gradeFor(res);
   const log = game.getMoveLog();
 
   // A rescued clear counts as a clear, but its time/route don't enter the
@@ -813,7 +912,9 @@ game.on('win', (res) => {
   } else if (isDaily) {
     save = recordDaily(save, res.daily, res);
   } else {
-    save = recordWin(save, game.def.id, res.time, res.shards, res.moves, { par: res.par, total: res.total });
+    save = recordWin(save, game.def.id, res.time, res.shards, res.moves, {
+      par: res.par, total: res.total, deaths: res.deaths,
+    });
   }
   if (!res.rescued) save = recordGhost(save, id, res.time, log); // next run races this one
 
@@ -841,7 +942,13 @@ game.on('win', (res) => {
   el.winMedal.textContent = medal === 'none' ? '' : medal.toUpperCase();
   el.winMedal.className = 'win-medal' + (medal !== 'none' ? ` medal-${medal}` : ' hidden');
 
-  el.next.style.display = isDaily || game.levelIndex + 1 >= LEVELS.length ? 'none' : '';
+  // the mastery seal: what this run earned on the route axis (par + shards +
+  // no death), independent of the medal's speed axis
+  el.winGrade.innerHTML = `${gradeSeal(grade, { size: 'lg' })}<span class="win-grade-label">${GRADE_LABEL[grade]}</span>`
+    + (res.rescued ? '<span class="win-grade-note">not recorded — rescue</span>' : '');
+  el.winGrade.className = 'win-grade';
+
+  el.next.style.display = isDaily || game.levelIndex + 1 >= ALL_LEVELS.length ? 'none' : '';
   el.next.textContent = 'Next level';
 
   clearTimeout(winShowTimer);
@@ -853,7 +960,7 @@ game.on('win', (res) => {
 });
 
 game.on('level', ({ def }) => {
-  el.index.textContent = String(def.id).padStart(2, '0');
+  el.index.textContent = levelTag(def);
   el.name.textContent = def.name;
   updateMechanicHud();
 });
@@ -875,7 +982,7 @@ game.setCamQuadrant(save.cam || 0);
 el.soundBtn.classList.toggle('muted', !save.sound);
 document.body.classList.toggle('touch', isTouch);
 
-game.load(Math.max(0, Math.min(LEVELS.length - 1, (save.lastLevel || 1) - 1)));
+game.load(Math.max(0, Math.min(ALL_LEVELS.length - 1, (save.lastLevel || 1) - 1)));
 armGhost(game.def.id);
 game.setPaused(true);
 updateShardHud();

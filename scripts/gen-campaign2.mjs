@@ -34,6 +34,7 @@ import {
 import { ARCHETYPES } from './archetypes.mjs';
 import { applyHazards } from './hazards.mjs';
 import { mirrorDef } from './mirror.mjs';
+import { verify } from './level-gate.mjs';
 import { experienceFingerprint, sequenceProblems, mechanicSignature, MECH_CAP } from './experience.mjs';
 import { ACTS, actForId, isActEnd } from '../src/acts.js';
 import { CAMPAIGN } from '../src/campaign.js';
@@ -128,78 +129,6 @@ function pickArchetype(id, act, recent, forcedArch) {
     force.spring = 1;
   }
   return { arch, force };
-}
-
-/**
- * Full verifier gate (the same checks the hand-made levels pass) + bench.
- * Ordered CHEAP→EXPENSIVE: the par and reachability rejections are cheap BFS
- * and must run before the sentinel-timing model (a full state-space search),
- * or a dense act-end level burns minutes on candidates that fail their par.
- */
-function verify(def, b, minOrbs) {
-  const problems = [];
-  let level;
-  try {
-    level = parseLevel(def);
-  } catch (err) {
-    return { ok: false, problems: [err.message], par: -1 };
-  }
-  // — cheap -------------------------------------------------------------
-  for (const p of spawnProblems(level)) problems.push(p);
-  const par = shortestRoute(level);
-  if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
-  // clinging (Phase B, ADR-037): a declared grip crevice must SHORTEN the
-  // proven route — a crevice the optimal line walks around is decoration,
-  // rejected like a lift that joins no two banks. Two BFS runs, only on
-  // defs that carry clings.
-  if ((def.clings || []).length) {
-    const p0 = shortestRoute(parseLevel({ ...def, clings: undefined }));
-    if (!(par > 0) || !(p0 > par)) problems.push(`cling does not shorten the route (${p0} → ${par})`);
-  }
-  // the complexity ceiling (ADR-040): candidates over the cap are rejected
-  // here, while the generator still has a choice — the file-level audit is
-  // the backstop, this is what keeps the density carves readable
-  const mechN = mechanicSignature(def).length;
-  if (mechN > MECH_CAP) problems.push(`${mechN} distinct mechanics (cap ${MECH_CAP})`);
-  for (const orb of level.orbs) {
-    for (const [x, z] of orb.path) {
-      if (!level.tiles.has(key(Math.round(x), Math.round(z)))) problems.push(`orb over void ${x},${z}`);
-    }
-  }
-  // the breeze (ADR-039): it must actually move the proven route (never
-  // decoration) and it may never strand the cube — the same audit the
-  // file-level verifier runs, so a generated level cannot outrun it
-  if (level.wind) {
-    const pth = shortestPath(level) || [];
-    const moved = pth.filter((t) => windTarget(level, t)).length;
-    if (moved < 2) problems.push(`wind only moves the cube at ${moved} route tile(s) — decoration`);
-    for (const p of windLockProblems(level)) problems.push(p);
-  }
-  if ((level.orbs || []).length < minOrbs) problems.push(`too few sentinels (band wants ≥ ${minOrbs})`);
-  for (const sh of level.shuttles) {
-    if (sh.wait < ROLL_TIME * 2.2) problems.push('shuttle dwell too short to board');
-  }
-  // — medium -------------------------------------------------------------
-  const reach = reachable(level);
-  const finish = canStillFinish(level);
-  if (!reach.has(key(level.goal.x, level.goal.z))) problems.push('goal unreachable');
-  for (const k of reach) {
-    if (!finish.has(k)) problems.push(`soft-lock at ${k}`);
-  }
-  for (const s of level.shards) if (!reach.has(s.id)) problems.push(`shard ${s.x},${s.z} unreachable`);
-  if (level.gateKey && !reachable(level, new Set([key(level.goal.x, level.goal.z)])).has(key(level.gateKey.x, level.gateKey.z))) problems.push('key unreachable (sealed goal blocks the cut)');
-  const solve = solveHazards(level);
-  if (!solve.ok) problems.push('no route survives crumble/blocks');
-  if (solve.capped) problems.push('hazard search capped');
-  // — expensive: only candidates that survived all of the above -----------
-  if (!problems.length) {
-    for (const p of timingProblems(level)) problems.push(`timing: ${p}`);
-    const bench = rescueTile(level);
-    if (bench && !fairReachSet(level, bench, !!level.gateKey).has(key(level.goal.x, level.goal.z))) {
-      problems.push('no fair route from the rescue bench to the goal');
-    }
-  }
-  return { ok: problems.length === 0, problems, par };
 }
 
 /** Fairness-only failures: sentinel-timing windows and the bench route are

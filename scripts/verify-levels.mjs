@@ -3,7 +3,7 @@
 // exists, and — the check that caught the Fault Line bug — no sentinel
 // spawns on top of the player or patrols the goal.
 //   node scripts/verify-levels.mjs
-import { LEVELS } from '../src/levels.js';
+import { LEVELS, VAULT_LEVELS } from '../src/levels.js';
 import { getDailyLevel } from '../src/daily.js';
 import {
   parseLevel,
@@ -156,6 +156,13 @@ function checkLevel(label, def) {
 
 for (const def of LEVELS) checkLevel(`${String(def.id).padStart(2, '0')} ${def.name}`, def);
 
+// The Vault (Phase E, ADR-043): ten bonus rooms proved by the SAME checks.
+// They are outside the campaign's sequence audit, so they get their own —
+// a room over the complexity cap or repeating its neighbour back-to-back is
+// rejected here exactly as it would be in the campaign.
+console.log('\nTHE VAULT (bonus rooms)');
+for (const def of VAULT_LEVELS) checkLevel(`V${String(def.id - 200).padStart(2, '0')} ${def.name}`, def);
+
 // Experience-diversity curation gate (M2.5): the per-level proofs above say
 // every level can be finished; this says the sequence does not repeat the
 // same experience back-to-back or collapse an act into one mechanic.
@@ -164,6 +171,20 @@ console.log('\nEXPERIENCE DIVERSITY (curation gate)');
   const problems = experienceProblems(LEVELS, cataloguePars);
   for (const p of problems) fail(p);
   if (!problems.length) console.log('  sequence + act diversity ✓');
+}
+
+// The Vault's own par band and experience sequence: the rooms escalate from
+// par ~40 to the finale's ~80, and no two adjacent rooms may read alike.
+console.log('\nVAULT BAND + DIVERSITY');
+{
+  const vaultPars = new Map();
+  for (const def of VAULT_LEVELS) vaultPars.set(def.id, provenRoute(parseLevel(def)));
+  for (const def of VAULT_LEVELS) {
+    const par = vaultPars.get(def.id);
+    if (par < 38 || par > 80) fail(`V${def.id - 200} par ${par} outside the Vault band [38, 80]`);
+  }
+  for (const p of experienceProblems(VAULT_LEVELS, vaultPars)) fail(`vault sequence: ${p}`);
+  if (!failed) console.log('  band [38, 80] + sequence ✓');
 }
 
 // The daily generator must produce a legal level for every day.
@@ -180,4 +201,4 @@ if (failed) {
   console.error(`${failed} problem(s) found`);
   process.exit(1);
 }
-console.log(`All ${LEVELS.length} levels + 14 daily layouts verified ✓`);
+console.log(`All ${LEVELS.length} levels + ${VAULT_LEVELS.length} Vault rooms + 14 daily layouts verified ✓`);

@@ -2176,3 +2176,99 @@ research doc's Phase C checklist marks the item retired rather than
 done; the "pending" notes in ADR-031/032/039/040 stay as written (they
 are the record of what was open at the time) and this ADR is the
 resolution they point to.
+
+### ADR-043 — Phase E: grades, the Vault, the daily streak (mastery meta)
+
+**Context.** Phase E is the retention layer the research pass argued for
+last: per-level mastery grades, a ghost to race, bonus content behind a
+long climb, and a daily streak. The ghost already shipped in M2.5 (the
+fastest win's move log replays as a translucent cube), so this ADR covers
+the three that did not.
+
+**Grades — three notches, one axis.** Every level card and every win
+panel now carries a three-notch **mastery seal**:
+
+| notch | grade | earned by |
+|---|---|---|
+| 1 | CLEAR | finishing the level |
+| 2 | SWIFT | finishing in at most par presses |
+| 3 | FLAWLESS | par, every shard, and **no death** |
+
+This is deliberately *not* the medal. `medalFor` prices speed (a gold
+needs a sub-half-par time), which rewards the time-trial player; the
+grade prices the route and the damage, which rewards the careful one.
+Two axes, two things to chase — and the grade is monotone in the save:
+a later sloppy run can never erase a FLAWLESS seal.
+
+Deathless needed a witness, so `game.js` now counts deaths. The count is
+reset when a level loads or restarts, **never on respawn**: the whole
+point is that the retry after a fall is not a fresh run. A rescued clear
+still displays its grade but is not recorded (rescued runs stay out of
+every ranking, ADR-014).
+
+**The Vault — ten rooms behind shards.** `src/vault.js` adds rooms
+**201–210**, one per headline mechanic, at citadel scale (20×20 up to
+24×24 — the size the research approved for finale/Vault slots only).
+They live in their own module and their own export: `LEVELS` stays
+exactly the campaign (every density, act and experience rule measures
+1–200), while `ALL_LEVELS` is the play order. `game.load` indexes
+`ALL_LEVELS`; the level select renders a Vault shelf below the acts.
+
+Unlocking is by **total shards**, 60 per room (`VAULT_SHARD_STEP`): the
+first room opens after roughly fifteen good levels, the tenth at ~600 of
+the ~800 shards the campaign holds. The all-open rule for the campaign
+is untouched — the Vault is the only locked content in the game, and it
+is bought with play rather than gated by progress.
+
+**The Vault is generated, and proved by the same gate.** The campaign's
+verifier was extracted to `scripts/level-gate.mjs` and is imported by
+both `gen-campaign2.mjs` and the new `scripts/gen-vault.mjs`, so "bonus"
+never means "less verified": reachability, soft-lock freedom,
+crumble-aware solving, sentinel-timing fairness, the rescue bench, the
+`MECH_CAP` ceiling and the par band all apply. `verify-levels` proves the
+ten rooms on every commit, and the live gate plays them on any commit
+that touches `vault.js`.
+
+Each room is forced around one mechanic (lift, shrink, piston,
+turntable, cling, slider, wind, door, freeze, shuttle) and must be
+*crossed* by the proven route, exactly like a campaign slot — the
+master-class framing has to survive the proof, not merely the prose.
+
+Two floors had to be written down honestly while tuning the generator:
+
+- *Sentinels are not free at this scale.* A hard "2 sentinels + 2
+  crumble" contract made most slots unprovable, because the citadel and
+  plaza archetypes rarely expose a clean patrol run once a mechanic is
+  carved through them. The contract became a **hazard budget**: at least
+  one sentinel, and at least two of (sentinel, crumble cluster). The
+  rooms that settle at one sentinel are rich in crumble or length
+  instead, and no room is a bare walk.
+- *The breeze is a pure-movement level by parse law* (ADR-039): a wind
+  level carries no patrol and the stage never carves crumble into it.
+  Its contract is therefore the breeze itself, which the gate already
+  proves moves the route at two or more tiles. Demanding a hazard quota
+  there would have made the room unprovable for a rule the design does
+  not have.
+
+**Daily streak.** `streakInfo` counts consecutive played days from the
+save's daily keys, with one deliberate grace: if today has not been
+played yet, the streak is measured to **yesterday**, so opening the game
+in the morning shows a live streak and an invitation rather than a zero.
+A whole missed day breaks it. Seven consecutive days lights a *perfect
+week* badge (gold) on the daily card; the streak number sits on the card
+in cyan. Dates are compared as **calendar days** (`Date.UTC` of the
+local Y-M-D), not milliseconds, because a DST day is 23 or 25 hours long
+and a millisecond comparison silently breaks streaks twice a year.
+
+**Verification.** Unit **176/176** (13 new meta/Vault pins), file gate
+**200 levels + 10 Vault rooms + 14 dailies**, live play of the changed
+levels plus V01/V05/V07 (all green, zero page errors), plus a DOM smoke
+of the select screen (211 cards, 10 sealed rooms, 200 seals) and the win
+panel seal. A new unit test also pins that the Vault's own sequence
+obeys the complexity cap and that every room carries its headline
+mechanic.
+
+**Not yet.** Phase F (the playtest protocol: five fresh players per
+phase, first-try clear rates, quit points) is the remaining planned
+work; the ghost could still gain a "race your best" toggle on the win
+panel (it arms automatically today).

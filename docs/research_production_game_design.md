@@ -529,8 +529,13 @@ turntable 14, cling 15, slider 12, wind 12 — with the twin/proximity
 ratchet floors restored by force-carving rather than lowered, and the
 generator now mirrors BEFORE it proves (a piston mirror-law bug under
 Act 8's z-flip had been shipping layouts the verifier never saw).
-The crumble/sentinel overuse cap was retired (ADR-042). Next: Phase E
-meta.
+The crumble/sentinel overuse cap was retired (ADR-042). **Phase E meta
+shipped** (ADR-043): per-level mastery grades (CLEAR / SWIFT /
+FLAWLESS, a three-notch seal), the Vault (ten shard-unlocked rooms
+201–210, generated and proved by the campaign's own gate), and the daily
+streak with its perfect-week badge. The ghost shipped earlier (M2.5).
+Next: Phase F — the playtest protocol (five fresh players per phase,
+first-try clear rate, deaths per level, quit points).
 
 ---
 

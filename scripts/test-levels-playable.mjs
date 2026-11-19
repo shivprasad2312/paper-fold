@@ -38,7 +38,7 @@ if (existsSync(`${nssDir}/libnss3.so`)) {
 
 const puppeteer = (await import('puppeteer-core')).default;
 const chromium = (await import('@sparticuz/chromium')).default;
-const { LEVELS } = await import('../src/levels.js');
+const { LEVELS, VAULT_LEVELS, ALL_LEVELS } = await import('../src/levels.js');
 const { getDailyLevel } = await import('../src/daily.js');
 const {
   parseLevel,
@@ -1327,16 +1327,18 @@ console.log(
 let pass = 0;
 const t0 = Date.now();
 
-for (let i = 0; i < LEVELS.length; i++) {
-  if (ONLY.length && !ONLY.includes(i + 1)) continue;
+// the play order is campaign 1–200 then the Vault (201–210): one index space,
+// two namespaces in the log (a Vault room prints as V01, not "201")
+for (let i = 0; i < ALL_LEVELS.length; i++) {
+  const def = ALL_LEVELS[i];
+  if (ONLY.length && !ONLY.includes(def.id)) continue;
   const res = await playLevel(i);
   // dismiss the win panel between levels
   await page.evaluate(() => document.getElementById('btn-next').click());
   await wait(200);
   if (res.ok) pass++;
-  console.log(
-    `${res.ok ? '✓' : '✗'} ${String(i + 1).padStart(2, '0')} ${LEVELS[i].name} — ${res.ok ? `${res.moves} moves` : res.note}`,
-  );
+  const tag = def.id > 200 ? `V${String(def.id - 200).padStart(2, '0')}` : String(def.id).padStart(2, '0');
+  console.log(`${res.ok ? '✓' : '✗'} ${tag} ${def.name} — ${res.ok ? `${res.moves} moves` : res.note}`);
 }
 
 // today's daily challenge plays with the same live contract
@@ -1363,7 +1365,7 @@ console.log(`${dailyOk ? '✓' : '✗'} DAILY today's challenge ${dailyOk ? '' :
 // otherwise every stratified (subset) run exits red no matter what it
 // passes, and the pre-commit gate blocks every commit. M2.5, 2026-11-13
 // (the 14–50 gate passed 38/38 yet exited 1).
-const total = (ONLY.length ? ONLY.length : LEVELS.length) + 1;
+const total = (ONLY.length ? ONLY.length : ALL_LEVELS.length) + 1;
 const secs = ((Date.now() - t0) / 1000).toFixed(0);
 console.log(`\n${pass}/${total} playable (${secs}s) · page errors: ${errors.length ? errors.length : 'none'}`);
 if (errors.length) console.log('errors:', errors.slice(0, 5));

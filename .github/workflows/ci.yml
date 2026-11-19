@@ -1,9 +1,10 @@
 # KUBIK test gate — runs on every push and pull request, so a change (or a
 # new level) can never land with a level that has no completable route.
 #
-# At 200 levels the live suite is stratified (ADR-015): the push gate plays
+# At 210 playable levels the live suite is stratified (ADR-015): the push gate plays
 # the CHANGED levels plus a rotating 50-level quarter (~10 min); the FULL
-# 200 runs in the nightly workflow (nightly-full-play.yml).
+# 210 runs in the nightly workflow (nightly-full-play.yml); a commit that
+# touches src/vault.js additionally plays all ten Vault rooms (ADR-043).
 name: Test gate
 
 on:

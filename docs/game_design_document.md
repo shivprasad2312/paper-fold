@@ -162,7 +162,7 @@ chase. Levels with ≤ 4 presses have no bench (restarting is instant).
 
 - **Menu**: title, Play (current level), Levels, Daily, theme, mute, camera
   seat. No more than two taps to a rolling cube.
-- **Level select (act map)**: the 200 levels grouped into 10 acts — each
+- **Level select (act map)**: the 200 campaign levels grouped into 10 acts, plus a Vault shelf of 10 shard-unlocked bonus rooms — each
   act is a station header (progress ring + act name + tag + cleared count)
   over its 20 level cards (index, name, best medal, best time, shard dots);
   the daily card is pinned at the top. All cards active from the start

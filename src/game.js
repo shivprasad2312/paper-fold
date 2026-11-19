@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Stage } from './stage.js';
 import { buildLevelView } from './levelView.js';
-import { LEVELS } from './levels.js';
+import { ALL_LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
 import { getDailyLevel } from './daily.js';
 import { parseLevel, DIRS, checkRoll, key, shortestRoute, canPushBlock, ROLL_TIME, ORB_KILL_RADIUS, rescueTile, FREEZE_TIME, clingTarget, windTarget, WIND_PERIOD } from './rules.js';
@@ -125,8 +125,8 @@ export class Game {
 
   // --------------------------------------------------------------- level ---
   load(index, { keepState = false } = {}) {
-    this.levelIndex = Math.max(0, Math.min(LEVELS.length - 1, index));
-    const def = LEVELS[this.levelIndex];
+    this.levelIndex = Math.max(0, Math.min(ALL_LEVELS.length - 1, index));
+    const def = ALL_LEVELS[this.levelIndex];
     return this._loadDef(def, { index: this.levelIndex });
   }
 
@@ -173,6 +173,7 @@ export class Game {
     this.rescuedRun = false;
     this.rescueOffered = false;
     this.maxNudges = this.level.nudge;
+    this.deaths = 0; // per run: cleared by a new level or a restart, never by a respawn
     this.resetRunState();
 
     this.emit('level', {
@@ -207,6 +208,7 @@ export class Game {
 
   restart() {
     if (!this.level) return;
+    this.deaths = 0;
     this.resetRunState();
     this.emit('restart', { index: this.levelIndex });
   }
@@ -1244,6 +1246,7 @@ export class Game {
   // ---------------------------------------------------------------- state ---
   die(cause = 'unknown') {
     if (this.state !== 'playing') return;
+    this.deaths = (this.deaths || 0) + 1; // the FLAWLESS seal's only witness
     this.state = 'dead';
     this.deadTimer = 0;
     this.queue.length = 0;
@@ -1313,6 +1316,7 @@ export class Game {
       moves: this.moves,
       par: this.par,
       parClear: this.moves <= this.par,
+      deaths: this.deaths || 0,
       rescued: this.rescuedRun,
       hasKey: this.hasKey,
       nudgesUsed: this.maxNudges - this.nudgeLeft,

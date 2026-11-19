@@ -66,6 +66,12 @@ async function changedLevelIds() {
   if (contentFiles.has('src/levels.js')) {
     for (let id = 1; id <= 13; id++) ids.add(id); // the hand-made set is inline
   }
+  // the Vault (Phase E, ADR-043) is its own static set, played by real hands
+  // like everything else — a bonus room is not allowed to be less tested
+  if (contentFiles.has('src/vault.js')) {
+    const { VAULT } = await import(pathToFileURL(join(root, 'src/vault.js')).href);
+    VAULT.forEach((d) => ids.add(d.id));
+  }
   return [...ids].sort((a, b) => a - b);
 }
 

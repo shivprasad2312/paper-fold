@@ -12,6 +12,7 @@
 
 import { CAMPAIGN } from './campaign.js';
 import { CAMPAIGN2 } from './campaign2.js';
+import { VAULT } from './vault.js';
 
 // Levels 1–13: hand-made, each teaching one mechanic.
 const HAND = [
@@ -295,3 +296,10 @@ const HAND = [
 // the shared hazard stage, the full verifier, a uniqueness gate and a
 // curation score — ADR-015). Both are static, version-controlled data.
 export const LEVELS = [...HAND, ...CAMPAIGN, ...CAMPAIGN2];
+
+// The Vault (Phase E, ADR-043): ten bonus rooms outside the campaign. Kept in
+// its own export — the campaign's counts, acts, density ratchet and experience
+// audit all speak about 1–200, and they must keep speaking about exactly that.
+// `ALL_LEVELS` is the PLAY order (campaign then Vault) for index-based loading.
+export const VAULT_LEVELS = VAULT;
+export const ALL_LEVELS = [...LEVELS, ...VAULT];

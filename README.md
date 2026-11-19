@@ -4,7 +4,7 @@ A minimalist **cube-rolling puzzle game** that runs in the browser. Roll a glowi
 across floating geometric platforms, collect shards, dodge sentinels and cracked slabs,
 push dark cubes out of your way, time the sliding bridges, board the shuttles, surf the
 ice, spring over the pits, ride the wind and find your way down to the gate —
-a **200-level campaign in ten acts**, from a three-tile warm-up to the re-climbed
+a **200-level campaign in ten acts** plus **ten Vault rooms** unlocked with shards, from a three-tile warm-up to the re-climbed
 Broken Spire, on maps that grow from a sliver to an 18-tile EDGE-scale plateau.
 
 Built from scratch as an homage to Mobigame's classic **EDGE** — original code, art,
@@ -38,7 +38,7 @@ Other commands:
 | --- | --- |
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
-| `npm run verify` | prove all 200 levels + 14 daily layouts are solvable (pure Node, no browser) |
+| `npm run verify` | prove all 200 levels + 10 Vault rooms + 14 daily layouts are solvable (pure Node, no browser) |
 | `npm test` | **the gate**: `test:unit` + `verify` + `test:play` — logic proven, levels solvable, AND every level played to completion |
 | `npm run test:unit` | unit tests for the pure core: rules (roll law, push, crumble, soft-lock, par), save/medals, daily seeding (fast, no browser) |
 | `npm run test:play` | playable-route test: plays every level + today's daily to the win panel via real keyboard input (headless) |
@@ -47,7 +47,7 @@ Other commands:
 | `npm run perf` | measured performance vs budgets: frame cost, draw calls, adaptive-quality governor, leak check |
 | `npm run validate:levels` | full level gate in one command (unit + verifier + playable bot) |
 | `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
-| `npm run autoplay` | plays all 200 levels end to end in a headless browser |
+| `npm run autoplay` | plays all 200 levels + the Vault end to end in a headless browser |
 | `npm run hooks` | install the pre-commit test gate into this clone |
 
 The browser-based scripts drive Chromium through `puppeteer-core`; point them at a
@@ -193,7 +193,7 @@ Plus a **Daily Challenge**: a fresh layout generated from the date (seeded, then
 through the same solvability verifier — always solvable, never a spawn-kill), the same
 for everyone, with its own best time and medal.
 
-All 200 levels are open from the start — pick any of them from the level select.
+All 200 campaign levels are open from the start — pick any of them from the level select. The ten **Vault** rooms below them are the one exception: each opens with 60 total shards.
 Best times, shard counts, medals and ghost runs are stored in `localStorage`;
 there is no server and no tracking.
 
@@ -259,7 +259,8 @@ src/
   main.js       UI glue: HUD + minimap + mechanic chips, menus, input, save, flow
   game.js       game loop: rolling, pushes, wind drift, bridges, gate, ghost, states
   rules.js      pure level rules + solvability analysis (no DOM, no rendering)
-  levels.js     the full 200-level catalogue (1–13 hand-made ASCII + the campaign)
+  levels.js     the 200-level catalogue (1–13 hand-made ASCII + the campaign) + the Vault set
+  vault.js      the Vault, rooms 201–210 (generated offline, proved by the same gate)
   campaign.js   levels 14–50 as static, proven level data (generated, see scripts)
   campaign2.js  levels 51–200 as static, proven level data (generated, see scripts)
   acts.js       the ten-act difficulty curve (budgets, archetype pools, boss spikes)
@@ -271,7 +272,7 @@ src/
   textures.js   generated glow/beam textures
   style.css     UI skin — dark default + `body.light` high-key override
 scripts/
-  verify-levels.mjs   solvability + soft-lock + spawn-safety proof (200 levels + 14 dailies)
+  verify-levels.mjs   solvability + soft-lock + spawn-safety proof (200 levels + 10 Vault rooms + 14 dailies)
   test-levels-playable.mjs  THE gate: plays every level + daily to `won` via real keyboard input
   live-gate.mjs       the stratified live gate (changed + rotating 50 per commit; full 200 nightly)
   gen-campaign.mjs    seeded generator that PROVES levels 14–50 (rejects until solvable)
@@ -279,7 +280,7 @@ scripts/
   archetypes.mjs      the layout archetype library (descent, lattice, gauntlet, undertow, …)
   hazards.mjs         the shared hazard stage (sentinels, ice, springs, shuttles, crumble)
   playtest.mjs        64 scripted browser checks: mechanics + themes + camera seats
-  autoplay.mjs        full 200-level completion run in a browser
+  autoplay.mjs        full campaign completion run in a browser
   hooks/install.mjs   installs the pre-commit test gate (npm run hooks)
   shoot.mjs / mobile-shots.mjs   screenshot helpers
 tests/
