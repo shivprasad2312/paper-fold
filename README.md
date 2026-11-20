@@ -38,7 +38,8 @@ Other commands:
 | --- | --- |
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
-| `npm run verify` | prove all 200 levels + 10 Vault rooms + 14 daily layouts are solvable (pure Node, no browser) |
+| `npm run verify` | prove all 200 levels + 10 Vault rooms + 14 daily layouts are solvable and fairly playable (pure Node, no browser) |
+| `npm run scale` | print the act-by-act scale audit: board size, fill against target, 2×2 platform count (the same gate the verifier runs) |
 | `npm test` | **the gate**: `test:unit` + `verify` + `test:play` — logic proven, levels solvable, AND every level played to completion |
 | `npm run test:unit` | unit tests for the pure core: rules (roll law, push, crumble, soft-lock, par), save/medals, daily seeding (fast, no browser) |
 | `npm run test:play` | playable-route test: plays every level + today's daily to the win panel via real keyboard input (headless) |

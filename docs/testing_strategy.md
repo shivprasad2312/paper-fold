@@ -52,7 +52,18 @@ honest gaps._
    for `gateKey` levels, start→key and key→goal are proven separately —
    BUG-003/BUG-004) 9. **rescue bench**: if the level has a mid-path
    second-chance tile, a timing-fair route bench→goal must also exist
-   (ADR-014).
+   (ADR-014) 10. **scale** (Phase G): every mass act holds its declared
+   board size and fill (mean within 6 points of target, every level ≥ 20%
+   filled with at least half the act's 2×2 floor, bosses +2) — the per-level
+   proof says a level can be played, this says it is the *kind* of level the
+   act promises 11. **composed play** (Phase G): a level carrying both
+   blocks and patrols must show ONE play that satisfies reachability,
+   sentinel fairness and the block law at once (`fairPlayable`) — three
+   separate green proofs are not a playable level (L118).
+
+The catalogue-wide versions of 10 and 11 live in the unit suite too
+(`scale.test.mjs`, `timing.test.mjs`), so a regression fails in seconds
+instead of only in the verifier.
 
 This is the "impossible level / unreachable objective / overlapping
 objects / broken references" detector the studio charter asks for — a

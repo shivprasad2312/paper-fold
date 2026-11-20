@@ -203,6 +203,10 @@ detour, so route medians below understate keyed levels slightly).
 
 ### 4.1 Size & fill — the track problem
 
+*(Measured **before** Phase G and left here as the audit that motivated it —
+the after-table is in §6, Phase G: boards 20→26, fill 40–58%, act-10 route
+median 58.)*
+
 | Block | Board (median) | Tiles avg | Fill avg | Route median |
 |---|---|---|---|---|
 | L1–50 | 10×10 | 31 | 0.30 | 13 |
@@ -587,9 +591,10 @@ players, so the research targets remain unmeasured; the runbook is
 
 ## 7. Decisions needed before Phase A
 
-- **D1 — Board ceiling.** Citadels want 24×24 (proof cost, camera,
-  minimap legibility all grow). Approve 24×24 for finale/Vault slots
-  only, keep 18×18 elsewhere?
+- **D1 — Board ceiling.** *Settled by Phase G (ADR-045):* boards ladder
+  20→26 across acts 3–10, bosses +2, the Vault 22→26 — 30×30 was measured
+  and rejected on gate cost, and the camera became a follow window so size
+  no longer shrinks the tile.
 - **D2 — Verb scope.** B1–B4 as specified, B5 clinging behind a
   prototype gate — approve the *verb-first* direction (vs more tiles)?
 - **D3 — Meta.** Grades + Vault unlock-by-total-shards (bonus-only
