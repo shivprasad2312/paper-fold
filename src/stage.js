@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FRAMING, halfHeightFor, isFollowBoard, focusFor, heightCompensation } from './framing.js';
 
 // Camera: a near-isometric 3/4 view, slightly yawed for that tilted-grid look.
 const YAW = 0.20;
@@ -80,6 +81,17 @@ export class Stage {
     this.corners = [];
     this.focus = new THREE.Vector3();
     this.target = new THREE.Vector3();
+    // Phase G framing (ADR-045): the follow window. `halfH` is the live
+    // orthographic half-height; `boardSpan` is the level's span in tiles and
+    // decides which of the two framing laws applies; `focusRU` is the follow
+    // focus in screen axes (r = right, u = up), kept so the dead zone can
+    // compare against the previous frame.
+    this.boardSpan = 0;
+    this.follow = false;
+    this.halfH = 8;
+    this.viewFit = 8;
+    this.focusRU = { r: 0, u: 0 };
+    this.subject = new THREE.Vector3();
     this.shakeAmp = 0;
     this.aspect = 1;
     this.time = 0;
@@ -210,6 +222,13 @@ export class Stage {
     }
     this.target.copy(this.levelCenter);
     this.focus.set(0, 0, 0);
+    this.focusRU.r = 0;
+    this.focusRU.u = 0;
+    // board span in tiles drives the framing law (ADR-045)
+    this.boardSpan = Math.round(Math.max(max.x - min.x, max.z - min.z)) + 1;
+    this.follow = isFollowBoard(this.boardSpan);
+    this.followSnap = true; // the next frame centres on the subject
+    this.subject.set(this.levelCenter.x, this.levelCenter.y, this.levelCenter.z);
 
     // Aim the sun at the level and size its shadow frustum to cover it.
     const cx = this.levelCenter.x;
@@ -228,29 +247,60 @@ export class Stage {
     this.applyFit();
   }
 
-  applyFit() {
-    const c = this.levelCenter;
+  /** Screen axes on the ground plane, recomputed for the live yaw. */
+  screenAxes() {
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), this.viewDir).normalize();
     const up = new THREE.Vector3().crossVectors(this.viewDir, right).normalize();
-    let maxR = 0.001;
-    let maxU = 0.001;
+    // both axes projected onto the ground plane: the camera pans in this
+    // plane, so the focus maths (and the clamp against the board) live here
+    const rightXZ = new THREE.Vector3(right.x, 0, right.z).normalize();
+    const upXZ = new THREE.Vector3(up.x, 0, up.z).normalize();
+    return { right, up, rightXZ, upXZ };
+  }
+
+  /** Half-extents of the board on the screen axes (world units). */
+  boardSpanOn(right, up) {
+    const c = this.levelCenter;
+    let spanR = 0.001;
+    let spanU = 0.001;
     const v = new THREE.Vector3();
     for (const p of this.corners) {
       v.copy(p).sub(c);
-      maxR = Math.max(maxR, Math.abs(v.dot(right)));
-      maxU = Math.max(maxU, Math.abs(v.dot(up)));
+      spanR = Math.max(spanR, Math.abs(v.dot(right)));
+      spanU = Math.max(spanU, Math.abs(v.dot(up)));
     }
+    return { spanR, spanU };
+  }
+
+  /**
+   * Recompute the view window for the live aspect / yaw.
+   * `instant` snaps the zoom (level load, resize); otherwise it eases, so a
+   * seat rotation does not pop the scale.
+   */
+  refreshFraming(instant = false) {
+    const { right, up } = this.screenAxes();
+    const { spanR, spanU } = this.boardSpanOn(right, up);
     const pad = this.aspect < 0.8 ? 1.08 : 1.2;
-    const aspect = this.aspect;
-    const halfH = Math.max(maxU * pad, (maxR * pad) / aspect);
-    this.camera.top = halfH;
-    this.camera.bottom = -halfH;
-    this.camera.right = halfH * aspect;
-    this.camera.left = -halfH * aspect;
+    const fit = Math.max(spanU * pad, (spanR * pad) / this.aspect);
+    this.viewFit = fit;
+    this.viewSpan = { spanR, spanU };
+    const target = halfHeightFor({ fitHalfH: fit, aspect: this.aspect, span: this.boardSpan });
+    if (instant) this.halfH = target;
+    else this.halfH += (target - this.halfH) * 0.18;
+    this.camera.top = this.halfH;
+    this.camera.bottom = -this.halfH;
+    this.camera.right = this.halfH * this.aspect;
+    this.camera.left = -this.halfH * this.aspect;
     // Near/far around the pivot distance.
     this.camera.near = 0.1;
     this.camera.far = DIST * 3;
     this.camera.updateProjectionMatrix();
+  }
+
+  applyFit() {
+    this.focusRU.r = 0;
+    this.focusRU.u = 0;
+    this.refreshFraming(true);
   }
 
   resize() {
@@ -305,7 +355,16 @@ export class Stage {
     this.shakeAmp = Math.max(this.shakeAmp, amount);
   }
 
-  /** Nudge the aim towards the cube, keeping the whole level in frame. */
+  /**
+   * The subject the camera follows (Phase G): the cube's world position.
+   * Small boards keep the classic gentle parallax; follow boards pan with a
+   * dead zone and a board-edge clamp (src/framing.js).
+   */
+  setSubject(x, y, z) {
+    this.subject.set(x, y, z);
+  }
+
+  /** Back-compat: the old parallax call site (level select previews). */
   setFocus(x, z, weight = 0.16, maxOffset = 0.9) {
     const ox = (x - this.levelCenter.x) * weight;
     const oz = (z - this.levelCenter.z) * weight;
@@ -331,13 +390,48 @@ export class Stage {
       Math.cos(this.yaw) * Math.cos(PITCH),
     ).normalize();
 
-    // gentle camera easing
+    // the view window follows the yaw (a rotated seat sees the board on a
+    // different axis) and the cube (Phase G follow law)
+    this.refreshFraming(false);
+    if (this.follow) {
+      const { up, rightXZ, upXZ } = this.screenAxes();
+      const dx = this.subject.x - this.levelCenter.x;
+      const dz = this.subject.z - this.levelCenter.z;
+      const r = dx * rightXZ.x + dz * rightXZ.z;
+      const u = dx * upXZ.x + dz * upXZ.z
+        + heightCompensation(this.subject.y - this.levelCenter.y, up);
+      const f = focusFor({
+        r, u,
+        spanR: this.viewSpan.spanR,
+        spanU: this.viewSpan.spanU,
+        halfH: this.halfH,
+        aspect: this.aspect,
+        prevR: this.focusRU.r,
+        prevU: this.focusRU.u,
+        snap: this.followSnap,
+      });
+      this.focusRU = f;
+      this.focus.set(
+        rightXZ.x * f.r + upXZ.x * f.u,
+        0,
+        rightXZ.z * f.r + upXZ.z * f.u,
+      );
+      if (this.followSnap) this.followJustSnapped = true;
+      this.followSnap = false;
+    } else {
+      this.followJustSnapped = false;
+      this.focus.set(0, 0, 0);
+    }
+
+    // gentle camera easing (a level load SNAPS instead: the camera must not
+    // spend the first second panning in from the board centre)
     const desired = new THREE.Vector3(
       this.levelCenter.x + this.focus.x,
       this.levelCenter.y,
       this.levelCenter.z + this.focus.z,
     );
-    this.target.lerp(desired, 1 - Math.pow(0.001, dt));
+    if (this.followJustSnapped) this.target.copy(desired);
+    else this.target.lerp(desired, 1 - Math.pow(0.001, dt));
 
     const pos = new THREE.Vector3().copy(this.target).addScaledVector(this.viewDir, DIST);
 

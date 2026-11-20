@@ -57,13 +57,20 @@ test('curation: sequence law flags a sixth level with one mechanic signature', (
 });
 
 test('curation: audit flags an intra-act par cliff (boss spikes exempt)', () => {
+  // act 10 declares par 36–84 (Phase G): its own bandwidth is 48, so the
+  // allowance is ~34 rolls. A 20-roll step is the act reading as designed;
+  // a 40-roll step inside one act is still a cliff.
   const defs = [def(181), def(182)];
-  const pars = new Map([[181, 20], [182, 40]]);
-  const problems = experienceProblems(defs, pars);
-  assert.ok(problems.some((p) => /par jump of 20/.test(p)), problems.join(' | '));
+  const mild = experienceProblems(defs, new Map([[181, 20], [182, 40]]));
+  assert.ok(!mild.some((p) => /par jump/.test(p)), '20 inside act 10 is within the band');
+  const steep = experienceProblems(defs, new Map([[181, 10], [182, 60]]));
+  assert.ok(steep.some((p) => /par jump of 50/.test(p)), steep.join(' | '));
   const bossPars = new Map([[181, 20], [182, 20], [183, 20], [184, 20], [185, 20], [186, 20], [187, 20], [188, 20], [189, 20], [190, 20], [191, 20], [192, 20], [193, 20], [194, 20], [195, 20], [196, 20], [197, 20], [198, 20], [199, 20], [200, 40]]);
   const bossDefs = Array.from({ length: 20 }, (_, i) => def(181 + i));
-  assert.ok(!experienceProblems(bossDefs, bossPars).some((p) => /par jump/.test(p)));
+  // the boss spike itself: L199 → L200 steps 20 → 80, exempt because 200 % 20 === 0
+  const spike = new Map(bossPars);
+  spike.set(200, 80);
+  assert.ok(!experienceProblems(bossDefs, spike).some((p) => /par jump/.test(p)));
 });
 
 test('curation: the shipped 200-level catalogue passes the diversity audit', () => {

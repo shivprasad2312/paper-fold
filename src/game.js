@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { Stage } from './stage.js';
+import { isOccluded } from './framing.js';
 import { buildLevelView } from './levelView.js';
 import { ALL_LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
@@ -121,6 +122,23 @@ export class Game {
 
     this.cubeMesh.visible = false;
     this.stage.scene.add(this.cubeMesh);
+
+    // Phase G (ADR-045): a follow camera can put a tower between the player
+    // and the cube. The ghost is the same geometry drawn with depth testing
+    // off — the cube stays visible THROUGH the slab, so the player never
+    // loses the thing they are steering. One extra draw call, off by default.
+    const ghostMat = new THREE.MeshBasicMaterial({
+      color: 0x9ff6ff,
+      transparent: true,
+      opacity: 0.34,
+      depthTest: false,
+      depthWrite: false,
+    });
+    this.cubeGhost = new THREE.Mesh(geo, ghostMat);
+    this.cubeGhost.renderOrder = 999;
+    this.cubeGhost.visible = false;
+    this.cubeGhost.matrixAutoUpdate = false;
+    this.stage.scene.add(this.cubeGhost);
   }
 
   // --------------------------------------------------------------- level ---
@@ -478,6 +496,39 @@ export class Game {
     this.stage.render();
   }
 
+  /**
+   * Draw the cube through level geometry when a slab hides it (ADR-045).
+   * A ray test against the level's own height map: no extra render passes,
+   * and it is exactly as correct as the collision map the game already
+   * trusts. Only follow boards need it — a whole-board view cannot occlude
+   * the subject it is looking at from above.
+   */
+  updateGhost() {
+    if (!this.cubeGhost) return;
+    const visible = this.level && this.stage.follow && this.state !== 'won'
+      && this.cubeMesh.visible;
+    if (!visible) {
+      this.cubeGhost.visible = false;
+      return;
+    }
+    const p = this.cubeMesh.position;
+    const hidden = isOccluded({
+      from: p,
+      to: this.stage.camera.position,
+      heightAt: (x, z) => {
+        const t = this.level.tiles.get(`${x},${z}`);
+        return t ? t.h : -Infinity;
+      },
+    });
+    this.cubeGhost.visible = hidden;
+    if (hidden) {
+      this.cubeGhost.position.copy(p);
+      this.cubeGhost.scale.copy(this.cubeMesh.scale);
+      this.cubeGhost.quaternion.copy(this.cubeMesh.quaternion);
+      this.cubeGhost.updateMatrix();
+    }
+  }
+
   update(dt, time) {
     if (!this.level) return;
 
@@ -508,8 +559,10 @@ export class Game {
     this.updateShuttleCarry(time);
     this.updateLiftCarry();
 
-    // camera follows the cube gently
-    this.stage.setFocus(this.cubeMesh.position.x, this.cubeMesh.position.z);
+    // camera follows the cube (Phase G framing law lives in the stage)
+    const cp = this.cubeMesh.position;
+    this.stage.setSubject(cp.x, cp.y, cp.z);
+    this.updateGhost();
 
     // drifting glow on the cube
     const pulse = 1.7 + Math.sin(time * 3.4) * 0.35;

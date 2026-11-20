@@ -2108,6 +2108,12 @@ export function commitBand(path, sched, u) {
  * sentinel inside its kill radius of that corner was reported safe and
  * killed the cube).
  */
+// cache: an orb's path array IS its identity, and the table is a pure
+// function of it. The timing model rebuilds this table millions of times
+// otherwise (it is the hottest loop in the whole verifier).
+const _orbTableCache = new WeakMap();
+const _orbLineCache = new WeakMap();
+
 export function commitBandDistR2(path, sched, u, px, pz) {
   const { a, b } = commitBandProgress(path, sched, u);
   const pts = [bandPos(path, a)];
@@ -2160,6 +2166,8 @@ export function orbPeriod(path, speed) {
  */
 /** Precomputed segment table for a closed loop (avoids per-call rebuilds). */
 export function orbTable(path) {
+  const hit = _orbTableCache.get(path);
+  if (hit) return hit;
   const segs = [];
   let total = 0;
   for (let s = 0; s < path.length; s++) {
@@ -2171,7 +2179,9 @@ export function orbTable(path) {
       total += len;
     }
   }
-  return { segs, total: Math.max(total, 1e-4) };
+  const table = { segs, total: Math.max(total, 1e-4) };
+  _orbTableCache.set(path, table);
+  return table;
 }
 
 /** Exact sentinel position at time `t` (same law as levelView.js). */
@@ -2253,6 +2263,8 @@ export function orbDistAlong(path, px, pz) {
 
 /** Every integer tile a sentinel ever occupies (all tiles of every segment). */
 export function orbLineTiles(path) {
+  const hit = _orbLineCache.get(path);
+  if (hit) return hit;
   const tiles = new Set();
   for (let s = 0; s < path.length; s++) {
     const a = path[s];
@@ -2268,6 +2280,7 @@ export function orbLineTiles(path) {
       tiles.add(key(x, z));
     }
   }
+  _orbLineCache.set(path, tiles);
   return tiles;
 }
 
@@ -2344,11 +2357,11 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
     return true;
   };
 
-  const scan = (step, stopAt = null) => {
+  const scanRange = (step, from, to, stopAt) => {
     let best = 0;
     let run = 0;
     let prev = null;
-    for (let t0 = 0; t0 < HORIZON; t0 += step) {
+    for (let t0 = from; t0 <= to; t0 += step) {
       if (safeStart(t0)) {
         run = prev === null || t0 - prev > step * 1.5 ? step : run + step;
         if (run > best) {
@@ -2370,9 +2383,44 @@ export function crossingWindow(level, entry, seq, exit, floor = TIMING_FLOOR) {
     return best;
   };
 
-  const coarse = scan(0.02);
-  if (coarse + 0.06 < floor) return coarse; // hopeless — skip the fine pass
-  return scan(0.005, floor); // authoritative for the decision; clamps at floor
+  // Coarse-to-fine, with the fine pass LOCAL to the coarse hits that could
+  // still clear the floor (Phase G, ADR-045). The old code re-scanned the
+  // whole horizon at 5 ms whenever ANY coarse sample looked promising; on an
+  // EDGE-scale board with two patrols that is millions of band-distance
+  // evaluations per crossing and minutes per candidate (measured: 11 s per
+  // graph at 26×26, 30 s at 30×30 — enough to price the whole phase out).
+  // The decision is unchanged: a window of length ≥ floor always contains a
+  // coarse sample (step 20 ms) whose measured run is within one step of the
+  // window, so refining beside those samples finds every fair crossing the
+  // old scan found. On failures the reported bestWindow is coarser than
+  // before, and it is clamped to the floor when it is used as an edge weight.
+  const COARSE = 0.02;
+  const FINE = 0.005;
+  let best = 0;
+  let run = 0;
+  let prev = null;
+  // The crossing graph only ever asks "is there a window ≥ floor", and it
+  // clamps the number it stores, so the coarse pass may STOP the moment a run
+  // reaches the floor. For a fair crossing — the common case — that is a
+  // handful of milliseconds instead of a full patrol cycle.
+  for (let t0 = 0; t0 < HORIZON; t0 += COARSE) {
+    if (safeStart(t0)) {
+      run = prev === null || t0 - prev > COARSE * 1.5 ? COARSE : run + COARSE;
+      if (run > best) best = run;
+      if (best >= floor) return best;
+    } else {
+      run = 0;
+    }
+    prev = t0;
+  }
+  // No coarse run reached the floor. The fine pass is still worth one look
+  // when the best coarse run was CLOSE (the coarse grid can clip the ends of
+  // a borderline window). It scans the whole horizon rather than the
+  // neighbourhood of the best run: a second, shorter-but-just-over-the-floor
+  // window elsewhere is still a valid answer, and this branch is rare.
+  if (best + COARSE + 0.04 < floor) return best; // hopeless — skip the fine pass
+  const fine = scanRange(FINE, 0, HORIZON, floor);
+  return fine > best ? fine : best
 }
 
 /**

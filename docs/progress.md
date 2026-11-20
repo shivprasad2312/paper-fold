@@ -1,7 +1,43 @@
 # KUBIK — Progress Tracker
 
-_Living document (Phase 12). Updated 2026-11-06. The repo is the truth;
+_Living document (Phase 12). Updated 2026-10-23. The repo is the truth;
 this is the map._
+
+## Current status — 2026-10-23
+
+**Build: GREEN. Validation: instrument shipped, human cohort pending.**
+That second half is deliberate: every claim below is proved by a machine,
+and the one thing a machine cannot measure — whether five people who have
+never seen KUBIK enjoy it — is measured by the protocol in
+`docs/playtest_protocol.md`, which has not been run yet. No document here
+claims otherwise.
+
+- **Content**: 200 campaign levels (10 acts × 20, every one open), 10
+  Vault rooms unlocked by shard milestones, 14 daily layouts, four cube
+  verbs added since the 50-level era (lift, turntable, cling, shrink),
+  and the full mechanic set at density floors (ADR-031…041).
+- **Gates** (`npm test`): unit **190/190**, verifier **200 campaign + 10
+  Vault + 14 dailies**, live gate **201/201 playable** (200 + today's
+  daily), build green. Pre-commit hook + CI run all of them; no commit
+  has bypassed them.
+- **Progression**: all levels open; grades (SWIFT ≤ par, FLAWLESS = par +
+  every shard + no deaths); Par all-clear; streak with a yesterday grace
+  (ADR-043).
+- **Feel**: mid-path rescue bench (ADR-014), hold-to-roll, four camera
+  seats, two themes, juice/audio.
+- **Strategy phases** from the research pass: **A–E shipped** (structure
+  archetypes, new verbs, teach–test–twist cadence + density curation,
+  feel, mastery meta), **F instrument shipped** (ADR-044: opt-in
+  recorder, cohort report, greedy-player proxy).
+- **Retired by decision**: the 55% crumble/sentinel overuse cap
+  (ADR-042) — it was capping the designed escalation, and density is now
+  governed by the per-act bands and the experience audit instead.
+
+**What is genuinely not done** (the honest list, unchanged from below
+where still true): the human playtest cohort (needs people), packaging
+(PWA / Android — a store decision, offered not requested), reduced-motion
+accessibility, the difficulty-delta verifier extension, real-device
+touch/audio/GPU passes, and the retention candidates from research §7.
 
 ## Milestones (shipped, verified)
 
@@ -20,7 +56,7 @@ this is the map._
 | this cycle (c) | **EDGE-scale maps + new mechanics** (ADR-013): campaign enlarged 8×8→18×18; three new mechanics — shuttle platform loop (looping bridge between structures, dwell/ride/dwell), ice slide (one press, slides through the ice run), spring pad (launch over a void pit); "one resolved press" rule (`resolveRoll`) + shuttle ride edges in every search; view-as-clock platform, distance-based carry; generator carves mechanics into the route with sentinel corridor clearance; live bot boards rides / plays slides / rides launches; crossing-graph revisit hardening + live-bot route tripwire + stale-snap/mid-burst repairs | unit 52/52 (+14 mechanic tests) + verify 8-check all green + live suite 51/51 ×2 + gate-caught mid-launch pump fix |
 | this cycle (d) | **Mid-path second chance** (ADR-014): the rescue bench — dying past halfway offers one resume from the 50%-press safe tile of the proven route (6 s choice window, do-nothing = normal restart); keeps moves/time/shards/crumbles/blocks, resets only sentinels; rescued clears don't enter time/ghost rankings; bench is gate-proven (fair bench→goal route); live bot accepts rescues; + roadmap to ~200 levels (`docs/roadmap-200.md`) | unit 59/59 (+7 rescue tests) + verify 9-check all green + playtest 71/71 (incl. 7 rescue checks) + live suite |
 
-## Current status: **GREEN**
+## Status snapshot (2026-11-06 — historical)
 
 - `npm run test:unit` — 59/59 pass (+ `tests/unit/timing.test.mjs`
   BUG-003/004/006/007 regression pins; + `tests/unit/mechanics.test.mjs`
@@ -45,7 +81,7 @@ this is the map._
 - `npm run build` — 655 kB JS (168 kB gzip), 317 ms
 - Pre-commit hook + CI gate live on the branch
 
-## In progress
+## Work log, 2026-11-09 → 11-12 (historical — both tracks closed by ADR-031…041)
 
 - **Scale-up to ~200 levels** (plan: `docs/roadmap-200.md`, 7
   milestones). **M1 done — mid-path second chance (ADR-014)**: rescue
@@ -113,6 +149,7 @@ this is the map._
 | Real-device pass (touch, audio, GPU) | needs hardware; headless covers logic + input path only |
 | Audio correctness tests | no audio device in headless; manual check only |
 | Weekly event / share-codes / local leaderboards | retention candidates (research §7) — scope, not defects |
+| Human playtest cohort (Phase F) | needs five fresh players; the instrument, report and runbook are shipped and the proxy reading is in `docs/playtest_protocol.md` |
 
 ## Known bugs
 
@@ -236,6 +273,69 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-045 (Phase G: EDGE-scale boards — the camera follows, the generator
+builds places. The user's report was that the play area is too small;
+measured, the catalogue was 15–21% filled from act 3 to act 7 and 31 of
+200 levels had zero interior tiles — ribbons in a void. Two coupled
+changes. **Site mass** (`scripts/sitemass.mjs`) grows each generated
+route into a place before hazards are dressed: causeways widened
+perpendicular to travel at the route's own height, courts up to 7 deep,
+raised clubs, a few floating isles — under a contract that keeps every
+route tile's height, fills only void, forbids mass touching two route
+legs (a tower's par fell 107→27 when moats could be filled), forbids
+shortening the route by more than 2 rolls (a gauntlet lost 44 at 30×30),
+and rejects a board that cannot carry the act's fill. **The framing
+law** (`src/framing.js`, pure maths, unit-pinned) shows boards up to 13
+tiles whole and follows bigger ones through a window: half the
+whole-board fit, floored at 6.6 and capped at 10.8, portrait-widened,
+board-clamped but always subject-first, dead-zoned at 1.1 tiles, and
+height-compensated; a cube hidden behind geometry is echoed through it
+by a ray against the level's own height map. The two laws meet at the
+threshold with no pop. Boards now run 20×20 → 26×26 (acts 3–10; acts
+1–2 stay intimate for onboarding and were not regenerated), fill targets
+30 → 42%, bands rebuilt to 22–36 → 36–84, and the generator ranks
+candidates against a drawn sawtooth (five rising steps then a relief,
+per six levels) so adjacent pars cannot cliff — the curation audit had
+caught 18–31-roll jumps. Mechanic teaching slots became DATA
+(`MECH_SLOTS`) after the first regeneration silently dropped door
+14→9, conveyor, shrink, piston, turntable, cling and wind below their
+ratchet floors. Sentinels: two semantics-preserving speedups (orb table
++ patrol-line caching — the timing model rebuilt them millions of
+times — and an early-exit crossing scan) took a two-patrol graph from
+~11 s to ~1.5 s, which is what makes the bigger boards affordable in
+the gate; 30×30 was measured and rejected on that cost, recorded rather
+than pretended. New gate: `scripts/scale-audit.mjs` inside the
+verifier (act mean fill within 6 points, every level ≥ 20% filled with
+≥ half the act's 2×2 floor, declared board size, boss +2).
+
+The first full regeneration then taught the rest, all of it found by
+the gates rather than by eye. (1) **Pacing is enforced at both ends.**
+The generator refused to settle off-curve, but a level could still
+climb so high the breather after it could not reach it (L197 79 → L198
+42, a 37-roll cliff): the jump law now also caps a level against the
+NEXT slot's target when that slot is a relief, and a pacing-compliant
+candidate outranks a unique one when the budget runs out. (2) **A relief
+slot must draw from short archetypes** — a tower measures ~82 rolls at
+26×26 and can never land under the band's bottom third, so acts 8–10
+declare `gen.relief` pools measured under the audit's own relief line.
+(3) **The curriculum is a constraint, not a preference**: eight teaching
+slots collided with breathing slots and act 10's cling test would not
+prove at all until the slots moved off them — a teaching slot is a
+climbing slot, a relief slot is the opposite promise. (4) **The mirror
+law is proved per candidate** after a legal Phase G level shipped whose
+x-mirror could only reach its key by crossing its own sealed gate (L72,
+28 vs no route) — two BFS runs at accept time. (5) **The Vault had to
+move up**: the campaign now ends at 26×26/par 84 while the Vault sat at
+20–24/par 38–80, i.e. easier than the content that unlocks it. It is
+re-cut on a 22→26 ladder at par 50–96 (57, 60, 69, 66, 70, 82, 82, 87,
+77, 90 — a climb with a breather before the spike), and the band is
+exported from the generated file so the verifier and the unit test read
+one number. Final census: 217 unit tests green, verifier green on 200 +
+10 Vault + 14 dailies, every pacing/scale/density/mirror gate green, and
+the greedy proxy re-read: the obvious line now reaches further in the
+mass acts (act 5 29%→51%, act 6 32%→59%) because a place has more legal
+lines than a ribbon, while the finale still defeats it four walks in
+five.)
 ADR-044 (Phase F: the playtest instrument, the report, the proxy.
 Phase F is the research pass's human step — five fresh players per
 phase, first-try clear rate, deaths per level, time to clear vs par and

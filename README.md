@@ -5,7 +5,7 @@ across floating geometric platforms, collect shards, dodge sentinels and cracked
 push dark cubes out of your way, time the sliding bridges, board the shuttles, surf the
 ice, spring over the pits, ride the wind and find your way down to the gate —
 a **200-level campaign in ten acts** plus **ten Vault rooms** unlocked with shards, from a three-tile warm-up to the re-climbed
-Broken Spire, on maps that grow from a sliver to an 18-tile EDGE-scale plateau.
+Broken Spire, on maps that grow from a sliver to 26×26 EDGE-scale places.
 
 Built from scratch as an homage to Mobigame's classic **EDGE** — original code, art,
 level design and a fully procedural soundtrack. No assets are borrowed from the original
@@ -166,25 +166,27 @@ Two hundred levels in ten acts. The first thirteen are hand-designed, each teach
 | 12 | The Turn | everything you have learned, turned sideways |
 | 13 | Boss: The Broken Keep | sentinels + crumble + sliding bridges, all at once |
 
-Levels **14–200** are a generated campaign — an archetype carves the layout, a shared
-hazard stage dresses it, and every candidate is rejected until the full verifier proves
-it (see [How it is built](#how-it-is-built)). Ten acts of twenty levels, one difficulty
-budget each; map size plateaus at 18 (EDGE-scale) after act 3 and the rest is density —
-par, sentinel count, crumble, forced identity mechanics, keys. Act-end levels (every
-20th) carry a **boss** spike:
+Levels **14–200** are a generated campaign — an archetype carves the layout, a site-mass
+stage grows it into a place, a shared hazard stage dresses it, and every candidate is
+rejected until the full verifier proves it (see [How it is built](#how-it-is-built)).
+Ten acts of twenty levels, one difficulty budget each; the board grows 20 → 26 from act 3
+on, and the rest is density — par, sentinel count, crumble, forced identity mechanics,
+keys. Every act follows a drawn **par curve** (five rising levels, then a breather), and
+act-end levels (every 20th) carry a **boss** spike. The par column is the band each act
+*declares*; the measured range sits inside it — the curve visits the bottom and the top:
 
-| # | act | map | what changes |
-| --- | --- | --- | --- |
-| 1–20 | First Fall | 8–10 | hand-made intro + first generated levels — the mechanic education |
-| 21–40 | The Long Way | 10–12 | distance becomes the mechanic |
-| 41–60 | Below the Summit | 16 | par 19–34, 1–2 sentinels, ice / springs / shuttles in play, plays top→bottom |
-| 61–80 | Hollow Country | 16 | par 22–38, the ground starts to disappear, plays right→left |
-| 81–100 | Crosshatch | 18 | par 24–40, 2–3 sentinels, crossing hazards, plays top→bottom |
-| 101–120 | Glasswork | 18 | par 26–42, **the ice act — every level slides** |
-| 121–140 | Slow Current | 18 | par 28–44, **the shuttle act — every level carries a ride** |
-| 141–160 | Darkwater | 18 | par 30–46, **the key act — sealed gates everywhere** |
-| 161–180 | The Pressure | 18 | par 32–48, everything at once, faster |
-| 181–200 | The Last Ascent | 18 | par 34–50, the whole game wound into one fall; **L200 is the final boss on the Broken Spire** |
+| # | act | map | par band | measured | what changes |
+| --- | --- | --- | --- | --- | --- |
+| 1–20 | First Fall | 8–10 | — | 2–14 | hand-made intro + first generated levels — the mechanic education |
+| 21–40 | The Long Way | 10–12 | — | 12–21 | distance becomes the mechanic |
+| 41–60 | Below the Summit | 20 | 22–36 | 16–40 | 1–2 sentinels, ice / springs / shuttles in play, plays top→bottom |
+| 61–80 | Hollow Country | 22 | 24–40 | 24–41 | the ground starts to disappear, plays right→left |
+| 81–100 | Crosshatch | 24 | 26–46 | 28–50 | 2–3 sentinels, crossing hazards, plays top→bottom |
+| 101–120 | Glasswork | 24 | 28–50 | 28–52 | **the ice act — every level slides** |
+| 121–140 | Slow Current | 26 | 30–60 | 31–62 | **the shuttle act — every level carries a ride** |
+| 141–160 | Darkwater | 26 | 32–64 | 32–61 | **the key act — sealed gates everywhere** |
+| 161–180 | The Pressure | 26 | 34–68 | 37–67 | everything at once, faster |
+| 181–200 | The Last Ascent | 26 | 36–84 | 39–76 | the whole game wound into one fall; **L200 is the final boss on the Broken Spire** |
 
 Every generated level is rejected until the full verifier proves it — same guarantees as
 the hand-made ones: solvable, zero soft-locks, no spawn-kills. Each act carries its own
@@ -206,7 +208,16 @@ decision rules are in `docs/playtest_protocol.md`. No human cohort has run
 yet; that document says so, and the report refuses to read a cohort of
 fewer than five as a result.
 
-All 200 campaign levels are open from the start — pick any of them from the level select. The ten **Vault** rooms below them are the one exception: each opens with 60 total shards.
+From act 3 the boards are EDGE-scale places, not corridors: the generator
+grows each route into wide causeways, courts and stacked blocks (site mass,
+ADR-045), boards run 20×20 to 26×26 at 30–42% fill, and the camera follows the
+cube through a window instead of fitting the whole level — small teaching
+boards still show everything.
+
+All 200 campaign levels are open from the start — pick any of them from the level select.
+The ten **Vault** rooms below them are the one exception: each opens with 60 total shards,
+and they climb past the campaign — 22×22 up to 26×26, par 57 to 90, one master class per
+mechanic (the finale is a 90-roll shuttle citadel).
 Best times, shard counts, medals and ghost runs are stored in `localStorage`;
 there is no server and no tracking.
 

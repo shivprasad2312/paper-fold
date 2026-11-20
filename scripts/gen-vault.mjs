@@ -8,8 +8,8 @@
 // scripts/level-gate.mjs — so "bonus" never means "less verified".
 //
 // Rules that differ from the campaign:
-//   - the board may reach 24×24 here and only here (research D1: citadel
-//     size was approved for finale/Vault slots)
+//   - the board ladder runs 22 → 26: the Vault meets the campaign's cap
+//     (Phase G, ADR-045) instead of topping out below it
 //   - every slot opens with its headline mechanic FORCED, so the Vault reads
 //     as ten master classes rather than ten more levels
 //   - par bands are wider than Act 10's, and the finale (L210) is sealed
@@ -37,17 +37,31 @@ const OUT = process.env.KUBIK_OUT || 'src/vault.js';
 // master scale. `mech` is the forced carve; the rest of the stage is the
 // Act-10 probability table, so a Vault room still carries company.
 const SCHEDULE = [
-  { id: 201, mech: 'lift', arch: ['tower', 'citadel', 'plaza'], W: 20, par: [40, 66], name: 'The Long Haul', hint: 'A lift you have to earn — the counterweight is your patience' },
-  { id: 202, mech: 'shrink', arch: ['tower', 'plaza', 'citadel'], W: 20, par: [40, 66], name: 'The Narrowing', hint: 'Small doors, big drops — the tunnel is the only way through' },
-  { id: 203, mech: 'piston', arch: ['tower', 'plaza', 'citadel'], W: 20, par: [40, 66], name: 'The Hammer', hint: 'Cross behind the arm, never against it' },
-  { id: 204, mech: 'turntable', arch: ['tower', 'citadel', 'plaza'], W: 22, par: [42, 70], name: 'The Turning Point', hint: 'The bar joins one pair, then the other — pick your moment' },
-  { id: 205, mech: 'cling', arch: ['tower', 'plaza', 'citadel'], W: 20, par: [38, 64], name: 'The Overhang', hint: 'The far face is catchable — a press, not a jump' },
-  { id: 206, mech: 'slider', arch: ['tower', 'citadel', 'plaza'], W: 22, par: [42, 70], name: 'The Tide Bridge', hint: 'The bridge is a clock — wait for the rise, then commit' },
-  { id: 207, mech: 'wind', arch: ['meridian', 'tower', 'citadel'], W: 20, par: [40, 66], name: 'The Gale Room', hint: 'Stand still and the room moves you — roll, never wait' },
-  { id: 208, mech: 'door', arch: ['tower', 'aperture', 'citadel'], W: 24, par: [46, 76], name: 'The Long Lock', hint: 'The plate is not beside the door it opens' },
-  { id: 209, mech: 'freeze', arch: ['tower', 'aperture', 'citadel'], W: 24, par: [46, 76], name: 'The Cold Vault', hint: 'Every shard you take freezes you in place — time them' },
-  { id: 210, mech: 'shuttle', arch: ['boss-arena', 'tower', 'citadel'], W: 24, par: [48, 80], name: 'The Vault Itself', hint: 'Everything you have learned, at the top of the game' },
+  { id: 201, mech: 'lift', arch: ['tower', 'citadel', 'plaza'], W: 22, par: [50, 74], name: 'The Long Haul', hint: 'A lift you have to earn — the counterweight is your patience' },
+  { id: 202, mech: 'shrink', arch: ['tower', 'plaza', 'citadel'], W: 22, par: [50, 74], name: 'The Narrowing', hint: 'Small doors, big drops — the tunnel is the only way through' },
+  { id: 203, mech: 'piston', arch: ['tower', 'plaza', 'citadel'], W: 24, par: [52, 78], name: 'The Hammer', hint: 'Cross behind the arm, never against it' },
+  { id: 204, mech: 'turntable', arch: ['tower', 'citadel', 'plaza'], W: 24, par: [54, 80], name: 'The Turning Point', hint: 'The bar joins one pair, then the other — pick your moment' },
+  { id: 205, mech: 'cling', arch: ['tower', 'plaza', 'citadel'], W: 24, par: [54, 80], name: 'The Overhang', hint: 'The far face is catchable — a press, not a jump' },
+  { id: 206, mech: 'slider', arch: ['tower', 'citadel', 'plaza'], W: 26, par: [56, 84], name: 'The Tide Bridge', hint: 'The bridge is a clock — wait for the rise, then commit' },
+  { id: 207, mech: 'wind', arch: ['meridian', 'tower', 'citadel'], W: 26, par: [56, 84], name: 'The Gale Room', hint: 'Stand still and the room moves you — roll, never wait' },
+  { id: 208, mech: 'door', arch: ['tower', 'aperture', 'citadel'], W: 26, par: [58, 88], name: 'The Long Lock', hint: 'The plate is not beside the door it opens' },
+  { id: 209, mech: 'freeze', arch: ['tower', 'aperture', 'citadel'], W: 26, par: [60, 90], name: 'The Cold Vault', hint: 'Every shard you take freezes you in place — time them' },
+  { id: 210, mech: 'shuttle', arch: ['boss-arena', 'tower', 'citadel'], W: 26, par: [88, 96], name: 'The Vault Itself', hint: 'Everything you have learned, at the top of the game' },
 ];
+
+/**
+ * The Vault's declared par band, exported into the generated file so the
+ * verifier and the unit tests read ONE number instead of three copies.
+ *
+ * Phase G (ADR-045) raised the campaign to 26×26 and par 84 at the finale,
+ * which quietly made the old Vault (20–24 boards, par 38–80) EASIER than the
+ * content that unlocks it — the bonus rooms are the top of the game by
+ * fiction, so they have to be the top of it by numbers too. The Vault now
+ * starts where act 10's sawtooth peaks (50) and ends 12 above the campaign
+ * ceiling (96), on boards that ladder up to the same 26 cap.
+ */
+export const VAULT_PAR_BAND = [50, 96];
+
 
 /**
  * A room's floor contract. The campaign generator may relax sentinels under
@@ -282,7 +296,7 @@ if (process.exitCode) {
 
 out.sort((a, b) => a.id - b.id);
 const header = `// ---------------------------------------------------------------------------
-// KUBIK — the Vault, levels 201–210 (Phase E, ADR-043)
+// KUBIK — the Vault, levels 201–210 (Phase E, ADR-043, scaled in ADR-045)
 //
 // Bonus content outside the campaign: ten citadel-scale rooms, each built
 // around one headline mechanic, unlocked by total shards. Generated offline
@@ -294,6 +308,8 @@ const header = `// -------------------------------------------------------------
 //
 // Regenerate:  node scripts/gen-vault.mjs [id...]
 // ---------------------------------------------------------------------------
+
+export const VAULT_PAR_BAND = [${VAULT_PAR_BAND[0]}, ${VAULT_PAR_BAND[1]}];
 
 export const VAULT = `;
 writeFileSync(OUT, header + JSON.stringify(out, null, 2) + ';\n');

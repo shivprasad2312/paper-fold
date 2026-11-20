@@ -285,7 +285,7 @@ structure, verbs, cadence, and meta.
 |---|---|---|---|---|
 | G1 | Level topology | Filled places, landmarks, multiple routes (§2.3) | 1-wide tracks, fill 0.19, one critical path + shard spurs | **Behind** |
 | G2 | Verticality | Storeys, climb, cross-overs (§2.3) | Height-span ≤2, stairs only | **Behind** |
-| G3 | Scale escalation | Boards & routes keep growing (§2.2) | Caps at 18×18 / 44 rolls; mass falls after Act 6 | **Behind** |
+| G3 | Scale escalation | Boards & routes keep growing (§2.2) | **Shipped in Phase G (ADR-045)**: boards 20→26, fill 30→42%, par bands rebuilt (22–36 → 36–84), camera follow window | **Met** (26×26 cap recorded: the timing model prices 30+ out of the gate until it is indexed further) |
 | G4 | Player verbs | New verbs change what player *does* (EDGE: hang, shrink) | Roll + shrink pads (ADR-034) + lift rides (ADR-033) + clinging, the hang (ADR-037); no momentum verb | Closing |
 | G5 | Machinery life | Levels move: pistons, lifts, carriers (§3) | Shuttles horizontal + lifts vertical (ADR-033) + shrink pads (ADR-034) + piston pushers (ADR-035) + turntable bridges (ADR-036) + clinging (ADR-037) | Partial |
 | G6 | Mechanic cadence | Teach–test–twist; staircase (§2.1–2.2) | Debuts at density 1–5, no twist possible | **Behind** |
@@ -534,6 +534,45 @@ shipped** (ADR-043): per-level mastery grades (CLEAR / SWIFT /
 FLAWLESS, a three-notch seal), the Vault (ten shard-unlocked rooms
 201–210, generated and proved by the campaign's own gate), and the daily
 streak with its perfect-week badge. The ghost shipped earlier (M2.5).
+### Phase G — Scale (added 2026-10-23, at the user's direction)
+
+The audit in §2 said the boards cap at 18×18 with ~19% fill; the user played
+it and said the same thing from the other side — *the play area is too
+small*. Phase G is that gap, closed:
+
+- **Surface law.** Site mass grows every generated route into a place
+  (causeways, courts, raised clubs, floating isles) before hazards are
+  dressed. Fill targets 30 → 42% across acts 3–10; archetypes whose designs
+  mass dissolves (loops, spans) are excluded from mass acts by measurement,
+  not taste.
+- **Size law.** Boards 20×20 → 26×26 (acts 3–10); par bands rebuilt to
+  22–36 → 36–84, which is roughly double the old route lengths.
+- **Pacing law.** The par is no longer "wherever the band allowed": each act
+  follows a drawn sawtooth (five rising steps, one relief, per six levels),
+  the generator ranks candidates by distance to that curve, and the curation
+  audit checks the result. This is the research pass's "relief every ~6"
+  made mechanical.
+- **Camera law.** Boards above 13 tiles use a follow window; small boards
+  still show everything. Without this, bigger boards would only have made
+  each tile smaller.
+- **The cap and why.** 30×30 was the plan; the sentinel-timing model prices
+  it out of the commit gate (measured 5–15 s per candidate per patrol pair,
+  every candidate). Two semantics-preserving speedups landed (orb table
+  caching, early-exit crossing scan) and took a two-patrol graph from ~11 s
+  to ~1.5 s; the ladder still tops out at 26, which is ~2.3× the old area
+  and ~5× its walkable surface at the finale. Going further is an
+  indexed-timing project, not a budget change.
+- **Comprehension is measured, not assumed.** The greedy proxy re-read after
+  the re-scale moved *up* in the mass acts (act 5 29%→51%, act 6 32%→59%,
+  act 9 0%→34%) while the finale still defeats it 4 walks in 5. A place with
+  legal lines on every side is more forgiving to a one-roll-ahead reader than
+  a ribbon over a void, even at twice the length — the scale bought reach,
+  not a difficulty spike, and the escalation is carried by the pacing curve,
+  the mechanics and the sentinels instead.
+- **The bonus tier follows the campaign.** The Vault was re-cut from
+  20–24/par 38–80 to a 22→26 ladder at par 50–96: content that unlocks at
+  600/800 shards cannot be easier than the act that unlocks it.
+
 **Phase F instrument shipped** (ADR-044): the playtest recorder
 (`?playtest=1`, exports a session JSON), the cohort report
 (`scripts/playtest-report.mjs`: first-try clear, quit rate over players

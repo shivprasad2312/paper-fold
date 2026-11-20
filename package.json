@@ -23,7 +23,9 @@
     "test:play:all": "node scripts/test-levels-playable.mjs",
     "test:full": "npm run test:unit && npm run verify && URL=$KUBIK_URL npm run test:play:all",
     "playtest:report": "node scripts/playtest-report.mjs",
-    "playtest:proxy": "node scripts/naive-player.mjs"
+    "playtest:proxy": "node scripts/naive-player.mjs",
+    "scale": "node scripts/scale-audit.mjs",
+    "site-mass:probe": "node scripts/site-mass-probe.mjs"
   },
   "dependencies": {
     "three": "^0.186.1"

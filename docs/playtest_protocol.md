@@ -104,38 +104,43 @@ no sentinels, no crumble, no clocks — so it never dies and understates
 difficulty. Its one question is: *does following the obvious line get you
 there?*
 
-The current reading (32 walks per level):
+The current reading (32 walks per level), after the Phase G re-scale:
 
 ```
 act    greedy reach    median steps / par
-1      99%             1.09
-2      91%             1.11
-3      83%             1.20
-4      87%             1.13
-5      29%             1.16
-6      32%             1.08
-7      41%             1.09
-8      27%             1.08
-9       0%             1.42
-10      2%             1.56
+1      99%             1.08
+2      91%             1.10
+3      73%             1.21
+4      67%             1.25
+5      51%             1.22
+6      59%             1.23
+7      40%             1.21
+8      28%             1.30
+9      34%             1.14
+10     20%             1.02
 VAULT   0%             —
 ```
 
-- **The onboarding promise holds**: every act-1 level is reachable by the
-  obvious line (99% of walks; L11 *Gauntlet* at 84% is the only one under
-  90%, and a spiral is where a non-planning player loops).
-- **The obvious line first fails at L23 *Crossfire*** (act 2, 28%). That
-  is early for a level that asks for a detour — worth watching in the
-  first real cohort, though a greedy walker is the worst-case reader.
-- **From act 5 the line mostly stops working** (29–41%), and by act 9–10
-  it never does. That is the designed escalation — keys, towers, detours
-  and multi-mechanic boards are *supposed* to defeat gut-following — but
-  it is also the boundary any real cohort should be inspected across: if
-  human first-try rates collapse in the same place, the difficulty jump
-  between acts 4 and 5 is the thing to re-cut, not the individual levels.
-
-The proxy is a **reading, not a gate**: it is not in the test suite and
-no commit is blocked on it.
+- **The onboarding promise holds**: act 1 is reachable by the obvious line
+  (99% of walks; L11 *Gauntlet* at 80% is the only level under 90%, and a
+  spiral is where a non-planning player loops).
+- **The obvious line first fails at L23 *Crossfire*** (act 2, 22%). As
+  before, that is a detour level doing its job — worth watching in a real
+  cohort, since a greedy walker is the worst-case reader.
+- **The re-scale made early-mass levels MORE readable, not less** (act 3
+  83%→73%, act 4 87%→67%, act 5 29%→51%, act 6 32%→59%). This is the site
+  mass doing what it was built for: a route through a plaza has more legal
+  lines than a ribbon over a void, so a walker that only looks one roll
+  ahead finds a way more often even though the level is twice as long.
+- **Acts 9–10 rose as well** (0%→34%, 2%→20%): the old 18×18 boards were
+  corridors where one wrong roll was fatal; the EDGE-scale boards have
+  negative space to recover in. The finale still defeats gut-following four
+  walks in five, which is the intended feel of an endgame puzzle — but this
+  is the number to inspect first if the first human cohort reports act 9 as
+  *easier* than act 7.
+- **Median steps ÷ par stays near 1.0–1.3 everywhere**, i.e. when the
+  greedy walker does arrive it takes 20–30% more rolls than the optimum.
+  That gap is the planning tax the later acts are built on.
 
 ## Status
 

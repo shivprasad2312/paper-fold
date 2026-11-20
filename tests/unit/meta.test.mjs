@@ -15,6 +15,7 @@ import {
   vaultProgress, VAULT_SHARD_STEP,
 } from '../../src/meta.js';
 import { LEVELS, VAULT_LEVELS, ALL_LEVELS } from '../../src/levels.js';
+import { VAULT_PAR_BAND } from '../../src/vault.js';
 import { parseLevel, shortestRoute } from '../../src/rules.js';
 import { mechanicSignature, MECH_CAP } from '../../scripts/experience.mjs';
 import { loadSave, recordWin } from '../../src/save.js';
@@ -154,7 +155,8 @@ test('vault: every room parses, proves a route, and honours the complexity cap',
     const lv = parseLevel(def);
     const par = shortestRoute(lv);
     assert.ok(par > 0, `V${def.id - 200} has no route`);
-    assert.ok(par >= 38 && par <= 80, `V${def.id - 200} par ${par} outside [38, 80]`);
+    assert.ok(par >= VAULT_PAR_BAND[0] && par <= VAULT_PAR_BAND[1],
+      `V${def.id - 200} par ${par} outside [${VAULT_PAR_BAND.join(', ')}]`);
     assert.ok(mechanicSignature(def).length <= MECH_CAP, `V${def.id - 200} over the mechanic cap`);
     assert.ok((def.shards || []).length >= 4, `V${def.id - 200} carries fewer than four shards`);
   }

@@ -33,10 +33,13 @@ import {
 } from '../src/rules.js';
 import { ARCHETYPES } from './archetypes.mjs';
 import { applyHazards } from './hazards.mjs';
+import { applySiteMass } from './sitemass.mjs';
 import { mirrorDef } from './mirror.mjs';
 import { verify } from './level-gate.mjs';
 import { experienceFingerprint, sequenceProblems, mechanicSignature, MECH_CAP } from './experience.mjs';
-import { ACTS, actForId, isActEnd } from '../src/acts.js';
+import {
+  ACTS, actForId, isActEnd, parTarget, parJumpAllowance, reliefSlot as isReliefSlot, MECH_SLOTS,
+} from '../src/acts.js';
 import { CAMPAIGN } from '../src/campaign.js';
 import { writeFileSync } from 'node:fs';
 
@@ -89,6 +92,9 @@ function budget(id) {
     fill: g.fill,
     keyP: g.keyP,
     mech: g.mech,
+    // Phase G (ADR-045): the board's site-mass contract. Acts without one
+    // (and every pre-Phase-G level) simply skip the stage.
+    mass: g.mass,
   };
   if (isActEnd(id)) {
     // the act-end spike: the boss carries the act's ceiling — and the
@@ -113,9 +119,15 @@ function budget(id) {
 function pickArchetype(id, act, recent, forcedArch) {
   const g = act.gen;
   if (isActEnd(id)) return { arch: 'boss-arena', force: {} };
-  // rotate through the act's pool, never repeating the last two
-  const pool = g.arch.filter((a) => !recent.includes(a));
-  const list = pool.length ? pool : g.arch;
+  // A relief slot is a promise about the LEVEL'S LENGTH, so it also has to
+  // constrain the SHAPE: act 10's tower route measures ~82 rolls at 26×26 and
+  // can never land under the band's bottom third, so the slot would silently
+  // break the sawtooth (caught by the curation audit: "relief missing from
+  // L183"). The act declares which of its archetypes are short enough.
+  const base = isReliefSlot(id, act) && g.relief ? g.relief : g.arch;
+  // rotate through the pool, never repeating the last two
+  const pool = base.filter((a) => !recent.includes(a));
+  const list = pool.length ? pool : base;
   const arch = forcedArch || list[(id * 7 + act.id * 3) % list.length];
   const force = {};
   if (arch === 'shuttle-span') force.shuttle = 1;
@@ -252,6 +264,25 @@ for (const act of ACTS) {
   if (drop) nameQueue[act.id] = nameQueue[act.id].slice(drop);
 }
 
+// PAR LEDGER (Phase G): the par curve is a promise between neighbours, so
+// the generator has to know the par it has already committed to. Seed it with
+// the level before FIRST (a chunked run starts mid-act) and add each level as
+// it settles; `parseLevel`/`shortestRoute` are the same functions the audit
+// uses, so the numbers cannot disagree.
+const parsById = new Map();
+{
+  let shipped3 = [];
+  try {
+    ({ CAMPAIGN2: shipped3 } = await import(new URL('../src/campaign2.js', import.meta.url)));
+  } catch { /* first run */ }
+  const prev = [...CAMPAIGN, ...shipped3].find((d) => d.id === FIRST - 1);
+  if (prev) {
+    try {
+      parsById.set(prev.id, shortestRoute(parseLevel(prev)));
+    } catch { /* unparseable neighbour: no constraint */ }
+  }
+}
+
 const out = [];
 const archRecent = {};
 for (let id = FIRST; id <= LAST; id++) {
@@ -283,10 +314,20 @@ for (let id = FIRST; id <= LAST; id++) {
   // undefined, so no forced carve ever happened and the mechanic acts
   // silently shipped mechanic-free).
   let allForce = { ...(act.gen.force || {}), ...force };
+  // the mechanic curriculum (Phase C) as DATA: a slot that exists to teach,
+  // test or twist a mechanic carries that carve on every regeneration
+  for (const [mech, idsV] of Object.entries(MECH_SLOTS)) {
+    if (idsV.includes(id)) allForce[mech] = (allForce[mech] || 0) + 1;
+  }
   // introduction knob (sibling of KUBIK_FORCE_ARCH): force a mechanic
   // carve on ONE slot, e.g. KUBIK_FORCE_MECH=175=conveyor — how a new
   // mechanic enters the shipped campaign: one proven slot at a time,
   // through the full gate, instead of a campaign-wide regeneration.
+  if (allForce.wind) {
+    // a wind slot is a designed pure-movement exception (ADR-039): the breeze
+    // cannot share a level with the act's clocked identity mechanic
+    for (const m of Object.keys(act.gen.force || {})) delete allForce[m];
+  }
   if (process.env.KUBIK_FORCE_MECH) {
     const [fId, fMech] = process.env.KUBIK_FORCE_MECH.split('=');
     // a '+' list forces a combination on the slot (Phase C twist slots:
@@ -315,6 +356,10 @@ for (let id = FIRST; id <= LAST; id++) {
   // here, so the END-OF-ATTEMPTS settle may relax to bestAny — with a
   // warning (the file-level gate does not enforce cross-level similarity).
   let best = null;
+  // a jump-compliant fallback: when the budget runs out, the PACING promise
+  // outranks the uniqueness preference — a level that breaks the act's
+  // difficulty curve is worse than one that resembles its neighbours
+  let bestJump = null;
   let bestAny = null;
   // Single-pass candidate loop (M2.5, fixed 2026-11-12): the old 3-phase
   // loop re-ran the same rand stream under orb budgets [orbs0, ceil/2, 0],
@@ -327,17 +372,29 @@ for (let id = FIRST; id <= LAST; id++) {
   // a wind slot is a pure-movement level: it carries no patrol by parse law
   // (ADR-039), so its orb target is zero by design, not by starvation
   const wantOrbs = allForce.wind ? 0 : bEff.orbs[0];
-  const rankOf = (c, s) => (c.orbs || []).length * 100000 + s;
+  // ranking: sentinels first (the act's band), then the designed curve —
+  // a candidate ON the act's pacing target beats a busier one 20 rolls off it
+  const target = parTarget(id, act);
+  const rankOf = (c, s, par) => (c.orbs || []).length * 1e6
+    - Math.abs(par - target) * 900 + s * 120;
   // sawtooth relief slot (Phase C, ADR-032): KUBIK_RELIEF=<id> settles
   // this slot on its SHORTEST proven candidate instead of the
   // highest-ranked one — a designed breathing slot in the act's par
   // curve (bottom third of the band), not an accident of the draw.
   const reliefSlot = Number(process.env.KUBIK_RELIEF || 0) === id;
-  const rankRelief = (c, s, par) => (reliefSlot ? -par * 100000 + s : rankOf(c, s));
+  const rankRelief = (c, s, par) => (reliefSlot ? -par * 100000 + s : rankOf(c, s, par));
   for (let attempt = 0; attempt < slotBudget && !def; attempt++) {
     const layout = ARCHETYPES[arch](rand, bEff);
     if (!layout) continue;
-    let cand = applyHazards(layout, bEff, rand, { force: allForce });
+    // Phase G (ADR-045): give the route a place to happen in BEFORE hazards
+    // are dressed, so every patrol, shard and carve is placed against the
+    // geometry the player actually meets. Mass is additive over void, keeps
+    // every route tile's height, and the verifier still has to accept the
+    // result — a massy board that flattens the par is rejected like any
+    // other bad candidate.
+    const site = applySiteMass(layout, rand, bEff);
+    if (!site) continue;
+    let cand = applyHazards(site, bEff, rand, { force: allForce });
     if (!cand) continue;
     cand = { ...cand, id, name: '', hint: act.gen.hint };
     // MIRROR FIRST, THEN PROVE (ADR-041). The shipped layout is the mirrored
@@ -421,11 +478,62 @@ for (let id = FIRST; id <= LAST; id++) {
     // the def is already mirrored, so this is the shipped layout
     const expFp = experienceFingerprint(cand, rep.par);
     const expOk = sequenceProblems(expFp, recentExperience).length === 0;
-    if (uniq && expOk && (!best || rankRelief(cand, s, rep.par) > rankRelief(best.cand, best.s, best.rep.par))) best = { cand, rep, s, uniq, expFp };
+    // THE MIRROR LAW (ADR-041), now proved rather than assumed. The generator
+    // can flip a proven layout, and the mirror test pins every generated
+    // level: the x- and z-mirror must have the same par. That held until a
+    // Phase G candidate shipped where the mirrored board could only reach its
+    // key by crossing the sealed goal (L72: 28 vs no route) — a legal level
+    // whose mirror is not, which the test rightly refuses. Checking the
+    // mirrors of a candidate is two BFS runs, and only when it is about to
+    // be accepted.
+    const mirroredOk = () => {
+      for (const axis of ['x', 'z']) {
+        try {
+          if (shortestRoute(parseLevel(mirrorDef(cand, axis))) !== rep.par) return false;
+        } catch {
+          return false;
+        }
+      }
+      return true;
+    };
+    // the pacing law, enforced rather than hoped for: a candidate that would
+    // step further than the act's allowance from the level before it is not a
+    // settle candidate at all (the audit uses the same allowance, so a
+    // settled catalogue cannot fail it — the first Phase G run did, 18–31
+    // rolls, because ranking only PREFERRED the curve).
+    const prevPar = parsById.get(id - 1);
+    // THE JUMP LAW, BOTH ENDS. A level may not step further than the act's
+    // allowance from the one before it — and a level may not climb so high
+    // that the BREATHER AFTER IT cannot reach it. Only the first half was
+    // enforced at first: L197 settled at 79 (its target was 69) and the
+    // relief slot L198 could not get within 34 of it even at its shortest
+    // proven par (42), so the fallback shipped a 37-roll cliff into the
+    // breather (caught by the curation audit). The headroom is the relief's
+    // own target plus the allowance, less one slot's worth of slack.
+    const nextIsRelief = id + 1 <= 200 && isReliefSlot(id + 1, actForId(id + 1));
+    const headroom = nextIsRelief
+      ? parTarget(id + 1, actForId(id + 1)) + parJumpAllowance(act) - 6
+      : Infinity;
+    const jumpOk = (prevPar == null || actForId(id - 1) !== act
+      || Math.abs(rep.par - prevPar) <= parJumpAllowance(act))
+      && rep.par <= headroom;
+    const mirrorOk = jumpOk && uniq && expOk ? mirroredOk() : false;
+    if (uniq && expOk && jumpOk && mirrorOk && (!best || rankRelief(cand, s, rep.par) > rankRelief(best.cand, best.s, best.rep.par))) best = { cand, rep, s, uniq, expFp };
+    if (jumpOk && (!bestJump || rankRelief(cand, s, rep.par) > rankRelief(bestJump.cand, bestJump.s, bestJump.rep.par))) {
+      bestJump = { cand, rep, s, uniq, expFp };
+    }
     if (!bestAny || rankRelief(cand, s, rep.par) > rankRelief(bestAny.cand, bestAny.s, bestAny.rep.par)) bestAny = { cand, rep, s, uniq, expFp };
     // full orb budget met: take the best after a short exploration window
     // (a relief slot keeps exploring: its shortest candidate may come late)
-    if (!reliefSlot && best && (best.cand.orbs || []).length >= wantOrbs && attempt >= 24) {
+    const span = bEff.par[1] - bEff.par[0];
+    const tol = Math.max(3, Math.round(span * 0.1));
+    // accept early only when the candidate also sits ON the act's designed
+    // curve — a proven level 20 rolls off the pacing target keeps the search
+    // going; the patience cap (110 attempts) is the escape hatch that keeps a
+    // sparse slot from running forever.
+    const nearCurve = best ? Math.abs(best.rep.par - parTarget(id, act)) <= tol : false;
+    if (!reliefSlot && best && (best.cand.orbs || []).length >= wantOrbs
+      && ((attempt >= 24 && nearCurve) || attempt >= 110)) {
       def = best.cand;
       report = best.rep;
       seenSigs.add(best.uniq.sig);
@@ -458,9 +566,13 @@ for (let id = FIRST; id <= LAST; id++) {
   // a slot with a single proven candidate early in the budget (the boss
   // finale under a forced mechanic: 1 in 450) would otherwise starve.
   // Settle for the best proven candidate at the true end of attempts.
-  if (!def && (best || bestAny)) {
-    const pick = best || bestAny;
-    if (!best) console.error(`⚠ level ${id} (${arch}): uniqueness exhausted — settled non-unique`);
+  if (!def && (best || bestJump || bestAny)) {
+    const pick = best || bestJump || bestAny;
+    if (!best && bestJump) {
+      console.error(`⚠ level ${id} (${arch}): settled for pacing over uniqueness/diversity`);
+    } else if (!best) {
+      console.error(`⚠ level ${id} (${arch}): uniqueness exhausted — settled non-unique`);
+    }
     if (pick.expFp && sequenceProblems(pick.expFp, recentExperience).length) {
       console.error(`⚠ level ${id} (${arch}): diversity exhausted — settled repetitive (${pick.expFp.label})`);
     }
@@ -479,6 +591,15 @@ for (let id = FIRST; id <= LAST; id++) {
   if (!def) {
     console.error(`✗ level ${id} (${arch}): no candidate passed ${slotBudget} attempts`);
     process.exit(1);
+  }
+  // commit the par to the ledger the next slot reads
+  parsById.set(id, report.par);
+  {
+    const prevPar = parsById.get(id - 1);
+    if (prevPar != null && actForId(id - 1) === act
+      && Math.abs(report.par - prevPar) > parJumpAllowance(act)) {
+      console.error(`⚠ level ${id} (${arch}): settled off-curve — par jump ${prevPar}→${report.par} exceeds ${parJumpAllowance(act)}`);
+    }
   }
 
   // name from the act pool (boss takes the act's last name automatically)

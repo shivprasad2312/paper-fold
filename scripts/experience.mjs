@@ -24,7 +24,7 @@
 // of merely being caught by them.
 // ---------------------------------------------------------------------------
 import { parseLevel, shortestRoute } from '../src/rules.js';
-import { actForId } from '../src/acts.js';
+import { actForId, parJumpAllowance } from '../src/acts.js';
 
 const MECH_FIELDS = [
   ['ice', 'I', (d) => (d.ice || []).length > 0],
@@ -184,8 +184,13 @@ export function experienceProblems(defs, parById = new Map()) {
     if (fps[i].id % 20 === 0) continue; // boss spike
     if (fps[i - 1].par < 0 || fps[i].par < 0) continue;
     const jump = Math.abs(fps[i].par - fps[i - 1].par);
-    if (jump > 16) {
-      problems.push(`${where(i - 1)}→${where(i)}: intra-act par jump of ${jump} (${fps[i - 1].par}→${fps[i].par})`);
+    // The allowance is the act's OWN bandwidth (Phase G, ADR-045): an act
+    // that declares par 36–84 has designed that spread, and a plaza beside a
+    // meridian is the act reading as intended. The same helper gates the
+    // generator, so a compliant catalogue cannot fail this after the fact.
+    const allowed = parJumpAllowance(b);
+    if (jump > allowed) {
+      problems.push(`${where(i - 1)}→${where(i)}: intra-act par jump of ${jump} (${fps[i - 1].par}→${fps[i].par}, allowed ${allowed})`);
     }
   }
 

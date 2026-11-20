@@ -5,6 +5,7 @@
 //   node scripts/verify-levels.mjs
 import { LEVELS, VAULT_LEVELS } from '../src/levels.js';
 import { getDailyLevel } from '../src/daily.js';
+import { VAULT_PAR_BAND } from '../src/vault.js';
 import {
   parseLevel,
   reachable,
@@ -22,6 +23,7 @@ import {
   key,
 } from '../src/rules.js';
 import { experienceProblems } from './experience.mjs';
+import { scaleAudit } from './scale-audit.mjs';
 
 /** Shortest number of rolls from start to goal (ignores hazards). */
 function shortestRoute(level) {
@@ -181,10 +183,24 @@ console.log('\nVAULT BAND + DIVERSITY');
   for (const def of VAULT_LEVELS) vaultPars.set(def.id, provenRoute(parseLevel(def)));
   for (const def of VAULT_LEVELS) {
     const par = vaultPars.get(def.id);
-    if (par < 38 || par > 80) fail(`V${def.id - 200} par ${par} outside the Vault band [38, 80]`);
+    if (par < VAULT_PAR_BAND[0] || par > VAULT_PAR_BAND[1]) {
+      fail(`V${def.id - 200} par ${par} outside the Vault band [${VAULT_PAR_BAND.join(', ')}]`);
+    }
   }
   for (const p of experienceProblems(VAULT_LEVELS, vaultPars)) fail(`vault sequence: ${p}`);
-  if (!failed) console.log('  band [38, 80] + sequence ✓');
+  if (!failed) console.log(`  band [${VAULT_PAR_BAND.join(', ')}] + sequence ✓`);
+}
+
+// Scale audit (Phase G, ADR-045): every mass act must hold the size and fill
+// it declares. The per-level proof says a level can be played; this says it is
+// the KIND of level the act promises — EDGE-scale places, not ribbons.
+console.log('\nSCALE (act boards + fill)');
+{
+  const { rows, problems } = scaleAudit(LEVELS);
+  for (const p of problems) fail(p);
+  if (!problems.length) {
+    console.log('  act means: ' + rows.map((r) => `A${r.act} ${(r.meanFill * 100).toFixed(0)}%/${r.W}`).join(' · ') + ' ✓');
+  }
 }
 
 // The daily generator must produce a legal level for every day.

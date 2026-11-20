@@ -2379,3 +2379,158 @@ a reload; the `?playtest=1` profile ends with both keys, the recorded
 events, and a chip reading "1 attempt · 1 level" on the level select —
 matching storage exactly. So the key never appears outside playtest mode,
 and the chip does not overstate the record.
+
+### ADR-045 — Phase G: EDGE-scale boards (size, mass, and the camera that shows them)
+
+**Context.** The complaint that started this phase was concrete: the game's
+play area is too small — not the grid (an 18×18 frame is already EDGE-sized)
+but the **walkable surface**. Measured, the old catalogue was 15–21% filled
+from act 3 to act 7; a 47-tile route inside a 324-tile frame is a ribbon in a
+void, and 31 of 200 levels had *zero* interior tiles — every floor tile was
+corridor. The reference boards are the opposite: broad slabs you travel
+across, block clusters and terraces to read around, a camera close enough
+that the cube is a character and not a dot.
+
+Two coupled changes were needed, because in this renderer a bigger board
+alone makes each tile SMALLER (the camera fit the whole board).
+
+**1. Site mass (`scripts/sitemass.mjs`).** The archetypes carve a route; this
+stage gives the route a place to happen in, between the archetype and the
+hazard stage so every patrol, shard and carve is dressed against the final
+geometry. Four moves, in order:
+
+- **WIDEN** — each route tile bushes out perpendicular to travel at the
+  route's own height, 1–3 tiles a side, ragged edges;
+- **COURTS** — if the causeway cannot reach the act's fill target, a stretch
+  of route grows a deck up to 7 tiles deep on one side;
+- **BITE** — a few tiles are removed from *new* land for shape (never the
+  route, never original ground — a hole that deletes a shortcut lengthens
+  the level);
+- **CLUBS** — some new land is raised 1–2 storeys; **ISLES** — a few
+  unconnected plates float in the void, purely because a board needs
+  negative space with things in it.
+
+Contract, all of it enforced per candidate: route tiles keep their heights
+exactly; mass covers only void; the spawn and goal keep a one-tile
+breathing space; a mass tile may touch only route tiles immediately around
+its seed (any other contact is a BRIDGE — measured: a tower's par fell
+107 → 27 when its moats could be filled); the finished board must keep the
+route within 2 rolls of its bare length (a ring 34 → 21, a shuttle span
+44 → 34, a gauntlet 74 → 30 were all shipped as different puzzles by an
+earlier, laxer version); fill ≥ 24%; the act's 2×2 floor.
+
+**2. The camera (`src/framing.js`, `src/stage.js`).** A pure framing law,
+because a camera that can only be checked by looking at it is a camera that
+breaks silently. Boards up to 13 tiles are shown whole, exactly as before —
+teaching boards are small *because* reading the whole puzzle is the lesson.
+Bigger boards get a follow window: half the whole-board fit, floored at 6.6
+world units (a usable plan area) and capped at 10.8 (so a 26×26 finale is not
+a postage stamp), widened on portrait phones so the horizontal window never
+becomes a slit, clamped to the board so the view never drifts into the void,
+dead-zoned at 1.1 tiles so a standing cube does not make the camera breathe,
+and height-compensated so a cube on a tower's third ring stays centred.
+Two corrections came from looking at the running game rather than the maths:
+the board clamp is a *preference* and the subject wins (on the first build a
+cube spawning in a far corner was projected outside the frame at L60 and
+L166 — the view stopped at the board edge while the player kept walking), and
+a level load **snaps** the camera to the cube before the dead zone engages
+(otherwise the first second of every board was a pan in from the centre).
+Crossing the 13-tile boundary changes nothing on screen: the two laws meet at
+the same value. A cube hidden behind geometry is drawn through it: a ghost
+mesh with depth testing off, triggered by a ray against the level's own
+height map (one draw call, no extra render pass).
+
+**The size ladder and the pools.** Board size now grows every act, and the
+archetype pools are chosen from measurement, not taste
+(`scripts/site-mass-probe.mjs` is the tool):
+
+| act | board | par band | mass fill | archetypes that survive mass at that size |
+|---|---|---|---|---|
+| 3 | 20 | 22–36 | 30% | twin-bridge, crossroads, lattice, split-merge, fork, plaza, descent |
+| 4 | 22 | 24–40 | 32% | + ice-river |
+| 5 | 24 | 26–46 | 34% | twin-bridge, lattice, split-merge, crossroads, fork, plaza, aperture |
+| 6 | 24 | 28–50 | 36% | + ice-river, bridge-chain |
+| 7 | 26 | 30–60 | 36% | + shuttle-span (its act identity) |
+| 8 | 26 | 32–64 | 38% | + citadel, twin-falls, boss-arena |
+| 9 | 26 | 34–68 | 40% | + meridian |
+| 10 | 26 | 36–84 | 42% | + tower (the finale's set piece) |
+
+Acts 1–2 (levels 1–40, hand-set and the first generator) keep their intimate
+boards: onboarding is about reading a small puzzle, and a 20-wide first level
+teaches nothing. They were **not** regenerated.
+
+Loop archetypes (ring, spiral, gauntlet, undertow, staircase, switchback) are
+deliberately absent from mass acts: they are puzzles about the way round, and
+filling their void dissolves them (a gauntlet loses 40+ rolls of route). They
+remain available to the daily generator and to acts 1–2's relief.
+
+**The honest cap: 26, not 30.** The plan was 30×30 for acts 9–10. Measurement
+stopped it: the sentinel-timing model (ADR-012/018, the gate that caught
+L46/L179) costs 5–15 s per candidate at 26–30 with two patrols, and every
+candidate is verified. Two fixes landed first, both semantics-preserving:
+orb patrol tables and patrol-line tile sets are cached per orb (pure
+functions of the path), and the crossing-window scan stops the moment a run
+reaches the timing floor instead of always scanning a full patrol cycle —
+the graph only ever asks "is a window ≥ floor", and clamps what it stores.
+That took a two-patrol graph from ~11 s to ~1.5 s. At 30×30 the remaining
+cost would still have put a full regeneration at 7+ hours and the commit hook
+at an hour, so the ladder tops out at 26 — 2.3× the area of the old 18×18
+with ~2.5× the fill, i.e. roughly 5× the walkable surface at the finale.
+Raising the cap is an indexed-timing-model project, recorded here rather than
+pretended.
+
+**The Vault moves with the campaign (amends ADR-043).** The Vault is the
+top of the game by fiction — ten master-class rooms unlocked by shards — and
+Phase G quietly broke that: the campaign now ends at 26×26 with pars to 84,
+while the Vault sat at 20–24 boards and par 38–80, i.e. *easier than the
+content that unlocks it*. Its ladder now runs 22 → 26, the par band is
+50–96 with the finale above the campaign ceiling, and the band is exported
+from the generated file (`VAULT_PAR_BAND`) so the verifier and the unit test
+read one number instead of three copies. The room contracts are unchanged:
+every room still forces its headline mechanic, the proven route must CROSS
+it, the hazard floor is still hard, and the experience sequence is still
+checked.
+
+**The pacing law.** Widening the par bands to 22–36 … 36–84 made the
+catalogue *uneven*: adjacent levels could legitimately differ by any amount
+the band allowed, and the first Phase G regeneration shipped 18–31-roll
+cliffs (L152→153: 64→33) and acts with no breather at all (act 10 read as a
+wall of 60–80-roll levels). Pacing is a design decision, so it is drawn, not
+sampled. Each act runs a sawtooth of six: five rising steps (18 / 32 / 46 /
+58 / 68 % of the band), then a relief at 22 %, with the level before a boss
+dipping to 25 % and the boss itself at the ceiling. Three consequences, all
+enforced:
+
+- the **generator ranks** candidates by distance to the drawn target after
+  the sentinel count, and **refuses to settle** on a candidate that would
+  step further than the act's allowance (`parJumpAllowance`, 70 % of the
+  band, floor 16) from the level before it — the same number the curation
+  audit fails on, so a settled catalogue cannot fail it afterwards. The law
+  has **two ends**: a level may also not climb so high that the breather
+  after it cannot be reached, which is how one 37-roll cliff survived the
+  first pass (L197 settled at 79 against a target of 69, and L198's shortest
+  proven relief was 42). If the attempt budget runs out, a pacing-compliant
+  candidate now outranks a unique one — a curve break is worse for the
+  player than a board that resembles its neighbour;
+- a **relief slot draws from its act's short archetypes** (`gen.relief`),
+  because a tower route measures ~82 rolls at 26×26 and can never land under
+  the band's bottom third — the slot would silently break the sawtooth;
+- the **mechanic curriculum is data** (`MECH_SLOTS`) and was re-homed off
+  every relief slot: a teaching slot is a climbing slot (a room long enough
+  to learn in) and a relief slot is the opposite promise. Eight slots moved
+  (L92→93, L98→97, L112→111, L126→127, L152→151, L158→157, L186→185,
+  L192→190); before that, act 10's cling test could not prove at all on a
+  plaza.
+
+**Verification.** `scripts/scale-audit.mjs` is a new gate inside
+`verify-levels`: every mass act must average its declared fill (6-point
+tolerance), every level must be ≥ 20% filled with at least half its act's 2×2
+floor, and every board must be the size the act declares (bosses +2). Unit
+tests pin the mass contract (route heights, void-only, bridge rule, dissolve
+rule, unfillable-board rejection), the framing law (the two laws meeting,
+the zoom band, the portrait guard, edge clamping, subject containment, the
+dead zone, the snap on level load, height compensation, occlusion ray) and
+the pacing law (curve inside the allowance, relief at least every six, bosses
+at the ceiling with a dip before them, no curriculum slot on a breathing
+slot, relief pools drawn from the act pool). Every regenerated level still passes the full
+nine-check proof — the verifier is the backstop mass is layered under.

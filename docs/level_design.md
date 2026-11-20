@@ -189,7 +189,7 @@ satisfy (enforced by `parseLevel` + verifier):
 | Sentinel period | ≥ ~2 s per loop | Readable patrol; never strobe-fast (eye-strain finding, research §6). |
 | Wind period | 0.62 s | A nudge every ~4 rolls at typical pace — a drift you plan around, not a force you fight. |
 | Shards | 2–5 (2 teaching / 3 most / 4 campaign / 5 pre-boss) | Risk/reward budget: each is ~1–3 rolls off-route; collecting every one ≈ a meaningful time cost = the perfect flag. |
-| Level size | hand 7×3 → 11×10, campaign 8×8 → 18×18 | Teaching levels tiny; the finale is EDGE-scale. Size ≈ difficulty budget (campaign enlarged 2026-11-07). |
+| Level size | hand 7×3 → 11×10, campaign 8×8 → 26×26 | Teaching levels tiny; the finale is EDGE-scale. Size ≈ difficulty budget (18×18 in 2026-11-07; **26×26 + site mass in Phase G, ADR-045**). |
 | Shuttle dwell | 2.0 s per dock, travel 0.8 s per gap tile | ~8 s full loop: readable at 4.12 tiles/s, tight enough that "board before it leaves" is a real reflex (dwell ≥ ~2.2 rolls, proven by the verifier). |
 | Ice slide | 1 press, stops at first non-ice / illegal step | Momentum without a timer: the whole slide is one graph edge, so fairness is provable. |
 | Spring launch | ≤ 3 tiles, landing slab within ±3 height | A fixed, readable hop — never "how high do I go?" |
@@ -267,18 +267,35 @@ crumble, and the candidate is rejected until the full verifier proves it.
 
 **The acts.** Acts 1–2 are the hand-set + the 14–50 band above (levels
 1–50). Acts 3–10 are the generated campaign; every 20th level is the
-act's BOSS (boss-arena, 18×18, 2+ sentinels, par band +2/+4):
+act's BOSS (boss-arena, the act's board +2 tiles, 2+ sentinels, par band
++2/+4):
 
 | Act | Levels | Name | Map | Par | Sentinels | Character |
 |---|---|---|---|---|---|---|
-| 3 | 41–60 | Below the Summit | 16×16 | 19–34 | 1–2 | heightfall + first shuttles |
-| 4 | 61–80 | Hollow Country | 16×16 | 22–38 | 1–3 | the ground disappears: crumble, gaps |
-| 5 | 81–100 | Crosshatch | 18×18 | 24–40 | 2–3 | density: nothing straight is safe |
-| 6 | 101–120 | Glasswork | 18×18 | 26–42 | 2–3 | ice everywhere; springs |
-| 7 | 121–140 | Slow Current | 18×18 | 28–44 | 2–3 | shuttles everywhere; waiting |
-| 8 | 141–160 | Darkwater | 18×18 | 30–46 | 2–3 | keys (45% of levels); vaults |
-| 9 | 161–180 | The Pressure | 18×18 | 32–48 | 2–3 | everything at once |
-| 10 | 181–200 | The Last Ascent | 18×18 | 34–50 | 2–3 | the finale; 200: sealed gate |
+| 3 | 41–60 | Below the Summit | 20×20 | 22–36 | 1–2 | heightfall + first shuttles |
+| 4 | 61–80 | Hollow Country | 22×22 | 24–40 | 1–3 | the ground disappears: crumble, gaps |
+| 5 | 81–100 | Crosshatch | 24×24 | 26–46 | 2–3 | density: nothing straight is safe |
+| 6 | 101–120 | Glasswork | 24×24 | 28–50 | 2–3 | ice everywhere; springs |
+| 7 | 121–140 | Slow Current | 26×26 | 30–60 | 2–3 | shuttles everywhere; waiting |
+| 8 | 141–160 | Darkwater | 26×26 | 32–64 | 2–3 | keys (45% of levels); vaults |
+| 9 | 161–180 | The Pressure | 26×26 | 34–68 | 2–3 | everything at once |
+| 10 | 181–200 | The Last Ascent | 26×26 | 36–84 | 2–3 | the finale; 200: sealed gate |
+
+**Scale (Phase G, ADR-045).** Board size and **fill** are both part of the
+difficulty budget now. The old catalogue was 15–21% filled from act 3 to act
+7 — a route in a void, and 31 of 200 levels had zero interior tiles. From
+act 3 on, every generated board passes through the **site-mass stage**
+(`scripts/sitemass.mjs`), which grows the route into a place — wide
+causeways, courts, raised clubs, a few floating isles — before hazards are
+dressed, under a contract that keeps every route tile's height, fills only
+void, forbids bridges between route legs (a mass tile may touch only the
+route tiles around its seed) and forbids dissolving the design (the route
+may shorten by at most 2 rolls). Per-act targets: fill 30 / 32 / 34 / 36 /
+36 / 38 / 40 / 42% for acts 3–10, checked by the scale audit in the
+verifier (act mean within 6 points, every level ≥ 20% filled with at least
+half the act's 2×2 floor, board size as declared, bosses +2).
+The **level-select and HUD are unchanged**; the camera is not — see
+"the camera" below.
 
 Par, sentinel band, crumble, speed, shard count, fill density, mechanic
 probabilities, key probability and the act's name pool are data in
@@ -291,18 +308,28 @@ long-drop, meridian, undertow, canyon, boss-arena. Each act's pool
 (§acts.js) contains the archetypes it wants; the picker rotates through
 the pool and never repeats the last two in an act. An archetype whose
 natural par falls outside the act's band is not in that act's pool
-(meridian, par 46 at 18×18, plays in Darkwater/The Pressure/The Last
+(meridian, par ~66 at 26×26, plays in The Pressure/The Last
 Ascent only).
 
+**The camera (Phase G, ADR-045).** Boards up to 13 tiles are shown whole.
+Bigger boards use a follow window — half the whole-board fit, floored at
+6.6 and capped at 10.8 world units, widened on portrait, clamped to the
+board, dead-zoned at 1.1 tiles, height-compensated so a cube on a ring
+stays centred. The two laws meet exactly at the threshold, so nothing pops
+on screen at the boundary. A cube hidden behind geometry is echoed through
+it (ghost mesh, depth test off) — a ray test against the level's own height
+map decides, not a render pass. The minimap and the four camera seats are
+unchanged.
+
 **Structure archetypes (Phase A, ADR-030).** The track archetypes fill
-≈ 19% of their board; three builders make *places*: **plaza** (a filled
+≈ 19% of their board before site mass; three builders make *places*: **plaza** (a filled
 court, fill ≈ 0.6, crossed on chosen lines under patrol lanes),
 **tower** (a terraced massif, rings 1→2→3 split by void moats, stairs
 at opposite corners so every ring is walked), **citadel** (court +
 moated keep, the finale-class composite). Escalation is budgeted:
-Acts 8–10 generate at 20×20 with par bands [32,50] / [36,58] /
-[40,66], and an act-end board is `max(18, W+2)` — size and route
-depth grow act over act while the opening stays readable. First
+Acts 3–10 generate on the Phase G ladder (20→26, ADR-045) with the
+par bands in the act table above, and an act-end board is `W+2` — size
+and route depth grow act over act while the opening stays readable. First
 spliced slots: plaza L88, L113, L128; tower L148, L168, L188;
 citadel L155, L177, L196.
 
@@ -355,21 +382,23 @@ The campaign's 200 stay open from the start.
 
 | room | headline | scale | par |
 |---|---|---|---|
-| V01 The Long Haul | lift | 20×20 | 43 |
-| V02 The Narrowing | shrink | 20×20 | 52 |
-| V03 The Hammer | piston | 20×20 | 52 |
-| V04 The Turning Point | turntable | 22×22 | 63 |
-| V05 The Overhang | cling | 20×20 | 49 |
-| V06 The Tide Bridge | slider | 22×22 | 63 |
-| V07 The Gale Room | wind | 20×20 | 52 |
-| V08 The Long Lock | door | 24×24 | 70 |
-| V09 The Cold Vault | freeze | 24×24 | 69 |
-| V10 The Vault Itself | shuttle (boss) | 24×24 | 67 |
+| V01 The Long Haul | lift | 22×22 | 57 |
+| V02 The Narrowing | shrink | 22×22 | 60 |
+| V03 The Hammer | piston | 24×24 | 69 |
+| V04 The Turning Point | turntable | 24×24 | 66 |
+| V05 The Overhang | cling | 24×24 | 70 |
+| V06 The Tide Bridge | slider | 26×26 | 82 |
+| V07 The Gale Room | wind | 26×26 | 82 |
+| V08 The Long Lock | door | 26×26 | 87 |
+| V09 The Cold Vault | freeze | 26×26 | 77 |
+| V10 The Vault Itself | shuttle (boss) | 26×26 | 90 |
 
 Laws specific to the set:
 
-- **Master scale.** 20×20 up to 24×24 — the size the research approved
-  for finale and Vault slots only.
+- **Master scale.** 22×22 up to 26×26 — the Vault meets the campaign's
+  Phase G cap and tops its par band instead of sitting below it (ADR-045).
+  The ladder is a climb with one deliberate dip: 57, 60, 69, 66, 70, 82,
+  82, 87, 77, **90** — the freeze room breathes so the finale can spike.
 - **One headline per room, and the route must cross it.** A room whose
   forced mechanic the optimal line walks around is rejected, exactly as
   in the campaign: the room has to teach the thing it is named for.
