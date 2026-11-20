@@ -71,6 +71,19 @@ satisfy (enforced by `parseLevel` + verifier):
   low tiles are plain slabs (a shard may end a tunnel niche); blocks
   never enter a tunnel or park on a pad. Proofs carry size as search
   state; the rescue bench never lands on a low tile or pad.
+- `wheels`: `[{at: [x,z], period?, phase?}]` — the capstan (ADR-050): a
+  two-armed bar over a VOID hub, sweeping the four ring tiles around the hole.
+  `period` ∈ [3, 10] s (default 6), `phase` ∈ [0, 1). Laws: the hub must be
+  void and all four ring tiles must exist at ONE height (the arms hang level);
+  every ring tile must be clear for at least `TIMING_FLOOR` (0.5 s) per pass —
+  `(1 − 2·ARM_HALF/π) · period/2` — or the level is a coin flip and is
+  refused. The arms hang one mini-height above the slab, so a **mini cube
+  passes underneath and a full-size cube is caught**. Proofs may only route
+  the ring while mini (the safe route is always the duck-under); the game
+  still lets a full-size cube roll in and die, which is the dare, never a
+  dependency. Ring tiles stay pure (no mechanic, shard, block, key, start,
+  goal or patrol), a wheel needs a shrink pad or a mini start, and a wind
+  level never carries one.
 - `pistons`: `[{at, dx, dz, period?, phase?}]` — piston pushers (Phase B,
   ADR-035): a machinery base whose arm sweeps the next cell along
   (dx,dz) for the tail of every cycle (retracted for the first 55% —
@@ -310,6 +323,16 @@ the pool and never repeats the last two in an act. An archetype whose
 natural par falls outside the act's band is not in that act's pool
 (meridian, par ~66 at 26×26, plays in The Pressure/The Last
 Ascent only).
+
+**The wheel (ADR-050).** Act 10 carries the two hand-built wheel boards
+(192 *The Turning*, 196 *Beneath the Rim*). Both are a U — a south corridor,
+an east turn and a middle corridor — and the wheel sits IN the south corridor:
+its pit takes the middle row, so the two rows beside it are ring tiles and
+there is no way past without stepping into the sweep. That is the mechanic's
+law: **shrink and duck under, or dare the gap between the arms.** The
+teaching board gives you one wheel and room to learn that the small cube
+passes; the twist keeps you small through a low tunnel and a second wheel, so
+the grow pad pays off a whole silent run.
 
 **The camera (ADR-049).** One law at every size: the whole board is fitted
 on screen at the live yaw, with 20% breathing room (a little less on

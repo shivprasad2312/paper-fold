@@ -601,6 +601,7 @@ export class Game {
       this.checkOrbs();
       this.checkBrokenGround();
       this.checkSunkGround();
+      this.checkWheels();
       this.updateWind(dt);
       this.updatePistons();
       this.updateGhost(dt);
@@ -1253,6 +1254,45 @@ export class Game {
       this.emit('sliderFell');
       this.die('turntable');
     }
+  }
+
+  /**
+   * The wheel (ADR-050): a two-armed capstan turning over a pit.
+   *
+   * A MINI cube rolls under the arms untouched — that is the mechanic's
+   * promise, and the safe route every proof guarantees. A full-size cube
+   * standing on a ring tile when an arm sweeps over it is caught and flung
+   * off the rim. The check is settled-only (no `anim`): the 243 ms tumble is
+   * the player's committed action, and killing mid-roll would punish a move
+   * the player could not see resolved — so the arm catches you standing in
+   * its path, which is the read the hazard telegraphs.
+   *
+   * The fall's direction is the arm's TANGENT at that ring tile, so the cube
+   * is visibly dragged around with the bar before it drops, not simply
+   * dropped in place.
+   */
+  checkWheels() {
+    if (!this.level.wheels.length) return;
+    if (this.mini) return;            // small enough to pass beneath the arms
+    if (this.cube.anim) return;       // only a settled cube is caught
+    const w = this.level.wheelCells.get(key(this.cube.x, this.cube.z));
+    if (!w) return;
+    if (!this.view.wheelSweptAt(this.cube.x, this.cube.z)) return;
+    // flung along the arm's TANGENT — the cube is dragged around the rim,
+    // not simply dropped straight down
+    const dx = this.cube.x - w.at[0];
+    const dz = this.cube.z - w.at[1];
+    this.cube.anim = {
+      type: 'fall',
+      t: 0,
+      dx: -dz * 0.9,
+      dz: dx * 0.9,
+      startPos: this.cubeMesh.position.clone(),
+      fromQuat: this.cubeMesh.quaternion.clone(),
+      spin: new THREE.Vector3(-dz * 1.4, 0.4, dx * 1.4),
+    };
+    this.emit('wheelDrag', { x: this.cube.x, z: this.cube.z });
+    this.die('wheel');
   }
 
   /**

@@ -333,6 +333,7 @@ function drawMinimap() {
         shard: '#d9720f',
         orb: '#e02456',
         bridge: 'rgba(47,108,255,0.95)',
+        wheel: '#c2410c',
         block: '#525c72',
         key: '#c47d08',
         player: '#18213a',
@@ -344,6 +345,7 @@ function drawMinimap() {
         shard: '#ff9d2e',
         orb: '#ff3f74',
         bridge: 'rgba(140,190,255,0.9)',
+        wheel: '#ff7a2e',
         block: '#2b2f3a',
         key: '#ffd15a',
         player: '#ffffff',
@@ -380,6 +382,16 @@ function drawMinimap() {
     const { tile } = sl;
     const [bx, bz] = rot(tile.x, tile.z);
     ctx.strokeRect(px(bx) - s / 2, pz(bz) - s / 2, s, s);
+  }
+  // wheels (ADR-050): the pit as an outlined ring — a lethal hazard must
+  // never be invisible on the one map the player relies on for a big board
+  ctx.strokeStyle = C.wheel;
+  ctx.lineWidth = 1.4;
+  for (const sl of view.wheels || []) {
+    const [wx, wz] = rot(sl.w.at[0], sl.w.at[1]);
+    ctx.beginPath();
+    ctx.arc(px(wx), pz(wz), s * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
   }
   // obstacle blocks
   ctx.fillStyle = C.block;
@@ -1030,6 +1042,11 @@ game.on('gateLocked', () => {
 
 game.on('sliderFell', () => {
   audio.sfx('sliderFell');
+});
+
+game.on('wheelDrag', () => {
+  audio.sfx('wheelDrag');
+  showHint('The wheel took you — shrink and pass beneath it', 2600);
 });
 
 game.on('death', () => {

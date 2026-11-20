@@ -171,6 +171,15 @@ still cycle, pistons still strike and shuttles still carry — those clocks are
 the puzzle, and every level's proof is built on them.
 `KUBIK_MOTION=reduced npm run test:play:all` plays the gate in the mode.
 
+## The wheel
+
+Two act-10 boards carry the game's only hazard you can *fit under*. A
+two-armed capstan turns over a pit and sweeps the four tiles around the hole.
+The arms hang exactly one mini-height above the slab, so **the small cube
+rolls underneath untouched and the full-size cube is caught and flung in**.
+Shrink to duck — or read the arms and dare the gap, which is faster and is
+what par is set just short of.
+
 ## Levels
 
 Two hundred levels in ten acts. The first thirteen are hand-designed, each teaching one idea:

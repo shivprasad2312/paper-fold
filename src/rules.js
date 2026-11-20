@@ -102,6 +102,102 @@ export function turntableSolid(level, t, x, z) {
   return (turntableAxis(t, tt) === 'h') === (z === tt.at[1]);
 }
 
+// ---------------------------------------------------------------------------
+// THE WHEEL (ADR-050) — a two-armed capstan turning over a pit
+//
+// A wheel is mounted over a VOID hub, with its arms sweeping the four ring
+// tiles around the hole. It is the game's first hazard that kills by CONTACT
+// rather than by removing floor, and it is size-aware in a way nothing else
+// is: the arms hang exactly one mini-height above the slab, so the small
+// cube rolls underneath untouched while the full cube is caught and flung
+// into the pit. That is the whole mechanic: SHRINK TO DUCK, or DARE THE GAP.
+//
+// Geometry, and why the bar has two arms and not eight. Coverage is
+// `|arm angle - tile angle| <= ARM_HALF`, folded mod π (a bar is symmetric).
+// With four arms and four ring tiles — both 90° apart — every tile would be
+// covered at the same instant, which is a strobe, not a sweep, and a wheel
+// drawn with eight spokes would be a lie (six spokes would kill nothing).
+// Two arms over four tiles gives the honest read the level design needs:
+// opposite pairs alternate, so "the bar points at you" is always visible and
+// always true.
+//
+// THE FAIRNESS LAW (enforced at parse time): each ring tile must be clear
+// for at least TIMING_FLOOR seconds per pass, so a crossing is never a coin
+// flip. Safe window = (1 - 2*ARM_HALF/π) * period/2.
+//
+// The proofs price the ring as MINI-ONLY (the wait-out doctrine, as with
+// sliders and turntables): the guaranteed route ducks under while small, so
+// no proof ever depends on a timing dodge. A full-size player may still roll
+// onto the ring — the rules allow it, the wheel punishes it — and that
+// risky shortcut is a route to beat par by, never a route the level needs.
+// ---------------------------------------------------------------------------
+
+/** Default seconds for one full turn of the bar. */
+export const WHEEL_PERIOD = 6.0;
+/** Half-width of an arm's lethal sector (radians): 22.5°. */
+export const WHEEL_ARM_HALF = Math.PI / 8;
+/** Height of the arm's underside above the slab: mini clears, full does not. */
+export const WHEEL_GAP = 0.72;
+/** The four ring directions, in the angle order wheelAngleOf uses. */
+export const WHEEL_DIRS = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+
+/** Cycle phase (0..1) of a wheel at time `t`. */
+export function wheelPhase(t, w) {
+  return ((t / w.period + w.phase) % 1 + 1) % 1;
+}
+
+/** The bar's angle at time `t` (one full turn per period). */
+export function wheelArmAngle(t, w) {
+  return wheelPhase(t, w) * Math.PI * 2;
+}
+
+/** Angle of a ring direction: N = 0, E = π/2, S = π, W = 3π/2. */
+export function wheelAngleOf(dx, dz) {
+  return Math.atan2(dx, -dz);
+}
+
+/** Fold an angle difference into the bar's [-π/2, π/2] symmetry. */
+function foldBar(rel) {
+  let r = rel % Math.PI;
+  if (r > Math.PI / 2) r -= Math.PI;
+  if (r < -Math.PI / 2) r += Math.PI;
+  return r;
+}
+
+/**
+ * How close the bar is to the ring direction (dx, dz): 1 = dead over it,
+ * 0 = the clearance midpoint, negative = comfortably clear. The view ramps
+ * its amber telegraph on this, so what it draws and what kills you are the
+ * same number.
+ */
+export function wheelProximity(w, t, dx, dz) {
+  const rel = foldBar(wheelArmAngle(t, w) - wheelAngleOf(dx, dz));
+  return 1 - Math.abs(rel) / WHEEL_ARM_HALF;
+}
+
+/** Is the ring tile (x, z) under an arm at time `t`? */
+export function wheelSwept(w, t, x, z) {
+  const dx = x - w.at[0];
+  const dz = z - w.at[1];
+  if (Math.abs(dx) + Math.abs(dz) !== 1) return false; // not a ring tile
+  return Math.abs(foldBar(wheelArmAngle(t, w) - wheelAngleOf(dx, dz))) <= WHEEL_ARM_HALF;
+}
+
+/** Seconds each ring tile is clear per pass — the fairness number. */
+export function wheelSafeWindow(w) {
+  return (1 - (2 * WHEEL_ARM_HALF) / Math.PI) * (w.period / 2);
+}
+
+/**
+ * The wheel's planning law: a proof may only route through the ring while
+ * the cube is MINI. The simulation deliberately does not share this rule —
+ * a full-size cube can roll onto the ring, and that is where it dies.
+ */
+export function wheelBlocksPlan(level, tile, mini) {
+  if (mini || !level.wheelCells || !level.wheelCells.size) return false;
+  return level.wheelCells.has(key(tile.x, tile.z));
+}
+
 /**
  * Clinging (Phase B, ADR-037): the hang-ledge. A `clings` entry is a
  * declared grip crevice — ONE void cell between two plain slabs. A press
@@ -230,6 +326,61 @@ export function parseLevel(def) {
     for (const [cx, cz] of cross) turntableCells.set(key(cx, cz), tt);
     turntables.push(tt);
   }
+  // ---- wheels (ADR-050): a two-armed capstan over a pit --------------------
+  // The hub is a VOID cell (a hole) and the four orthogonal neighbours are
+  // the ring the arms sweep. Structural laws only here — start/goal/shard/
+  // block/key purity is checked late, after every other mechanic has claimed
+  // its tiles.
+  const wheels = [];
+  const wheelCells = new Map(); // ring cell "x,z" -> wheel
+  for (const [i, wd] of (def.wheels || []).entries()) {
+    const [hx, hz] = wd.at || [];
+    if (!Number.isInteger(hx) || !Number.isInteger(hz)) {
+      throw new Error(`[${def.name}] wheel ${i} needs an integer hub at [x, z]`);
+    }
+    if (tiles.has(key(hx, hz))) {
+      throw new Error(`[${def.name}] wheel ${i} hub ${hx},${hz} must be void (the arms sweep over a pit)`);
+    }
+    let h = null;
+    for (const [dx, dz] of WHEEL_DIRS) {
+      const t = tiles.get(key(hx + dx, hz + dz));
+      if (!t) {
+        throw new Error(`[${def.name}] wheel ${i} has no ring tile at ${hx + dx},${hz + dz} — a wheel needs its full four-tile ring`);
+      }
+      if (h === null) h = t.h;
+      else if (t.h !== h) {
+        throw new Error(`[${def.name}] wheel ${i} ring tiles sit at different heights (${h} vs ${t.h}) — the arms cannot hover over a broken ring`);
+      }
+    }
+    const period = wd.period === undefined ? WHEEL_PERIOD : wd.period;
+    if (typeof period !== 'number' || !(period >= 3) || period > 10) {
+      throw new Error(`[${def.name}] wheel ${i} period must be a number in [3, 10] (got ${wd.period})`);
+    }
+    const phase = wd.phase === undefined ? 0 : wd.phase;
+    if (typeof phase !== 'number' || !(phase >= 0) || phase >= 1) {
+      throw new Error(`[${def.name}] wheel ${i} phase must be a number in [0, 1) (got ${wd.phase})`);
+    }
+    const w = { at: [hx, hz], period, phase, h, id: i };
+    // the fairness law: every ring tile must be clear long enough to cross
+    const safe = wheelSafeWindow(w);
+    if (safe < TIMING_FLOOR - 1e-9) {
+      throw new Error(
+        `[${def.name}] wheel ${i} leaves a ${safe.toFixed(2)}s window per pass — below the ${TIMING_FLOOR}s fairness floor (period ${period}s, ${WHEEL_DIRS.length} ring tiles)`,
+      );
+    }
+    for (const [dx, dz] of WHEEL_DIRS) {
+      const rx = hx + dx;
+      const rz = hz + dz;
+      const t = tiles.get(key(rx, rz));
+      if (t.turntable || t.piston) {
+        throw new Error(`[${def.name}] wheel ${i} ring tile ${rx},${rz} already carries a turntable or piston`);
+      }
+      t.wheel = w;
+      wheelCells.set(key(rx, rz), w);
+    }
+    wheels.push(w);
+  }
+
   // ---- clinging (Phase B, ADR-037): declared grip crevices ----------------
   // Each entry is ONE void cell between two plain map slabs. A press into
   // the crevice from either bank catches the far face and lands on it when
@@ -621,6 +772,7 @@ export function parseLevel(def) {
       const t = tiles.get(key(x, z));
       if (!t) throw new Error(`[${def.name}] ${kind} pad ${x},${z} is not a slab`);
       if (t.shrink || t.grow) throw new Error(`[${def.name}] size pads stacked at ${x},${z}`);
+      if (t.wheel) throw new Error(`[${def.name}] ${kind} pad on a wheel ring tile at ${x},${z}`);
       if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse) {
         throw new Error(`[${def.name}] ${kind} pad on another mechanic at ${x},${z}`);
       }
@@ -638,6 +790,7 @@ export function parseLevel(def) {
     const t = tiles.get(key(x, z));
     if (!t) throw new Error(`[${def.name}] low tile ${x},${z} is not a slab`);
     if (t.low) throw new Error(`[${def.name}] low tile listed twice at ${x},${z}`);
+    if (t.wheel) throw new Error(`[${def.name}] low tile on a wheel ring tile at ${x},${z}`);
     if (t.shrink || t.grow) throw new Error(`[${def.name}] low tile on a size pad at ${x},${z}`);
     if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse) {
       throw new Error(`[${def.name}] low tile on another mechanic at ${x},${z}`);
@@ -655,12 +808,14 @@ export function parseLevel(def) {
     lowTiles.add(key(x, z));
   }
   const startMini = !!def.startMini;
-  const hasSize = lowTiles.size > 0;
+  // ADR-050: a wheel ring is a second consumer of the size bit — the mini
+  // cube ducks under the arms — so "has a size mechanic" is tunnels OR wheels.
+  const hasSize = lowTiles.size > 0 || wheels.length > 0;
   if (hasSize && !startMini && ![...shrinkPads.values()].includes('shrink')) {
-    throw new Error(`[${def.name}] low tunnels but no way to shrink (no shrink pad, no mini start)`);
+    throw new Error(`[${def.name}] a size mechanic but no way to shrink (no shrink pad, no mini start)`);
   }
-  if (shrinkPads.size && !hasSize) throw new Error(`[${def.name}] size pads but no low tunnel to spend them on`);
-  if (startMini && !hasSize) throw new Error(`[${def.name}] starts mini but has no low tunnel`);
+  if (shrinkPads.size && !hasSize) throw new Error(`[${def.name}] size pads but nothing to spend them on (no low tunnel, no wheel)`);
+  if (startMini && !hasSize) throw new Error(`[${def.name}] starts mini but has no low tunnel or wheel`);
 
   // ---- piston pushers (Phase B, ADR-035): a machinery base on a slab,
   // its arm periodically sweeping the strike cell one step along (dx,dz).
@@ -715,10 +870,31 @@ export function parseLevel(def) {
     pistons.push(piston);
   }
 
+  // wheel rings stay pure (ADR-050): the four tiles are the hazard's face —
+  // the thing that kills you must be the only thing on them, or the player
+  // reads a shard they can grab and dies for it. Checked LATE so every
+  // mechanic parsed after the wheels has already claimed its tiles.
+  for (const k of wheelCells.keys()) {
+    const t = tiles.get(k);
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable) {
+      throw new Error(`[${def.name}] wheel ring tile stacked on another mechanic at ${k}`);
+    }
+    if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] wheel ring tile on the start tile`);
+    if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] wheel ring tile on the goal tile`);
+    if (blockTiles.has(k)) throw new Error(`[${def.name}] wheel ring tile under a block at ${k}`);
+    if (gateKey && gateKey.x === t.x && gateKey.z === t.z) throw new Error(`[${def.name}] wheel ring tile on the gate key at ${k}`);
+    if (shards.some((s) => s.x === t.x && s.z === t.z)) throw new Error(`[${def.name}] wheel ring tile stacked on a shard at ${k}`);
+    for (const o of def.orbs || []) {
+      if ((o.path || []).some(([px, pz]) => px === t.x && pz === t.z)) {
+        throw new Error(`[${def.name}] a sentinel patrols the wheel ring at ${k} — one hazard per decision`);
+      }
+    }
+  }
+
   // turntable cross cells stay pure: nothing else may live on the bar
   for (const k of turntableCells.keys()) {
     const t = tiles.get(k);
-    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston) {
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.wheel) {
       throw new Error(`[${def.name}] turntable cell stacked on another mechanic at ${k}`);
     }
     if (t.x === startTile.x && t.z === startTile.z) throw new Error(`[${def.name}] turntable cell on the start tile`);
@@ -734,7 +910,7 @@ export function parseLevel(def) {
   for (const kk of clingBanks) {
     const t = tiles.get(kk);
     if (!t) throw new Error(`[${def.name}] cling bank ${kk} is not a slab`);
-    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable) {
+    if (t.shuttle || t.lift || t.door || t.plate || t.ice || t.spring || t.conveyor || t.crumble || t.timed || t.freeze || t.pulse || t.shrink || t.grow || t.low || t.piston || t.turntable || t.wheel) {
       throw new Error(`[${def.name}] cling bank ${kk} carries another mechanic`);
     }
     if (t.x === goalTile.x && t.z === goalTile.z) throw new Error(`[${def.name}] cling bank ${kk} is the goal tile`);
@@ -785,6 +961,7 @@ export function parseLevel(def) {
       [timedTiles.size, 'timed slabs'],
       [(def.freeze || []).length, 'freeze shards'],
       [gateKey ? 1 : 0, 'a sealed gate'],
+      [wheels.length, 'wheels'],
     ];
     for (const [n, what] of banned) {
       if (n) {
@@ -832,6 +1009,8 @@ export function parseLevel(def) {
     pistonCells,
     turntables,
     turntableCells,
+    wheels,
+    wheelCells,
     clings: def.clings || [],
     clingCells,
     clingPairs,
@@ -1288,6 +1467,10 @@ export function rollTargetsAt(level, cur, mini = false) {
   const out = [];
   for (const d of Object.values(DIRS)) {
     const to = resolveRollAt(level, cur, d, mini);
+    // ADR-050: a wheel's ring is planned only while MINI (the duck-under
+    // route the level guarantees). The simulation still lets a full-size
+    // cube roll in and get caught — that is the dare, never the dependency.
+    if (to && wheelBlocksPlan(level, to, mini)) continue;
     if (to) out.push({ to, mini: sizeAfter(level, to, mini) });
   }
   const ride = shuttleRide(level, cur);
@@ -1540,14 +1723,38 @@ export function rescueTile(level) {
     // never a low tunnel or a size pad: the bench re-places the cube at
     // full size (ADR-034), so it must be a tile full size may stand on,
     // and standing there must not silently flip the cube's size
-    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k) && !t.turntable && !level.sliderTiles.has(k);
+    // ADR-050: a wheel ring is never a bench — re-placing the cube on one
+    // at full size is a guaranteed death, not a second chance
+    return !line.has(k) && !t.shuttle && !t.lift && !t.crumble && !t.ice && !t.spring && !t.conveyor && !t.door && !t.timed && !t.pulse && !t.low && !t.shrink && !t.grow && !t.piston && !level.pistonCells.has(k) && !t.turntable && !level.sliderTiles.has(k) && !t.wheel;
+  };
+  // The bench re-places the cube at FULL SIZE (ADR-034), so a tile before a
+  // wheel's ring is not a second chance at all — from there, full size can
+  // never reach the goal. Only a tile with a full-size route to the gate
+  // qualifies (the "at least one path from the bench" invariant, ADR-014).
+  const fullFinishCache = new Map();
+  const finishableFull = (t) => {
+    const tk = key(t.x, t.z);
+    if (fullFinishCache.has(tk)) return fullFinishCache.get(tk);
+    const seen = new Set();
+    const queue = [{ tile: t, mini: false }];
+    let ok = false;
+    while (queue.length && !ok) {
+      const { tile, mini } = queue.shift();
+      const sk = `${key(tile.x, tile.z)}|${mini ? 'm' : 'n'}`;
+      if (seen.has(sk)) continue;
+      seen.add(sk);
+      if (tile.x === level.goal.x && tile.z === level.goal.z) { ok = true; break; }
+      for (const s of rollTargetsAt(level, tile, mini)) queue.push({ tile: s.to, mini: s.mini });
+    }
+    fullFinishCache.set(tk, ok);
+    return ok;
   };
   const mid = Math.floor((path.length - 1) / 2); // 50% of the press count
   for (let r = 0; r < mid; r++) {
     for (const idx of [mid - r, mid + r]) {
       if (idx <= 0 || idx >= path.length - 1) continue; // strictly inside
       if (keyIdx >= 0 && idx <= keyIdx) continue; // bench sits past the key
-      if (isSafe(path[idx])) return path[idx];
+      if (isSafe(path[idx]) && finishableFull(path[idx])) return path[idx];
     }
   }
   return null;

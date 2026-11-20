@@ -2830,3 +2830,79 @@ screen, and a seat rotation keeps it there. The roll is checked frame-by-frame
 mid-tumble (a corner is up, then the next face lands flat) in both motion
 modes. `framing.test.mjs` now pins only what is left to pin — the occlusion
 ray.
+
+### ADR-050 — The wheel: a hazard you can duck under
+
+**Context.** Every hazard in the game so far works one way: it removes the
+floor (crumble, pulse, slider, turntable), or it displaces you (piston,
+wind), or it patrols and kills on contact (sentinel). None of them asks
+*how big you are*. Size existed only as a gate — a low tunnel admits the
+mini cube and nothing else — which makes shrinking a key, not a choice.
+
+The owner proposed a wheel: a spinning ship's wheel hovering over a tile with
+a visible gap beneath it, that drags the cube off and drops it. The gap is
+the interesting part, and the design question was what the gap should MEAN.
+
+**Decision: the gap is the rule.** The arms hang **one mini-height** above
+the slab, so the small cube rolls under them untouched and the full cube is
+caught. That makes the mechanic "shrink to duck, or dare the gap", and it is
+the only reading where the visible gap is not decoration.
+
+**Geometry, and why two arms.** A wheel is mounted over a **void hub** — a
+pit — with its arms sweeping the **four ring tiles** around the hole. Coverage
+is `|arm − tile| ≤ WHEEL_ARM_HALF` (22.5°), folded mod π because a bar is
+symmetric. With four arms and four ring tiles — both 90° apart — every tile
+would be covered at the same instant: a strobe, not a sweep, and a wheel
+drawn with eight spokes would be a lie. Two arms over four tiles gives the
+honest read the level design needs — **opposite pairs alternate** — and it is
+what the first render actually showed: opposite tiles lit while the other
+pair sat dark.
+
+**The fairness law.** Each ring tile must be clear for at least `TIMING_FLOOR`
+(0.5 s) per pass, or the level is a coin flip. Safe window =
+`(1 − 2·ARM_HALF/π) · period/2`, enforced at parse time: a 3 s floor on the
+period, and a wheel that leaves less than the floor of clearance is refused
+outright.
+
+**The planning law, and why it is not the simulation.** Proofs price the ring
+as **mini-only** (`rollTargetsAt` filters any full-size entry), so the
+guaranteed route is the duck-under one and no proof ever depends on a timing
+dodge — the same wait-out doctrine as sliders and turntables. The **game**
+deliberately does not share that rule: a full-size cube can roll onto the ring
+and will be caught. That is the dare — a risky shortcut to beat par by, never
+a route the level needs. Measured live: full size parked on a ring tile dies
+in 2.2 s; mini parked on the same tile survives a full 7 s period.
+
+**The read at a whole-board zoom.** On a 26×26 board a tile is ~27 px, and the
+first build was unreadable: the machine sat inside the pit and read as a
+drain. Three changes fixed it, and all three are rules-driven rather than
+cosmetic:
+
+- the rotor sits **above** the slab silhouette, mounted over the hole (the
+  gap the owner asked for is the visible air under the arms);
+- the **two lethal paddles** are bright steel with amber tips, the **eight
+  decorative spokes** are dark — at 27 px, three tones are what separate
+  "reads as a wheel" from "lies about where the arms are";
+- every ring tile carries a **warning disc** whose glow is driven by the SAME
+  `wheelProximity` number the kill check reads, so a tile lights up exactly
+  when standing on it would kill you. The first render (three copies of the
+  same frame) proved the point: the spokes do not say "it is about to hit
+  YOU" at that zoom; a whole tile lighting up does.
+
+**Content.** The campaign is full at 200 and the mechanic needed a teaching
+board and a twist, so the two **thinnest-generated** act-10 slots were
+re-authored rather than moving the counts: 192 *The Turning* (one wheel, one
+shrink pad, room to learn that small passes) and 196 *Beneath the Rim* (a low
+tunnel holds you small through a second wheel, so the grow pad pays off a
+whole silent run). Same ids, same 26×26 boards, same act-10 par band
+(46 and 54), and the generated files stay exactly what the generator produced
+(ADR-004) — the showcase is a separate export and the replaced ids are
+filtered at assembly. Replacing 196 had silently taken the door mechanic from
+13 levels to 12, which the density ratchet caught; a plate-and-hatch door on
+196's plateau restored it.
+
+**What was reused, not rebuilt.** Size state, shrink/grow pads, the mini bit
+in every proof, the hazard clock, parse-time purity laws and the live bot's
+planner all already existed. The wheel added one clock, one kill check, one
+planning filter and one mesh — which is why it could be proven and played the
+same day rather than regenerated a catalogue.

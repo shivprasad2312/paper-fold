@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { glowTexture, beamTexture, disposeTree } from './textures.js';
-import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM, turntablePhase, turntableSolid, turntableDwellLeft, SLIDER_UP_FRACTION } from './rules.js';
+import { key, TIMED_FUSE, pulseUp as pulseUpAt, pulsePhase, PULSE_ON, pistonPhase, pistonExtended, PISTON_EXTENDED_FROM, turntablePhase, turntableSolid, turntableDwellLeft, SLIDER_UP_FRACTION, WHEEL_GAP, wheelArmAngle, wheelSwept, wheelProximity } from './rules.js';
 
 const THICK = 0.42;
 // Matte, porcelain-like slabs lit by the sun (see stage.js).
@@ -673,6 +673,139 @@ export function buildLevelView(level, actHue = null) {
     holder.position.set(tt.at[0], 0, tt.at[1]);
     group.add(holder);
     turntables.push({ tt, rotor, barMat });
+  }
+
+  // ---- wheels (ADR-050): a two-armed capstan over a pit ---------------------
+  // The hub cell is void, so the hole is already there; what the view adds is
+  // the machine that guards it. Two long paddle arms reach out over the ring;
+  // eight short fins inside the rim keep the ship's-wheel read without ever
+  // pretending to be lethal — only what can reach you reaches out. The whole
+  // rotor hangs WHEEL_GAP above the slab: that gap IS the mechanic, so it is
+  // drawn as a gap (the mini cube passes under it, the full cube does not).
+  const wheels = [];
+  for (const w of level.wheels) {
+    const topY = w.h + THICK / 2;                 // slab top
+    // The GAP is the mechanic, so the machine must sit ABOVE the slab's
+    // silhouette: arms at slab top + the gap, rotor plane below them, so the
+    // whole wheel is drawn over the hole instead of being swallowed by it.
+    // (First build sank the rotor into the pit and it read as a drain.)
+    const armY = topY + WHEEL_GAP;
+    const rotorY = armY - 0.12;
+    const holder = new THREE.Group();
+    holder.position.set(w.at[0], 0, w.at[1]);
+
+    // the pit rim: a dark ring seated on the slab edge, so the hole reads
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0x1b2028, roughness: 0.85, metalness: 0.2 });
+    const pit = new THREE.Mesh(new THREE.TorusGeometry(0.47, 0.045, 8, 28), rimMat);
+    pit.rotation.x = Math.PI / 2;
+    pit.position.y = topY + 0.02;
+    holder.add(pit);
+    // a faint shaft of light up the pit, so the hole reads as depth rather
+    // than a painted circle
+    const shaft = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.4, 0.4, WHEEL_GAP - 0.05, 20, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x2b3038, transparent: true, opacity: 0.55, side: THREE.DoubleSide, depthWrite: false }),
+    );
+    shaft.position.y = topY + (WHEEL_GAP - 0.05) / 2 + 0.02;
+    holder.add(shaft);
+
+    // three tones, and they carry meaning: the RIM and the two PADDLES are
+    // bright steel (what can reach you), the decorative spokes are dark
+    // (what cannot). At 25 px a tile that difference is the only thing that
+    // separates "reads as a wheel" from "lies about where the arms are".
+    const steel = new THREE.MeshStandardMaterial({ color: 0x8d99a8, roughness: 0.38, metalness: 0.72 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x232830, roughness: 0.6, metalness: 0.5 });
+
+    // the rotor: hub + rim + two paddle arms + eight decorative fins
+    const rotor = new THREE.Group();
+    rotor.position.y = rotorY;
+
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.135, 0.12, 16), dark);
+    hub.castShadow = true;
+    rotor.add(hub);
+    const brass = new THREE.MeshStandardMaterial({ color: 0xe8b062, roughness: 0.3, metalness: 0.85 });
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.15, 14), brass);
+    cap.position.y = 0.02;
+    rotor.add(cap);
+
+    // The paddle tips are the only thing that may ever reach a ring tile, and
+    // they must stop ON the tile rather than overlap it: at a whole-board fit
+    // a tile is ~27 px, so a machine that spilled half a tile wider would
+    // hide the very cube it is threatening.
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.035, 8, 32), steel);
+    rim.rotation.x = Math.PI / 2;
+    rim.castShadow = true;
+    rotor.add(rim);
+
+    // two lethal paddles: they reach out to the ring tiles
+    const tips = [];
+    for (const sgn of [1, -1]) {
+      // each paddle spans hub-to-ring on its own side of the axle
+      const arm = new THREE.Mesh(new RoundedBoxGeometry(0.56, 0.085, 0.15, 2, 0.035), steel);
+      arm.position.set(sgn * 0.32, 0, 0);
+      arm.castShadow = true;
+      const tipMat = new THREE.MeshStandardMaterial({
+        color: 0xffd08a, emissive: 0xd8791a, emissiveIntensity: 0.9, roughness: 0.35,
+      });
+      const tip = new THREE.Mesh(new RoundedBoxGeometry(0.22, 0.13, 0.24, 2, 0.055), tipMat);
+      tip.position.set(sgn * 0.46, 0, 0);
+      tip.castShadow = true;
+      rotor.add(arm, tip);
+      tips.push({ tipMat, sgn });
+    }
+
+    // the decorative spokes: short, inside the rim, never lethal
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      const spoke = new THREE.Mesh(new RoundedBoxGeometry(0.4, 0.045, 0.06, 2, 0.02), dark);
+      spoke.position.set(Math.cos(a) * 0.24, -0.04, Math.sin(a) * 0.24);
+      spoke.rotation.y = -a;
+      rotor.add(spoke);
+    }
+
+    // the axle: a slim post from the pit floor up to the hub, so the rotor
+    // does not look like it is floating on nothing
+    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, WHEEL_GAP, 12), dark);
+    post.position.y = topY + WHEEL_GAP / 2;
+    holder.add(post);
+
+    holder.add(rotor);
+    group.add(holder);
+
+    // THE READ AT A WHOLE-BOARD ZOOM, part 1: a pointer. On a 26x26 board a
+    // tile is ~27 px and the machine is one tile across, so the spokes alone
+    // cannot say "it is about to hit YOU". This blade sits just above the
+    // ring tiles, swings with the bar, and is long enough to read from the
+    // board fit — it is the same clock, drawn where the threat lands.
+    const bladeMat = new THREE.MeshBasicMaterial({
+      color: 0xff8a3d, transparent: true, opacity: 0.9, depthWrite: false,
+    });
+    const blade = new THREE.Mesh(new THREE.PlaneGeometry(0.16, 0.34), bladeMat);
+    blade.rotation.x = -Math.PI / 2;
+    const bladeHolder = new THREE.Group();
+    bladeHolder.position.y = rotorY + 0.02;
+    blade.position.set(0, 0, -0.6);
+    bladeHolder.add(blade);
+    holder.add(bladeHolder);
+
+    // THE READ AT A WHOLE-BOARD ZOOM, part 2 A tile is ~27 px on a 26x26 board, and
+    // at that size an arm angle is not readable — but a whole TILE lighting
+    // up is. Each ring tile gets a flat warning disc whose glow follows the
+    // same proximity number the kill check reads, so what brightens is
+    // exactly where the bar is, never a frame out of step with the rules.
+    const warnTiles = [];
+    for (const [dx, dz] of [[0, -1], [1, 0], [0, 1], [-1, 0]]) {
+      const ringTile = level.tiles.get(key(w.at[0] + dx, w.at[1] + dz));
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xff7a2e, transparent: true, opacity: 0, depthWrite: false,
+      });
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(0.42, 24), mat);
+      disc.rotation.x = -Math.PI / 2;
+      disc.position.set(w.at[0] + dx, ringTile.h + THICK / 2 + 0.03, w.at[1] + dz);
+      group.add(disc);
+      warnTiles.push({ mat, dx, dz });
+    }
+    wheels.push({ w, rotor, tips, warnTiles, bladeHolder, bladeMat });
   }
 
   // ---- clinging (Phase B, ADR-037): grip faces on the banks of a declared
@@ -1370,6 +1503,36 @@ export function buildLevelView(level, actHue = null) {
       p.barMat.emissiveIntensity = 1;
     }
 
+    // wheels (ADR-050): the bar turns on the shared hazard clock. The amber
+    // tips ramp as an arm approaches a ring tile, using the SAME proximity
+    // number the kill check reads, so the glow can never lie about timing.
+    for (const p of wheels) {
+      p.rotor.rotation.y = wheelArmAngle(clock.t, p.w);
+      let warn = 0;
+      for (const t of p.tips) {
+        // the tip brightens as the arm nears ANY ring tile
+        const prox = Math.max(
+          wheelProximity(p.w, clock.t, 0, -1), wheelProximity(p.w, clock.t, 1, 0),
+          wheelProximity(p.w, clock.t, 0, 1), wheelProximity(p.w, clock.t, -1, 0),
+        );
+        warn = Math.max(warn, prox);
+        const k = Math.max(0, Math.min(1, 1 + prox * 3.2));
+        t.tipMat.emissiveIntensity = 0.5 + k * 1.6;
+        t.tipMat.emissive.setRGB(1, 0.6 + k * 0.25, 0.16);
+      }
+      // the pointer swings with the bar (same angle, quarter-turn offset so
+      // its long axis lies along the bar) and fades out mid-sweep, where it
+      // is between tiles and points at nothing
+      p.bladeHolder.rotation.y = wheelArmAngle(clock.t, p.w) + Math.PI / 2;
+      p.bladeMat.opacity = 0.25 + Math.max(0, warn) * 0.6;
+      for (const t of p.warnTiles) {
+        const prox = wheelProximity(p.w, clock.t, t.dx, t.dz);
+        // dead under the arm = solid orange; approaching = a thin rim of it
+        const k = Math.max(0, Math.min(1, 1 + prox * 3.2));
+        t.mat.opacity = reduceMotion ? (prox >= 0 ? 0.5 : 0) : k * 0.55;
+      }
+    }
+
     // obstacle blocks: settle to their pushed tile (heavy ones grind)
     for (const b of blocks.values()) {
       if (!b.anim) continue;
@@ -1504,6 +1667,17 @@ export function buildLevelView(level, actHue = null) {
   /** Seconds until the bar at (x, z) sweeps (Infinity: pivot/plain). */
   function turntableDwellLeftAt(x, z) {
     return turntableDwellLeft(level, clock.t, x, z);
+  }
+
+  /** Is the wheel ring tile (x, z) under an arm right now? (Hazard clock.) */
+  function wheelSweptAt(x, z) {
+    const w = level.wheelCells.get(key(x, z));
+    return w ? wheelSwept(w, clock.t, x, z) : false;
+  }
+
+  /** The shared hazard clock in seconds (ADR-050 reads it for the wheel). */
+  function clockTime() {
+    return clock.t;
   }
 
   /** Is the piston striking (x, z) currently extended? (Hazard clock.) */
@@ -1734,6 +1908,9 @@ export function buildLevelView(level, actHue = null) {
     pistonImminent,
     turntableSolidAt,
     turntableDwellLeftAt,
+    wheelSweptAt,
+    clockTime,
+    wheels,
     shuttlePos,
     shuttlePlatforms,
     shuttleDocked,

@@ -389,6 +389,11 @@ export class AudioEngine {
         this.blip(t, 180, 50, 0.5, 'sawtooth', 0.1);
         this.noiseHit(t + 0.1, 0.35, 300, 0.5, 0.12);
         break;
+      case 'wheelDrag':
+        // the capstan catching the cube: a grinding sweep, then the fall
+        this.noiseHit(t, 0.22, 1400, 0.55, 0.1);
+        this.blip(t + 0.05, 320, 120, 0.35, 'sawtooth', 0.14);
+        break;
       case 'medal':
         // a medal chime layered on the win, pitched by tier
         const shift = opts.tier === 'gold' ? 12 : opts.tier === 'silver' ? 7 : 0;

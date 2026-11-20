@@ -47,6 +47,7 @@ and the retention candidates from research §7.
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (i) | **The wheel** (ADR-050): a two-armed capstan over a pit, arms one mini-height above the slab — **the mini cube ducks under, the full cube is caught and flung**. The game's first hazard that kills on contact *inside* the board rather than by removing floor. Clock + fairness law (≥ `TIMING_FLOOR` clear per pass, enforced at parse), planning law (proofs route the ring only while mini; the simulation still allows the doomed full-size roll — the dare), purity laws, the live bot's planner made wheel-aware, and a whole-board-zoom read (bright paddles vs dark spokes + a warning disc per ring tile driven by the same proximity number the kill reads). Two hand-built act-10 boards take the two thinnest generated slots: **192 The Turning** (par 46) and **196 Beneath the Rim** (par 54, low tunnel + second wheel). Measured live: full size dies in 2.2 s, mini survives 7 s; 192/196 both play to `won` in the gate |
 | this cycle (h) | **One camera, one motion** (ADR-049): the follow window removed — the whole board is fitted at every size again, with only the clamped parallax toward the cube; seat rotations refit instead of cropping. The reduced-motion **flat slide removed**: every move is a true edge-pivot tumble in every mode, and the sealed gate's refusal is a roll that never completes. No timing constant, par or proof touched; `framing.js` reduced to the occlusion ray |
 | this cycle (g) | **Visual verification** (ADR-048): the picture proved from the data — a structural audit (built scene vs parsed level: counts, merged-slab bounds, verts-per-tile, no NaN, cube on start) and a **plan-view pixel audit** (top-down, bloom-off framebuffer readback, every tile projected and sampled: floor lit, void dark, goal bright, thresholds calibrated per frame, time-varying cells counted explicitly) | 22/22 sampled levels (every act, bosses, L118, showcases, Vault) match tile-for-tile: 0 missing tiles, 0 ghosts, 0 page errors; 3/4 gameplay views inspected; bloom restored after each readback |
 | this cycle (f) | **Difficulty delta** (ADR-047): §6's plateau risk measured, not assumed — campaign never flat past five levels, act 1's teaching band is the only long flat stretch, one genuine mid-act par+mechanic match (L18→L19) reported rather than re-cut; the **plateau law** (every six in-act, boss-free levels span ≥2 par) lands in the commit gate, calibrated to the shipped curve with zero slack; `npm run difficulty` prints the evidence | unit **232/232** (+4 plateau tests, incl. the no-slack calibration) · verifier 200+10+14 ✓ (audit unchanged in outcome, now also refuses a flattened regeneration) · `npm run difficulty` green |
@@ -279,6 +280,36 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-050 (The wheel: a hazard you can duck under. Every hazard so far
+removed floor, displaced you, or patrolled; none asked HOW BIG you were —
+size was only ever a gate, which makes shrinking a key and not a choice.
+The owner proposed a spinning ship's wheel hovering over a tile with a gap
+beneath it, and the gap is the design: the arms hang one mini-height up,
+so the small cube passes under and the full one is caught. Geometry as a
+law — a two-armed bar over a void hub sweeping four ring tiles; four arms
+would cover every tile at once (a strobe, not a sweep) and the eight
+spokes are decoration that must never claim to be lethal. The fairness
+law keeps every ring tile clear for at least TIMING_FLOOR per pass and
+parse refuses a wheel that cannot. The planning law is deliberately NOT
+the simulation: proofs route the ring only while mini (so the guaranteed
+route is always the duck-under), while the game still lets a full-size
+cube roll in and die — the dare, never a dependency. Measured live: 2.2 s
+to die at full size, a full 7 s period survived at mini. The read took
+three passes because at a 26x26 fit a tile is ~27 px: the machine first
+sank into the pit and read as a drain, then its paddles were
+indistinguishable from its spokes, so the rotor was lifted above the slab
+silhouette, the two lethal paddles were made bright steel with amber tips
+against dark spokes, and every ring tile got a warning disc driven by the
+same proximity number the kill check reads. Content: two hand-built act-10
+boards replaced the two thinnest GENERATED slots (192 The Turning par 46,
+196 Beneath the Rim par 54 — a low tunnel holds you small through a
+second wheel); the generated files stay exactly what the generator
+produced and the replaced ids are filtered at assembly. Replacing 196 had
+quietly taken the door mechanic from 13 levels to 12 — caught by the
+density ratchet, and restored with a plate-and-hatch door on the plateau.
+Nothing was rebuilt: size state, pads, the mini bit in every proof, the
+hazard clock and parse purity all already existed, which is why the
+mechanic was proven and played the same day.)
 ADR-049 (One camera, one motion. Playing the shipped build the owner
 rejected two presentation choices I had introduced: the Phase G follow
 camera, which pans and zooms around the cube on big boards and reads as

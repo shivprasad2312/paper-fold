@@ -57,6 +57,7 @@ const {
   commitSchedules,
   commitBandDistR2,
   canPushBlock,
+  wheelBlocksPlan,
   key,
   FREEZE_PRESS_BUDGET,
   PULSE_PERIOD,
@@ -483,6 +484,7 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       }
       const to = resolveRollAt(model, cur, { dx, dz }, mini);
       if (!to) continue;
+      if (wheelBlocksPlan(model, to, mini)) continue; // ADR-050: duck under, never dash
       if (graph.line.has(key(to.x, to.z))) continue;
       const k2 = key(to.x, to.z);
       if (broken.has(k2)) continue;
