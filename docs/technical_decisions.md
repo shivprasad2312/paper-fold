@@ -2630,3 +2630,74 @@ and zero page errors. Eight of those checks are now permanent in
 of the mechanics suite: the Auto label, the cycle through Reduced and Full
 and back, the collapsed CSS transition, the camera snap, the slide with a
 measured 0.000° of rotation, and the choice surviving a reload.
+
+### ADR-047 — The difficulty delta: a plateau law calibrated to the shipped curve
+
+**Context.** `level_progression` §6 has carried an honest risk since the
+50-level era: *"the generator's per-act budget can produce two adjacent
+levels of equal difficulty (observed in Lattice)"*, with a difficulty-delta
+verifier check logged as a possible future gate. Three gates already defend
+the curve from the other side — the experience audit stops repeated
+*character* (three identical fingerprints, a six-level mechanic
+monoculture), and the par-jump law stops *cliffs* (a step larger than the
+act's own bandwidth). None of them stops a stretch of levels that is varied,
+cliff-free and **equally hard**.
+
+Nobody had measured whether the shipped 200 actually had one. So the first
+decision was to measure before building, because a threshold invented after
+the content is just a regeneration order.
+
+**Measurement** (`npm run difficulty`, the audit this ADR ships):
+
+- the longest run of levels inside a **two-roll** band is **five** in the
+  campaign proper (L24–L28: 13,13,12,13,13); every other run is four or less;
+- the only long flat stretch is **act 1's teaching band** — L13–L20 (eight
+  levels inside par 9–11) and L3–L8 (six inside 5–7), where par is not an
+  effort axis at all;
+- three adjacent pairs share both par and mechanic signature: L1→L2 (par 2)
+  and L5→L6 (par 5) are teaching beats; **L18→L19** (par 10, both ice) is
+  the single genuine mid-act match;
+- the Vault (par 57–90) has no plateau.
+
+So §6's risk is real but materially smaller than the note implied, and it
+is concentrated where the game is deliberately teaching.
+
+**Decision.** Add the **plateau law** to the sequence audit
+(`scripts/experience.mjs:curveProblems`, enforced by `verify-levels`):
+
+> Inside one act, across a boss-free stretch, every **six** consecutive
+> levels must span at least **two** rolls of par.
+
+The threshold is not a preference — it is the **strictest law the shipped
+content already passes**, with zero slack:
+
+| window | flattest shipped span | verdict |
+|---|---|---|
+| 4 | 1 (L13–L16) | would fail 5 windows |
+| 5 | 1 (L15–L19) | would fail 2 windows |
+| **6** | **2 (L3–L8)** | **passes everywhere — the law** |
+| 7 | 2 | passes, but looser for no reason |
+
+Act boundaries (a designed reset) and boss levels (a designed spike) are
+excluded, exactly as the measurement excludes them. The law reads only pars
+the other checks already computed, so it costs nothing in the gate. A unit
+test asserts that the flattest shipped window meets the threshold *exactly*,
+which is what makes the law non-vacuous: it cannot be loosened without a
+shipped level changing.
+
+**What was deliberately not done.** No level was re-cut. L18→L19 is
+reported, not "fixed": re-cutting a shipped, live-played level to satisfy an
+audit is a content decision with a real cost (a full 200-level gate run) and
+no player-visible gain, because the pair shares a par *number* while playing
+a different board. The law is a regression ratchet on future content, not a
+retroactive standard for content that already shipped.
+
+**Verification.** `curveProblems` is pinned by four unit tests (a flat run is
+rejected; a single dip satisfies it; act boundaries, bosses and unknown pars
+are exempt; and the calibration/no-slack assertion above). The full
+`experienceProblems` audit still returns `[]` for the shipped 200 and the
+Vault, so the commit gate is unchanged in outcome — it now simply also
+refuses a future regeneration that flattens the curve. `npm run difficulty`
+prints the measurement (per-act range/mean/longest climb, the law, the flat
+stretches, the flat pairs, the Vault) and takes `--strict` for a CI job that
+wants the curve watched separately from the content gates.

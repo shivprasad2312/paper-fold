@@ -25,6 +25,7 @@
     "playtest:report": "node scripts/playtest-report.mjs",
     "playtest:proxy": "node scripts/naive-player.mjs",
     "scale": "node scripts/scale-audit.mjs",
+    "difficulty": "node scripts/difficulty-audit.mjs",
     "site-mass:probe": "node scripts/site-mass-probe.mjs"
   },
   "dependencies": {

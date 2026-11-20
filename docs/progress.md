@@ -47,6 +47,7 @@ and the retention candidates from research §7.
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (f) | **Difficulty delta** (ADR-047): §6's plateau risk measured, not assumed — campaign never flat past five levels, act 1's teaching band is the only long flat stretch, one genuine mid-act par+mechanic match (L18→L19) reported rather than re-cut; the **plateau law** (every six in-act, boss-free levels span ≥2 par) lands in the commit gate, calibrated to the shipped curve with zero slack; `npm run difficulty` prints the evidence | unit **232/232** (+4 plateau tests, incl. the no-slack calibration) · verifier 200+10+14 ✓ (audit unchanged in outcome, now also refuses a flattened regeneration) · `npm run difficulty` green |
 | this cycle (e) | **Reduced-motion accessibility mode** (ADR-046): a Motion setting beside Theme — Auto (follows `prefers-reduced-motion`) / Reduced / Full, remembered; the camera snaps, the death shake and flash are gone, the roll becomes a flat slide on the **same 243 ms** clock, the win strobe and the idle glows/stars/shards/ring stop, CSS collapses transitions and their delays — and **no hazard clock moves**, so every proof stands. The level-play gate can run in the mode (`KUBIK_MOTION=reduced`) | unit **228/228** (+8 motion tests, incl. "no gameplay clock is reassigned") · verify 200+10+14 ✓ · live gate in reduced motion **13/13**, same move counts as full motion (5,7,11,13,18,38,32,36,31,31,45,53) · mechanics playtest **85/85** (8 new motion checks) |
 | — | Scaffold: three.js cube roller, single level | manual |
 | — | EDGE-style restyle (neon slabs, rim light, starfield) | screenshots |
@@ -149,7 +150,6 @@ and the retention candidates from research §7.
 |---|---|
 | PWA manifest + installability | store decision pending (TWA vs WebView AAB — see research §5); offered, not requested |
 | `android/` WebView AAB scaffold | same — packaging decision first |
-| Difficulty-delta level check | the generator can produce adjacent same-difficulty levels (level_progression §6); a verifier extension, not a defect |
 | Real-device pass (touch, audio, GPU) | needs hardware; headless covers logic + input path only |
 | Audio correctness tests | no audio device in headless; manual check only |
 | Weekly event / share-codes / local leaderboards | retention candidates (research §7) — scope, not defects |
@@ -277,6 +277,21 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-047 (The difficulty delta: a plateau law calibrated to the shipped
+curve. level_progression §6's mid-act-plateau risk had never been measured;
+`npm run difficulty` measures it. The campaign proper never runs more than
+FIVE levels inside one two-roll band; the only long flat stretch is act 1's
+teaching band (L13–L20, eight levels inside par 9–11) where par is not an
+effort axis; three adjacent pairs share par AND mechanic, two of them
+teaching beats at par 2 and 5 and one genuine mid-act match (L18→L19, par
+10, both ice) that is reported rather than re-cut, because re-cutting a
+shipped level to satisfy an audit is a content decision with no
+player-visible gain. The gate that came out of it: inside an act, across a
+boss-free stretch, every SIX consecutive levels must span at least TWO rolls
+of par — the strictest law the shipped content already passes (a window of
+five fails two shipped stretches; the flattest six-window, L3–L8, meets the
+threshold exactly, so the law has zero slack). Enforced by the existing
+sequence audit, pinned by four unit tests incl. the no-slack calibration.)
 ADR-046 (Reduced motion: a presentation mode that cannot touch a clock.
 The GDD's accessibility list carried one honest gap; the old CSS stub stopped
 six keyframes and left the camera glide, the death shake, the 90° tumble on

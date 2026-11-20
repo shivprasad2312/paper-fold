@@ -121,6 +121,53 @@ export function experienceFingerprint(def, par = null) {
 }
 
 /**
+ * Plateau law (Phase H, ADR-047) — the difficulty-delta check.
+ *
+ * The other sequence laws stop repetition of *character* (identical
+ * fingerprints, a mechanic monoculture) and cliffs (a par step larger than
+ * the act's own bandwidth). None of them stops a stretch of levels that are
+ * all *equally hard*: a run of pars 30, 31, 30, 30, 31, 30 is diverse in
+ * fingerprint, has no cliff, and still reads to a player as one long flat
+ * room. level_progression §6 logged that risk and never quantified it.
+ *
+ * The law: inside one act, across a boss-free stretch, the par must MOVE by
+ * at least CURVE_MIN_SPAN somewhere in every CURVE_WINDOW consecutive
+ * levels. Measured on the shipped catalogue BEFORE the law was written (a
+ * threshold invented after the fact is just a regeneration order): a window
+ * of 6 is the shortest window the shipped curve already satisfies
+ * everywhere — 140 windows, the flattest spanning exactly 2 rolls (L3–L8:
+ * 7,7,5,5,5,7) — and a window of 5 is already broken by two stretches
+ * (L15–L19 and L24–L28 span 1). So 6 is the strictest law the content
+ * passes, with zero slack: any future regeneration that flattens the curve
+ * fails immediately rather than after the fact.
+ */
+export const CURVE_WINDOW = 6;
+export const CURVE_MIN_SPAN = 2;
+
+/** Flags every boss-free, single-act window whose par does not move enough. */
+export function curveProblems(fps) {
+  const problems = [];
+  for (let i = 0; i + CURVE_WINDOW <= fps.length; i++) {
+    const w = fps.slice(i, i + CURVE_WINDOW);
+    const act = actForId(w[0].id);
+    // an act boundary is a designed reset, and a boss is a designed spike:
+    // neither is a plateau, and both are excluded (as the audit measures them)
+    if (!act || w.some((f) => (actForId(f.id) || {}).id !== act.id)) continue;
+    if (w.some((f) => f.id % 20 === 0)) continue;
+    if (w.some((f) => !(f.par >= 0))) continue; // par unknown here — not this law's business
+    const pars = w.map((f) => f.par);
+    const span = Math.max(...pars) - Math.min(...pars);
+    if (span < CURVE_MIN_SPAN) {
+      problems.push(
+        `${w[0].id}–${w[CURVE_WINDOW - 1].id}: ${CURVE_WINDOW}-level plateau — par spans only ${span} `
+        + `(${pars.join('→')}); the curve must move at least ${CURVE_MIN_SPAN} inside every ${CURVE_WINDOW}`,
+      );
+    }
+  }
+  return problems;
+}
+
+/**
  * Local sequence law for one candidate fingerprint against the fingerprints
  * immediately before it (oldest → newest). Used by the generator while it
  * still has a choice; experienceProblems() applies the same law to the
@@ -252,6 +299,10 @@ export function experienceProblems(defs, parById = new Map()) {
       }
     }
   }
+
+  // — the plateau law (Phase H, ADR-047): the curve must MOVE. Runs last
+  //   because it only reads pars the checks above already needed.
+  problems.push(...curveProblems(fps));
 
   return problems;
 }

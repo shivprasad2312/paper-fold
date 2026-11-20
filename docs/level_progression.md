@@ -80,11 +80,31 @@ generator's mix varies day to day).
 
 ## 6. Known progression risks (honest list)
 
-- **Mid-act plateau:** the generator's per-act budget can produce two
-  adjacent levels of equal difficulty (observed in Lattice). Mitigation in
-  the current pipeline: act-conditioned par bands + size drift; a
-  "difficulty delta" verifier check is a possible future gate (logged in
-  progress.md).
+- **Mid-act plateau — measured 2026-10-23, and smaller than feared.** The
+  risk was real in the 50-level era (observed in Lattice), so it was
+  measured on the shipped 200 rather than left as a claim
+  (`npm run difficulty`, ADR-047):
+  - **In the campaign proper (acts 2–10) the curve never sits still:** the
+    longest run of levels inside one two-roll band is **five** (L24–L28,
+    par 13,13,12,13,13); everything else is four or shorter.
+  - **The one long flat stretch is act 1's teaching band** — L13–L20 runs
+    eight levels inside par 9–11, and L3–L8 six more inside 5–7. That is the
+    tutorial doing its job (par 9–11 in act 1 is "learn the drop", not
+    "same effort again"), and it is the first place to look if a re-cut
+    makes the opening feel samey.
+  - **Three adjacent pairs share both par and mechanic signature:** L1→L2
+    (par 2), L5→L6 (par 5) — teaching beats, where par is not an effort
+    axis — and **L18→L19** (par 10, both ice), the one genuine mid-act
+    match. It is deliberately left alone: fixing it means re-cutting a
+    shipped, live-played level, which is a content decision rather than an
+    audit one.
+  - **The gate that came out of it** is the *plateau law* (ADR-047), now in
+    the commit gate: inside an act, across a boss-free stretch, every six
+    consecutive levels must span at least two rolls of par. It was
+    calibrated against the shipped curve, so it passes today with **zero
+    slack** — the flattest window in the game meets it exactly (L3–L8), and
+    a window of five is already broken by shipped stretches, so the law
+    cannot be loosened without the content noticing.
 - **Post-completion wall:** after all golds, the only remaining metrics
   are time + dailies. Future candidates (not shipped, research §7):
   weekly event, share-code leaderboards.
