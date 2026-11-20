@@ -27,8 +27,8 @@ claims otherwise.
   seats, two themes, juice/audio.
 - **Accessibility**: reduced-motion presentation mode (ADR-046) — Auto
   follows the OS, Reduced/Full override it and are remembered; the camera
-  snaps, the tumble becomes a flat slide on the same 243 ms clock, and no
-  hazard clock moves.
+  snaps, decorative motion stops, and no hazard clock moves. The cube still
+  **rolls** in every mode (ADR-049): the flat slide was removed.
 - **Strategy phases** from the research pass: **A–E shipped** (structure
   archetypes, new verbs, teach–test–twist cadence + density curation,
   feel, mastery meta), **F instrument shipped** (ADR-044: opt-in
@@ -47,6 +47,7 @@ and the retention candidates from research §7.
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (h) | **One camera, one motion** (ADR-049): the follow window removed — the whole board is fitted at every size again, with only the clamped parallax toward the cube; seat rotations refit instead of cropping. The reduced-motion **flat slide removed**: every move is a true edge-pivot tumble in every mode, and the sealed gate's refusal is a roll that never completes. No timing constant, par or proof touched; `framing.js` reduced to the occlusion ray |
 | this cycle (g) | **Visual verification** (ADR-048): the picture proved from the data — a structural audit (built scene vs parsed level: counts, merged-slab bounds, verts-per-tile, no NaN, cube on start) and a **plan-view pixel audit** (top-down, bloom-off framebuffer readback, every tile projected and sampled: floor lit, void dark, goal bright, thresholds calibrated per frame, time-varying cells counted explicitly) | 22/22 sampled levels (every act, bosses, L118, showcases, Vault) match tile-for-tile: 0 missing tiles, 0 ghosts, 0 page errors; 3/4 gameplay views inspected; bloom restored after each readback |
 | this cycle (f) | **Difficulty delta** (ADR-047): §6's plateau risk measured, not assumed — campaign never flat past five levels, act 1's teaching band is the only long flat stretch, one genuine mid-act par+mechanic match (L18→L19) reported rather than re-cut; the **plateau law** (every six in-act, boss-free levels span ≥2 par) lands in the commit gate, calibrated to the shipped curve with zero slack; `npm run difficulty` prints the evidence | unit **232/232** (+4 plateau tests, incl. the no-slack calibration) · verifier 200+10+14 ✓ (audit unchanged in outcome, now also refuses a flattened regeneration) · `npm run difficulty` green |
 | this cycle (e) | **Reduced-motion accessibility mode** (ADR-046): a Motion setting beside Theme — Auto (follows `prefers-reduced-motion`) / Reduced / Full, remembered; the camera snaps, the death shake and flash are gone, the roll becomes a flat slide on the **same 243 ms** clock, the win strobe and the idle glows/stars/shards/ring stop, CSS collapses transitions and their delays — and **no hazard clock moves**, so every proof stands. The level-play gate can run in the mode (`KUBIK_MOTION=reduced`) | unit **228/228** (+8 motion tests, incl. "no gameplay clock is reassigned") · verify 200+10+14 ✓ · live gate in reduced motion **13/13**, same move counts as full motion (5,7,11,13,18,38,32,36,31,31,45,53) · mechanics playtest **85/85** (8 new motion checks) |
@@ -278,6 +279,23 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-049 (One camera, one motion. Playing the shipped build the owner
+rejected two presentation choices I had introduced: the Phase G follow
+camera, which pans and zooms around the cube on big boards and reads as
+weird to plan on, and the ADR-046 reduced-motion slide, where the cube
+glided flat from tile to tile instead of rolling. Both are presentation
+only, so both reverse without touching a level or a clock. The camera is
+back to one law at every size — the whole board fitted at the live yaw with
+20% room, and a clamped 0.9-unit parallax toward the cube as the only
+movement; a seat rotation refits rather than cropping, and `src/framing.js`
+keeps just the occlusion ray behind the cube ghost. Every move is a real
+90° tumble over the leading bottom edge in every motion mode, and the
+sealed gate's refusal is a roll that never completes. The honest cost: on a
+26×26 board the cube is ~24 px at 1280×800, which is why the minimap
+matters. Reduced motion loses its largest relief — that trade is the
+owner's, and the mode remains a decoration switch that never reshapes a
+gameplay move. `ROLL_TIME`, `DROP_TIME`, hazard clocks, par values and all
+200 proofs are untouched.)
 ADR-048 (Visual verification: prove the picture from the data. Every gate
 proved logic — a route exists, hazards are fair — and nothing proved that a
 level's PICTURE is the level; a dropped tile or a slab over void would pass
@@ -356,7 +374,8 @@ whole-board fit, floored at 6.6 and capped at 10.8, portrait-widened,
 board-clamped but always subject-first, dead-zoned at 1.1 tiles, and
 height-compensated; a cube hidden behind geometry is echoed through it
 by a ray against the level's own height map. The two laws meet at the
-threshold with no pop. Boards now run 20×20 → 26×26 (acts 3–10; acts
+threshold with no pop. *(The window itself was removed by ADR-049; the
+site-mass half of this ADR stands.)* Boards now run 20×20 → 26×26 (acts 3–10; acts
 1–2 stay intimate for onboarding and were not regenerated), fill targets
 30 → 42%, bands rebuilt to 22–36 → 36–84, and the generator ranks
 candidates against a drawn sawtooth (five rising steps then a relief,

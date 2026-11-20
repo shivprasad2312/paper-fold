@@ -153,7 +153,6 @@ for (const id of SAMPLE) {
       start: { x: lv.start.x, z: lv.start.z, h: lv.start.h },
       bounds: { minX: b.min.x, maxX: b.max.x, minZ: b.min.z, maxZ: b.max.z },
       halfH: +g.stage.halfH.toFixed(2),
-      follow: g.stage.follow,
       state: g.state,
       defName: g.def.name,
       id: g.def.id,

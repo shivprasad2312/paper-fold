@@ -161,15 +161,15 @@ menu, in three states:
 remembered.
 
 In reduced motion the camera snaps between its four seats instead of gliding,
-the death shake is gone, the cube **slides flat** to the next tile instead of
-tumbling (see below), the glows stop breathing, the shards stop tumbling, the
-goal ring stops spinning, the win celebration stops strobing, and CSS
-transitions collapse. **Hazards never stop**: sentinels still patrol, bridges
+the death shake is gone, the glows stop breathing, the shards stop tumbling,
+the goal ring stops spinning, the win celebration stops strobing, and CSS
+transitions collapse. **The cube still rolls**: a move is a real tumble over
+its edge in every mode — a slide would misrepresent the puzzle — and it takes
+the same 243 ms, so sentinel windows, freeze timers and shuttle syncs are
+untouched. **Hazards never stop** either: sentinels still patrol, bridges
 still cycle, pistons still strike and shuttles still carry — those clocks are
-the puzzle, and every level's proof is built on them. The slide takes the
-*same* 243 ms as the roll, so sentinel windows, freeze timers and shuttle
-syncs see no change at all. `KUBIK_MOTION=reduced npm run test:play:all`
-plays the gate in the mode.
+the puzzle, and every level's proof is built on them.
+`KUBIK_MOTION=reduced npm run test:play:all` plays the gate in the mode.
 
 ## Levels
 
@@ -235,9 +235,10 @@ fewer than five as a result.
 
 From act 3 the boards are EDGE-scale places, not corridors: the generator
 grows each route into wide causeways, courts and stacked blocks (site mass,
-ADR-045), boards run 20×20 to 26×26 at 30–42% fill, and the camera follows the
-cube through a window instead of fitting the whole level — small teaching
-boards still show everything.
+ADR-045), boards run 20×20 to 26×26 at 30–42% fill. The camera frames the
+**whole board at every size** (ADR-049) and only leans a few units toward the
+cube — no panning, no zooming — so a big level can be read as one picture;
+the minimap shows the same plan at a glance.
 
 All 200 campaign levels are open from the start — pick any of them from the level select.
 The ten **Vault** rooms below them are the one exception: each opens with 60 total shards,

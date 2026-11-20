@@ -311,15 +311,16 @@ natural par falls outside the act's band is not in that act's pool
 (meridian, par ~66 at 26×26, plays in The Pressure/The Last
 Ascent only).
 
-**The camera (Phase G, ADR-045).** Boards up to 13 tiles are shown whole.
-Bigger boards use a follow window — half the whole-board fit, floored at
-6.6 and capped at 10.8 world units, widened on portrait, clamped to the
-board, dead-zoned at 1.1 tiles, height-compensated so a cube on a ring
-stays centred. The two laws meet exactly at the threshold, so nothing pops
-on screen at the boundary. A cube hidden behind geometry is echoed through
-it (ghost mesh, depth test off) — a ray test against the level's own height
-map decides, not a render pass. The minimap and the four camera seats are
-unchanged.
+**The camera (ADR-049).** One law at every size: the whole board is fitted
+on screen at the live yaw, with 20% breathing room (a little less on
+portrait), and the only movement is a clamped parallax — the view leans at
+most 0.9 world units toward the cube and never pans or zooms. A seat
+rotation refits the projection for the new yaw, so a rotated seat cannot
+crop the board. The cost is honest: on a 26×26 board the cube is small, and
+the minimap is what makes a big site readable at a glance. A cube hidden
+behind geometry is echoed through it (ghost mesh, depth test off) — a ray
+test against the level's own height map decides, not a render pass. The
+minimap and the four camera seats are unchanged.
 
 **Structure archetypes (Phase A, ADR-030).** The track archetypes fill
 ≈ 19% of their board before site mass; three builders make *places*: **plaza** (a filled

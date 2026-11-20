@@ -452,9 +452,6 @@ export class Game {
     const startPos = new THREE.Vector3(from.x, from.h + HALF, from.z);
     this.cube.anim = {
       type: 'roll',
-      // ADR-046: the mode is bound when the move starts, so a settings
-      // change mid-roll never swaps the drawing midway (that would pop)
-      reduced: this.reduceMotion,
       t: 0,
       dur: ROLL_TIME,
       axis,
@@ -524,13 +521,13 @@ export class Game {
    * Draw the cube through level geometry when a slab hides it (ADR-045).
    * A ray test against the level's own height map: no extra render passes,
    * and it is exactly as correct as the collision map the game already
-   * trusts. Only follow boards need it — a whole-board view cannot occlude
-   * the subject it is looking at from above.
+   * trusts. A whole-board camera sees over most walls, but a tower can still
+   * hide the cube from a low seat — the ghost is drawn only when the cube is
+   * genuinely behind geometry, so it can never be mistaken for the cube.
    */
   updateGhost() {
     if (!this.cubeGhost) return;
-    const visible = this.level && this.stage.follow && this.state !== 'won'
-      && this.cubeMesh.visible;
+    const visible = this.level && this.state !== 'won' && this.cubeMesh.visible;
     if (!visible) {
       this.cubeGhost.visible = false;
       return;
@@ -583,9 +580,10 @@ export class Game {
     this.updateShuttleCarry(time);
     this.updateLiftCarry();
 
-    // camera follows the cube (Phase G framing law lives in the stage)
+    // the camera leans gently toward the cube — the only camera movement
+    // there is; the whole board stays framed (no panning, no zooming)
     const cp = this.cubeMesh.position;
-    this.stage.setSubject(cp.x, cp.y, cp.z);
+    this.stage.setFocus(cp.x, cp.z);
     this.updateGhost();
 
     // drifting glow on the cube (still under reduced motion — a breathing
@@ -650,29 +648,15 @@ export class Game {
 
     if (a.type === 'roll') {
       a.t = Math.min(1, a.t + dt / a.dur);
-      if (a.reduced ?? this.reduceMotion) {
-        // ADR-046: the tumble is the largest persistent motion in the game —
-        // a 90° rotation of the whole cube on every single move. Reduced
-        // motion slides the cube FLAT to the same landing point the tumble
-        // would reach, over the SAME duration (a.dur), so the sentinel
-        // windows, the freeze clock and the shuttle sync see no change at
-        // all. A cube landing from a height still falls: the existing drop
-        // animation picks up from the very same spot, on its own clock.
-        const endY = a.target.h + HALF + (a.drop || 0);
-        mesh.position.set(
-          a.startPos.x + (a.target.x - a.startPos.x) * a.t,
-          a.startPos.y + (endY - a.startPos.y) * a.t,
-          a.startPos.z + (a.target.z - a.startPos.z) * a.t,
-        );
-        // no tumble: the cube stays upright and its visual orientation is
-        // whatever it entered the move with (rotation carries no meaning)
-      } else {
-        const e = this.ease(a.t);
-        const q = new THREE.Quaternion().setFromAxisAngle(a.axis, e * Math.PI * 0.5);
-        const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
-        mesh.position.copy(a.pivot).add(rel);
-        mesh.quaternion.copy(q).multiply(a.fromQuat);
-      }
+      // EVERY move is a real tumble over the leading bottom edge: the cube
+      // pivots on the tile it is leaving and lands square on the next one.
+      // It never slides flat between tiles — that read as a "boat" rather
+      // than a dice roll, and the roll is the game's whole language.
+      const e = this.ease(a.t);
+      const q = new THREE.Quaternion().setFromAxisAngle(a.axis, e * Math.PI * 0.5);
+      const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
+      mesh.position.copy(a.pivot).add(rel);
+      mesh.quaternion.copy(q).multiply(a.fromQuat);
 
       if (a.t >= 1) {
         // land exactly on the new tile
@@ -792,22 +776,13 @@ export class Game {
     } else if (a.type === 'reject') {
       // The locked gate refuses: the cube rolls itself back the way it came.
       a.t = Math.min(1, a.t + dt / a.dur);
-      if (a.reduced ?? this.reduceMotion) {
-        // ADR-046: a reverse tumble is still a whole-cube rotation. The
-        // refusal reads just as clearly as a small flat nudge toward the
-        // gate and back, over the same duration.
-        const nx = a.pivot.x - a.startPos.x;
-        const nz = a.pivot.z - a.startPos.z;
-        const len = Math.hypot(nx, nz) || 1;
-        const k = Math.sin(a.t * Math.PI) * 0.18;
-        mesh.position.set(a.startPos.x + (nx / len) * k, a.startPos.y, a.startPos.z + (nz / len) * k);
-      } else {
-        const e = this.ease(a.t);
-        const q = new THREE.Quaternion().setFromAxisAngle(a.axis, (1 - e) * Math.PI * 0.5);
-        const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
-        mesh.position.copy(a.pivot).add(rel);
-        mesh.quaternion.copy(q).multiply(a.fromQuat);
-      }
+      // the refusal is a roll that never completes: the cube tips toward the
+      // sealed gate and settles back onto its own tile
+      const e = this.ease(a.t);
+      const q = new THREE.Quaternion().setFromAxisAngle(a.axis, (1 - e) * Math.PI * 0.5);
+      const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
+      mesh.position.copy(a.pivot).add(rel);
+      mesh.quaternion.copy(q).multiply(a.fromQuat);
       if (a.t >= 1) {
         this.cube.x = a.from.x;
         this.cube.z = a.from.z;
@@ -901,8 +876,6 @@ export class Game {
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
         this.cube.anim = {
           type: 'roll',
-          // ADR-046: bind the mode at the start of the move (see above)
-          reduced: this.reduceMotion,
           t: 0,
           dur: ROLL_TIME,
           axis,
@@ -934,8 +907,6 @@ export class Game {
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
         this.cube.anim = {
           type: 'roll',
-          // ADR-046: bind the mode at the start of the move (see above)
-          reduced: this.reduceMotion,
           t: 0,
           dur: ROLL_TIME,
           axis,
@@ -975,7 +946,6 @@ export class Game {
           type: 'reject',
           t: 0,
           dur: ROLL_TIME * 1.35,
-          reduced: this.reduceMotion, // ADR-046: no reverse tumble
           axis: rollAnim.axis,
           pivot: rollAnim.pivot,
           startPos: rollAnim.startPos,

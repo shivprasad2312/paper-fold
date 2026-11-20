@@ -2419,7 +2419,10 @@ route within 2 rolls of its bare length (a ring 34 → 21, a shuttle span
 44 → 34, a gauntlet 74 → 30 were all shipped as different puzzles by an
 earlier, laxer version); fill ≥ 24%; the act's 2×2 floor.
 
-**2. The camera (`src/framing.js`, `src/stage.js`).** A pure framing law,
+**2. The camera (`src/framing.js`, `src/stage.js`).** *(Superseded 2026-11-20
+by ADR-049: the follow window was removed at the owner's direction and the
+original whole-board framing restored. The site-mass part of this ADR stands —
+the boards are still 20×20 to 26×26.)* A pure framing law,
 because a camera that can only be checked by looking at it is a camera that
 breaks silently. Boards up to 13 tiles are shown whole, exactly as before —
 teaching boards are small *because* reading the whole puzzle is the lesson.
@@ -2587,12 +2590,17 @@ line: *a presentation setting may never change when the world advances.*
 - `Stage` owns the camera half: seat changes snap (no yaw easing), the
   follow target is copied instead of lerped, the death shake is a no-op, and
   the starfield stops drifting.
-- `Game` owns the cube: the tumble becomes a **flat linear slide to the same
-  landing point**, over the **same `ROLL_TIME`** (243 ms), with no rotation at
-  all; the drop after a fall still runs on `DROP_TIME`; the intro pop and the
-  spring arc become linear; the glow stops breathing; the win celebration
-  (spin + rise + strobe) becomes a still cube, because the win panel already
-  carries the news.
+- `Game` owns the cube: the drop after a fall still runs on `DROP_TIME`; the
+  intro pop and the spring arc become linear; the glow stops breathing; the
+  win celebration (spin + rise + strobe) becomes a still cube, because the
+  win panel already carries the news.
+  **Superseded by ADR-049 (2026-11-20):** this ADR originally flattened the
+  cube's tumble into a linear slide between tiles under reduced motion. The
+  owner judged that read a cube *sliding* rather than *rolling*, and it was
+  the most visible behaviour the mode changed — so the slide is gone and
+  every move is a real tumble in every mode. Nothing else here changed, and
+  the mode is now strictly a *decoration* switch: it never touches the shape
+  of a gameplay move.
 - `LevelView` owns the idle world: shard and freeze-shard tumble/bob,
   sentinel bob and glow pulse, and the goal pad's spin/breath all stop.
   **Hazard travel does not**: patrols, pistons, shuttles, bridges, sliding
@@ -2763,3 +2771,62 @@ fresh level both report `bloomEnabled: true`).
 can be perfect and the level still unplayable. It does not judge aesthetics,
 and it samples rather than sweeping all 210 (the script takes `IDS=` for a
 full sweep when a change touches `levelView.js` broadly).
+
+### ADR-049 — One camera, one motion: the whole board, and a cube that only rolls
+
+**Context.** Phase G (ADR-045) traded the whole-board view for a follow window
+on boards wider than 13 tiles, and ADR-046 made reduced motion slide the cube
+flat between tiles. Playing the shipped build, the owner rejected both: the
+follow camera reads as *weird* — a 26×26 puzzle that pans and zooms while you
+steer is harder to plan on than one held still — and a cube that slides from
+tile to tile does not read as a cube at all. Both are presentation choices,
+both had been introduced by me rather than asked for, and both are reversible
+without touching a single level, proof or timing constant.
+
+**Decision.**
+
+1. **The camera has ONE law again** (`src/stage.js`): the whole board is
+   fitted on screen at the live yaw, with 20% breathing room (a little less on
+   portrait, where height is scarce). The only movement is the original
+   clamped parallax — the view leans at most 0.9 world units toward the cube,
+   a nudge that keeps the board feeling alive without ever panning, zooming or
+   drifting. Seat rotation refits the projection for the new yaw (the fit is
+   snapped, not animated) so a rotated seat can never crop the board; that
+   refit is a no-op on square boards and only ever shows *more*.
+   `src/framing.js` loses the follow law with it — what remains is the pure
+   occlusion ray behind the cube ghost, which is still useful: a whole-board
+   camera sees over most walls, but a tower can hide the cube from a low seat.
+
+2. **The cube only rolls** (`src/game.js`): every move is a true 90° tumble
+   over the leading bottom edge, pivoting on the tile it leaves and landing
+   square on the next. The reduced-motion flat slide is deleted, and with it
+   the `reduced` flag the roll/reject animations carried. The sealed gate's
+   refusal is a roll that never completes (tips toward the gate, settles back)
+   rather than a flat nudge.
+
+**Consequences, measured and honest.**
+
+- On the biggest boards the whole-board fit makes the cube small: at
+  1280×800 the fit for a 26-tile board puts ~24 px on a tile. That is the
+  cost of the owner's call, and it is the same cost the game shipped with for
+  its first 200 levels. The **minimap** stays — it is the cheap answer to
+  "where am I on a big board" that does not move the camera.
+- Reduced motion loses its largest relief. What the mode still does is
+  listed in ADR-046 and unchanged: no camera glide, no seat easing, no shake,
+  no breathing glow, no win spin/strobe, no idle bob/spin, no starfield
+  drift, no CSS animation. The roll stays because the roll *is* the game's
+  language — the mode is a decoration switch, never a reshape of a gameplay
+  move. The trade-off is deliberate and belongs to the product owner.
+- Nothing in the simulation changed: `ROLL_TIME`, `DROP_TIME`, hazard clocks,
+  sentinel windows, par values and every proof in the catalogue are untouched.
+  The level verifier and the live sweep apply without re-measuring. The unit
+  suite drops from 232 to **221** tests, because the eleven follow-law tests
+  pinned a law that no longer exists — nothing else was removed, and the
+  occlusion ray they shared the file with is still pinned.
+
+**Verification.** The camera law is checked by frame, not by assertion: plan
+and gameplay screenshots at 1280×800 and at portrait show the entire board on
+screen, and a seat rotation keeps it there. The roll is checked frame-by-frame
+mid-tumble (a corner is up, then the next face lands flat) in both motion
+modes. `framing.test.mjs` now pins only what is left to pin — the occlusion
+ray.

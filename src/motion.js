@@ -22,7 +22,7 @@
 //
 // What it keeps, deliberately:
 //   · the roll itself (a cube physically turning is the game's language —
-//     removing it would misrepresent the puzzle)
+//     flattening it into a slide would misrepresent the puzzle; ADR-049)
 //   · patrol travel, pistons, shuttles and bridge cycles (each one is a
 //     hazard the player must read; freezing them would make levels unreadable
 //     or, worse, unplayable)
