@@ -7,7 +7,7 @@
 // guaranteed solvable, never a spawn-kill, and impossible to soft-lock.
 // ---------------------------------------------------------------------------
 
-import { parseLevel, shortestRoute, solveHazards, spawnProblems, timingProblems } from './rules.js';
+import { parseLevel, shortestRoute, solveHazards, spawnProblems, timingProblems, freePathProblems } from './rules.js';
 
 /** Deterministic string hash → 32-bit seed. */
 function hashSeed(str) {
@@ -175,6 +175,7 @@ export function getDailyLevel(dateStr) {
     if (!solve.ok) continue;
     if (probs.length) continue;
     if (timingProblems(level).length) continue; // sentinels must leave a fair window
+    if (freePathProblems(level, route).length) continue; // ADR-051: no walking around the obstacles
     return { def, par: route };
   }
   const level = parseLevel(FALLBACK);

@@ -19,6 +19,7 @@ import {
   timingProblems,
   shortestRoute,
   shortestPath,
+  freePathProblems,
   rescueTile,
   fairReachSet,
   fairPlayable,
@@ -47,6 +48,10 @@ export function verify(def, b, minOrbs) {
   for (const p of spawnProblems(level)) problems.push(p);
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
+  // the free-path law (ADR-051): a candidate whose obstacles can all be
+  // walked around is rejected like any other unfair layout — cheap BFS,
+  // so it runs here with the other route checks, before the timing model
+  for (const p of freePathProblems(level, par)) problems.push(p);
   // clinging (Phase B, ADR-037): a declared grip crevice must SHORTEN the
   // proven route — a crevice the optimal line walks around is decoration,
   // rejected like a lift that joins no two banks. Two BFS runs, only on

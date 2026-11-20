@@ -18,6 +18,7 @@ import {
   spawnProblems,
   timingProblems,
   shortestRoute,
+  freePathProblems,
   key,
   ROLL_TIME,
 } from '../src/rules.js';
@@ -289,6 +290,8 @@ function verify(def, b, minOrbs = b.orbs[0]) {
   }
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
+  // the free-path law (ADR-051), same wording as the shared gate
+  for (const p of freePathProblems(level, par)) problems.push(p);
   return { ok: problems.length === 0, problems, par };
 }
 

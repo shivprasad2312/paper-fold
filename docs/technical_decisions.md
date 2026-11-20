@@ -2906,3 +2906,57 @@ in every proof, the hazard clock, parse-time purity laws and the live bot's
 planner all already existed. The wheel added one clock, one kill check, one
 planning filter and one mesh — which is why it could be proven and played the
 same day rather than regenerated a catalogue.
+
+### ADR-051 — The free-path law: no walking around the obstacles
+
+**Context.** The owner, reviewing the level maps, made the sharpest
+criticism the campaign has had: *"in the levels map, we have given so many
+paths to users to reach destination, and in some we don't have any obstacle.
+If a path doesn't have any obstacle then what is the use of obstacles?"*
+Research into the genre said the same thing from the other side: Monument
+Valley designs exactly one solution per level, Bloxorz's floor shapes make
+wandering impossible, and EDGE runs one maze spine with collectible prisms
+as deliberate detours off it. Every game in our family constrains the player
+to one or two **meaningful routes** and puts the level's obstacle ON them.
+
+Our verifier enforced the opposite half of that promise — "at least one
+path exists" — and nothing else. An obstacle was allowed to be pure set
+dressing as long as it sat somewhere on the board.
+
+**The audit.** The law needed a metric, and metrics need the game's own
+definitions. "Engaging" a mechanic = landing on one of its tiles: hazards,
+movement kit, gates, size decisions — with sentinel engagement read as the
+whole patrol LINE via `orbLineTiles` (the tiles `fairPlayable` already
+forbids a press to end on). First draft marked only patrol waypoints and
+accused 65 levels; counting whole segments — as the game itself does —
+corrected that to **35 of 191** in scope (9 finishable at exactly par
+without touching a mechanic, 26 more within +6 rolls; 151 covered, 5 with
+only costly detours, 4 mechanic-free teach boards, 5 wind). The two
+hand-built wheel levels and all ten Vault rooms already comply. The worst
+concentration is the generated mid-campaign, where a 2–7-tile patrol line
+guards a full-width open field: the player sidesteps it by one tile.
+
+**Decision: the free-path law.** The shortest route that never lands on a
+mechanic tile must either not exist, or cost more than `FREE_PATH_SLACK`
+(6) rolls beyond par. A bypass cheaper than that means the obstacles are
+decoration. Exemptions are structural: wind levels (the breeze touches every
+tile, so "mechanic-free" is meaningless there) and levels with no mechanics
+at all. The check lives in `rules.js` (`mechanicTiles`, `freeRouteLength`,
+`freePathProblems`) and is enforced by every generator (`level-gate`,
+`gen-campaign`, and the daily generator's acceptance loop — one of the 14
+sampled daily layouts bypassed at par, and now rejects to its next seed)
+and by the shipped-level audit (`verify-levels`).
+
+**The backlog ratchet.** The 35 offenders shipped before the law existed,
+so they are listed by id in `verify-levels` (`FREE_PATH_BACKLOG`) and fixed
+in waves — hand levels by hand, generated levels by regenerating their ids
+through the generator with the law in its gate (per-level seeds keep
+untouched neighbours byte-identical). The ratchet fails both ways: an
+unlisted offender, or a listed level that has stopped offending.
+
+**Why generators, not patches.** 33 of the 35 are generated defs; ADR-004
+forbids hand-editing them, and a corridor problem deserves a corridor fix:
+the generator now rejects any candidate with a free path, which pressures
+it to carve layouts where the obstacle actually spans the route — the same
+shape-first discipline as Bloxorz. Pars, ids, act bands and the difficulty
+curve are untouched promises, re-proven each wave.

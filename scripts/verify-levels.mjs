@@ -20,6 +20,7 @@ import {
   windTarget,
   windLockProblems,
   shortestPath,
+  freePathProblems,
   key,
 } from '../src/rules.js';
 import { experienceProblems } from './experience.mjs';
@@ -55,6 +56,23 @@ const fail = (msg) => {
 };
 // proven pars by level id, reused by the experience-diversity audit below
 const cataloguePars = new Map();
+
+// ---------------------------------------------------------------------------
+// ADR-051 backlog — the free-path law (no level finishable by walking
+// around its obstacles) landed with 35 shipped offenders. They are listed
+// here BY ID so the law can be law from day one; each content wave removes
+// its ids, and the ratchet has teeth both ways: an offender NOT listed
+// fails, and a listed level that no longer offends fails as stale. When
+// this set is empty the law stands alone. (Engine audit, counting whole
+// patrol lines as engagement: 9 finishable at par without touching a
+// mechanic, 26 more within +6 rolls; the wheel levels and all 10 Vault
+// rooms already comply.)
+// ---------------------------------------------------------------------------
+const FREE_PATH_BACKLOG = new Set([
+  5, 9, 16, 44, 55, 57, 59, 66, 68, 77, 79, 84, 86, 88, 91, 94, 95, 98, 99,
+  102, 103, 106, 109, 112, 117, 127, 133, 134, 137, 141, 142, 149, 166,
+  177, 182,
+]);
 
 function checkLevel(label, def) {
   console.log(`\n${label}`);
@@ -139,6 +157,20 @@ function checkLevel(label, def) {
     const p1 = provenRoute(level);
     const p0 = provenRoute(parseLevel({ ...def, clings: undefined }));
     if (!(p1 > 0) || !(p0 > p1)) fail(`cling does not shorten the proven route (${p0} → ${p1})`);
+  }
+
+  // 9. the free-path law (ADR-051): no obstacle-free route at par or
+  // within FREE_PATH_SLACK of it — the mirror of check 1's "a path
+  // exists". Backlog ids are the shrink-only ratchet above.
+  {
+    const problems = freePathProblems(level);
+    if (FREE_PATH_BACKLOG.has(def.id)) {
+      if (!problems.length) {
+        fail(`free-path backlog: L${def.id} no longer breaks the law — remove it from FREE_PATH_BACKLOG (ADR-051 ratchet)`);
+      }
+    } else {
+      for (const p of problems) fail(p);
+    }
   }
 
   const shardsOk = level.shards.filter((s) => reach.has(s.id)).length;

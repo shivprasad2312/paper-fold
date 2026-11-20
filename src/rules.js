@@ -1691,6 +1691,136 @@ function bfsPath(level, start, goal, startMini, blocked) {
 }
 
 /**
+ * --------------------------------------------------------------------------
+ * The free-path law (ADR-051): a level may not be finishable by walking
+ * AROUND its obstacles. The mirror image of the "at least one path" rule —
+ * that one promises a route exists; this one promises the route is earned.
+ *
+ * A tile ENGAGES when landing on it means meeting a mechanic: a hazard
+ * (crumble, timed, pulse, sentinel patrol line, piston strike cell, wheel
+ * ring), a movement kit tile (ice, spring, belt, turntable, cling bank,
+ * shuttle/lift dock, slider), a gate (door tile or plate, the gate key) or
+ * a size decision (tunnel mouth, shrink/grow pad, block to push). Shards
+ * are collectibles, not obstacles — a shard detour never counts.
+ *
+ * The law: the shortest route that never lands on a mechanic tile must
+ * either not exist, or cost more than FREE_PATH_SLACK rolls beyond par.
+ * A bypass cheaper than that is not a route choice, it is the obstacles
+ * being decoration. Wind levels are exempt (the breeze touches every
+ * tile, so "mechanic-free" has no meaning there), and so are levels with
+ * no mechanic tiles at all (the teach boards — nothing to engage).
+ *
+ * Measured on the planning graph, like par itself: hazards are treated
+ * with the wait-out doctrine, so the check is generous to the level —
+ * real play can only be freer than this number, never less.
+ * --------------------------------------------------------------------------
+ */
+export const FREE_PATH_SLACK = 6;
+
+const MECHANIC_TILE_FLAGS = [
+  'crumble', 'timed', 'pulse', 'freeze', 'ice', 'spring', 'conveyor',
+  'low', 'shrink', 'grow', 'plate', 'door', 'shuttle', 'lift',
+  'turntable', 'wheel', 'piston',
+];
+
+/** Every tile where landing means engaging a mechanic ("x,z" keys). */
+export function mechanicTiles(level) {
+  const out = new Set();
+  const addAll = (c) => {
+    if (!c) return;
+    for (const k of c instanceof Map ? c.keys() : c) out.add(k);
+  };
+  for (const t of level.tiles.values()) {
+    for (const f of MECHANIC_TILE_FLAGS) {
+      if (t[f]) { out.add(key(t.x, t.z)); break; }
+    }
+  }
+  addAll(level.blockTiles);
+  addAll(level.sliderTiles);
+  addAll(level.timedTiles);
+  addAll(level.pulseTiles);
+  addAll(level.freezeTiles);
+  addAll(level.iceTiles);
+  addAll(level.springTiles);
+  addAll(level.conveyorTiles);
+  addAll(level.lowTiles);
+  addAll(level.wheelCells);
+  addAll(level.turntableCells);
+  addAll(level.pistonCells);
+  addAll(level.shuttleDocks);
+  addAll(level.liftDocks);
+  addAll(level.clingCells);
+  for (const orb of level.orbs) {
+    // the whole patrol LINE, not just its waypoints — the same tiles
+    // fairPlayable forbids a press to end on (a sentinel's segment is its
+    // territory, endpoints alone would undercount by the segment length)
+    for (const k of orbLineTiles(orb.path)) out.add(k);
+  }
+  if (level.gateKey) out.add(key(level.gateKey.x, level.gateKey.z));
+  return out;
+}
+
+/**
+ * Shortest start→goal route (rolls) that never LANDS on a mechanic tile,
+ * or -1 when every route engages something. Key-aware like shortestRoute:
+ * the sealed goal may not be entered before the key — and since the key
+ * tile is itself a mechanic tile, a gate level can never have a free
+ * route, which is exactly right. Standing on the start tile never counts
+ * as engaging (a patrol may cross the spawn — that is timing play, and
+ * spawnProblems already guards the lethal version of it).
+ */
+export function freeRouteLength(level) {
+  const banned = mechanicTiles(level);
+  const goalK = key(level.goal.x, level.goal.z);
+  const keyK = level.gateKey ? key(level.gateKey.x, level.gateKey.z) : null;
+  const sKey = (k, m, hk) => `${k}|${m ? 1 : 0}|${hk ? 1 : 0}`;
+  const startMini = !!level.startMini;
+  const dist = new Map([[sKey(key(level.start.x, level.start.z), startMini, false), 0]]);
+  const queue = [{ tile: level.start, mini: startMini, hk: false }];
+  while (queue.length) {
+    const cur = queue.shift();
+    const ck = key(cur.tile.x, cur.tile.z);
+    const cs = sKey(ck, cur.mini, cur.hk);
+    if (ck === goalK) return dist.get(cs);
+    const d = dist.get(cs);
+    const moves = level.hasSize
+      ? rollTargetsAt(level, cur.tile, cur.mini)
+      : rollTargets(level, cur.tile).map((to) => ({ to, mini: false }));
+    const seen = new Set();
+    for (const s of moves) {
+      const tk = key(s.to.x, s.to.z);
+      const hk = cur.hk || (keyK !== null && tk === keyK);
+      if (keyK && tk === goalK && !hk) continue; // the sealed gate
+      if (tk !== goalK && banned.has(tk)) continue; // the law itself
+      const ts = sKey(tk, s.mini, hk);
+      if (seen.has(ts) || dist.has(ts)) continue;
+      seen.add(ts);
+      dist.set(ts, d + 1);
+      queue.push({ tile: s.to, mini: s.mini, hk });
+    }
+  }
+  return -1;
+}
+
+/**
+ * The law as a problem list (empty = lawful), in the shape every gate in
+ * the repo composes. `par` may be passed by callers that already paid for
+ * it; it is recomputed otherwise.
+ */
+export function freePathProblems(level, par = null) {
+  if (level.wind) return []; // the breeze is on every tile — nothing is "free"
+  if (!mechanicTiles(level).size) return []; // teach boards: nothing to engage
+  const free = freeRouteLength(level);
+  if (free < 0) return [];
+  const p = par ?? shortestRoute(level);
+  if (free - p > FREE_PATH_SLACK) return [];
+  return [
+    `obstacle-free route of ${free} rolls vs par ${p} (slack ${free - p} ≤ ${FREE_PATH_SLACK}): ` +
+    'the level can be finished without engaging any mechanic — ADR-051',
+  ];
+}
+
+/**
  * The mid-path rescue bench: the landing tile at the 50% press count of
  * the shortest path, adjusted to the nearest SAFE tile along that path
  * (safe = not on a sentinel line, not a crumble, not a shuttle dock, not

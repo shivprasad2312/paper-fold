@@ -488,6 +488,14 @@ A level is done when, all green:
 
 1. `npm run verify` — all checks pass (route, soft-lock, shards,
    crumble/push survival, spawn safety, data sanity, par computable,
+   **the free-path law (ADR-051)** — no route from start to goal that
+   never lands on a mechanic tile may cost within `FREE_PATH_SLACK` (6)
+   rolls of par. "At least one path" promises the route exists; this
+   promises it is earned: an obstacle the player can walk around for
+   free is decoration. Sentinel engagement is the whole patrol line,
+   not its waypoints. Wind levels and mechanic-free teach boards are
+   exempt by construction.
+
    **timing fairness** — at least one path whose every sentinel crossing
    has a ≥ 0.5 s window; for `gateKey` levels, start→key and key→goal
    are proven separately (algorithms §6.1); **rescue bench** — if the
