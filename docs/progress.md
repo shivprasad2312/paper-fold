@@ -47,6 +47,7 @@ and the retention candidates from research §7.
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (g) | **Visual verification** (ADR-048): the picture proved from the data — a structural audit (built scene vs parsed level: counts, merged-slab bounds, verts-per-tile, no NaN, cube on start) and a **plan-view pixel audit** (top-down, bloom-off framebuffer readback, every tile projected and sampled: floor lit, void dark, goal bright, thresholds calibrated per frame, time-varying cells counted explicitly) | 22/22 sampled levels (every act, bosses, L118, showcases, Vault) match tile-for-tile: 0 missing tiles, 0 ghosts, 0 page errors; 3/4 gameplay views inspected; bloom restored after each readback |
 | this cycle (f) | **Difficulty delta** (ADR-047): §6's plateau risk measured, not assumed — campaign never flat past five levels, act 1's teaching band is the only long flat stretch, one genuine mid-act par+mechanic match (L18→L19) reported rather than re-cut; the **plateau law** (every six in-act, boss-free levels span ≥2 par) lands in the commit gate, calibrated to the shipped curve with zero slack; `npm run difficulty` prints the evidence | unit **232/232** (+4 plateau tests, incl. the no-slack calibration) · verifier 200+10+14 ✓ (audit unchanged in outcome, now also refuses a flattened regeneration) · `npm run difficulty` green |
 | this cycle (e) | **Reduced-motion accessibility mode** (ADR-046): a Motion setting beside Theme — Auto (follows `prefers-reduced-motion`) / Reduced / Full, remembered; the camera snaps, the death shake and flash are gone, the roll becomes a flat slide on the **same 243 ms** clock, the win strobe and the idle glows/stars/shards/ring stop, CSS collapses transitions and their delays — and **no hazard clock moves**, so every proof stands. The level-play gate can run in the mode (`KUBIK_MOTION=reduced`) | unit **228/228** (+8 motion tests, incl. "no gameplay clock is reassigned") · verify 200+10+14 ✓ · live gate in reduced motion **13/13**, same move counts as full motion (5,7,11,13,18,38,32,36,31,31,45,53) · mechanics playtest **85/85** (8 new motion checks) |
 | — | Scaffold: three.js cube roller, single level | manual |
@@ -277,6 +278,28 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-048 (Visual verification: prove the picture from the data. Every gate
+proved logic — a route exists, hazards are fair — and nothing proved that a
+level's PICTURE is the level; a dropped tile or a slab over void would pass
+232 unit tests, the verifier and a bot that navigates rules.js, not the mesh.
+Two audits, both data-driven: (1) structural — the built scene against the
+parsed level (tile/shard/sentinel/block counts, merged-slab bounds and
+verts-per-tile, no NaN transforms, cube on its start tile); (2) a plan-view
+PIXEL audit — force a true top-down camera that fits the whole board, render
+WITHOUT bloom, read the framebuffer with readPixels in the same task as the
+render (the drawing buffer is cleared after compositing), then project every
+tile of the parsed level and sample it: every floor tile lit, every void cell
+dark, the goal pad bright, thresholds calibrated from each frame so an act's
+palette cannot bias it, five sample points per tile so a hazard legitimately
+sitting on a tile (a piston arm covered L187's strike cell) is not a false
+failure. Time-varying cells (shuttle docks as ghosts, bridges and pulse gaps
+while down) are counted and reported, not silently skipped — without that the
+audit failed 6 of 22 levels on cells correctly empty. Found and fixed in the
+making: framing that crops reports off-screen tiles as unlit, a stale-frame
+readback, counting nodes instead of the merged slab mesh, and board-frame
+bounds compared to occupied extent. 22/22 sampled levels match tile-for-tile;
+bloom restored after every readback. It does not replace the live gate — a
+picture can be perfect and the level unplayable.)
 ADR-047 (The difficulty delta: a plateau law calibrated to the shipped
 curve. level_progression §6's mid-act-plateau risk had never been measured;
 `npm run difficulty` measures it. The campaign proper never runs more than

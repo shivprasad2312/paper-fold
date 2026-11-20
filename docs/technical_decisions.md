@@ -2701,3 +2701,65 @@ refuses a future regeneration that flattens the curve. `npm run difficulty`
 prints the measurement (per-act range/mean/longest climb, the law, the flat
 stretches, the flat pairs, the Vault) and takes `--strict` for a CI job that
 wants the curve watched separately from the content gates.
+
+### ADR-048 — Visual verification: prove the picture from the data
+
+**Context.** Every gate in the repo proves *logic*: a route exists, hazards are
+fair, the catalogue is diverse. Nothing proved that a level's **picture** is
+the level. A level could render its floor with a dropped tile, draw a slab
+over void, or place a decoration where a hazard belongs and pass all 232 unit
+tests, the verifier, and a bot that plays blind to half the board — the bot
+navigates `rules.js`, not the mesh. That matters most after Phase G, where the
+boards are 26×26 and generated, and worst for the one thing a player reads
+before anything else: whether the ground they see is the ground that exists.
+
+**Decision.** Two audits, both driven from the level data, not from a
+screenshot somebody liked.
+
+1. **Structural** (`npm run visual:audit`, `scripts/visual-audit.mjs`) — load
+   a stratified sample (every act, every boss tier, the re-cut L118, the
+   mechanic showcases, the Vault) and compare the *built scene* with the
+   *parsed level*: tile count, shard/sentinel/block counts, goal pad present,
+   no NaN transforms, the cube on its start tile, and the merged slab mesh's
+   bounds and vertices-per-tile. This is where a regression in
+   `levelView.js` shows up as a number rather than a screenshot.
+
+2. **Plan-view pixel audit** (`npm run visual:plan`,
+   `scripts/visual-audit-plan.mjs`) — the stronger one. Force the camera to a
+   true top-down plan view that fits the whole board (a framing that crops
+   reports off-screen tiles as "not lit" — learned the hard way), render
+   **without bloom**, read the framebuffer back with `readPixels` in the same
+   task as the render (the drawing buffer is cleared after compositing, so a
+   later `drawImage` samples a stale frame from a different camera), then
+   project **every tile of the parsed level** to a pixel and sample it.
+
+   - every tile must be **lit** — a slab is drawn where the data says floor;
+   - every void cell must be **dark** — no slab where the data says void;
+   - the goal pad must be its own bright ring.
+
+   Thresholds are **calibrated from each frame** (background sampled outside
+   the board, slab luminance from the board's own median), so an act's palette
+   cannot make the audit pass or fail. A tile is sampled at five points
+   (centre + four 0.44-tile offsets), because a hazard legitimately sits on a
+   tile — a piston arm covered L187's strike cell until the sampling was
+   widened, which is exactly the class of false positive this design avoids.
+
+**The one legitimate exception, made explicit.** A shuttle dock is a *ghost*
+until a platform dwells on it, and slider bridges / pulsing gaps are dark
+while down. Those cells are counted and reported (`N time-varying`) rather
+than silently skipped: they must be either lit or explicitly one of those
+kinds. Without this the audit failed 6 of 22 levels on cells that were
+correctly empty — the reason the check distinguishes "not drawn" from "not
+drawn yet".
+
+**Verification.** 22/22 sampled levels now match tile-for-tile, with zero
+missing tiles, zero ghosts and zero page errors; the 3/4 gameplay views were
+inspected alongside the plan views for the things a pixel test cannot judge
+(start cube colour, hazard dressing, skyline, theme). Bloom is switched off
+only for the readback and restored afterwards (verified: a fresh page and a
+fresh level both report `bloomEnabled: true`).
+
+**What this does not prove.** It does not replace the live gate: a picture
+can be perfect and the level still unplayable. It does not judge aesthetics,
+and it samples rather than sweeping all 210 (the script takes `IDS=` for a
+full sweep when a change touches `levelView.js` broadly).
