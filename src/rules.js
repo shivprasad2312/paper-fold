@@ -1630,6 +1630,92 @@ export function solveHazards(level) {
 export const solveWithCrumble = (level) => solveHazards(level).ok;
 
 /**
+ * THE COMPOSED PLAYABILITY LAW (Phase G, 2026-11-20).
+ *
+ * Three proofs used to run separately: reachability (blocks modelled,
+ * sentinels ignored), sentinel fairness (sentinels modelled, blocks ignored)
+ * and the crumble/block solver (blocks modelled, fairness ignored). Each one
+ * can pass while the *composition* fails, and a level then ships solvable on
+ * paper and unplayable in the hand. L118 "The Thin White" is the case that
+ * exposed it: its goal sits behind a one-tile column whose only fair approach
+ * runs into a block that cannot be pushed past the goal — the bot settled
+ * 25,156 states and never arrived, while all three proofs were green.
+ *
+ * This is the single search that composes them: (tile, block layout, nudges
+ * left, size) states, the game's own press law (`resolveRollAt`), pushes via
+ * `canPushBlock`, shuttle rides, and sentinel crossings only through the
+ * fair-crossing graph. Returns false when no play exists — which is exactly
+ * what the generator gate and the live bot both need to know.
+ *
+ * Cheap by construction: a level with no blocks and no patrols never calls
+ * the composed search (the caller checks), and a level with blocks but no
+ * patrols is what `solveHazards` already covers.
+ */
+export function fairPlayable(level, { maxStates = 400000 } = {}) {
+  const { line, edges } = fairCrossingGraph(level);
+  const blockSig = (blocks) => blocks.map((b) => key(b.x, b.z) + (b.heavy ? 'h' : '')).sort().join(';');
+  const sig = (t, blocks, left, mini) => `${key(t.x, t.z)}|${blockSig(blocks)}|${left}|${mini ? 'm' : 'n'}`;
+  const startBlocks = level.blocks.map((b) => ({ x: b.x, z: b.z, heavy: !!b.heavy }));
+  const start = level.start;
+  const seed = { x: start.x, z: start.z };
+  const startSig = sig(seed, startBlocks, level.nudge, level.startMini);
+  const seen = new Set([startSig]);
+  const q = [[seed, new Set(), startBlocks, level.nudge, !!level.startMini, 0]];
+  let qi = 0;
+  while (qi < q.length) {
+    if (seen.size > maxStates) return { ok: false, capped: true };
+    const [tile, broken, blocks, left, mini, steps] = q[qi++];
+    if (tile.x === level.goal.x && tile.z === level.goal.z) return { ok: true, states: seen.size, steps };
+    const occupied = new Set(blocks.map((b) => key(b.x, b.z)));
+    // a ride: one action, no press
+    const ride = shuttleRide(level, tile);
+    if (ride) {
+      const t2 = level.tiles.get(key(ride.x, ride.z));
+      const k2 = key(ride.x, ride.z);
+      if (!broken.has(k2)) {
+        const s2 = sig(ride, blocks, left, mini);
+        if (!seen.has(s2)) { seen.add(s2); q.push([ride, broken, blocks, left, mini, steps + 1]); }
+      }
+      void t2;
+    }
+    for (const d of Object.values(DIRS)) {
+      const bk = key(tile.x + d.dx, tile.z + d.dz);
+      const bi = blocks.findIndex((b) => b.x === tile.x + d.dx && b.z === tile.z + d.dz);
+      if (bi >= 0) {
+        // the block moves, the cube stays
+        if (left <= 0) continue;
+        const b = blocks[bi];
+        if (!canPushBlock(level, b, d.dx, d.dz, occupied)) continue;
+        const nb = blocks.map((p, i) => (i === bi ? { ...p, x: p.x + d.dx, z: p.z + d.dz } : p));
+        const s2 = sig(tile, nb, left - 1, mini);
+        if (!seen.has(s2)) { seen.add(s2); q.push([tile, broken, nb, left - 1, mini, steps + 1]); }
+        continue;
+      }
+      const to = resolveRollAt(level, tile, d, mini);
+      if (!to) continue;
+      const tk = key(to.x, to.z);
+      if (broken.has(tk)) continue;
+      if (line.has(tk)) continue; // a press may not END on the patrol line
+      const nextBroken = tile.crumble || tile.timed ? new Set([...broken, key(tile.x, tile.z)]) : broken;
+      const nextMini = sizeAfter(level, to, mini);
+      const s2 = sig(to, blocks, left, nextMini);
+      if (!seen.has(s2)) { seen.add(s2); q.push([to, nextBroken, blocks, left, nextMini, steps + 1]); }
+    }
+    // fair sentinel crossings (entry → exit bursts)
+    for (const e of edges.get(key(tile.x, tile.z)) || []) {
+      const k2 = key(e.to.x, e.to.z);
+      if (broken.has(k2)) continue;
+      if ([...e.seq, e.to].some((t) => occupied.has(key(t.x, t.z)))) continue;
+      const exit = level.tiles.get(k2);
+      if (!exit) continue;
+      const s2 = sig(e.to, blocks, left, sizeAfter(level, exit, mini));
+      if (!seen.has(s2)) { seen.add(s2); q.push([e.to, broken, blocks, left, sizeAfter(level, exit, mini), steps + e.seq.length + 1]); }
+    }
+  }
+  return { ok: false, states: seen.size };
+}
+
+/**
  * Distance (Chebyshev) from tile to the nearest point of a sentinel's path.
  * Exported so level data and the daily generator can be checked for the
  * "hazard spawns on top of the start tile" class of bugs.
@@ -2805,16 +2891,39 @@ function buildCrossingGraph(level) {
  * Returns a list of problem strings (empty = fair).
  */
 /**
+ * The tiles a route may never STAND on, whatever the sentinels are doing:
+ * a HEAVY block's tile. A block is an obstacle to the step that enters its
+ * tile; a light block yields to a push (a legal action the solver prices),
+ * but a heavy one cannot be pushed at all, so its tile is a wall for the
+ * whole level. Leaving it out of the fairness proof let two gates each pass
+ * on their own and the composition fail in play: L118 "The Thin White"
+ * (Phase G) has its goal behind a heavy block, and the only FAIR route to
+ * it stood on the block's tile — reachability (with blocks) said yes,
+ * fairness (without them) said yes, the live bot settled 25,156 states and
+ * never reached the goal. Caught by the live gate, 2026-11-20.
+ */
+export function immovableBlockTiles(level) {
+  const out = new Set();
+  for (const b of level.blocks || []) {
+    if (b.heavy) out.add(key(b.x, b.z));
+  }
+  return out;
+}
+
+/**
  * Fair reachability: BFS over off-line tiles + fair crossing edges, seeded
  * at `from`. Returns the set of node ids reachable ("x,z" for tiles,
  * "key:x,z" for the key node). Used by the timing gate (start → goal)
  * and by the rescue-bench proof (bench → goal).
  */
 export function fairReachSet(level, from, keySeed = false, blocked = null, seedSizes = null) {
-  if (level.hasSize) return new Set(fairReachStates(level, from, keySeed, blocked, seedSizes).keys());
+  // the heavy-block tiles are a wall for every caller, not just this one
+  const walls = immovableBlockTiles(level);
+  if (blocked) for (const k of blocked) walls.add(k);
+  if (level.hasSize) return new Set(fairReachStates(level, from, keySeed, walls, seedSizes).keys());
   const { line, edges } = fairCrossingGraph(level);
   const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
-  const isBlocked = (tk) => blocked && !tk.startsWith('key:') && blocked.has(tk);
+  const isBlocked = (tk) => !tk.startsWith('key:') && walls.has(tk);
   const seen = new Set();
     const q = [];
     let qi = 0; // index pointer (q.shift() is O(n²) on long queues)
@@ -2878,9 +2987,11 @@ export function fairReachSet(level, from, keySeed = false, blocked = null, seedS
  * exists rather than two plays that merely coexist.
  */
 export function fairReachStates(level, from, keySeed = false, blocked = null, seedSizes = null) {
+  const walls = immovableBlockTiles(level);
+  if (blocked) for (const k of blocked) walls.add(k);
   const { line, edges } = fairCrossingGraph(level);
   const idOf = (t) => (t.isKeyNode ? `key:${t.x},${t.z}` : key(t.x, t.z));
-  const isBlocked = (tk) => blocked && !tk.startsWith('key:') && blocked.has(tk);
+  const isBlocked = (tk) => !tk.startsWith('key:') && walls.has(tk);
   const sizesAt = new Map(); // id -> Set<'m'|'n'>
   const seenStates = new Set();
   const q = [];

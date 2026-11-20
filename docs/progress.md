@@ -335,7 +335,21 @@ one number. Final census: 217 unit tests green, verifier green on 200 +
 the greedy proxy re-read: the obvious line now reaches further in the
 mass acts (act 5 29%→51%, act 6 32%→59%) because a place has more legal
 lines than a ribbon, while the finale still defeats it four walks in
-five.)
+five.
+
+The live gate then found the one thing the static gate could not: a
+level that passes three proofs and cannot be played. **L118 "The Thin
+White"** was green on reachability, sentinel fairness and the block
+solver — separately — while its goal sat behind a one-tile column whose
+only fair approach ran into a block that could not be pushed past it.
+The bot reported NO FAIR ROUTE and the re-run confirmed it at 25,156
+planner states. That is a gate-shape bug, not a bad level: the fix is
+`fairPlayable` (src/rules.js), ONE search over (tile, block layout,
+nudges, size) state with pushes, rides and fair crossings composed, run
+by the generator gate for every block+patrol level and pinned by three
+unit tests; L118 was re-cut under it, and all 18 block levels were
+live-played green (20/20 including the daily). The bot's planner now
+prints a three-way diagnosis instead of a bare failure.)
 ADR-044 (Phase F: the playtest instrument, the report, the proxy.
 Phase F is the research pass's human step — five fresh players per
 phase, first-try clear rate, deaths per level, time to clear vs par and

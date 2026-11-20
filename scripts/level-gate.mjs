@@ -21,6 +21,7 @@ import {
   shortestPath,
   rescueTile,
   fairReachSet,
+  fairPlayable,
   windTarget,
   windLockProblems,
   key,
@@ -95,6 +96,15 @@ export function verify(def, b, minOrbs) {
     const bench = rescueTile(level);
     if (bench && !fairReachSet(level, bench, !!level.gateKey).has(key(level.goal.x, level.goal.z))) {
       problems.push('no fair route from the rescue bench to the goal');
+    }
+    // THE COMPOSED LAW (Phase G, 2026-11-20): reachability, sentinel fairness
+    // and the block solver each passed on their own for L118 and the level was
+    // unplayable in the hand. A level that carries blocks must show ONE play
+    // that satisfies all three at once. Only levels with blocks pay for it.
+    if ((level.blocks || []).length && (level.orbs || []).length) {
+      const play = fairPlayable(level);
+      if (play.capped) problems.push('composed fair-play search capped');
+      else if (!play.ok) problems.push('no single play satisfies fairness AND the blocks (boxes the goal off)');
     }
   }
   return { ok: problems.length === 0, problems, par };

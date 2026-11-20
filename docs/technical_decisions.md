@@ -2491,6 +2491,23 @@ every room still forces its headline mechanic, the proven route must CROSS
 it, the hazard floor is still hard, and the experience sequence is still
 checked.
 
+**The composed-playability law (added 2026-11-20, found in live play).** The
+gate proved three things separately: *reachability* (blocks modelled,
+sentinels ignored), *sentinel fairness* (sentinels modelled, blocks ignored)
+and the *crumble/block solver* (blocks modelled, fairness ignored). Each can
+pass while the composition fails, and one did: L118 "The Thin White" put its
+goal behind a one-tile column whose only fair approach ran into a block that
+could not be pushed past the goal. The verifier was green on all three
+proofs; the live bot settled 25,156 planner states and never arrived. The
+lesson is that a level is not the conjunction of three proofs — it is one
+play that satisfies all of them at once. `fairPlayable` in `src/rules.js`
+is that single search: (tile, block layout, nudges left, size) states over
+the game's own press law, with pushes, rides and fair crossings; it runs in
+the generator gate only for levels that carry both blocks and patrols, and
+it reproduced the L118 failure exactly before the level was re-cut. The bot
+now reports the same three-way diagnosis when it cannot plan, instead of the
+bare "NO FAIR ROUTE" that made this take a browser run to explain.
+
 **The pacing law.** Widening the par bands to 22–36 … 36–84 made the
 catalogue *uneven*: adjacent levels could legitimately differ by any amount
 the band allowed, and the first Phase G regeneration shipped 18–31-roll

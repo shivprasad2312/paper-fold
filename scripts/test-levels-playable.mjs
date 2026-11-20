@@ -537,7 +537,19 @@ function planRoute(ctx, cube, target, broken, sealed = false) {
       if (sk.split('|')[0] === targetK && d < best) { best = d; targetState = sk; }
     }
   }
-  if (!targetState) return null;
+  if (!targetState) {
+    // A null plan is the loudest failure this bot can have, so say WHY:
+    // how much of the fair graph was settled, and whether the target tile is
+    // even a node of it (a goal that sits on the patrol line is only
+    // enterable through a crossing edge). L118 reported NO FAIR ROUTE with
+    // no diagnostics and took a browser run to explain.
+    const settled = [...dist.keys()].map((k2) => k2.split('|')[0]);
+    dbg(`NO ROUTE · settled ${settled.length} states · target ${targetK} `
+      + `${settled.includes(targetK) ? 'settled but unreached' : 'never settled'} · `
+      + `line tiles ${graph.line.size} · crossing entries ${[...graph.edges.keys()].length} · `
+      + `target on line ${graph.line.has(targetK)} · start ${startK}`);
+    return null;
+  }
 
   // reconstruct: target ← … ← start, each step carries the line tiles crossed
   const chain = [];

@@ -29,7 +29,9 @@ import {
   orbPosition,
   orbPositionFromDist,
   orbDistAlong,
+  fairPlayable,
 } from '../../src/rules.js';
+import { LEVELS } from '../../src/levels.js';
 
 /**
  * The exact L46 "The Last Stair" layout from commit 8eba34e — the level a
@@ -269,4 +271,50 @@ test('BUG-007: a timing-fair crossing with an ILLEGAL entry roll is not a route'
   // direction for the start, so it cannot create a route)
   const probs = timingProblems(lvl);
   assert.ok(probs.length > 0, 'the layout must fail the timing gate once illegal crossings are removed');
+});
+
+// --- the composed law (Phase G, 2026-11-20) ------------------------------
+// Reachability, sentinel fairness and the block solver each passed on their
+// own for L118 "The Thin White" and the level was unplayable in the hand: its
+// goal sat behind a one-tile column whose only fair approach ran into a block
+// that could not be pushed past the goal. `fairPlayable` is the single search
+// that composes the three, and these pin its verdicts.
+
+test('composed play: a goal behind a block in a one-wide lane is refused', () => {
+  // the L118 shape in miniature: a single lane, a block wedged in it, and the
+  // goal on the far side. Pushing the block only moves it TOWARD the goal, so
+  // no nudge budget can help. (Fairness edges are empty here by construction —
+  // the sentinel half of the law is exercised by the catalogue test below and
+  // by the timing suite's crossing tests.)
+  const def = {
+    map: ['2.2', '2.2', '2.2', '2.2', '2.2'],
+    start: [0, 4],
+    goal: [0, 0],
+    blocks: [[0, 2]],
+    nudge: 3,
+  };
+  const play = fairPlayable(parseLevel(def));
+  assert.equal(play.ok, false, `expected no composed play, got ${JSON.stringify(play)}`);
+});
+
+test('composed play: the same goal with a second lane is playable', () => {
+  // one extra open lane is the difference between a puzzle and a dead end
+  const def = {
+    map: ['22.', '22.', '22.', '22.', '22.'],
+    start: [0, 4],
+    goal: [1, 0],
+    blocks: [[1, 2]],
+    nudge: 0,
+  };
+  const play = fairPlayable(parseLevel(def));
+  assert.equal(play.ok, true, `expected a composed play, got ${JSON.stringify(play)}`);
+});
+
+test('composed play: every shipped block level has one play', () => {
+  const withBlocks = LEVELS.filter((d) => (d.blocks || []).length && (d.orbs || []).length);
+  assert.ok(withBlocks.length > 0, 'the catalogue still ships block levels');
+  for (const d of withBlocks) {
+    const play = fairPlayable(parseLevel(d));
+    assert.ok(play.ok && !play.capped, `L${d.id} has no composed play: ${JSON.stringify(play)}`);
+  }
 });
