@@ -1,4 +1,5 @@
 import { gradeFor, betterGrade, GRADE } from './meta.js';
+import { normaliseMotionPref } from './motion.js';
 
 const KEY = 'kubik.save.v1';
 
@@ -11,6 +12,7 @@ const DEFAULTS = {
   cam: 0, // camera seat: 0..3 quarter turns around the level
   sound: true,
   rescue: true, // mid-path second chance (one resume from the 50% bench per attempt)
+  motion: 'auto', // reduced-motion preference (ADR-046): auto | full | reduced
   lastLevel: 1,
 };
 
@@ -29,6 +31,7 @@ export function loadSave() {
       daily: data.daily || {},
       theme: data.theme === 'light' ? 'light' : 'dark',
       cam: Number.isInteger(data.cam) ? ((data.cam % 4) + 4) % 4 : 0,
+      motion: normaliseMotionPref(data.motion),
     };
   } catch {
     return { ...DEFAULTS, best: {}, ghosts: {}, daily: {} };

@@ -403,10 +403,16 @@ await wait(600);
 await shot('15-levels');
 const cardStats = await page.evaluate(() => ({
   total: document.querySelectorAll('.level-card:not(.daily-card)').length,
-  locked: document.querySelectorAll('.level-card.locked').length,
-  disabled: document.querySelectorAll('.level-card[disabled]').length,
+  campaignLocked: document.querySelectorAll('.level-card:not(.vault-card).locked').length,
+  campaignDisabled: document.querySelectorAll('.level-card:not(.vault-card)[disabled]').length,
+  vaultLocked: document.querySelectorAll('.level-card.vault-card.locked').length,
 }));
-check('all levels are open from the start', cardStats.total === LEVELS.length && cardStats.locked === 0 && cardStats.disabled === 0,
+// every CAMPAIGN level is open from the start (ADR-009); the ten Vault rooms
+// are the deliberate exception — they unlock on shard milestones (ADR-043)
+check(
+  'all campaign levels are open from the start (Vault rooms locked by design)',
+  cardStats.total === LEVELS.length + 10 && cardStats.campaignLocked === 0
+    && cardStats.campaignDisabled === 0 && cardStats.vaultLocked > 0,
   `cards=${cardStats.total} locked=${cardStats.locked} disabled=${cardStats.disabled}`);
 const dailyCard = await page.evaluate(() => !!document.querySelector('.daily-card'));
 check('daily card in level select', dailyCard);
@@ -440,7 +446,12 @@ const lightScene = await page.evaluate(() => {
   const s = window.__kubik.game.stage;
   return { bg: '#' + s.scene.background.getHexString(), stars: s.stars.visible, exposure: s.renderer.toneMappingExposure };
 });
-check('light world: near-white sky', lightScene.bg.toLowerCase() === '#e9edf4', lightScene.bg);
+const nearWhite = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255].every((c) => c >= 215);
+};
+// the act palette tints the sky (M2.5), so the law is "high-key", not one hex
+check('light world: high-key near-white sky', nearWhite(lightScene.bg), lightScene.bg);
 check('light world: stars hidden', lightScene.stars === false);
 await shot('27-level1-light');
 // The choice survives a reload.
@@ -463,8 +474,97 @@ const themeDark = await page.evaluate(() => ({
   saved: window.__kubik.save.theme,
   bg: '#' + window.__kubik.game.stage.scene.background.getHexString(),
 }));
-check('HUD button switches back to the dark void', !themeDark.body && themeDark.stage === 'dark' && themeDark.saved === 'dark' && themeDark.bg.toLowerCase() === '#020309', JSON.stringify(themeDark));
+const darkEnough = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  return [((n >> 16) & 255), ((n >> 8) & 255), (n & 255)].every((c) => c <= 96);
+};
+check('HUD button switches back to the dark void', !themeDark.body && themeDark.stage === 'dark' && themeDark.saved === 'dark' && darkEnough(themeDark.bg), JSON.stringify(themeDark));
 await shot('28-level1-dark');
+
+// ---- reduced motion: a presentation setting, never a clock (ADR-046) ------
+// The setting must reach the game, the document and the save; the camera must
+// stop gliding and the cube must stop tumbling — while every hazard clock
+// (covered by the level-play gate in this same mode) stays untouched.
+const motionState = () => page.evaluate(() => ({
+  reduced: window.__kubik.game.reduceMotion,
+  pref: window.__kubik.save.motion,
+  body: document.body.classList.contains('reduce-motion'),
+  label: document.getElementById('btn-motion-menu').textContent,
+  transition: getComputedStyle(document.getElementById('btn-motion-menu')).transitionDuration,
+}));
+await page.evaluate(() => window.__kubik.openMenu());
+await wait(400);
+const motionAuto = await motionState();
+check(
+  'motion defaults to Auto and resolves against the OS',
+  motionAuto.pref === 'auto' && motionAuto.reduced === false && motionAuto.label === 'Motion: Auto (full)',
+  JSON.stringify(motionAuto),
+);
+await page.click('#btn-motion-menu');
+await wait(400);
+const motionReduced = await motionState();
+check(
+  'menu button switches to reduced motion',
+  motionReduced.pref === 'reduced' && motionReduced.reduced === true && motionReduced.body === true
+    && motionReduced.label === 'Motion: Reduced',
+  JSON.stringify(motionReduced),
+);
+check('reduced motion collapses CSS transitions', /^(0s|1e-05s)$/.test(motionReduced.transition), motionReduced.transition);
+
+// the camera snaps to its new seat instead of gliding there
+await load(0);
+const seatBefore = await page.evaluate(() => window.__kubik.game.stage.camStep);
+await page.keyboard.press('e');
+await wait(200);
+const camSnap = await page.evaluate(() => ({
+  step: window.__kubik.game.stage.camStep,
+  gap: Math.abs(window.__kubik.game.stage.yaw - window.__kubik.game.stage.yawTarget),
+}));
+check(
+  'reduced: the camera snaps to its new seat',
+  camSnap.step === (seatBefore + 3) % 4 && camSnap.gap < 1e-6,
+  `${seatBefore} -> ${camSnap.step}, gap ${camSnap.gap}`,
+);
+await page.keyboard.press('q'); // put the seat back for the checks that follow
+await wait(200);
+
+// the cube slides flat — no tumble at all
+await load(0);
+const q0 = await page.evaluate(() => window.__kubik.game.cubeMesh.quaternion.toArray());
+await page.keyboard.press('ArrowUp'); // L1: a legal roll toward the gate
+await wait(120);
+const slide = await page.evaluate((q0) => {
+  const q = window.__kubik.game.cubeMesh.quaternion.toArray();
+  const dot = Math.abs(q[0] * q0[0] + q[1] * q0[1] + q[2] * q0[2] + q[3] * q0[3]);
+  return {
+    deg: (2 * Math.acos(Math.min(1, dot)) * 180) / Math.PI,
+    anim: window.__kubik.game.cube.anim && window.__kubik.game.cube.anim.type,
+  };
+}, q0);
+check('reduced: the cube slides without rotating', slide.anim === 'roll' && slide.deg < 0.01, `${slide.anim} ${slide.deg.toFixed(3)}°`);
+
+// the choice survives a reload, exactly like the theme
+quietUntil = Date.now() + 8000; // HMR reconnection quiet window
+await page.reload({ waitUntil: 'networkidle0', timeout: 60000 });
+await wait(1500);
+const motionPersisted = await motionState();
+check(
+  'reduced motion persists across reload',
+  motionPersisted.pref === 'reduced' && motionPersisted.reduced === true && motionPersisted.body === true,
+  JSON.stringify(motionPersisted),
+);
+
+// cycle back: reduced → full → auto, so the rest of the run is in full motion
+await page.evaluate(() => window.__kubik.openMenu());
+await wait(400);
+await page.click('#btn-motion-menu');
+await wait(300);
+const motionFull = await motionState();
+check('cycle lands on Full (an explicit override)', motionFull.pref === 'full' && motionFull.reduced === false && motionFull.body === false, JSON.stringify(motionFull));
+await page.click('#btn-motion-menu');
+await wait(300);
+const motionBack = await motionState();
+check('cycle returns to Auto', motionBack.pref === 'auto' && motionBack.reduced === false, JSON.stringify(motionBack));
 
 // ---- hold-to-roll: one held input keeps the cube moving -------------------
 await load(0);
@@ -571,44 +671,42 @@ if (LEVELS.length >= 200) {
   const acts = await page.evaluate(
     () => document.querySelectorAll('.act-header').length,
   );
-  check('act map shows all 10 acts', acts === ACTS.length, `acts=${acts}`);
+  // ten campaign acts + the Vault section (ADR-043) — every section has a header
+  check('act map shows all 10 acts + the Vault', acts === ACTS.length + 1, `acts=${acts}`);
   const cards = await page.evaluate(
     () => document.querySelectorAll('.level-card:not(.daily-card)').length,
   );
-  check('act map shows 200 level cards', cards === 200, `cards=${cards}`);
+  check('act map shows 200 level cards + 10 Vault rooms', cards === 210, `cards=${cards}`);
   const rings = await page.evaluate(
     () => document.querySelectorAll('.act-ring-fg').length,
   );
-  check('act progress rings render', rings === ACTS.length, `rings=${rings}`);
+  check('act progress rings render', rings === ACTS.length + 1, `rings=${rings}`);
 
   const bossIdx = LEVELS.findIndex((d) => d.id === 60);
   await load(bossIdx);
   let b = await state();
-  check('act-3 boss (60, 18×18) loads playing', b.state === 'playing', JSON.stringify(b));
+  check('act-3 boss (60) loads playing', b.state === 'playing', JSON.stringify(b));
   const bBefore = b.cube;
   // the boss track is mirrored per seed — pick the first LEGAL direction
   // from the level's own tile map (a provable start always has one)
-  const dir = await page.evaluate(() => {
-    const g = window.__kubik.game;
-    const { x, z, h } = g.cube;
-    const t = (dx, dz) => g.level.tiles.get(`${x + dx},${z + dz}`);
-    const ok = (n) => n && n.h - h <= 1 && h - n.h <= 2;
-    if (ok(t(0, -1))) return 'ArrowUp';
-    if (ok(t(-1, 0))) return 'ArrowLeft';
-    if (ok(t(1, 0))) return 'ArrowRight';
-    if (ok(t(0, 1))) return 'ArrowDown';
-    return null;
-  });
+  // screen-relative input: try each direction and pass on the first one the
+  // level actually accepts (the boss track is mirrored per seed)
   let moved = false;
-  if (dir) {
+  let tried = null;
+  for (const dir of ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']) {
     await press(dir);
+    await idle();
     b = await state();
-    moved = b.state === 'playing' && (b.cube.x !== bBefore.x || b.cube.z !== bBefore.z || b.cube.h !== bBefore.h);
+    tried = `${tried ? `${tried}, ` : ''}${dir}`;
+    if (b.state !== 'playing' || b.cube.x !== bBefore.x || b.cube.z !== bBefore.z || b.cube.h !== bBefore.h) {
+      moved = b.state === 'playing';
+      break;
+    }
   }
   check(
     'boss level takes a roll',
     moved,
-    `${JSON.stringify(bBefore)} -> ${JSON.stringify(b.cube)} via ${dir} (${b.state})`,
+    `${JSON.stringify(bBefore)} -> ${JSON.stringify(b.cube)} (tried ${tried})`,
   );
 
   const finIdx = LEVELS.findIndex((d) => d.id === 200);

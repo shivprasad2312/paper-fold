@@ -2551,3 +2551,82 @@ the pacing law (curve inside the allowance, relief at least every six, bosses
 at the ceiling with a dip before them, no curriculum slot on a breathing
 slot, relief pools drawn from the act pool). Every regenerated level still passes the full
 nine-check proof — the verifier is the backstop mass is layered under.
+
+### ADR-046 — Reduced motion: a presentation mode that cannot touch a clock
+
+**Context.** The game is a cube rolling through a void, and the genre sells
+that roll. But the accessibility list in the GDD has carried one honest gap
+since Phase 12: there was no way to ask KUBIK for less motion. The old code
+had a stub — `@media (prefers-reduced-motion: reduce) { * {
+animation-duration: 0.01ms } }` — which stopped six CSS keyframes and left
+everything else running: every `transition`, the camera's glide between the
+four seats, the death shake, the cube's 90° tumble on every single move, a
+breathing glow, tumbling shards, a spinning goal ring and a 2.2 Hz strobe on
+the win.
+
+The naive fix — "turn off the animation" — cannot be shipped here. KUBIK's
+motion is not a skin: sentinels patrol on a clock, bridges rise and dip,
+pistons strike, shuttles carry, freeze shards run a 3.2 s timer, and
+**every level in the catalogue is proven against those numbers**
+(ADR-012/018/025). A setting that shortened a roll, froze a patrol or hid a
+hazard's travel would silently invalidate 200 proofs and, worse, make levels
+unreadable for the player who asked for less motion.
+
+**Decision.** Reduced motion is a **presentation mode**, and its law is one
+line: *a presentation setting may never change when the world advances.*
+
+- `src/motion.js` owns the policy, with no renderer in it: a preference of
+  `auto` (default), `reduced` or `full`; `auto` follows
+  `prefers-reduced-motion`; an explicit choice always wins over the OS and is
+  remembered in the save (`save.motion`, sanitised on load like every other
+  field). The menu row sits beside Theme and reads the live state —
+  `Motion: Auto (reduced)` — with the tooltip explaining what Auto means. A
+  system change re-resolves `auto` on the spot; it never overrides a choice.
+- The mode is applied **before the first frame**, beside `applyTheme`, so a
+  player who asked for it never sees the opening camera settle.
+- `Stage` owns the camera half: seat changes snap (no yaw easing), the
+  follow target is copied instead of lerped, the death shake is a no-op, and
+  the starfield stops drifting.
+- `Game` owns the cube: the tumble becomes a **flat linear slide to the same
+  landing point**, over the **same `ROLL_TIME`** (243 ms), with no rotation at
+  all; the drop after a fall still runs on `DROP_TIME`; the intro pop and the
+  spring arc become linear; the glow stops breathing; the win celebration
+  (spin + rise + strobe) becomes a still cube, because the win panel already
+  carries the news.
+- `LevelView` owns the idle world: shard and freeze-shard tumble/bob,
+  sentinel bob and glow pulse, and the goal pad's spin/breath all stop.
+  **Hazard travel does not**: patrols, pistons, shuttles, bridges, sliding
+  tiles and conveyors keep their clocks, because they are the puzzle.
+- The CSS gets **two doors to the same room** — the OS media query *and*
+  `body.reduce-motion`, for players whose system setting is off who still
+  want the calmer presentation. Both now collapse `transition` as well as
+  `animation`.
+- The animation's mode is **bound when the move starts** (`a.reduced`), not
+  read live in the frame, so toggling the setting mid-roll cannot swap the
+  drawing halfway and pop the cube.
+
+**What was deliberately kept.** The cube still moves a tile per press, and a
+hazard still moves on its clock: the mode removes decoration and strong
+whole-object rotation, not the game's language. No level was regenerated, no
+timing constant was touched, and the verifier is unchanged.
+
+**Verification.** `tests/unit/motion.test.mjs` pins the policy (the cycle,
+the OS-vs-override precedence, sanitisation, the label) and the promise —
+that `ROLL_TIME`, `FREEZE_TIME`, `WIND_PERIOD` and `TIMING_FLOOR` still hold
+their values, that no `dur:` field can consult the mode, and that no code
+path reassigns a gameplay clock; it also pins the split of ownership
+(stage/camera, view/idle) and the two CSS doors. The level-play gate can run
+in the mode (`KUBIK_MOTION=reduced`), which makes "presentation changes
+nothing about play" executable rather than asserted: 12 timing-tight and
+mechanically varied levels played to `won` under reduced motion — the same
+routes and the same par as full motion — with sentinel patrol travel measured
+still advancing (≈2 tiles in 400 ms) while the cube's glow measured
+perfectly static. A live probe measured the roll's own clock at 243 ms in
+both modes, confirmed the reduced landing point is identical to the tumble's
+to six decimals, and confirmed the system-follow, the explicit override, its
+persistence across a reload, and a mid-roll toggle with no stuck animation
+and zero page errors. Eight of those checks are now permanent in
+`npm run playtest` (85/85 green), so the setting is exercised on every run
+of the mechanics suite: the Auto label, the cycle through Reduced and Full
+and back, the collapsed CSS transition, the camera snap, the slide with a
+measured 0.000° of rotation, and the choice surviving a reload.

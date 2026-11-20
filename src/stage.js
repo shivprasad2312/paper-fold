@@ -93,6 +93,9 @@ export class Stage {
     this.focusRU = { r: 0, u: 0 };
     this.subject = new THREE.Vector3();
     this.shakeAmp = 0;
+    // ADR-046: reduced motion is a PRESENTATION switch. It never touches a
+    // gameplay clock — only the camera's glide, its yaw easing and the shake.
+    this.reduceMotion = false;
     this.aspect = 1;
     this.time = 0;
     this.bloomEnabled = true;
@@ -352,7 +355,20 @@ export class Stage {
   }
 
   shake(amount = 0.25) {
+    if (this.reduceMotion) return; // ADR-046: no screen shake
     this.shakeAmp = Math.max(this.shakeAmp, amount);
+  }
+
+  /** ADR-046: switch the presentation mode. Takes effect on the next frame. */
+  setReducedMotion(on) {
+    this.reduceMotion = !!on;
+    document.body.classList.toggle('reduce-motion', this.reduceMotion);
+    if (this.reduceMotion) {
+      this.shakeAmp = 0;
+      // land the camera where the glide was heading, so switching mid-game
+      // does not leave a slow drift running
+      this.yaw = this.yawTarget;
+    }
   }
 
   /**
@@ -378,12 +394,18 @@ export class Stage {
   update(dt) {
     this.time += dt;
 
-    // stars drift almost imperceptibly
-    if (this.stars) this.stars.rotation.y += dt * 0.004;
+    // stars drift almost imperceptibly (still, under reduced motion)
+    if (this.stars && !this.reduceMotion) this.stars.rotation.y += dt * 0.004;
 
-    // orbit easing: the camera glides between the four viewing angles
-    this.yaw += (this.yawTarget - this.yaw) * (1 - Math.pow(0.002, dt));
-    if (Math.abs(this.yawTarget - this.yaw) < 0.0005) this.yaw = this.yawTarget;
+    // orbit easing: the camera glides between the four viewing angles —
+    // instantly under reduced motion (ADR-046): a full-screen rotation is
+    // the largest motion the game has, and it carries no timing meaning
+    if (this.reduceMotion) {
+      this.yaw = this.yawTarget;
+    } else {
+      this.yaw += (this.yawTarget - this.yaw) * (1 - Math.pow(0.002, dt));
+      if (Math.abs(this.yawTarget - this.yaw) < 0.0005) this.yaw = this.yawTarget;
+    }
     this.viewDir.set(
       Math.sin(this.yaw) * Math.cos(PITCH),
       Math.sin(PITCH),
@@ -430,7 +452,7 @@ export class Stage {
       this.levelCenter.y,
       this.levelCenter.z + this.focus.z,
     );
-    if (this.followJustSnapped) this.target.copy(desired);
+    if (this.followJustSnapped || this.reduceMotion) this.target.copy(desired);
     else this.target.lerp(desired, 1 - Math.pow(0.001, dt));
 
     const pos = new THREE.Vector3().copy(this.target).addScaledVector(this.viewDir, DIST);

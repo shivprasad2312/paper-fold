@@ -680,8 +680,32 @@ kbd {
   .pad { width: 138px; height: 138px; }
 }
 
+/* ===== reduced motion (ADR-046) =====
+   Two doors to the same room: the OS preference, and the in-game toggle
+   (body.reduce-motion) for players whose system setting is off but who want
+   the calmer presentation anyway. Both collapse CSS animation AND transition
+   — the old block only stopped `animation`, which left every hover, panel
+   and HUD transition gliding. */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0ms !important;   /* the menu's stagger is motion too */
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+body.reduce-motion *,
+body.reduce-motion *::before,
+body.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  transition-delay: 0ms !important;
+  scroll-behavior: auto !important;
 }
 
 /* ===== mechanic chips (telekinesis / key / wind / bridges) ===== */

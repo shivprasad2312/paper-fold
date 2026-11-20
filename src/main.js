@@ -4,6 +4,9 @@ import { ACTS } from './acts.js';
 import { AudioEngine } from './audio.js';
 import { loadSave, writeSave, recordWin, recordGhost, recordDaily, medalFor, fmtTime } from './save.js';
 import {
+  MOTION, normaliseMotionPref, resolveReducedMotion, motionLabel, nextMotionPref,
+} from './motion.js';
+import {
   GRADE_LABEL, gradeFor, savedGrade, streakInfo, vaultProgress, VAULT_SHARD_STEP,
 } from './meta.js';
 import {
@@ -49,6 +52,7 @@ const el = {
   soundBtn: $('btn-sound'),
   btnTheme: $('btn-theme'),
   btnThemeMenu: $('btn-theme-menu'),
+  btnMotionMenu: $('btn-motion-menu'),
   btnCamL: $('btn-cam-l'),
   btnCamR: $('btn-cam-r'),
 };
@@ -184,6 +188,39 @@ function toggleTheme() {
   applyTheme(save.theme === 'light' ? 'dark' : 'light');
 }
 
+// ----------------------------------------------------------- motion mode ---
+// ADR-046: `auto` follows the OS; an explicit choice always wins. The mode is
+// applied to the game (camera + world + cube), to the document (CSS), and
+// stored, so it survives a reload exactly like the theme.
+const motionQuery = window.matchMedia
+  ? window.matchMedia('(prefers-reduced-motion: reduce)')
+  : null;
+
+function applyMotion(pref = save.motion) {
+  save.motion = normaliseMotionPref(pref);
+  const reduced = resolveReducedMotion(save.motion, motionQuery ? motionQuery.matches : false);
+  game.setReducedMotion(reduced);
+  if (el.btnMotionMenu) {
+    const label = motionLabel(save.motion, motionQuery ? motionQuery.matches : false);
+    el.btnMotionMenu.textContent = label;
+    // the label is the state; the tooltip explains what Auto means
+    el.btnMotionMenu.setAttribute('aria-label', `${label}. Click to change.`);
+  }
+  writeSave(save);
+}
+
+function cycleMotion() {
+  audio.sfx('ui');
+  applyMotion(nextMotionPref(save.motion));
+}
+
+// a system change re-resolves `auto` live (an explicit choice is untouched)
+if (motionQuery) {
+  const onSystemChange = () => { if (save.motion === MOTION.AUTO) applyMotion(MOTION.AUTO); };
+  if (motionQuery.addEventListener) motionQuery.addEventListener('change', onSystemChange);
+  else if (motionQuery.addListener) motionQuery.addListener(onSystemChange);
+}
+
 // ------------------------------------------------------------- camera seat --
 // Four 90° seats around the level. Q / E or the HUD arrows orbit the camera;
 // controls stay screen-relative, so "up" always rolls up the screen.
@@ -212,6 +249,11 @@ const FLASH = {
 };
 
 function flash(kind = 'death') {
+  // ADR-046: a 90 ms full-screen colour flash is the one effect in the game
+  // that could be called a strobe. Reduced motion drops it; death still has
+  // its own sound, the cube's fall and the HUD, and a win still opens the
+  // panel — nothing is communicated by the flash alone.
+  if (game.reduceMotion) return;
   el.flash.style.background = FLASH[kind] || FLASH.death;
   el.flash.classList.add('on');
   setTimeout(() => el.flash.classList.remove('on'), 90);
@@ -893,6 +935,7 @@ $('btn-restart').addEventListener('click', () => {
 $('btn-sound').addEventListener('click', toggleSound);
 el.btnTheme.addEventListener('click', toggleTheme);
 el.btnThemeMenu.addEventListener('click', toggleTheme);
+el.btnMotionMenu.addEventListener('click', cycleMotion);
 el.btnCamL.addEventListener('click', () => rotateCam(+1));
 el.btnCamR.addEventListener('click', () => rotateCam(-1));
 $('btn-resume').addEventListener('click', () => {
@@ -1094,6 +1137,7 @@ window.addEventListener('resize', () => game.stage.resize());
 
 // ------------------------------------------------------------------ boot ----
 applyTheme(save.theme); // before the first frame: no theme flash
+applyMotion(save.motion); // ... and no motion the player asked not to see
 game.stage.setCameraStep(save.cam || 0, true); // restore the saved camera seat
 game.setCamQuadrant(save.cam || 0);
 el.soundBtn.classList.toggle('muted', !save.sound);
@@ -1109,5 +1153,6 @@ tickUI();
 // handy for debugging from the console
 window.__kubik = {
   game, startLevel, startDaily, restartLevel, openLevels, openMenu, save,
+  applyMotion: (pref) => applyMotion(pref),
   playtest: playtest ? { session: playtest.session, json: telemetryJson, download: downloadTelemetry } : null,
 };

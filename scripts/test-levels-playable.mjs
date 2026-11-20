@@ -70,6 +70,11 @@ const ONLY = (process.env.KUBIK_LEVELS || '')
   .map((v) => parseInt(v, 10))
   .filter(Boolean);
 const DEBUG = process.env.KUBIK_DEBUG === '1';
+// ADR-046: the level-play gate can run in the reduced-motion presentation.
+// Presentation must never change WHEN the world advances, so every level
+// that plays in full motion must play in reduced motion too — same routes,
+// same windows, same par. This makes that claim executable.
+const MOTION_MODE = process.env.KUBIK_MOTION || 'full';
 const dbg = (...a) => {
   if (DEBUG) console.log('   ·', ...a);
 };
@@ -104,6 +109,15 @@ page.on('console', (m) => {
 });
 await page.goto(URL, { waitUntil: 'networkidle0', timeout: 60000 });
 await new Promise((r) => setTimeout(r, 1200));
+
+if (MOTION_MODE === 'reduced') {
+  const applied = await page.evaluate(() => {
+    window.__kubik.applyMotion('reduced');
+    return window.__kubik.game.reduceMotion === true;
+  });
+  if (!applied) throw new Error('reduced motion could not be applied — the gate refuses to silently run in full motion');
+  console.log('motion: reduced (ADR-046 presentation mode)');
+}
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const waitFor = async (fn, timeout = 20000) => {

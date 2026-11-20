@@ -47,7 +47,7 @@ Other commands:
 | `npm run stress` | rapid/repeated input stress: 120 mashed keys, 30 restarts, flow loops, hold-through-pause |
 | `npm run perf` | measured performance vs budgets: frame cost, draw calls, adaptive-quality governor, leak check |
 | `npm run validate:levels` | full level gate in one command (unit + verifier + playable bot) |
-| `npm run playtest` | scripted browser playtest of the mechanics (64 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, hold-to-roll, camera seats…) |
+| `npm run playtest` | scripted browser playtest of the mechanics (85 checks: win, death, push, wind, key, bridge, ghost, medal, daily, theme, **reduced motion**, hold-to-roll, camera seats…) |
 | `npm run autoplay` | plays all 200 levels + the Vault end to end in a headless browser |
 | `npm run playtest:report -- <dir>` | pools exported playtest sessions into a cohort report (see `docs/playtest_protocol.md`) |
 | `npm run playtest:proxy` | the greedy-player reading: does following the obvious line reach the gate? |
@@ -146,6 +146,27 @@ minimap, deeper-blue accents.
 Toggle it with the **moon/sun button** in the HUD (top right) or the **Theme** button
 on the title menu. The choice is saved in your progress and restored on the next
 visit.
+
+## Reduced motion
+
+KUBIK is a game about a cube turning over, so the motion is part of the
+language — but the game now has a **Motion** setting beside Theme on the title
+menu, in three states:
+
+* **Auto** (the default) follows your system's *reduce motion* preference;
+* **Reduced** and **Full** override it, either way, and your choice is
+remembered.
+
+In reduced motion the camera snaps between its four seats instead of gliding,
+the death shake is gone, the cube **slides flat** to the next tile instead of
+tumbling (see below), the glows stop breathing, the shards stop tumbling, the
+goal ring stops spinning, the win celebration stops strobing, and CSS
+transitions collapse. **Hazards never stop**: sentinels still patrol, bridges
+still cycle, pistons still strike and shuttles still carry — those clocks are
+the puzzle, and every level's proof is built on them. The slide takes the
+*same* 243 ms as the roll, so sentinel windows, freeze timers and shuttle
+syncs see no change at all. `KUBIK_MOTION=reduced npm run test:play:all`
+plays the gate in the mode.
 
 ## Levels
 
@@ -293,7 +314,9 @@ src/
   levelView.js  3D scene graph: slabs, blocks, bridges, key/lock, wind, sentinels
   stage.js      renderer, 4-seat orbiting camera, shadows, lights, starfield, themes
   audio.js      synthesised soundtrack + SFX (Web Audio, zero sample files)
-  save.js       localStorage: bests, medals, ghost runs, dailies, theme, camera seat
+  save.js       localStorage: bests, medals, ghost runs, dailies, theme,
+                camera seat, motion preference
+  motion.js     reduced-motion policy (Auto/Reduced/Full, OS follow, labels)
   textures.js   generated glow/beam textures
   style.css     UI skin — dark default + `body.light` high-key override
 scripts/
@@ -304,7 +327,8 @@ scripts/
   gen-campaign2.mjs   the 51–200 generator: archetype carves, hazard stage dresses, verifier proves
   archetypes.mjs      the layout archetype library (descent, lattice, gauntlet, undertow, …)
   hazards.mjs         the shared hazard stage (sentinels, ice, springs, shuttles, crumble)
-  playtest.mjs        64 scripted browser checks: mechanics + themes + camera seats
+  playtest.mjs        85 scripted browser checks: mechanics + themes + camera seats
+                      + the reduced-motion setting
   autoplay.mjs        full campaign completion run in a browser
   hooks/install.mjs   installs the pre-commit test gate (npm run hooks)
   shoot.mjs / mobile-shots.mjs   screenshot helpers

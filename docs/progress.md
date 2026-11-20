@@ -16,7 +16,7 @@ claims otherwise.
   Vault rooms unlocked by shard milestones, 14 daily layouts, four cube
   verbs added since the 50-level era (lift, turntable, cling, shrink),
   and the full mechanic set at density floors (ADR-031…041).
-- **Gates** (`npm test`): unit **190/190**, verifier **200 campaign + 10
+- **Gates** (`npm test`): unit **228/228**, verifier **200 campaign + 10
   Vault + 14 dailies**, live gate **201/201 playable** (200 + today's
   daily), build green. Pre-commit hook + CI run all of them; no commit
   has bypassed them.
@@ -25,6 +25,10 @@ claims otherwise.
   (ADR-043).
 - **Feel**: mid-path rescue bench (ADR-014), hold-to-roll, four camera
   seats, two themes, juice/audio.
+- **Accessibility**: reduced-motion presentation mode (ADR-046) — Auto
+  follows the OS, Reduced/Full override it and are remembered; the camera
+  snaps, the tumble becomes a flat slide on the same 243 ms clock, and no
+  hazard clock moves.
 - **Strategy phases** from the research pass: **A–E shipped** (structure
   archetypes, new verbs, teach–test–twist cadence + density curation,
   feel, mastery meta), **F instrument shipped** (ADR-044: opt-in
@@ -35,14 +39,15 @@ claims otherwise.
 
 **What is genuinely not done** (the honest list, unchanged from below
 where still true): the human playtest cohort (needs people), packaging
-(PWA / Android — a store decision, offered not requested), reduced-motion
-accessibility, the difficulty-delta verifier extension, real-device
-touch/audio/GPU passes, and the retention candidates from research §7.
+(PWA / Android — a store decision, offered not requested), the
+difficulty-delta verifier extension, real-device touch/audio/GPU passes,
+and the retention candidates from research §7.
 
 ## Milestones (shipped, verified)
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (e) | **Reduced-motion accessibility mode** (ADR-046): a Motion setting beside Theme — Auto (follows `prefers-reduced-motion`) / Reduced / Full, remembered; the camera snaps, the death shake and flash are gone, the roll becomes a flat slide on the **same 243 ms** clock, the win strobe and the idle glows/stars/shards/ring stop, CSS collapses transitions and their delays — and **no hazard clock moves**, so every proof stands. The level-play gate can run in the mode (`KUBIK_MOTION=reduced`) | unit **228/228** (+8 motion tests, incl. "no gameplay clock is reassigned") · verify 200+10+14 ✓ · live gate in reduced motion **13/13**, same move counts as full motion (5,7,11,13,18,38,32,36,31,31,45,53) · mechanics playtest **85/85** (8 new motion checks) |
 | — | Scaffold: three.js cube roller, single level | manual |
 | — | EDGE-style restyle (neon slabs, rim light, starfield) | screenshots |
 | — | Movement polish + score/minimap/par | playtest |
@@ -144,7 +149,6 @@ touch/audio/GPU passes, and the retention candidates from research §7.
 |---|---|
 | PWA manifest + installability | store decision pending (TWA vs WebView AAB — see research §5); offered, not requested |
 | `android/` WebView AAB scaffold | same — packaging decision first |
-| Reduced-motion accessibility mode | a11y gap (GDD §14); cosmetic-motion toggle, small but unbuilt |
 | Difficulty-delta level check | the generator can produce adjacent same-difficulty levels (level_progression §6); a verifier extension, not a defect |
 | Real-device pass (touch, audio, GPU) | needs hardware; headless covers logic + input path only |
 | Audio correctness tests | no audio device in headless; manual check only |
@@ -273,6 +277,29 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-046 (Reduced motion: a presentation mode that cannot touch a clock.
+The GDD's accessibility list carried one honest gap; the old CSS stub stopped
+six keyframes and left the camera glide, the death shake, the 90° tumble on
+every move and a 2.2 Hz win strobe running. The naive fix cannot ship here —
+KUBIK's motion is also the puzzle, and 200 levels are proven against sentinel,
+bridge, piston, shuttle and freeze clocks. So the mode's law is one line: a
+presentation setting may never change when the world advances. `src/motion.js`
+holds the policy with no renderer in it (Auto follows
+`prefers-reduced-motion`, Reduced/Full override it, the choice is remembered
+and sanitised, the menu row reads the live resolution); the stage snaps its
+seats and drops the shake; the cube slides flat on the same `ROLL_TIME` with
+the mode bound at the start of each move; the view stills its shards,
+sentinels' bob, glow breath and goal ring while patrols, pistons, shuttles and
+bridges keep their clocks; CSS gets two doors (the media query and
+`body.reduce-motion`) and finally collapses transitions too. No level was
+regenerated and no timing constant moved. Verified by 8 unit tests (the
+policy, the four clocks, "no `dur:` may consult the mode", the ownership
+split, both CSS doors) and by running the level-play gate in the mode:
+13/13 timing-tight levels to `won` under reduced motion with zero page
+errors, a roll clock measured at 243 ms in both modes, identical landing
+points, a patrol measured still advancing, and the OS-follow/override/
+persistence/mid-roll-toggle probes green. `KUBIK_MOTION=reduced` makes the
+"presentation changes nothing about play" claim executable in the gate.)
 ADR-045 (Phase G: EDGE-scale boards — the camera follows, the generator
 builds places. The user's report was that the play area is too small;
 measured, the catalogue was 15–21% filled from act 3 to act 7 and 31 of

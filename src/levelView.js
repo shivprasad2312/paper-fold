@@ -82,6 +82,11 @@ function rimLines(x, z, h, thick, scale = 1) {
 }
 
 export function buildLevelView(level, actHue = null) {
+  // ADR-046: the view's idle animation (bob, tumble, breathing glows, the
+  // goal ring's spin) is decoration. Patrol travel, pistons, shuttles and
+  // sliders are NOT: they are hazards the player has to read, and they keep
+  // moving in both modes.
+  let reduceMotion = false;
   const group = new THREE.Group();
   const staticGeos = [];
   const brightSegs = [];
@@ -1066,6 +1071,11 @@ export function buildLevelView(level, actHue = null) {
   const clock = { t: 0 };
   const tileAt = (x, z) => level.tiles.get(key(Math.round(x), Math.round(z)));
 
+  /** ADR-046: switch the idle-animation mode (hazards keep their clocks). */
+  function setReducedMotion(on) {
+    reduceMotion = !!on;
+  }
+
   function update(dt, time, cubePos) {
     // ONE time base for every hazard: the hazard clock accumulates the
     // same clamped dt the cube and the sentinels advance on — never the
@@ -1133,18 +1143,22 @@ export function buildLevelView(level, actHue = null) {
       if (s.collected) {
         s.anim += dt * 3.2;
         const k = Math.min(1, s.anim);
-        s.holder.scale.setScalar(1 + k * 1.8);
-        s.holder.position.y += dt * 2.2;
-        s.mesh.rotation.y += dt * 12;
+        if (!reduceMotion) {
+          s.holder.scale.setScalar(1 + k * 1.8);
+          s.holder.position.y += dt * 2.2;
+          s.mesh.rotation.y += dt * 12;
+        }
         s.glow.material.opacity = Math.max(0, 0.8 * (1 - k));
         s.holder.visible = k < 1;
         continue;
       }
-      s.mesh.rotation.y += dt * 1.7;
-      s.mesh.rotation.x += dt * 0.8;
+      if (!reduceMotion) {
+        s.mesh.rotation.y += dt * 1.7;
+        s.mesh.rotation.x += dt * 0.8;
+      }
       const tile = tileAt(s.x, s.z);
-      s.holder.position.y = tile.h + 0.52 + Math.sin(time * 2 + s.phase) * 0.07;
-      s.glow.material.opacity = 0.4 + Math.sin(time * 3 + s.phase) * 0.12;
+      s.holder.position.y = tile.h + 0.52 + (reduceMotion ? 0 : Math.sin(time * 2 + s.phase) * 0.07);
+      s.glow.material.opacity = reduceMotion ? 0.4 : 0.4 + Math.sin(time * 3 + s.phase) * 0.12;
     }
 
     // freeze shards: slow icy tumble, breathing glow
@@ -1152,25 +1166,36 @@ export function buildLevelView(level, actHue = null) {
       if (s.collected) {
         s.anim += dt * 3.2;
         const k = Math.min(1, s.anim);
-        s.holder.scale.setScalar(1 + k * 1.8);
-        s.holder.position.y += dt * 2.2;
-        s.mesh.rotation.y += dt * 12;
+        if (!reduceMotion) {
+          s.holder.scale.setScalar(1 + k * 1.8);
+          s.holder.position.y += dt * 2.2;
+          s.mesh.rotation.y += dt * 12;
+        }
         s.glow.material.opacity = Math.max(0, 0.85 * (1 - k));
         s.holder.visible = k < 1;
         continue;
       }
-      s.mesh.rotation.y += dt * 1.1;
-      s.mesh.rotation.x += dt * 0.5;
+      if (!reduceMotion) {
+        s.mesh.rotation.y += dt * 1.1;
+        s.mesh.rotation.x += dt * 0.5;
+      }
       const tile = tileAt(s.x, s.z);
-      s.holder.position.y = tile.h + 0.52 + Math.sin(time * 1.6 + s.phase) * 0.07;
-      s.glow.material.opacity = 0.45 + Math.sin(time * 2.4 + s.phase) * 0.15;
+      s.holder.position.y = tile.h + 0.52 + (reduceMotion ? 0 : Math.sin(time * 1.6 + s.phase) * 0.07);
+      s.glow.material.opacity = reduceMotion ? 0.45 : 0.45 + Math.sin(time * 2.4 + s.phase) * 0.15;
     }
 
-    // goal pad
-    ring.rotation.z += dt * 0.9;
-    ring.scale.setScalar(1 + Math.sin(time * 2.4) * 0.06);
-    halo.material.opacity = 0.26 + Math.sin(time * 2.2) * 0.06;
-    beamMat.opacity = 0.4 + Math.sin(time * 1.4) * 0.08;
+    // goal pad (still under reduced motion — the pad stays fully visible,
+    // it just stops spinning and breathing)
+    if (reduceMotion) {
+      ring.scale.setScalar(1);
+      halo.material.opacity = 0.26;
+      beamMat.opacity = 0.4;
+    } else {
+      ring.rotation.z += dt * 0.9;
+      ring.scale.setScalar(1 + Math.sin(time * 2.4) * 0.06);
+      halo.material.opacity = 0.26 + Math.sin(time * 2.2) * 0.06;
+      beamMat.opacity = 0.4 + Math.sin(time * 1.4) * 0.08;
+    }
 
     // crumbles
     for (const c of crumbles.values()) {
@@ -1257,7 +1282,7 @@ export function buildLevelView(level, actHue = null) {
       const z = seg.a.y + (seg.b.y - seg.a.y) * f;
       const t = tileAt(x, z);
       if (t) o.h = t.h;
-      o.holder.position.set(x, o.h + 0.5 + Math.sin(time * 2.6) * 0.05, z);
+      o.holder.position.set(x, o.h + 0.5 + (reduceMotion ? 0 : Math.sin(time * 2.6) * 0.05), z);
       o.pos.copy(o.holder.position);
       const dx = x - o.prev.x;
       const dz = z - o.prev.z;
@@ -1268,7 +1293,7 @@ export function buildLevelView(level, actHue = null) {
         o.holder.rotation.y += d * Math.min(1, dt * 8);
       }
       o.prev.set(x, 0, z);
-      o.glow.material.opacity = o.awake ? 0.26 + Math.sin(time * 5.2) * 0.1 : 0.04;
+      o.glow.material.opacity = o.awake ? (reduceMotion ? 0.26 : 0.26 + Math.sin(time * 5.2) * 0.1) : 0.04;
     }
 
     // sliding bridges: level while up, a dip into the void while sunk,
@@ -1696,6 +1721,7 @@ export function buildLevelView(level, actHue = null) {
     goal,
     sliders,
     update,
+    setReducedMotion,
     setSteps,
     breakAt,
     armTimed,

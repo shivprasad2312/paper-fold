@@ -218,7 +218,15 @@ build).
 - All controls available on keyboard and touch; 44 px+ targets; HUD text
   ≥ 13 px; no time-limits that punish slow readers (there is no timer
   *except* your score).
-- Known gap: no reduced-motion mode yet (see `progress.md`).
+- **Reduced motion** (ADR-046): a presentation mode in three settings —
+  `Auto` (the default: follows the OS `prefers-reduced-motion`), `Reduced`
+  and `Full` — chosen beside Theme and remembered. It stops the camera
+  glide and shake, the cube's tumble (a flat slide over the *same* 243 ms),
+  the breathing glows, the shard tumble, the goal ring's spin and the win
+  strobe, and it collapses every CSS transition. It never touches a hazard
+  clock: sentinels still patrol, bridges still cycle, and every level's
+  proven timing is untouched — the mode cannot change when the world
+  advances.
 
 ## 15. Non-goals (deliberate cuts)
 

@@ -46,6 +46,10 @@ export class Game {
     this.rescueOffered = false;
     this.rescueEnabled = true; // main.js syncs from the save (settings)
 
+    // ADR-046: reduced motion. A presentation switch — see src/motion.js for
+    // what it may and may not touch (the roll's DURATION is gameplay).
+    this.reduceMotion = false;
+
     // new mechanics
     this.blocks = new Map(); // key -> {x, z}
     this.nudgeLeft = 0;
@@ -141,6 +145,22 @@ export class Game {
     this.stage.scene.add(this.cubeGhost);
   }
 
+  /**
+   * ADR-046: apply the reduced-motion presentation mode. The stage owns the
+   * camera side of it; the view owns the world's idle animation; this class
+   * owns the cube's own flourishes. Durations are NEVER touched.
+   */
+  setReducedMotion(on) {
+    this.reduceMotion = !!on;
+    this.stage.setReducedMotion(this.reduceMotion);
+    if (this.view) this.view.setReducedMotion(this.reduceMotion);
+  }
+
+  /** The one easing the cube's animations use (linear under reduced motion). */
+  ease(t) {
+    return this.reduceMotion ? t : easeInOut(t);
+  }
+
   // --------------------------------------------------------------- level ---
   load(index, { keepState = false } = {}) {
     this.levelIndex = Math.max(0, Math.min(ALL_LEVELS.length - 1, index));
@@ -173,6 +193,7 @@ export class Game {
       this.view.dispose();
     }
     this.view = buildLevelView(this.level, this.actHue);
+    this.view.setReducedMotion(this.reduceMotion); // a new level inherits the mode
     this.stage.scene.add(this.view.group);
     this.stage.setTheme(this.stage.theme, this.actHue);
 
@@ -431,6 +452,9 @@ export class Game {
     const startPos = new THREE.Vector3(from.x, from.h + HALF, from.z);
     this.cube.anim = {
       type: 'roll',
+      // ADR-046: the mode is bound when the move starts, so a settings
+      // change mid-roll never swaps the drawing midway (that would pop)
+      reduced: this.reduceMotion,
       t: 0,
       dur: ROLL_TIME,
       axis,
@@ -543,7 +567,7 @@ export class Game {
     // intro pop
     if (this.spawnScale !== undefined && this.spawnScale < 1) {
       this.spawnScale = Math.min(1, this.spawnScale + dt * 5);
-      const s = easeInOut(this.spawnScale);
+      const s = this.ease(this.spawnScale);
       this.cubeMesh.scale.setScalar((0.35 + 0.65 * s) * this.sizeCur);
     } else if (this.state !== 'won') {
       this.cubeMesh.scale.setScalar(this.sizeCur);
@@ -564,8 +588,9 @@ export class Game {
     this.stage.setSubject(cp.x, cp.y, cp.z);
     this.updateGhost();
 
-    // drifting glow on the cube
-    const pulse = 1.7 + Math.sin(time * 3.4) * 0.35;
+    // drifting glow on the cube (still under reduced motion — a breathing
+    // halo is decoration, and the halo is large)
+    const pulse = this.reduceMotion ? 1.7 : 1.7 + Math.sin(time * 3.4) * 0.35;
     this.cubeGlow.scale.setScalar(pulse);
 
     if (this.state === 'playing') {
@@ -595,11 +620,20 @@ export class Game {
 
     if (this.state === 'won') {
       this.winTimer += dt;
-      this.cubeMesh.rotation.y += dt * 1.2;
-      this.cubeMesh.position.y += dt * 0.35;
-      const k = Math.min(1, this.winTimer * 0.75);
-      this.cubeMesh.scale.setScalar(Math.max(0.05, 1 - k * 0.9) * (this.sizeCur ?? 1));
-      this.cubeGlow.material.opacity = 0.45 + Math.sin(time * 14) * 0.2;
+      if (this.reduceMotion) {
+        // ADR-046: the celebration is a spin, a rise and a 2.2 Hz glow
+        // strobe — the most aggressive motion in the game and the only one
+        // that flashes. Reduced motion keeps the cube still and lets the
+        // win panel carry the news; the level has already been recorded.
+        this.cubeMesh.scale.setScalar(this.sizeCur ?? 1);
+        this.cubeGlow.material.opacity = 0.45;
+      } else {
+        this.cubeMesh.rotation.y += dt * 1.2;
+        this.cubeMesh.position.y += dt * 0.35;
+        const k = Math.min(1, this.winTimer * 0.75);
+        this.cubeMesh.scale.setScalar(Math.max(0.05, 1 - k * 0.9) * (this.sizeCur ?? 1));
+        this.cubeGlow.material.opacity = 0.45 + Math.sin(time * 14) * 0.2;
+      }
     }
   }
 
@@ -616,11 +650,29 @@ export class Game {
 
     if (a.type === 'roll') {
       a.t = Math.min(1, a.t + dt / a.dur);
-      const e = easeInOut(a.t);
-      const q = new THREE.Quaternion().setFromAxisAngle(a.axis, e * Math.PI * 0.5);
-      const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
-      mesh.position.copy(a.pivot).add(rel);
-      mesh.quaternion.copy(q).multiply(a.fromQuat);
+      if (a.reduced ?? this.reduceMotion) {
+        // ADR-046: the tumble is the largest persistent motion in the game —
+        // a 90° rotation of the whole cube on every single move. Reduced
+        // motion slides the cube FLAT to the same landing point the tumble
+        // would reach, over the SAME duration (a.dur), so the sentinel
+        // windows, the freeze clock and the shuttle sync see no change at
+        // all. A cube landing from a height still falls: the existing drop
+        // animation picks up from the very same spot, on its own clock.
+        const endY = a.target.h + HALF + (a.drop || 0);
+        mesh.position.set(
+          a.startPos.x + (a.target.x - a.startPos.x) * a.t,
+          a.startPos.y + (endY - a.startPos.y) * a.t,
+          a.startPos.z + (a.target.z - a.startPos.z) * a.t,
+        );
+        // no tumble: the cube stays upright and its visual orientation is
+        // whatever it entered the move with (rotation carries no meaning)
+      } else {
+        const e = this.ease(a.t);
+        const q = new THREE.Quaternion().setFromAxisAngle(a.axis, e * Math.PI * 0.5);
+        const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
+        mesh.position.copy(a.pivot).add(rel);
+        mesh.quaternion.copy(q).multiply(a.fromQuat);
+      }
 
       if (a.t >= 1) {
         // land exactly on the new tile
@@ -647,7 +699,7 @@ export class Game {
     } else if (a.type === 'launch') {
       // a spring flight: an arcing hop in the press direction
       a.t = Math.min(1, a.t + dt / a.dur);
-      const e = easeInOut(a.t);
+      const e = this.ease(a.t);
       const y = a.from.h + HALF + (a.target.h - a.from.h) * e + Math.sin(e * Math.PI) * 0.45;
       mesh.position.set(a.from.x + (a.target.x - a.from.x) * e, y, a.from.z + (a.target.z - a.from.z) * e);
       mesh.rotation.z = 0;
@@ -691,7 +743,7 @@ export class Game {
       // bank at a high camera)
       const hangY = a.target.h - 0.52;
       if (p < 0.5) {
-        const e = easeInOut(p / 0.5);
+        const e = this.ease(p / 0.5);
         mesh.position.set(
           a.from.x + (a.crevice.x - a.from.x) * e,
           a.from.h + HALF + (hangY - (a.from.h + HALF)) * e * e + Math.sin(e * Math.PI) * 0.16,
@@ -711,7 +763,7 @@ export class Game {
         mesh.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(a.axis, Math.PI * 0.5)).multiply(a.fromQuat);
       } else {
         // the mantle: pull up onto the far bank
-        const e = easeInOut((p - 0.72) / 0.28);
+        const e = this.ease((p - 0.72) / 0.28);
         mesh.position.set(
           a.crevice.x + a.dx * 0.5 * e,
           hangY + (a.target.h + HALF - hangY) * e,
@@ -729,7 +781,7 @@ export class Game {
     } else if (a.type === 'drift') {
       // The breeze carries the cube a tile — a soft hop, no roll, no count.
       a.t = Math.min(1, a.t + dt / a.dur);
-      const e = easeInOut(a.t);
+      const e = this.ease(a.t);
       const y = Math.max(a.fromH, a.target.h) + HALF + Math.sin(e * Math.PI) * 0.14;
       mesh.position.set(a.fromX + (a.target.x - a.fromX) * e, y, a.fromZ + (a.target.z - a.fromZ) * e);
       mesh.rotation.z = Math.sin(e * Math.PI) * 0.08 * Math.sign(a.dx - a.dz || 1);
@@ -740,11 +792,22 @@ export class Game {
     } else if (a.type === 'reject') {
       // The locked gate refuses: the cube rolls itself back the way it came.
       a.t = Math.min(1, a.t + dt / a.dur);
-      const e = easeInOut(a.t);
-      const q = new THREE.Quaternion().setFromAxisAngle(a.axis, (1 - e) * Math.PI * 0.5);
-      const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
-      mesh.position.copy(a.pivot).add(rel);
-      mesh.quaternion.copy(q).multiply(a.fromQuat);
+      if (a.reduced ?? this.reduceMotion) {
+        // ADR-046: a reverse tumble is still a whole-cube rotation. The
+        // refusal reads just as clearly as a small flat nudge toward the
+        // gate and back, over the same duration.
+        const nx = a.pivot.x - a.startPos.x;
+        const nz = a.pivot.z - a.startPos.z;
+        const len = Math.hypot(nx, nz) || 1;
+        const k = Math.sin(a.t * Math.PI) * 0.18;
+        mesh.position.set(a.startPos.x + (nx / len) * k, a.startPos.y, a.startPos.z + (nz / len) * k);
+      } else {
+        const e = this.ease(a.t);
+        const q = new THREE.Quaternion().setFromAxisAngle(a.axis, (1 - e) * Math.PI * 0.5);
+        const rel = a.startPos.clone().sub(a.pivot).applyQuaternion(q);
+        mesh.position.copy(a.pivot).add(rel);
+        mesh.quaternion.copy(q).multiply(a.fromQuat);
+      }
       if (a.t >= 1) {
         this.cube.x = a.from.x;
         this.cube.z = a.from.z;
@@ -759,8 +822,12 @@ export class Game {
       const z = a.startPos.z + a.dz * Math.min(1.6, a.t * 1.1);
       const y = a.startPos.y - 9.0 * a.t * a.t;
       mesh.position.set(x, y, z);
-      const q = new THREE.Quaternion().setFromAxisAngle(a.spin, a.t * 4.2);
-      mesh.quaternion.copy(q).multiply(a.fromQuat);
+      if (!this.reduceMotion) {
+        // ADR-046: the fall is the death feedback and stays; the tumble on
+        // the way down is decoration and does not
+        const q = new THREE.Quaternion().setFromAxisAngle(a.spin, a.t * 4.2);
+        mesh.quaternion.copy(q).multiply(a.fromQuat);
+      }
       if (a.t > 0.32 && this.state === 'playing') this.die('void');
     }
   }
@@ -834,6 +901,8 @@ export class Game {
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
         this.cube.anim = {
           type: 'roll',
+          // ADR-046: bind the mode at the start of the move (see above)
+          reduced: this.reduceMotion,
           t: 0,
           dur: ROLL_TIME,
           axis,
@@ -865,6 +934,8 @@ export class Game {
         const startPos = new THREE.Vector3(target.x, target.h + HALF, target.z);
         this.cube.anim = {
           type: 'roll',
+          // ADR-046: bind the mode at the start of the move (see above)
+          reduced: this.reduceMotion,
           t: 0,
           dur: ROLL_TIME,
           axis,
@@ -904,6 +975,7 @@ export class Game {
           type: 'reject',
           t: 0,
           dur: ROLL_TIME * 1.35,
+          reduced: this.reduceMotion, // ADR-046: no reverse tumble
           axis: rollAnim.axis,
           pivot: rollAnim.pivot,
           startPos: rollAnim.startPos,
@@ -1423,7 +1495,7 @@ export class Game {
     const a = log[g.idx];
     const b = log[g.idx + 1];
     const span = Math.max(1e-4, b.t - a.t);
-    const f = easeInOut(Math.min(1, Math.max(0, (t - a.t) / span)));
+    const f = this.ease(Math.min(1, Math.max(0, (t - a.t) / span)));
     mesh.position.set(
       a.x + (b.x - a.x) * f,
       a.h + (b.h - a.h) * f + HALF,
