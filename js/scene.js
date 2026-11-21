@@ -1,0 +1,1522 @@
+/* ==========================================================================
+   scene.js — turns a level definition into a Matter.js world:
+   scenery bodies, glasses, taps, hazards, the ink you draw and the water.
+   ========================================================================== */
+(function (global) {
+  'use strict';
+  const HG = global.HG;
+  const Matter = global.Matter;
+  const { Engine, Composite, Bodies, Body, Constraint, Events, Collision } = Matter;
+  const M = HG.M;
+
+  const WALL = 7;               // glass wall thickness
+  const INK_W = 4;              // ink line thickness: a thin drawn wire
+  const INK_MIN_STEP = 4;       // simplified point spacing (finer: thin rods need it)
+  const PHYS_SUBSTEPS = 4;      // solver passes per rendered frame (see physics())
+  const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
+  // water clings to a wet rod: fraction of the sliding velocity removed per
+  // substep of contact. Tuned so a stream leaves the wire where it always did.
+  const WATER_TANGENT = 0.005;
+  const INK_DENSITY = 0.020;    // ink is a heavy drawn line: a droplet cannot shake it
+  const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
+  const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
+  const MAX_DROP_SPEED = 14;    // px/frame: 3.5 px per solver step, under the 4 px rod
+
+  // ---------------------------------------------------------------- glass ---
+  // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
+  // glass is one compound rigid body, so it can fall, tip and be propped up by
+  // the line you draw — exactly like the real game.
+  class Glass {
+    constructor(def) {
+      this.def = def;
+      this.hanging = !!def.hanging;
+      // every glass is a real object now; only an explicit `fixed` glass is scenery
+      this.dynamic = def.fixed ? false : true;
+      this.x = def.x;
+      this.y = def.y;
+      this.w = def.w;
+      this.h = def.h;
+      this.need = def.need;
+      this.tilt = def.tilt || 0;
+      this.wall = this.dynamic ? 10 : WALL;
+
+      this.top = this.y - this.h / 2;
+      this.bottom = this.y + this.h / 2;
+      this.topHalf = this.w / 2;
+      this.botHalf = this.w * 0.36;
+
+      this.parts = [];
+      this.body = null;
+      this.localCenter = { x: 0, y: 0 };
+      this.angle = this.tilt;
+      this.cx = this.x;
+      this.cy = this.y;
+      this._cos = Math.cos(this.tilt);
+      this._sin = Math.sin(this.tilt);
+
+      this.count = 0;
+      this.fill = 0;
+      this.fillSmooth = 0;
+      this.satisfied = false;
+      this.glow = 0;
+      this.tipped = 0;
+      this.lost = false;
+
+      const W = this.wall;
+      const innerTop = 2 * (this.topHalf - W);
+      const innerBot = 2 * (this.botHalf - W);
+      const innerH = this.h - W * 2;
+      const area = ((innerTop + innerBot) / 2) * innerH;
+      // droplets squash together, so a "full" glass holds a bit more than the
+      // raw area suggests. 1.26 is measured from the simulation itself.
+      this.capacity = Math.max(6, Math.round((area * 1.26) / (Math.PI * HG.Water.R * HG.Water.R)));
+      this.needCount = Math.max(1, Math.round(this.capacity * this.need));
+    }
+
+    // keep the cached world transform in sync with the physics body
+    syncXf() {
+      if (!this.body) {
+        this.angle = this.tilt;
+        this.cx = this.x;
+        this.cy = this.y;
+      } else {
+        const b = this.body;
+        const a = b.angle;
+        const c = Math.cos(a), s = Math.sin(a);
+        this.angle = a;
+        this.cx = b.position.x + this.localCenter.x * c - this.localCenter.y * s;
+        this.cy = b.position.y + this.localCenter.x * s + this.localCenter.y * c;
+      }
+      this._cos = Math.cos(this.angle);
+      this._sin = Math.sin(this.angle);
+      return this;
+    }
+
+    // world point -> glass local space (glass centre = (this.x, this.y), upright)
+    toLocal(px, py) {
+      this.syncXf();
+      const dx = px - this.cx, dy = py - this.cy;
+      return {
+        x: this.x + dx * this._cos + dy * this._sin,
+        y: this.y - dx * this._sin + dy * this._cos,
+      };
+    }
+
+    innerHalf(ly) {
+      const t = M.clamp((ly - this.top) / this.h, 0, 1);
+      return M.lerp(this.topHalf - this.wall, this.botHalf - this.wall, t);
+    }
+
+    containsLocal(lx, ly) {
+      if (ly < this.top + 3 || ly > this.bottom - 1) return false;
+      return Math.abs(lx - this.x) < this.innerHalf(ly) - 1;
+    }
+
+    contains(px, py) {
+      const l = this.toLocal(px, py);
+      return this.containsLocal(l.x, l.y);
+    }
+
+    // local y of the dotted fill line
+    needY() {
+      const innerH = this.h - this.wall * 2;
+      return this.bottom - this.wall - innerH * this.need;
+    }
+
+    ratio() {
+      return this.count / this.capacity;
+    }
+  }
+
+  // ----------------------------------------------------------------- scene ---
+  // Fit the sampled stroke with as few straight bars as the shape allows: a
+  // straight line becomes two or three bars, a hook keeps enough bars to keep its
+  // hook. tolerance is how far the real stroke may sit from a bar (px).
+  const RUN_TOL = 0.9;
+  const RUN_MAX = 110;
+  function inkRuns(segs) {
+    const runs = [];
+    if (!segs.length) return runs;
+    const head = (g) => ({ x: g.mx - Math.cos(g.angle) * g.len / 2, y: g.my - Math.sin(g.angle) * g.len / 2 });
+    const tail = (g) => ({ x: g.mx + Math.cos(g.angle) * g.len / 2, y: g.my + Math.sin(g.angle) * g.len / 2 });
+    let i = 0;
+    while (i < segs.length) {
+      const a = head(segs[i]);
+      let j = i;
+      let b = tail(segs[i]);
+      while (j + 1 < segs.length) {
+        const nb = tail(segs[j + 1]);
+        const len = Math.hypot(nb.x - a.x, nb.y - a.y);
+        if (len > RUN_MAX) break;
+        let ok = true;
+        for (let k = i + 1; k <= j + 1 && ok; k++) {
+          const p = head(segs[k]);
+          // perpendicular distance from the candidate bar
+          const d = Math.abs((nb.x - a.x) * (p.y - a.y) - (nb.y - a.y) * (p.x - a.x)) / (len || 1);
+          if (d > RUN_TOL) ok = false;
+        }
+        if (!ok) break;
+        j++; b = nb;
+      }
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len > 0.01) {
+        runs.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, len,
+          angle: Math.atan2(b.y - a.y, b.x - a.x) });
+      }
+      i = j + 1;
+    }
+    return runs;
+  }
+
+  // Is a world point inside a box that may be rotated about its own centre?
+  // `pad` widens the box on every side, which is how the pen gets its 2 px sink.
+  function inOBB(x, y, r, pad) {
+    const a = r.angle || 0;
+    const dx = x - r.x, dy = y - r.y;
+    const c = Math.cos(a), s = Math.sin(a);
+    const lx = dx * c + dy * s;                 // into the box's own frame
+    const ly = -dx * s + dy * c;
+    const p = pad || 0;
+    return Math.abs(lx) <= r.w / 2 + p && Math.abs(ly) <= r.h / 2 + p;
+  }
+
+  // ...and inside a free-form slab. The point is expanded by `pad` so a stroke
+  // that runs into an edge is refused just as firmly as one in the middle.
+  function insidePolyPts(x, y, poly, pad) {
+    let hit = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+    if (hit) return true;
+    // near an edge? distance from the point to each segment, within pad
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const ax = poly[j][0], ay = poly[j][1], bx = poly[i][0], by = poly[i][1];
+      const vx = bx - ax, vy = by - ay;
+      const t = Math.max(0, Math.min(1, ((x - ax) * vx + (y - ay) * vy) / (vx * vx + vy * vy || 1)));
+      const px = ax + vx * t, py = ay + vy * t;
+      if (Math.hypot(x - px, y - py) <= (pad || 0)) return true;
+    }
+    return false;
+  }
+
+  class Scene {
+    constructor(level) {
+      this.level = level;
+      // Sleeping stays OFF, on purpose. It looks like the fix for a pile that
+      // never stops buzzing, but it is not: Matter wakes a whole connected
+      // island, so one droplet landing on a sleeping heap wakes all 120 bodies
+      // *at once*, the solver corrects their overlap together and the pile
+      // erupts — measured, one droplet displaced the heap by a median of 28 px
+      // (worst 80 px). That is the "chain reaction" a player sees. The real
+      // cure is the contact slop in water.js: let droplets rest slightly into
+      // each other and the solver stops fighting, so a pile is still
+      // (0.003 px/frame) and an impact stays local (median 0.2 px).
+      this.engine = Engine.create({ enableSleeping: false });
+      this.world = this.engine.world;
+      this.engine.gravity.y = 1;
+      this.engine.gravity.scale = 0.0014;
+      this.engine.positionIterations = 8;
+      this.engine.velocityIterations = 6;
+      this.engine.constraintIterations = 3;
+
+      this.time = 0;
+      this.state = 'idle';           // idle | pouring | settled | won | lost
+      this.holdTimer = 0;
+      this.settleTimer = 0;
+      this.endTimer = 0;
+      this.winTimer = 0;
+      this.evapPuffs = [];
+      this.shake = 0;
+      this.frozen = true;          // the world only runs once the player draws
+      this.freezeTimer = 0;
+      this.fell = false;
+      this.onWin = null;
+      this.onLose = null;
+
+      this.platforms = [];
+      this.crates = [];
+      this.balls = [];
+      this.spinners = [];
+      this.seesaws = [];
+      this.hots = [];
+      this.fans = [];
+      this.glasses = [];
+      this.faucets = [];
+
+      this.buildStatics();
+      this.buildGlasses();
+      this.buildFaucets();
+      this.initInk();
+      this.water = new HG.Water(this);
+
+      this._onCollide = (ev) => this.onCollide(ev);
+      Events.on(this.engine, 'collisionStart', this._onCollide);
+    }
+
+    // ---------------------------------------------------------------- build
+    buildStatics() {
+      const lv = this.level;
+      const mk = (x, y, w, h, angle, kind, label, opts) => {
+        const b = Bodies.rectangle(x, y, w, h, Object.assign({
+          isStatic: true,
+          angle: angle || 0,
+          label,
+          friction: 0.4,
+          chamfer: { radius: Math.min(7, Math.min(w, h) / 3) },
+        }, opts || {}));
+        b.kind = kind || 'wood';
+        b.defW = w; b.defH = h;
+        Composite.add(this.world, b);
+        return b;
+      };
+
+      // ---- copied rooms -----------------------------------------------------
+      // A room taken off the reference sheet is built from pieces, not from one
+      // box per glyph: a wedge, an arrow or a slab is handed over as the
+      // pinched-together convex parts of its own outline, so its collider is the
+      // shape on the sheet — and never a different one.
+      //
+      // Static scenery keeps one body per piece. A *falling* piece is one rigid
+      // object: Matter's compound body, welded, so it tumbles as the drawing
+      // would and does not shear apart on the first landing.
+      const pieceBody = (p, label, isStatic, kind, extra) => {
+        const base = { isStatic, label, friction: 0.4 };
+        let b;
+        if (p.poly) {
+          const pts = p.poly.map(([x, y]) => ({ x, y }));
+          let sx = 0, sy = 0;
+          pts.forEach((v) => { sx += v.x; sy += v.y; });
+          const cx = sx / pts.length, cy = sy / pts.length;
+          const rel = pts.map((v) => ({ x: v.x - cx, y: v.y - cy }));
+          // Matter can only take convex polygons here (the optional decomposer
+          // is not part of the page), so physics gets the hull of the outline.
+          // The drawing keeps the real outline, which is what you see.
+          b = Bodies.fromVertices(cx, cy, [M.hull(rel)], Object.assign(base, extra || {},
+            { chamfer: { radius: 1 } }), true);
+          if (b) b.isPoly = true;
+        } else {
+          // thin copied bars are a few px wide: a big chamfer would eat them
+          b = Bodies.rectangle(p.x, p.y, p.w, p.h, Object.assign(base, extra || {}, {
+            angle: p.angle || 0,
+            chamfer: { radius: Math.min(4, Math.min(p.w, p.h) / 3) },
+          }));
+        }
+        if (!b) return null;
+        b.kind = kind;
+        return b;
+      };
+
+      const buildStaticBody = (def, label) => {
+        const kind = def.kind || 'grey';
+        const out = [];
+        (def.pieces || [def]).forEach((p) => {
+          const b = pieceBody(p, label, true, kind);
+          if (!b) return;
+          Composite.add(this.world, b);
+          out.push(b);
+        });
+        return out;
+      };
+
+      const buildFallingBody = (def) => {
+        const kind = def.kind || 'farm';
+        const parts = [];
+        (def.pieces || [def]).forEach((p) => {
+          const b = pieceBody(p, 'crate', false, kind, {
+            frictionAir: 0.004, restitution: 0.05, density: 0.0026,
+          });
+          if (b) parts.push(b);
+        });
+        if (!parts.length) return null;
+        parts.forEach((p) => Composite.add(this.world, p));
+        if (parts.length === 1) return parts[0];
+        const comp = Body.create({ parts, friction: 0.45 });
+        Composite.remove(this.world, parts);
+        Composite.add(this.world, comp);
+        return comp;
+      };
+
+      // A glass is a loose object, so it needs a ledge to start on. Levels that
+      // deliberately leave one dangling set `hanging: true` instead.
+      const platforms = lv.platforms.slice();
+      this.coasters = [];
+      lv.glasses.forEach((g) => {
+        if (g.hanging || g.fixed) return;
+        const bottom = g.y + g.h / 2;
+        const halfW = g.w / 2;
+        const already = platforms.concat(lv.crates.map((c) => ({
+          x: c.x, y: c.y, w: c.size, h: c.size, angle: c.angle || 0,
+        }))).some((p) => {
+          const top = p.y - p.h / 2;
+          const overlap = Math.min(p.x + p.w / 2, g.x + halfW) - Math.max(p.x - p.w / 2, g.x - halfW);
+          return top > bottom - 14 && top < bottom + 34 && overlap > halfW;
+        });
+        if (already) return;
+        const shelf = {
+          x: g.x, y: bottom + 7, w: g.w * 1.3, h: 14,
+          angle: 0, kind: 'wood', coaster: true,
+        };
+        // NOTE: never push into lv.platforms — that mutates the level data and
+        // every restart would add another phantom ledge
+        platforms.push(shelf);
+        this.coasters.push(shelf);
+      });
+
+      platforms.forEach((p) => {
+        if (p.poly) {
+          // free-form slab (ramps, wedges, big trapezoids)
+          const pts = p.poly.map(([x, y]) => ({ x, y }));
+          let sx = 0, sy = 0;
+          pts.forEach((v) => { sx += v.x; sy += v.y; });
+          const cx = sx / pts.length, cy = sy / pts.length;
+          const rel = pts.map((v) => ({ x: v.x - cx, y: v.y - cy }));
+          const b = Bodies.fromVertices(cx, cy, [rel], {
+            isStatic: true,
+            label: 'platform',
+            friction: 0.35,
+            chamfer: { radius: 2 },
+          }, true);
+          b.kind = p.kind || 'teal';
+          b.isPoly = true;
+          Composite.add(this.world, b);
+          this.platforms.push({ def: p, body: b, kind: b.kind, poly: b.vertices });
+          return;
+        }
+        if (p.pieces) {
+          // a glyph of the sheet: one static body per convex part
+          buildStaticBody(p, 'platform').forEach((b) => {
+            this.platforms.push({ def: p, body: b, kind: p.kind });
+          });
+          return;
+        }
+        const b = mk(p.x, p.y, p.w, p.h, p.angle, p.kind, 'platform');
+        this.platforms.push({ def: p, body: b, kind: p.kind });
+      });
+      // the sheet's loose pieces: one welded rigid body each
+      (lv.falls || []).forEach((f) => {
+        const b = buildFallingBody(f);
+        if (b) this.crates.push({ def: f, body: b, kind: f.kind || 'farm' });
+      });
+      lv.crates.forEach((c) => {
+        if (c.dynamic) {
+          let b;
+          if (c.pts && c.pts.length >= 3) {
+            // a copied loose piece keeps its own outline as it falls
+            const pts = c.pts.map(([x, y]) => ({ x, y }));
+            let sx = 0, sy = 0;
+            pts.forEach((v) => { sx += v.x; sy += v.y; });
+            const px = sx / pts.length, py = sy / pts.length;
+            const rel = pts.map((v) => ({ x: v.x - px, y: v.y - py }));
+            b = Bodies.fromVertices(px, py, [rel], {
+              friction: 0.45, frictionAir: 0.004, restitution: 0.05,
+              density: 0.0026, label: 'crate',
+            }, true);
+            b.isPoly = true;
+          } else {
+            b = Bodies.rectangle(c.x, c.y, c.w || c.size, c.h || c.size, {
+              angle: c.angle || 0,
+              friction: 0.45,
+              frictionAir: 0.004,
+              restitution: 0.05,
+              density: 0.0026,
+              label: 'crate',
+              chamfer: { radius: 4 },
+            });
+          }
+          b.kind = c.kind || 'wood';
+          Composite.add(this.world, b);
+          this.crates.push({ def: c, body: b, kind: b.kind });
+          return;
+        }
+        // A crate is a cube; a masonry block is any rectangle. Same body, same
+        // rules — the only difference is that a block can be long and thin, and
+        // a long thin stone is what a lintel is.
+        const bw = c.w || c.size, bh = c.h || c.size;
+        let b;
+        if (c.pts && c.pts.length >= 3) {
+          // a copied glyph: its real outline is the collider, so a wedge stays a
+          // wedge instead of becoming the box around it
+          const pts = c.pts.map(([x, y]) => ({ x, y }));
+          let sx = 0, sy = 0;
+          pts.forEach((v) => { sx += v.x; sy += v.y; });
+          const cx = sx / pts.length, cy = sy / pts.length;
+          const rel = pts.map((v) => ({ x: v.x - cx, y: v.y - cy }));
+          b = Bodies.fromVertices(cx, cy, [rel], {
+            isStatic: true, label: 'crate', friction: 0.4, chamfer: { radius: 1 },
+          }, true);
+          b.kind = c.kind || 'grey';
+          b.isPoly = true;
+          b.defW = bw; b.defH = bh;
+          Composite.add(this.world, b);
+        } else {
+          b = mk(c.x, c.y, bw, bh, c.angle || 0, c.kind || 'wood', 'crate');
+        }
+        this.crates.push({ def: c, body: b, kind: c.kind || 'wood' });
+      });
+      // Loose weights. A ball is thrown by the level and then belongs to the
+      // physics: it rolls, it lands on your ink, it can knock the glass over.
+      // Nothing drives it — no motor, no path — so it is not a moving obstacle
+      // in the sense this game bans.
+      (lv.balls || []).forEach((def) => {
+        const heavy = (def.kind || 'heavy') === 'heavy';
+        const b = Bodies.circle(def.x, def.y, def.r, {
+          label: 'ball',
+          friction: heavy ? 0.42 : 0.2,
+          frictionAir: heavy ? 0.004 : 0.002,
+          frictionStatic: heavy ? 0.6 : 0.1,
+          // the heavy ball is a dead weight, the light one is a rubber ball
+          restitution: heavy ? 0.06 : 0.62,
+          density: heavy ? 0.0062 : 0.0016,
+          slop: 0.12,
+        });
+        b.kind = def.kind || 'heavy';
+        b.ballDef = def;
+        // A ball may be thrown by the level: an initial velocity is what lets a ball
+        // arrive without a ramp. It is not driven — nothing adds force after frame
+        // one; it is a projectile, and gravity and the player's ink own it from then on.
+        if (def.vx || def.vy) Body.setVelocity(b, { x: def.vx || 0, y: def.vy || 0 });
+        Composite.add(this.world, b);
+        this.balls.push({ def, body: b, kind: b.kind });
+      });
+
+      lv.hots.forEach((h) => this.hots.push(Object.assign({}, h)));
+      lv.fans.forEach((f) => this.fans.push(Object.assign({}, f)));
+
+      lv.spinners.forEach((s) => {
+        const b = Bodies.rectangle(s.x, s.y, s.w, s.h, {
+          frictionAir: 0.006,
+          density: 0.0022,
+          restitution: 0.1,
+          label: 'spinner',
+          chamfer: { radius: 6 },
+        });
+        Composite.add(this.world, b);
+        Composite.add(this.world, Constraint.create({
+          pointA: { x: s.x, y: s.y },
+          bodyB: b,
+          pointB: { x: 0, y: 0 },
+          stiffness: 1,
+          length: 0,
+          damping: 0.1,
+          render: { visible: false },
+        }));
+        // A pinned bar hangs still until something hits it. It is scenery, not
+        // a machine: no motor, no seeded spin — a bar that drifts on its own is
+        // a moving bar, and this game has none.
+        Body.setAngularVelocity(b, 0);
+        this.spinners.push({ def: s, body: b });
+      });
+
+      lv.seesaws.forEach((s) => {
+        const b = Bodies.rectangle(s.x, s.y, s.w, s.h, {
+          frictionAir: 0.012,
+          density: 0.004,
+          friction: 0.6,
+          label: 'seesaw',
+          chamfer: { radius: 5 },
+        });
+        Composite.add(this.world, b);
+        Composite.add(this.world, Constraint.create({
+          pointA: { x: s.x, y: s.y },
+          bodyB: b,
+          pointB: { x: 0, y: 0 },
+          stiffness: 0.9,
+          length: 0,
+          damping: 0.08,
+          render: { visible: false },
+        }));
+        this.seesaws.push({ def: s, body: b });
+      });
+
+    }
+
+    buildGlasses() {
+      const lv = this.level;
+      this.glasses = lv.glasses.map((def) => {
+        const g = new Glass(def);
+        const cx = g.x, cy = g.y;
+        const W = g.wall;
+
+        const topL = { x: cx - g.topHalf, y: g.top };
+        const topR = { x: cx + g.topHalf, y: g.top };
+        const botL = { x: cx - g.botHalf, y: g.bottom };
+        const botR = { x: cx + g.botHalf, y: g.bottom };
+
+        // one chamfered rectangle per wall, bottom and rim lip
+        const parts = [];
+        // The same rectangles, recorded un-rotated, so the water-only stand-ins
+        // further down can be built at the cup's TRUE dimensions. (Their bounding
+        // boxes are not the shapes: the side walls lean by ~7 degrees, and a
+        // 10 px wall's box is 25 px wide — building the ghosts from boxes pinched
+        // the mouth and spilled water over the rim.)
+        const specs = [];
+        const put = (x, y, w, h, angle, density) => {
+          parts.push(Bodies.rectangle(x, y, w, h, { angle, density, chamfer: { radius: 3 } }));
+          specs.push({ x, y, w, h, angle });
+        };
+        const wallAt = (a, b) => {
+          const dx = b.x - a.x, dy = b.y - a.y;
+          const len = Math.hypot(dx, dy);
+          // part-level density: it survives the compound
+          put((a.x + b.x) / 2, (a.y + b.y) / 2, W, len, Math.atan2(-dx, dy), 0.02);
+        };
+        wallAt(topL, botL);
+        wallAt(topR, botR);
+        // weighted base = low centre of mass
+        put(cx, g.bottom - W / 2, g.botHalf * 2 - 1, W, 0, 0.1);
+        put(topL.x + 3, g.top + 2, 12, W, 0, 0.02);
+        put(topR.x - 3, g.top + 2, 12, W, 0, 0.02);
+
+        // The cup is heavy and the water is not: the fluid gets no say in where
+        // the glass is. Every part of the real body is taken out of the water's
+        // collision world here, and a static stand-in (CAT_GWALL, below) holds
+        // the fluid instead. See the note on CAT_GLASS in util.js.
+        if (g.dynamic) {
+          parts.forEach((b) => {
+            b.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          });
+          // --- one rigid body: it falls, tips and can rest on drawn ink
+          const body = Body.create({
+            parts,
+            friction: 0.7,
+            frictionStatic: 0.9,
+            frictionAir: 0.008,
+            restitution: 0.02,
+            label: 'glassbody',
+            sleepThreshold: 40,
+          });
+          // extra rotational inertia: glasses tip slowly instead of being flicked
+          Body.setInertia(body, body.inertia * GLASS_INERTIA);
+          body.glass = g;
+          body.parts.forEach((pt) => {
+            if (pt !== body) { pt.glass = g; pt.label = 'glasswall'; }
+          });
+          // Matter tests the COMPOUND's own filter for every pair (0.20 does not
+          // consult the parts' filters), so this is the line that actually makes
+          // the cup water-blind. The per-part filters above are kept for the
+          // query paths that do look at parts.
+          body.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          body.parts.forEach((pt) => {
+            if (pt !== body) pt.collisionFilter = { category: HG.CAT_GLASS, mask: HG.MASK_GLASS };
+          });
+          Composite.add(this.world, body);
+          g.body = body;
+          g.parts = body.parts.slice(1);
+          g.localCenter = { x: cx - body.position.x, y: cy - body.position.y };
+          g.syncXf();
+
+          // --- water-only stand-in walls, welded to the cup's own surface
+          // One static twin per part, in the cup's local frame (measured from
+          // the compound's centre of mass, which is what Body.setPosition moves).
+          const com = { x: body.position.x, y: body.position.y };
+          g.ghosts = specs.map((sp) => {
+            // Same surface as the cup it stands in for: glass is grippy and
+            // barely bouncy, and a stream that lands on a wall has to behave
+            // exactly as it did when it was landing on the glass itself.
+            const ghost = Bodies.rectangle(sp.x, sp.y, sp.w, sp.h, {
+              isStatic: true,
+              angle: sp.angle,
+              // same rounded rim as the real part: a sharp corner spills a
+              // droplet off the rim where the real glass would have held it
+              chamfer: { radius: 3 },
+              label: 'glasswall',
+              friction: 0.7,
+              frictionStatic: 0.9,
+              // no bounce at all off the cup's walls: the real glass gives a
+              // little under a droplet, and a rigid stand-in that bounces would
+              // flick water back out of the mouth
+              restitution: 0,
+              frictionAir: 0.008,
+              collisionFilter: { category: HG.CAT_GWALL, mask: HG.CAT_WATER },
+            });
+            ghost.glass = g;
+            ghost.ghost = true;
+            Composite.add(this.world, ghost);
+            return { body: ghost, x: sp.x - com.x, y: sp.y - com.y, a: sp.angle };
+          });
+        } else {
+          // --- static scenery (locked in place, cannot be pushed by water)
+          parts.forEach((b) => {
+            b.isStatic = true;
+            b.label = 'glasswall';
+            b.glass = g;
+            b.friction = 0.2;
+            b.restitution = 0.03;
+            if (g.tilt) Body.rotate(b, g.tilt, { x: cx, y: cy });
+            Composite.add(this.world, b);
+            g.parts.push(b);
+          });
+          g.syncXf();
+        }
+        return g;
+      });
+    }
+
+    buildFaucets() {
+      // the tap housing is solid: your ink can be pegged to it
+      this.level.faucets.forEach((f) => {
+        const housing = Bodies.rectangle(f.x, f.y - 47, 62, 62, {
+          isStatic: true, label: 'faucet', chamfer: { radius: 8 },
+        });
+        const plate = Bodies.rectangle(f.x, f.y - 4, 88, 16, {
+          isStatic: true, label: 'faucet', chamfer: { radius: 6 },
+        });
+        Composite.add(this.world, housing);
+        Composite.add(this.world, plate);
+      });
+      this.faucetBodies = Composite.allBodies(this.world).filter((b) => b.label === 'faucet');
+      // push-pins: solid furniture you can hook a line onto anywhere in the level
+      this.pins = [];
+      (this.level.pins || []).forEach((p) => {
+        const b = Bodies.circle(p.x, p.y, p.r || 11, {
+          isStatic: true, label: 'pin', friction: 0.5,
+        });
+        Composite.add(this.world, b);
+        this.pins.push({ x: p.x, y: p.y, r: p.r || 11, body: b });
+      });
+      this.faucets = this.level.faucets.map((f) => ({
+        def: f,
+        x: f.x,
+        y: f.y,
+        remaining: f.total,
+        acc: 0,
+        done: false,
+        flow: 0,
+      }));
+    }
+
+    initInk() {
+      this.ink = {
+        segments: [],
+        strokes: [],           // {points:[{x,y}], lastCost}
+        used: 0,
+        budget: this.level.ink,
+        active: null,
+      };
+    }
+
+    // ------------------------------------------------------------------ ink
+    inkRemaining() {
+      return Math.max(0, this.ink.budget - this.ink.used);
+    }
+
+    // Solid things a wire can actually be hooked onto: scenery, crates, the tap
+    // housing and push-pins — plus wire that is already nailed down itself, so
+    // lines can be chained. There is no "near enough" padding in this list: the
+    // contact test below decides whether the ink really touches it.
+    anchorBodies() {
+      if (this._anchors) return this._anchors;
+      this._anchors = Composite.allBodies(this.world).filter((b) => {
+        if (b.label === 'ink') return !!(b.strokeRef && b.strokeRef.anchored);
+        if (!b.isStatic) return false;
+        return b.label === 'platform' || b.label === 'crate' ||
+          b.label === 'faucet' || b.label === 'pin';
+      });
+      return this._anchors;
+    }
+
+    // Real contact test (SAT) between the segments of a stroke and the scenery.
+    // A wire only sticks where its own geometry overlaps a solid body: a line
+    // that merely passes nearby, or stops a few pixels short, hangs on nothing
+    // and therefore falls.
+    inkContacts(st) {
+      const out = [];
+      const anchors = this.anchorBodies();
+      for (const seg of st.segs) {
+        const sb = seg.body;
+        for (const b of anchors) {
+          if (b === sb || b.strokeRef === st) continue;
+          let hit = null;
+          try { hit = Collision.collides(sb, b); } catch (e) { hit = null; }
+          if (!hit || !hit.collided) continue;
+          let px = seg.mx, py = seg.my;
+          if (hit.supports && hit.supports.length) {
+            let n = 0; px = 0; py = 0;
+            for (const sup of hit.supports) {
+              if (!sup) continue;
+              px += sup.x; py += sup.y; n++;
+            }
+            if (n) { px /= n; py /= n; } else { px = seg.mx; py = seg.my; }
+          }
+          out.push({ body: b, x: px, y: py, seg });
+        }
+      }
+      return out;
+    }
+
+    // does a world point touch something solid? (used for hints / diagnostics)
+    isAnchorPoint(x, y) {
+      const probe = Bodies.circle(x, y, INK_W / 2 + CONTACT_TOL, { isStatic: true });
+      for (const b of this.anchorBodies()) {
+        let hit = null;
+        try { hit = Collision.collides(probe, b); } catch (e) { hit = null; }
+        if (hit && hit.collided) return true;
+      }
+      return false;
+    }
+
+
+    beginInk(x, y) {
+      this._anchors = null;
+      if (this.inkRemaining() <= 0) return false;
+      this.ink.active = { points: [{ x, y }], segs: [], pins: [] };
+      return true;
+    }
+
+    addInkPoint(x, y) {
+      const st = this.ink.active;
+      if (!st) return false;
+      const last = st.points[st.points.length - 1];
+      const d = M.dist(last.x, last.y, x, y);
+      if (d < INK_MIN_STEP) return false;
+      const budgetLeft = this.inkRemaining();
+      if (budgetLeft <= 0.5) {
+        this.endInk();
+        return false;
+      }
+      const step = Math.min(d, budgetLeft);
+      const nx = last.x + ((x - last.x) / d) * step;
+      const ny = last.y + ((y - last.y) / d) * step;
+
+      // drawn as static while the finger is down (no jitter), then re-evaluated
+      const angle = Math.atan2(ny - last.y, nx - last.x);
+      const len = M.dist(last.x, last.y, nx, ny);
+      const body = Bodies.rectangle(
+        (last.x + nx) / 2, (last.y + ny) / 2,
+        len + INK_W * 0.9, INK_W,
+        { isStatic: true, angle, label: 'ink', friction: 0.6, restitution: 0.03,
+          collisionFilter: { category: HG.CAT_INK, mask: HG.MASK_INK },
+          chamfer: { radius: INK_W * 0.44 } }
+      );
+      body.isProvisional = true;
+      Composite.add(this.world, body);
+      body.strokeRef = null;   // set below, once the seg exists
+      const seg = {
+        x1: last.x, y1: last.y, x2: nx, y2: ny,
+        mx: (last.x + nx) / 2, my: (last.y + ny) / 2,
+        angle, len: len + INK_W * 0.9,
+        body: body, stroke: st, dyn: false,
+      };
+      body.strokeRef = st;
+      st.segs.push(seg);
+      this.ink.segments.push(seg);
+      st.points.push({ x: nx, y: ny });
+      this.ink.used += len;
+      if (this.isAnchorPoint(nx, ny) && st.pins.length < 3) {
+        st.pins.push({ x: nx, y: ny });
+      }
+      if (step < d) {
+        this.endInk();
+        return false;
+      }
+      return true;
+    }
+
+    // A finished stroke is a real object — a short, heavy, stiff line, close to a
+    // piece of wire. It is *never* fixed to anything. The moment you lift the
+    // pen it becomes a loose body in the world, and the only thing that keeps it
+    // up is its own shape resting in, on, or around the scenery. A line drawn in
+    // empty air falls out of the level; a line lying on a ledge stays because its
+    // weight and friction hold it there; a line whose end curls around a corner
+    // stays because it cannot slide off. A running stream leans on it, and if the
+    // line is badly placed the water shoves it away — that is the game.
+    endInk() {
+      const st = this.ink.active;
+      if (!st) return false;
+      this.ink.active = null;
+      if (st.points.length < 2) {
+        st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
+        this.ink.segments = this.ink.segments.filter((sg) => sg.stroke !== st);
+        return false;
+      }
+      this.ink.strokes.push(st);
+
+      // where does the line actually touch something solid? (diagnostics only —
+      // nothing is welded; the audit and the hint system read this)
+      const contacts = this.inkContacts(st);
+
+      // ---- the line itself: one rigid, dynamic body with real mass
+      st.segs.forEach((seg) => Composite.remove(this.world, seg.body));
+      // The pen samples the stroke every few pixels, which is right for drawing
+      // and wrong for physics: a body built from ninety short overlapping boxes
+      // has ninety seams for the solver to chatter on, and it walks its way off
+      // any ledge. So the *collision* shape is the same polyline with the
+      // near-collinear stretches merged into a few long bars (the drawn line is
+      // still drawn from the original points, so nothing looks different).
+      const runs = inkRuns(st.segs);
+      const parts = runs.slice(0, MAX_STROKE_PARTS).map((r) =>
+        Bodies.rectangle((r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2, r.len + INK_W * 0.5, INK_W, {
+          angle: r.angle,
+          density: Scene.INK_DENSITY,
+          chamfer: { radius: INK_W * 0.44 },
+        })
+      );
+      const body = Body.create({
+        parts,
+        friction: 0.7,
+        frictionStatic: 0.9,       // a wire lying on wood does not creep
+        frictionAir: 0.004,
+        restitution: 0.02,
+        label: 'ink',
+        collisionFilter: { category: HG.CAT_INK, mask: HG.MASK_INK },
+      });
+      body.strokeRef = st;
+      // Matter pairs *parts*, not the compound: every part needs the same filter
+      for (const part of body.parts) {
+        part.collisionFilter = { category: HG.CAT_INK, mask: HG.MASK_INK, group: 0 };
+      }
+      // ---- the wick: the surface water actually feels
+      // A 4 px wire is something water cannot cling to — a droplet balanced on
+      // it rolls off the side in a few frames, so a line can only ever be a
+      // wall. Real water has surface tension: it wets a surface and runs down
+      // it to the low end. The wick is that surface. It is welded to the line
+      // (same transform, same angles), it is invisible, and its collision mask
+      // is CAT_WATER alone, so balls, other ink, crates and glasses cannot
+      // possibly notice it. The drawn line keeps its 4 px look.
+      const WICK_W = 15;
+      const wickParts = this.level.wet ? runs.map((r) => Bodies.rectangle(
+        (r.x1 + r.x2) / 2, (r.y1 + r.y2) / 2, r.len + WICK_W * 0.6, WICK_W, {
+          angle: r.angle,
+          chamfer: { radius: WICK_W * 0.45 },
+          collisionFilter: { category: HG.CAT_WICK, mask: HG.CAT_WATER },
+        })) : [];
+      if (wickParts.length) {
+        const wick = Body.create({ parts: wickParts, isStatic: true, label: 'wick' });
+        wick.collisionFilter = { category: HG.CAT_WICK, mask: HG.CAT_WATER };
+        Composite.add(this.world, wick);
+        st.wick = wick;
+      }
+      // The wick is a *shadow* of the line: same shape, same place, no mass, and
+      // invisible to everything except water. It is kept glued to the stroke in
+      // physics() rather than being part of it, so the line's own mass, its
+      // friction on the ledge and every other body's behaviour are untouched.
+      Composite.add(this.world, body);
+      st.body = body;
+      st.segs.forEach((seg) => {
+        seg.dyn = true;
+        seg.lx = seg.mx - body.position.x;
+        seg.ly = seg.my - body.position.y;
+        seg.body = body;
+      });
+
+      st.pins = [];
+      st.pinSupports = [];
+      const seen = new Set();
+      for (const c of contacts) {
+        const key = c.body.id + ':' + Math.round(c.x / 14) + ',' + Math.round(c.y / 14);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        st.pins.push({ x: c.x, y: c.y });
+        st.pinSupports.push(c.body);
+      }
+      st.anchored = st.pins.length > 0;   // "resting on something", not "welded"
+      this._anchors = null;
+      return true;
+    }
+
+    // current world-space endpoints of every ink segment (static or falling)
+    inkWorldSegments() {
+      const out = this._segCache || (this._segCache = []);
+      let n = 0;
+      for (const seg of this.ink.segments) {
+        let x1, y1, x2, y2;
+        if (seg.dyn && seg.stroke && seg.stroke.body && !seg.stroke.gone) {
+          const b = seg.stroke.body;
+          const c = Math.cos(b.angle), s = Math.sin(b.angle);
+          const mx = b.position.x + seg.lx * c - seg.ly * s;
+          const my = b.position.y + seg.lx * s + seg.ly * c;
+          const a = seg.angle + b.angle;
+          const hx = Math.cos(a) * seg.len / 2, hy = Math.sin(a) * seg.len / 2;
+          x1 = mx - hx; y1 = my - hy; x2 = mx + hx; y2 = my + hy;
+        } else {
+          x1 = seg.x1; y1 = seg.y1; x2 = seg.x2; y2 = seg.y2;
+        }
+        const slot = out[n] || (out[n] = {});
+        slot.x1 = x1; slot.y1 = y1; slot.x2 = x2; slot.y2 = y2;
+        n++;
+      }
+      out.length = n;
+      return out;
+    }
+
+    clearInk() {
+      this.ink.segments.forEach((s) => {
+        if (s.dyn && s.stroke && s.stroke.body) return;   // handled once below
+        Composite.remove(this.world, s.body);
+      });
+      this.ink.strokes.forEach((st) => { if (st.body) Composite.remove(this.world, st.body); });
+      this.ink.segments.length = 0;
+      this.ink.used = 0;
+      this.ink.strokes.length = 0;
+      this.ink.active = null;
+      this._anchors = null;
+    }
+
+    inkPointBlocked(x, y) {
+      // Don't allow drawing inside scenery / the glass / the tap.
+      // The pen stops when the *ink* touches, not when the cursor does: the
+      // 2 px sink lets a drawn stroke actually meet the surface (a marker line
+      // creeps a hair into the wall it runs into). Without it ink could never
+      // reach a surface at all, and a wire could never be nailed to anything.
+      //
+      // Every angled plank in this game was drawable-through until now: the old
+      // test only looked at axis-aligned planks, and almost every plank is
+      // tilted by 0.1-0.16 rad. A stroke laid inside one was created overlapping
+      // solid scenery and the solver shoved it out, which reads as the wire
+      // being pushed *into* the base. The test is an oriented box now.
+      //
+      // The pad is a fraction of a pixel rather than 2: the ink body is 4 px
+      // thick, so a stroke whose centre touches a face already sinks about 2 px
+      // into it — that IS the 2 px sink. Refusing the centre 2 px early blocked
+      // every stroke that runs along a plank, which is the commonest answer in
+      // the game.
+      const PAD = 0.6;
+      // The built scenery, not the level data: the auto-generated coaster under
+      // each glass is real geometry and must refuse ink like anything else.
+      const inPiece = (p, pad) => {
+        if (p.poly) return insidePolyPts(x, y, p.poly, pad);
+        return inOBB(x, y, { x: p.x, y: p.y, w: p.w, h: p.h, angle: p.angle || 0 }, pad);
+      };
+      for (const p of this.platforms) {
+        const d = p.def;
+        if (!d) continue;
+        if (d.pieces) {
+          if (d.pieces.some((q) => inPiece(q, PAD))) return true;
+          continue;
+        }
+        if (d.poly) {
+          if (insidePolyPts(x, y, d.poly, PAD)) return true;
+          continue;
+        }
+        if (inOBB(x, y, { x: d.x, y: d.y, w: d.w, h: d.h, angle: d.angle || 0 }, PAD)) return true;
+      }
+      for (const c of this.crates) {
+        const d = c.def;
+        if (d.dynamic) continue;                   // a loose block can be drawn around
+        const w = d.w || d.size, h = d.h || d.size;
+        if (inOBB(x, y, { x: d.x, y: d.y, w, h, angle: d.angle || 0 }, PAD)) return true;
+      }
+      for (const g of this.glasses) {
+        const half = g.topHalf + 2, hh = (g.bottom - g.top) / 2 + 4;
+        if (inOBB(x, y, { x: g.x, y: g.top + hh - 2, w: half * 2, h: hh * 2, angle: g.angle || 0 }, 0)) {
+          return true;
+        }
+      }
+      // The pink sheet: a region of the room where ink may not be laid down at
+      // all. It is not solid — water and objects pass through it — it only
+      // refuses the pen.
+      if (this.level.restrict) {
+        for (const r of this.level.restrict) {
+          if (r.pieces) {
+            if (r.pieces.some((q) => inPiece(q, 0))) return true;
+          } else if (r.poly) {
+            if (insidePolyPts(x, y, r.poly, 0)) return true;
+          } else if (inOBB(x, y, { x: r.x, y: r.y, w: r.w, h: r.h, angle: r.angle || 0 }, 0)) {
+            return true;
+          }
+        }
+      }
+      for (const f of this.faucets) {
+        // Only the tap *housing* is no-draw. The nozzle plate below it is solid
+        // scenery you are meant to hook your line around — that is the whole
+        // opening move of the reference game: start at the tap, curl the end
+        // over the plate, and the line hangs from it.
+        const inHousing = Math.abs(x - f.x) < 33 && y > f.y - 80 && y < f.y - 14;
+        if (inHousing) return true;
+      }
+      return false;
+    }
+
+    // The tap stays closed until the first stroke so the player can plan.
+    start() {
+      if (this.state === 'idle') {
+        this.state = 'pouring';
+        // A level can hold the tap shut for a beat (`delay`) so whatever is
+        // already in motion — a thrown or dropped ball — arrives first. The
+        // player still gets the usual moment to plan.
+        this.startDelay = 0.3 + (this.level.delay || 0);
+      }
+    }
+
+    // ---------------------------------------------------------------- update
+    step(dt) {
+      this.time += dt;
+      const sec = dt / 1000;
+
+      // The world waits only for the very first stroke, like the original. After
+      // that it keeps running: the tap pours and gravity pulls while you sketch a
+      // second line, so a stroke that is not anchored will fall out of the level.
+      this.frozen = this.state === 'idle';
+      this.glasses.forEach((g) => g.syncXf());
+
+      // ---- taps (only once the player has started drawing)
+      let flowing = false;
+      for (const f of this.faucets) {
+        if (this.state !== 'pouring' || f.remaining <= 0 || this.frozen) {
+          f.done = f.remaining <= 0; f.flow = 0; continue;
+        }
+        if (this.startDelay > 0) { this.startDelay -= sec; continue; }
+        f.acc += f.def.rate * sec;
+        let spawns = Math.floor(f.acc);
+        f.acc -= spawns;
+        while (spawns-- > 0 && f.remaining > 0) {
+          if (this.water.particles.length >= HG.Water.MAX_PARTICLES) break;
+          // The stream breathes: a slow wobble, not a random one. Random spawn
+          // offsets were the real source of "it passed yesterday": the same
+          // line poured a different stream and missed the mouth. Two sine
+          // waves at unrelated rates give the same living look with a stream
+          // that is identical every time the level is played.
+          f.n = (f.n || 0) + 1;
+          const w = Math.sin(f.n * 1.7) * 0.6 + Math.sin(f.n * 0.43) * 0.4;
+          const sx = f.x + w * (f.def.spread * 4 + 1);
+          // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
+          // droplet born inside a static body gets squeezed out sideways
+          const sy = f.y + 4 + HG.Water.R + 1.5;
+          const p = this.water.spawn(sx, sy, w * 0.55, 2.2);
+          if (p) f.remaining--;
+        }
+        f.flow = f.remaining > 0 ? 1 : 0;
+        if (f.remaining > 0) flowing = true;
+      }
+      this.pouringNow = flowing;
+
+      // ---- a swinging wire is a joint chain: keep it inside sane limits
+      for (const st of this.ink.strokes) {
+        const b = st.body;
+        if (!b || st.gone) continue;
+        const sp = Math.hypot(b.velocity.x, b.velocity.y);
+        if (sp > 24) Body.setVelocity(b, { x: (b.velocity.x / sp) * 24, y: (b.velocity.y / sp) * 24 });
+        if (Math.abs(b.angularVelocity) > 8) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 8);
+      }
+
+      // ---- keep knocked-over glasses from exploding
+      for (const g of this.glasses) {
+        if (!g.dynamic || !g.body) continue;
+        const b = g.body;
+        if (Math.abs(b.angularVelocity) > 9) Body.setAngularVelocity(b, Math.sign(b.angularVelocity) * 9);
+        const sp = Math.hypot(b.velocity.x, b.velocity.y);
+        if (sp > 26) Body.setVelocity(b, { x: (b.velocity.x / sp) * 26, y: (b.velocity.y / sp) * 26 });
+      }
+
+      // ---- water hazards & fans
+      this.water.step(dt, this.time);
+
+      // ---- glass fill bookkeeping (water surface height inside each glass)
+      let allFull = this.glasses.length > 0;
+      const innerH = (g) => g.h - g.wall * 2;
+      for (const g of this.glasses) {
+        const ys = this.water.levelsIn(g);
+        g.count = ys.length;
+        let surface = g.bottom - g.wall;
+        if (ys.length >= 2) {
+          // ignore the top ~18% of droplets (a droplet that is still falling in)
+          const k = Math.min(ys.length - 1, Math.floor(ys.length * 0.18));
+          surface = ys[k];
+        }
+        const bySurface = M.clamp((g.bottom - g.wall - surface) / innerH(g), 0, 1);
+        const byCount = M.clamp(ys.length / g.capacity, 0, 1.2);
+        // a couple of stray droplets must never read as "full"
+        const raw = Math.min(bySurface, byCount);
+        g.fill = raw;
+        g.surfaceY = surface;
+        g.fillSmooth = M.approach(g.fillSmooth, raw, 8, sec);
+        const wasSatisfied = g.satisfied;
+        g.satisfied = g.fill >= g.need;
+        if (g.satisfied && !wasSatisfied) g.glow = 1;
+        g.glow = M.approach(g.glow, g.satisfied ? 1 : 0, 4, sec);
+        if (g.satisfied) g.doneTimer = (g.doneTimer || 0) + sec;
+        else g.doneTimer = Math.max(0, (g.doneTimer || 0) - sec * 0.5);
+        g.done = g.doneTimer >= 0.5;
+
+        // A ball in the cup spoils it. The reference game treats this as a
+        // straight fail, and it has to be a rule rather than a convention: a
+        // ball is a solid 44 px wide, so a cup holding one cannot hold the
+        // water it promises, and no amount of pouring will fix that.
+        // The test is circle-against-mouth, not centre-inside: a ball that
+        // rides the water surface sits *above* the rim line while being
+        // unmistakably in the glass, and the old centre test called that a win.
+        g.spoiled = false;
+        if (this.balls.length) {
+          for (const bb of this.balls) {
+            const p = bb.body.position;
+            const r = (bb.body.circleRadius || 26);
+            const overMouth = Math.abs(p.x - g.cx) < g.topHalf + r * 0.2;
+            const dipsIn = p.y + r > g.top + 2 && p.y < g.bottom - 2;
+            if (overMouth && dipsIn) { g.spoiled = true; break; }
+            // A heavy ball that STRIKES the glass breaks it too. Without this
+            // the only ball that can ever threaten a cup is one falling straight
+            // into its mouth, which makes every ball room the same puzzle. In
+            // the reference game a ball can arrive from the side, off a ramp or
+            // off a shelf and still end the level — the cup is a glass, not a
+            // hoop. Only a fast, heavy hit counts: a ball resting against the
+            // base (or nudged slowly by water) is not a strike.
+            if (g.strikeable !== false) {
+              const v = bb.body.velocity;
+              const sp = Math.hypot(v.x, v.y);
+              const nearX = Math.abs(p.x - g.cx) < g.topHalf + r + 4;
+              const nearY = p.y + r > g.top - 6 && p.y - r < g.bottom + 10;
+              if (sp > 4.5 && nearX && nearY) { g.spoiled = true; break; }
+            }
+          }
+        }
+        if (g.spoiled) { g.satisfied = false; g.doneTimer = 0; g.done = false; }
+
+        if (!g.satisfied) allFull = false;
+
+        // a dynamic glass can be knocked over or dropped off the level
+        if (g.dynamic && g.body) {
+          if (g.cy > HG.H + 110 || g.cx < -220 || g.cx > HG.W + 220) g.lost = true;
+          if (Math.abs(g.angle) > 1.25) g.tipped += sec;
+          else g.tipped = Math.max(0, g.tipped - sec * 1.5);
+          if (g.tipped > 1.2) g.lost = true;
+          if (g.lost) this.fell = true;
+        }
+      }
+      this.shake = M.approach(this.shake, 0, 6, sec);
+
+      // a stroke that lost its anchor has fallen out of the level — forget it
+      for (const st of this.ink.strokes) {
+        if (st.gone || !st.body) continue;
+        if (st.body.position.y > HG.H + 420) {
+          Composite.remove(this.world, st.body);
+          st.gone = true;
+          st.body = null;
+          this.ink.segments = this.ink.segments.filter((sg) => sg.stroke !== st);
+          this._segCache = null;
+        }
+      }
+
+      // ---- win / lose timing
+      if (this.state !== 'won' && this.state !== 'lost') {
+        if (this.glasses.some((g) => g.spoiled)) {
+          this.spoilTimer = (this.spoilTimer || 0) + sec;
+          if (this.spoilTimer > 0.35) this.finish(false);
+        } else {
+          this.spoilTimer = 0;
+        }
+        if (this.fell) {
+          this.glasses.forEach((g) => { if (g.lost) g.lostTimer = (g.lostTimer || 0) + sec; });
+          if (this.glasses.some((g) => (g.lostTimer || 0) > 0.6)) this.finish(false);
+        } else if (allFull || this.glasses.every((g) => g.done)) {
+          this.finish(true);
+        }
+
+        const noWaterLeft = this.faucets.every((f) => f.remaining <= 0);
+        if (!this.frozen && !this.fell && noWaterLeft && !allFull) {
+          this.endTimer += sec;
+          const anyMoving = this.water.particles.some((p) => {
+            const v = p.body.velocity;
+            return Math.abs(v.x) + Math.abs(v.y) > 0.35;
+          });
+          const fewLeft = this.water.particles.length < 3;
+          if (fewLeft) this.settleTimer += sec;
+          else if (!anyMoving) this.settleTimer += sec;
+          else this.settleTimer = 0;
+          if (this.settleTimer > 1.1 || this.endTimer > 22) this.finish(false);
+        }
+      }
+
+      if (this.state === 'won') this.winTimer += sec;
+
+      // evaporation puffs
+      for (let i = this.evapPuffs.length - 1; i >= 0; i--) {
+        const p = this.evapPuffs[i];
+        p.y -= 0.9 * (dt / 16.7);
+        p.x += p.vx;
+        p.life -= 0.02 * (dt / 16.7);
+        if (p.life <= 0) this.evapPuffs.splice(i, 1);
+      }
+    }
+
+    finish(won) {
+      if (this.state === 'won' || this.state === 'lost') return;
+      this.state = won ? 'won' : 'lost';
+      this.resultTimer = 0;
+      if (won) {
+        this.glasses.forEach((g) => (g.glow = 1));
+        if (this.onWin) this.onWin(this);
+      } else if (this.onLose) this.onLose(this);
+    }
+
+    onEvaporate(x, y) {
+      for (let i = 0; i < 3; i++) {
+        this.evapPuffs.push({
+          x: x + M.rand(-5, 5), y: y - 4,
+          vx: M.rand(-0.4, 0.4), life: 1, r: M.rand(3, 7),
+        });
+      }
+      if (this.evapPuffs.length > 60) this.evapPuffs.splice(0, this.evapPuffs.length - 60);
+    }
+
+    onCollide(ev) {
+      for (const pair of ev.pairs) {
+        const a = pair.bodyA, b = pair.bodyB;
+        const w = a.label === 'water' ? a : b.label === 'water' ? b : null;
+        if (!w) continue;
+        const other = w === a ? b : a;
+        if (other.label === 'water') continue;
+        // little splash when a droplet lands
+        if (Math.random() < 0.10) {
+          this.water.splash(w.position.x, w.position.y + 4, 1, 1.2);
+          if (HG.Sfx) HG.Sfx.plop();
+        }
+        // A droplet landing in the cup used to bump a `wobble` value here, and
+        // the renderer slid the whole glass sideways on it. Water is far lighter
+        // than the glass, so it does not move the glass — not one pixel, not
+        // even visually. The plop and the splash are the feedback; the cup stays
+        // put. (Nothing collides a water body with the cup's own walls any more
+        // either — see CAT_GLASS in util.js — so this event is the only news the
+        // glass gets from the fluid at all.)
+      }
+    }
+
+    // --------------------------------------------------------------- physics
+    // The wire is a thin rod now (8 px) and a droplet in free fall covers about
+    // 11 px per frame at terminal speed — more than half a rod. Stepping the
+    // solver once per frame let a fast droplet straddle the rod in a single
+    // step: it would sink in, get shoved out, sink again. On screen that reads
+    // exactly like the wire shivering when water lands on it. Three substeps cut
+    // the per-step travel to ~3.8 px, well under the rod, so contact is resolved
+    // on the surface and stays put.
+    physics(dt) {
+      if (this.frozen) return;
+      // Speed ceiling for the fluid. A droplet is a 14 px ball and the wire is an
+      // 8 px rod: above this it would cross the rod inside one solver step and
+      // pop through (or, worse, alternately inside and outside it — a shiver).
+      const MAXV = MAX_DROP_SPEED;
+      const clampDrops = () => {
+        for (const p of this.water.particles) {
+          const b = p.body;
+          const sp = Math.hypot(b.velocity.x, b.velocity.y);
+          if (sp > MAXV) Body.setVelocity(b, { x: (b.velocity.x / sp) * MAXV, y: (b.velocity.y / sp) * MAXV });
+        }
+      };
+      this.syncGlassGhosts();
+      clampDrops();
+      const n = PHYS_SUBSTEPS;
+      // A cup carries the water it holds. The fluid cannot shove it (the cup is
+      // water-blind — see CAT_GLASS), but the load is real: 45 droplets weigh
+      // something, they sit near the bottom, and that weight is what keeps a cup
+      // planted on its perch instead of tipping. Without this a half-full cup
+      // balanced on a drawn line behaves like an empty one and rolls off.
+      const loads = this.glassLoads();
+      const h = dt / n;
+      // Water and ink are both ordinary bodies now: the engine resolves their
+      // contacts in both directions, so a stream genuinely leans on the line.
+      for (let i = 0; i < n; i++) {
+        // weight only, straight down at the water's own centre of mass: no
+        // sideways component, so it can press the cup onto its support but can
+        // never slide it
+        for (const L of loads) {
+          Body.applyForce(L.body, L.at, { x: 0, y: L.force * this.engine.gravity.y * this.engine.gravity.scale });
+        }
+        Engine.update(this.engine, h);
+        // A droplet that lands on a drawn line must RIDE it, not bounce off a
+        // 4 px wire. Real water has surface tension: it clings to a wet surface
+        // and runs down to the low end. Without this, a droplet balanced on the
+        // rod rolls off the side within a few frames and the line can only ever
+        // be used as a wall, never as a chute — which is the one thing the
+        // reference game builds most of its levels out of.
+        if (this.level.wet) { this.syncWicks(); this.wetInk(h); }
+        // a blower or a spinner can add velocity *inside* the frame, so the
+        // ceiling has to be re-applied per substep, not once per frame
+        clampDrops();
+      }
+      this.syncGlassGhosts();
+      this.calmBodies();
+    }
+
+    // How much water each cup is carrying, where that load sits, and the force
+    // that weight stands for (Matter turns force into acceleration by mass, so
+    // the number to feed it is the water's mass times g).
+    glassLoads() {
+      const out = [];
+      for (const g of this.glasses) {
+        if (!g.dynamic || !g.body) continue;
+        let m = 0, sx = 0, sy = 0;
+        for (const p of this.water.particles) {
+          if (p.dead) continue;
+          const b = p.body;
+          if (!g.contains(b.position.x, b.position.y)) continue;
+          m += b.mass; sx += b.position.x * b.mass; sy += b.position.y * b.mass;
+        }
+        if (m <= 0) continue;
+        out.push({ body: g.body, at: { x: sx / m, y: sy / m }, force: m });
+      }
+      return out;
+    }
+
+    // Move each cup's water-only walls onto the cup itself. A ball can still
+    // knock a glass over, and the water inside must follow it, so this runs
+    // after every physics update — same single position+angle copy the wet-ink
+    // surface uses on its stroke.
+    syncGlassGhosts() {
+      for (const g of this.glasses) {
+        if (!g.ghosts || !g.body) continue;
+        const b = g.body;
+        const c = Math.cos(b.angle), s = Math.sin(b.angle);
+        for (const gh of g.ghosts) {
+          const gb = gh.body;
+          const x = b.position.x + gh.x * c - gh.y * s;
+          const y = b.position.y + gh.x * s + gh.y * c;
+          const a = b.angle + gh.a;
+          if (Math.abs(gb.position.x - x) < 0.02 && Math.abs(gb.position.y - y) < 0.02 &&
+              Math.abs(gb.angle - a) < 1e-3) continue;
+          Body.setPosition(gb, { x, y });
+          Body.setAngle(gb, a);
+        }
+      }
+    }
+
+    // ------------------------------------------------------------- wet ink
+    // Surface tension along a drawn line.
+    //
+    // For every droplet that is touching a stroke, this does three things:
+    //   * kills the bounce (the normal component of its velocity),
+    //   * pulls it onto the line's centre so it cannot roll off the side,
+    //   * lets gravity take it along the line toward the low end.
+    // The result is that water entering a chute arrives at the chute's end
+    // instead of scattering off its sides, which is what makes routing rooms
+    // possible at all.
+    // Glue every stroke's water-surface to the stroke itself. The line is one
+    // rigid body, so this is a single position + angle copy per stroke.
+    syncWicks() {
+      for (const st of this.ink.strokes) {
+        if (!st.wick || !st.body || st.gone) continue;
+        const b = st.body;
+        if (Math.abs(st.wick.position.x - b.position.x) < 0.01 &&
+            Math.abs(st.wick.position.y - b.position.y) < 0.01 &&
+            Math.abs(st.wick.angle - b.angle) < 1e-4) continue;
+        Body.setPosition(st.wick, { x: b.position.x, y: b.position.y });
+        Body.setAngle(st.wick, b.angle);
+      }
+    }
+
+    wetInk(h) {
+      const strokes = this.ink.strokes;
+      let parts = this._wetParts;
+      if (!parts || this.ink.segments.length !== this._wetSegCount) {
+        parts = this._wetParts = [];
+        for (const st of strokes) {
+          if (!st.wick || st.gone) continue;
+          for (let i = 1; i < st.wick.parts.length; i++) parts.push(st.wick.parts[i]);
+        }
+        this._wetSegCount = this.ink.segments.length;
+      }
+      if (!parts.length) return;
+      const R = HG.Water.R;
+      const REACH = R + 7;             // how far a drop can be and still be caught
+      const ABSORB = 0.85;             // share of the incoming normal speed removed
+      const SLIDE = 1.6;               // extra push along the line, downhill
+      const dtv = h;                   // ms this substep stands for
+      for (const p of this.water.particles) {
+        const b = p.body;
+        const bx = b.position.x, by = b.position.y;
+        let hit = null;
+        for (const part of parts) {
+          const bb = part.bounds;
+          if (bx < bb.min.x - REACH || bx > bb.max.x + REACH ||
+              by < bb.min.y - REACH || by > bb.max.y + REACH) continue;
+          const a = part.angle, ca = Math.cos(a), sa = Math.sin(a);
+          const dx = bx - part.position.x, dy = by - part.position.y;
+          const lx = dx * ca + dy * sa;
+          const ly = -dx * sa + dy * ca;
+          const halfLen = part.width / 2;
+          // only the TOP face of the line catches water, and not at its very ends
+          // (a droplet has to be able to run off the end into the cup)
+          if (Math.abs(lx) > halfLen - 2) continue;
+          if (ly > -INK_W / 2 + 0.5 || ly < -INK_W / 2 - REACH) continue;
+          const d = -ly - INK_W / 2;          // height above the top face
+          if (!hit || d < hit.d) hit = { ca, sa, ly, d, lx, halfLen };
+        }
+        if (!hit) continue;
+        const v = b.velocity;
+        // normal of the top face, pointing up into the world
+        const nx = hit.sa, ny = -hit.ca;
+        const vn = v.x * nx + v.y * ny;
+        let vx = v.x, vy = v.y;
+        // 1. land dead: take the energy out of the incoming drop so it does not
+        //    bounce off the wire and scatter
+        if (vn < 0) {
+          vx -= nx * vn * ABSORB;
+          vy -= ny * vn * ABSORB;
+        }
+        // 2. run downhill along the line: the steeper the line, the faster
+        //    the surface tension carries the droplet to its low end
+        const tx = hit.ca, ty = hit.sa;
+        const steep = Math.abs(ty);
+        if (steep > 0.02) {
+          const dir = ty > 0 ? 1 : -1;
+          const along = (vx * tx + vy * ty) * dir;         // current speed downhill
+          const target = Math.min(Scene.WET_SLIDE * steep, along + Scene.WET_ACCEL * steep);
+          if (target > along) {
+            vx += tx * dir * (target - along);
+            vy += ty * dir * (target - along);
+          }
+        }
+        if (vx !== v.x || vy !== v.y) Body.setVelocity(b, { x: vx, y: vy });
+      }
+    }
+
+    // Numerical dust: the solver leaves a few hundredths of a pixel per step of
+    // residual motion in a stack that has already come to rest. Nothing in the
+    // game wants that — it is the "buzzing" look on pooled water — so anything
+    // below the visible threshold is snapped to a dead stop. Bodies that are
+    // genuinely moving are untouched.
+    calmBodies() {
+      const EPS = 0.035;
+      for (const p of this.water.particles) {
+        const b = p.body;
+        if (!b || b.isSleeping) continue;
+        if (Math.abs(b.velocity.x) < EPS && Math.abs(b.velocity.y) < EPS) {
+          Body.setVelocity(b, { x: 0, y: 0 });
+          b.angularVelocity = 0;
+        }
+      }
+      for (const st of this.ink.strokes) {
+        const b = st.body;
+        if (!b || st.gone || b.isStatic) continue;
+        if (Math.abs(b.velocity.x) >= EPS || Math.abs(b.velocity.y) >= EPS) continue;
+        if (Math.abs(b.angularVelocity) >= 0.002) continue;
+        if (!this.inkIsResting(b)) continue;   // a sliding line keeps its motion
+        Body.setVelocity(b, { x: 0, y: 0 });
+        Body.setAngularVelocity(b, 0);
+      }
+    }
+
+    // Is this line currently leaning on the world? Only then is sub-pixel
+    // residue "noise" rather than a real slow slide.
+    inkIsResting(b) {
+      const pairs = this.engine.pairs.list;
+      for (let i = 0; i < pairs.length; i++) {
+        const pair = pairs[i];
+        if (!pair || !pair.isActive) continue;
+        const a = pair.bodyA, bb = pair.bodyB;
+        if (a !== b && bb !== b) continue;
+        const other = a === b ? bb : a;
+        if (other && other.label !== 'water') return true;
+      }
+      return false;
+    }
+
+    destroy() {
+      if (this._onCollide) Events.off(this.engine, 'collisionStart', this._onCollide);
+      this.water.clear();
+      Composite.clear(this.world, false);
+      Engine.clear(this.engine);
+    }
+  }
+
+  Scene.INK_DENSITY = INK_DENSITY;   // tunable: read at endInk()
+  Scene.WALL = WALL;
+  Scene.INK_W = INK_W;
+  // Water-rides-ink is OFF unless a level sets `wet: true`. It changes how
+  // droplets behave on a drawn line, and the 40 proved rooms depend on the old
+  // behaviour, so it is opt-in per level rather than a global switch.
+  Scene.WET_SLIDE = 2.2;   // top speed a droplet reaches running down a line
+  Scene.WET_ACCEL = 0.25;  // how quickly it gets there
+  Scene.SUBSTEPS = PHYS_SUBSTEPS;
+  HG.Scene = Scene;
+  HG.Glass = Glass;
+})(window);
