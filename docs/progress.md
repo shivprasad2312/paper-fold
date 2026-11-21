@@ -47,6 +47,7 @@ and the retention candidates from research §7.
 
 | Commit | Milestone | Verified by |
 |---|---|---|
+| this cycle (j) | **No walking around the obstacles** (ADR-051, the free-path law): the owner's map review — "if a path don't have any obstacle then what is use of obstacles?" — became a rule with an engine. Landing on any mechanic tile counts as engaging (whole patrol lines via `orbLineTiles`, not just waypoints — the first audit draft accused 65, the corrected engine proved **35 of 191**: 9 at exactly par, 26 within +6). Law in `rules.js`, enforced by both generators, the daily loop and `verify-levels`, with a shrink-only backlog ratchet. Fixed in waves: hand L5 (cracked row now spans the bridge) and L9 (northern highway removed; the blade's terrace is the only way east), campaign L16/L44 and 31 campaign2 levels regenerated through the lawful generator and spliced over their shipped defs (untouched levels byte-identical). The density ratchet caught the regen dropping twin shuttles (15→14) — restored by force on L112/L127/L133. Final state: backlog **empty**, every route in the game engages, all 35 played to `won` |
 | this cycle (i) | **The wheel** (ADR-050): a two-armed capstan over a pit, arms one mini-height above the slab — **the mini cube ducks under, the full cube is caught and flung**. The game's first hazard that kills on contact *inside* the board rather than by removing floor. Clock + fairness law (≥ `TIMING_FLOOR` clear per pass, enforced at parse), planning law (proofs route the ring only while mini; the simulation still allows the doomed full-size roll — the dare), purity laws, the live bot's planner made wheel-aware, and a whole-board-zoom read (bright paddles vs dark spokes + a warning disc per ring tile driven by the same proximity number the kill reads). Two hand-built act-10 boards take the two thinnest generated slots: **192 The Turning** (par 46) and **196 Beneath the Rim** (par 54, low tunnel + second wheel). Measured live: full size dies in 2.2 s, mini survives 7 s; 192/196 both play to `won` in the gate |
 | this cycle (h) | **One camera, one motion** (ADR-049): the follow window removed — the whole board is fitted at every size again, with only the clamped parallax toward the cube; seat rotations refit instead of cropping. The reduced-motion **flat slide removed**: every move is a true edge-pivot tumble in every mode, and the sealed gate's refusal is a roll that never completes. No timing constant, par or proof touched; `framing.js` reduced to the occlusion ray |
 | this cycle (g) | **Visual verification** (ADR-048): the picture proved from the data — a structural audit (built scene vs parsed level: counts, merged-slab bounds, verts-per-tile, no NaN, cube on start) and a **plan-view pixel audit** (top-down, bloom-off framebuffer readback, every tile projected and sampled: floor lit, void dark, goal bright, thresholds calibrated per frame, time-varying cells counted explicitly) | 22/22 sampled levels (every act, bosses, L118, showcases, Vault) match tile-for-tile: 0 missing tiles, 0 ghosts, 0 page errors; 3/4 gameplay views inspected; bloom restored after each readback |
@@ -280,6 +281,36 @@ pulse 22, timed 22, conveyor 16, twin 15, freeze 22, heavy 22,
 proximity 23, blocks 14, lift 4, shrink 3, piston 3, turntable 3,
 cling 3, slider 3). Slider density arc deferred; wind is the only
 mechanic still without a generator carve.)
+ADR-051 (The free-path law: no walking around the obstacles. The verifier
+always promised "at least one path exists"; the owner, reading the maps,
+asked why several levels let you reach the goal without meeting any
+obstacle at all. Genre research agreed — Monument Valley has one solution
+per level, Bloxorz's floors forbid wandering, EDGE is one spine with
+prism detours. So the promise got its mirror: the shortest route that
+never lands on a mechanic tile must not exist, or must cost more than 6
+rolls past par. Engagement had to mean the game's own tiles — hazard,
+movement kit, gates, size pads, and sentinel patrol LINES via orbLineTiles;
+the first count, waypoints only, accused 65 levels, and the corrected
+engine proved 35 (9 at par, 26 cheap). Wind and mechanic-free teach boards
+are exempt by construction. The 35 shipped through a backlog ratchet that
+fails both ways, and were fixed worst-first: two hand levels re-carved,
+33 regenerated through the generator with the law in its gate and spliced
+over the shipped defs so untouched neighbours stayed byte-identical. The
+density ratchet then caught the regeneration dropping twin shuttles on
+three levels — restored by the one-slot force knob rather than by lowering
+the floor, the same lesson as the wheel's door. The wheel levels and the
+Vault were already clean, which is the corridor argument in miniature:
+obstacles gate when the floor makes them.) BUG-008 closed the wave: the
+commit gate's live bot failed L124 "Ropewalk" 200/201 — a faithful,
+untouched level failed by the test itself. The bot's own law ("never
+wait on a turntable arm; the pivot is the safe refuge") lived in only one
+guard: boarding waits stood the cube on an exit arm while platforms
+docked on their own clocks, and the bar swept it. The bot now prices the
+arm run at the ADR-018 slow bound, watches the dock/lift clock jointly
+from solid ground when an arm exits straight onto a platform, and
+retreats to the pivot whenever a wait would begin on an arm. L124 wins
+first-try, and the full-catalogue diagnostic proved it was the gate's
+only failure.
 ADR-050 (The wheel: a hazard you can duck under. Every hazard so far
 removed floor, displaced you, or patrolled; none asked HOW BIG you were —
 size was only ever a gate, which makes shrinking a key and not a choice.

@@ -54,6 +54,8 @@ const {
   clingTarget,
   ROLL_TIME,
   ORB_KILL_RADIUS,
+  COMMIT_SLOW_PRESS,
+  COMMIT_SLOW_LOOP,
   commitSchedules,
   commitBandDistR2,
   canPushBlock,
@@ -664,6 +666,22 @@ async function pressRoll(move, target) {
  */
 async function driveRouteLive(tiles, moves, ctx) {
   let stuck = 0;
+  // Standing on a turntable arm, EVERY wait below is a death sentence —
+  // the bar sweeps the floor away on its own clock (the ctx law: never
+  // wait on an arm; the pivot is the safe refuge). Roll back to the pivot
+  // and hand back for a re-plan: from solid ground the entry wait can
+  // watch the far clock (a dock, a lift) alongside the bar's own. (L124
+  // "Ropewalk", 2026-11-20: the cube waited out shuttle dwells standing
+  // on the exit arm and was swept, attempt after attempt, until the key
+  // leg exhausted its retries.)
+  const armRefuge = async (st) => {
+    if (!ctx.turntableArms.has(key(st.x, st.z))) return null;
+    const tt = ctx.model.turntableCells.get(key(st.x, st.z));
+    const pivot = { x: tt.at[0], z: tt.at[1] };
+    const mv = pivot.x > st.x ? 'right' : pivot.x < st.x ? 'left' : pivot.z > st.z ? 'down' : 'up';
+    await pressRoll(mv, pivot);
+    return 'replan';
+  };
   for (let r = 0; r < tiles.length - 1; ) {
     const st = await snapLive();
     if (st.state === 'won') return true;
@@ -763,6 +781,7 @@ async function driveRouteLive(tiles, moves, ctx) {
       if (!ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
         const t0 = Date.now();
         let safe = false;
+        let refuged = false;
         while (!safe && Date.now() - t0 < 30000) {
           const now = await snapLive();
           if (now.state === 'won') return true;
@@ -773,6 +792,15 @@ async function driveRouteLive(tiles, moves, ctx) {
           ctx.speedMul = now.speedMul || 1; // boss phase may have turned
           safe = (freezeCross > 0 && now.freezeLeft > freezeCross * ROLL_TIME + 0.5)
             || crossingSafe(ctx, entry, seq, exit, orbsNow(ctx, now.orbs, now.orbDist, now.orbAwake));
+          // unsafe AND standing on a turntable arm → the wait itself is
+          // the hazard: refuge to the pivot and re-plan the crossing
+          // from solid ground (a safe crossing needs no wait at all and
+          // commits straight from the arm, like any other press)
+          if (!safe && !refuged) {
+            refuged = true;
+            const refuge = await armRefuge(now);
+            if (refuge) return refuge;
+          }
           if (safe && lastSlider) {
             const isUp = await phaseUp(lastSlider.x, lastSlider.z);
             if (!isUp) sliderWasDown = true;
@@ -816,8 +844,14 @@ async function driveRouteLive(tiles, moves, ctx) {
     // (never while standing on a crumble slab or another pulsing gap)
     if ((ctx.sliders.has(key(target.x, target.z)) || ctx.pulse.has(key(target.x, target.z)))
       && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
+      // already up → the press needs no wait, arm underfoot or not;
+      // only a real wait sends the cube back to the pivot refuge
+      let up = await phaseUp(target.x, target.z);
+      if (!up) {
+        const refuge = await armRefuge(st);
+        if (refuge) return refuge;
+      }
       const t0 = Date.now();
-      let up = false;
       while (!up && Date.now() - t0 < 10000) {
         up = await phaseUp(target.x, target.z);
         if (!up) await wait(80);
@@ -832,8 +866,17 @@ async function driveRouteLive(tiles, moves, ctx) {
     // just desyncs us into a replan, it cannot kill)
     if (ctx.pistons.has(key(target.x, target.z)) && !ctx.pistons.has(key(st.x, st.z))
       && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
+      // already clear → the press needs no wait, arm underfoot or not;
+      // only a real wait sends the cube back to the pivot refuge
+      let clear = !(await page.evaluate(
+        ([x, z]) => window.__kubik.game.view.pistonImminent(x, z, 0.5),
+        [target.x, target.z],
+      ));
+      if (!clear) {
+        const refuge = await armRefuge(st);
+        if (refuge) return refuge;
+      }
       const t0 = Date.now();
-      let clear = false;
       while (!clear && Date.now() - t0 < 15000) {
         const immin = await page.evaluate(
           ([x, z]) => window.__kubik.game.view.pistonImminent(x, z, 0.5),
@@ -846,21 +889,44 @@ async function driveRouteLive(tiles, moves, ctx) {
     }
 
     // turntable arm (Phase B, ADR-036): step on only while the bar joins
-    // this pair AND the dwell has room for the crossing press sequence —
-    // the executor re-checks before every step, so requiring the bar to
-    // be freshly aligned (first half of its dwell-half) covers the step
-    // on plus the step off onto the pivot or far bank. Never wait while
-    // standing on an arm, a crumble, or a pulsing gap.
+    // this pair AND the remaining dwell covers the whole arm run — the
+    // step on plus one more roll clear of the bar (arm → pivot or arm →
+    // bank) at the slowest press rhythm the fairness model allows
+    // (ADR-018 slow bound: first press + one continuation). The old
+    // 0.9 s satisfied neither bound and the bar swept the exit roll
+    // under load (L124, 2026-11-20). If the arm run exits straight onto
+    // a shuttle or lift dock, the far clock joins the wait NOW, on solid
+    // ground: landing on the far arm and waiting there for a platform
+    // is the same sweep death one tile later. Never wait while standing
+    // on an arm, a crumble, or a pulsing gap.
     if (ctx.turntableArms.has(key(target.x, target.z)) && !ctx.turntableArms.has(key(st.x, st.z))
       && !ctx.crumbles.has(key(st.x, st.z)) && !ctx.pulse.has(key(st.x, st.z))) {
+      const CROSS = COMMIT_SLOW_PRESS + 2 * ROLL_TIME + COMMIT_SLOW_LOOP;
+      const after = tiles[r + 2];
+      const dockAfter = after && ctx.docks.has(key(after.x, after.z)) ? after : null;
+      const liftAfter = after && ctx.liftDocks.has(key(after.x, after.z)) ? after : null;
+      const armTile = ctx.model.tiles.get(key(target.x, target.z));
       const t0 = Date.now();
       let aligned = false;
-      while (!aligned && Date.now() - t0 < 20000) {
+      while (!aligned && Date.now() - t0 < 30000) {
         aligned = await page.evaluate(
-          ([x, z]) => window.__kubik.game.view.turntableSolidAt(x, z)
-            && window.__kubik.game.view.turntableDwellLeftAt(x, z) >= 0.9,
-          [target.x, target.z],
+          ([x, z, cross]) => window.__kubik.game.view.turntableSolidAt(x, z)
+            && window.__kubik.game.view.turntableDwellLeftAt(x, z) >= cross,
+          [target.x, target.z, CROSS],
         );
+        if (aligned && dockAfter) {
+          aligned = await page.evaluate(
+            ([x, z]) => window.__kubik.game.view.shuttleDocked(x, z),
+            [dockAfter.x, dockAfter.z],
+          );
+        }
+        if (aligned && liftAfter) {
+          const h = await page.evaluate(
+            ([x, z]) => window.__kubik.game.view.liftDockHeight(x, z),
+            [liftAfter.x, liftAfter.z],
+          );
+          aligned = h !== null && checkRoll(ctx.model, armTile, { x: liftAfter.x, z: liftAfter.z, h }).ok;
+        }
         if (!aligned) await wait(70);
       }
       if (!aligned) return false;
@@ -910,15 +976,35 @@ async function driveRouteLive(tiles, moves, ctx) {
     // at a dwell, and at the dwell's own height.
     if (ctx.liftDocks.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
       const curTile = ctx.model.tiles.get(key(st.x, st.z));
-      const ok = await waitLiftDwell(target.x, target.z,
-        (h) => checkRoll(ctx.model, curTile, { x: target.x, z: target.z, h }).ok);
+      const okH = (h) => checkRoll(ctx.model, curTile, { x: target.x, z: target.z, h }).ok;
+      // already serving → the press needs no wait, arm underfoot or not;
+      // only a real wait sends the cube back to the pivot refuge
+      const h0 = await page.evaluate(
+        ([x, z]) => window.__kubik.game.view.liftDockHeight(x, z),
+        [target.x, target.z],
+      );
+      let ok = h0 !== null && okH(h0);
+      if (!ok) {
+        const refuge = await armRefuge(st);
+        if (refuge) return refuge;
+        ok = await waitLiftDwell(target.x, target.z, okH);
+      }
       if (!ok) return false;
     }
 
     // boarding a shuttle dock: the platform must be dwelling there first
     if (ctx.docks.has(key(target.x, target.z)) && !ctx.crumbles.has(key(st.x, st.z))) {
+      // already docked → the press needs no wait, arm underfoot or not;
+      // only a real wait sends the cube back to the pivot refuge
+      let docked = await page.evaluate(
+        ([x, z]) => window.__kubik.game.view.shuttleDocked(x, z),
+        [target.x, target.z],
+      );
+      if (!docked) {
+        const refuge = await armRefuge(st);
+        if (refuge) return refuge;
+      }
       const t0 = Date.now();
-      let docked = false;
       while (!docked && Date.now() - t0 < 10000) {
         docked = await page.evaluate(
           ([x, z]) => window.__kubik.game.view.shuttleDocked(x, z),

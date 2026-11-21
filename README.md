@@ -130,7 +130,10 @@ read as a descent — but you can backtrack and explore. The level verifier enfo
 invariants so no shipped level can waste your time — the goal is always reachable,
 **no reachable tile is a dead end** (zero soft-locks), a crumble-aware search proves the
 cracked slabs never seal the only route, no sentinel may spawn on top of the player or
-the goal, and levels with pushes are proven solvable with the pushes they grant.
+the goal, and levels with pushes are proven solvable with the pushes they grant. And
+since the free-path law (ADR-051), the reverse holds too: there is no route that walks
+*around* a level's obstacles for free — the shortest mechanic-free route must not exist,
+or must cost real rolls. If a level has a sentinel, you will meet the sentinel.
 
 ## Two themes, one world
 

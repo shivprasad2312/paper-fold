@@ -209,6 +209,43 @@ re-run green).
 
 ---
 
+## BUG-008 — Live bot waited out platform dwells standing on a turntable arm (L124 "key unreachable") — FIXED
+
+**Discovered by the free-path wave-3 commit gate**, which failed 200/201
+and blocked the commit. A full-catalogue diagnostic rerun reproduced
+exactly one failure: L124 "Ropewalk" — "key unreachable / not picked
+up". Suspicion first fell on the wave, but L124's def is byte-identical
+to the shipped one, the static proof passes (par 46, the route visits
+the key), and the bot *had* won the level before. It was timing-flaky,
+not stuck — a faithful level failed by an impatient test.
+
+**Root cause (test harness, not the game):** the bot's own law —
+"never wait standing on an arm; the pivot is the safe refuge" — was
+written into only the turntable-entry guard. L124's route exits the bar
+straight onto a shuttle dock, and the boarding wait stood the cube on
+that exit arm for up to 10 s while the platform docked on its own
+clock; the bar swept it, attempt after attempt, until the key leg
+exhausted its retries. Two of the same class beside it: the entry check
+accepted 0.9 s of remaining dwell — less than the ADR-018 slow-bound
+budget for the two-roll arm run (0.35 + 2·0.243 + 0.4 ≈ 1.24 s) — and a
+rescue bench could start an attempt already standing on an arm, where
+any patient wait was a sweep in waiting.
+
+**Fix (`scripts/test-levels-playable.mjs` only — no game or level
+code):** the entry wait now requires dwell ≥ the slow-bound arm run,
+and when an arm run exits straight onto a shuttle or lift dock, the far
+clock joins the same wait, so both clocks are watched from solid
+ground. Every wait guard (phase, piston, lift, shuttle,
+crossing-entry) now asks first whether a wait is even needed; if it is,
+and the cube stands on an arm, it rolls back to the pivot and re-plans
+instead of waiting to be swept.
+
+**Status: FIXED** (L124 won first-try on both legs — 44 moves, three
+consecutive runs; all 9 turntable levels live-pass; the diagnostic
+confirms L124 was the gate's only failure).
+
+---
+
 ## Near-misses logged during this cycle (no code change needed)
 
 - **Test-harness double-invocation** (`bfsEval` IIFE called twice) — a

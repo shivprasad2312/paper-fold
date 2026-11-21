@@ -2960,3 +2960,16 @@ the generator now rejects any candidate with a free path, which pressures
 it to carve layouts where the obstacle actually spans the route — the same
 shape-first discipline as Bloxorz. Pars, ids, act bands and the difficulty
 curve are untouched promises, re-proven each wave.
+
+**Outcome (same cycle).** Wave 1 re-carved the two hand levels (L5's
+cracked row now spans the bridge; L9 lost its northern highway and walks
+the sentinel's terrace). Waves 2–3 regenerated the 33 generated offenders
+and spliced the new defs over the shipped files — the shipped campaign
+files predate the current generator, so a raw regeneration rewrote every
+level; splicing kept untouched neighbours byte-identical while every
+replacement is generator-produced and gate-proven. The regeneration tried
+to drop twin shuttles on three levels (15 → 14 catalogue-wide) and the
+density ratchet refused it; twins were restored via the one-slot force
+knob. Final state: the backlog is empty, the law stands alone, and all 35
+rebuilt levels were played to `won` through the live gate path (unit
+241/241, verify 200+10+14, difficulty `--strict`, all green).

@@ -68,11 +68,7 @@ const cataloguePars = new Map();
 // mechanic, 26 more within +6 rolls; the wheel levels and all 10 Vault
 // rooms already comply.)
 // ---------------------------------------------------------------------------
-const FREE_PATH_BACKLOG = new Set([
-  55, 57, 59, 66, 68, 77, 79, 84, 86, 88, 91, 94, 95, 98, 99,
-  102, 103, 106, 109, 112, 117, 127, 133, 134, 137, 141, 142, 149, 166,
-  177, 182,
-]);
+const FREE_PATH_BACKLOG = new Set([]); // ADR-051: emptied by wave 3 — the law now stands alone
 
 function checkLevel(label, def) {
   console.log(`\n${label}`);
