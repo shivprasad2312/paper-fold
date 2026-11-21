@@ -29,6 +29,7 @@ import {
   ROLL_TIME,
 } from '../src/rules.js';
 import { mechanicSignature, MECH_CAP } from './experience.mjs';
+import { emptyFloorProblems } from './empty-floor-audit.mjs';
 
 /**
  * Full verifier gate (the same checks the hand-made levels pass) + bench.
@@ -46,6 +47,7 @@ export function verify(def, b, minOrbs) {
   }
   // — cheap -------------------------------------------------------------
   for (const p of spawnProblems(level)) problems.push(p);
+  for (const p of emptyFloorProblems(def)) problems.push(p);
   const par = shortestRoute(level);
   if (par < b.par[0] || par > b.par[1]) problems.push(`par ${par} outside ${b.par}`);
   // the free-path law (ADR-051): a candidate whose obstacles can all be

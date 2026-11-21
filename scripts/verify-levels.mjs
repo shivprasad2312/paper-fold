@@ -25,6 +25,7 @@ import {
 } from '../src/rules.js';
 import { experienceProblems } from './experience.mjs';
 import { scaleAudit } from './scale-audit.mjs';
+import { emptyFloorProblems } from './empty-floor-audit.mjs';
 
 /** Shortest number of rolls from start to goal (ignores hazards). */
 function shortestRoute(level) {
@@ -80,6 +81,7 @@ function checkLevel(label, def) {
     return;
   }
 
+  for (const p of emptyFloorProblems(def)) fail(p);
   const reach = reachable(level);
   const finish = canStillFinish(level);
 

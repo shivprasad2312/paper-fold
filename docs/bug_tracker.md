@@ -246,6 +246,29 @@ confirms L124 was the gate's only failure).
 
 ---
 
+## BUG-009 — Large empty terraces pass route-engagement checks — FIXED
+
+**Repro:** open L94 Struck Through. Three wide, largely featureless rectangular
+floors dominate the board. A compulsory mechanic on the route lets it pass
+ADR-051 without making those expanses meaningful.
+
+**Root cause:** the scale audit has a minimum floor-area requirement, but no
+upper bound on empty same-height rectangles. Solvability and mechanic
+engagement are not sufficient tests of spatial composition.
+
+**Fix:** audited all campaign/Vault boards (32 review warnings), carved void
+slots and cross-aisles into 19 broad-terrace boards, preserving mechanic data,
+heights, shard locations and proven pars. Added a 96-tile empty-rectangle
+ceiling to offline campaign/Vault generation and catalogue verification.
+Smaller safe rooms remain review warnings, not mandatory removals.
+
+**Regression:** `tests/unit/empty-floor.test.mjs`; full metrics and scope in
+`docs/empty_floor_review.md`. Static verifier, scale and strict difficulty
+checks pass. All 19 edited boards live-pass in focused batches (18/18 and
+3/3 including the daily), with no page errors; L94 also inspected in-browser.
+
+---
+
 ## Near-misses logged during this cycle (no code change needed)
 
 - **Test-harness double-invocation** (`bfsEval` IIFE called twice) — a

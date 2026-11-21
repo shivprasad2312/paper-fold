@@ -5,6 +5,15 @@ this is the map._
 
 ## Current status — 2026-10-23
 
+**Current content review (BUG-009):** the owner's L94 screenshot exposed
+large empty terraces despite compulsory obstacles. Catalogue audit flagged
+32 boards for review; 19 broad terraces have been carved into narrower
+fingers with cross-aisles, without changing pars or mechanic definitions.
+A 96-tile empty-rectangle ceiling now backs the offline generator gates and
+catalogue verifier. Static proofs, scale and strict difficulty pass; all
+19 edited boards live-pass (18/18 and 3/3 batches including the daily, no
+page errors). See `empty_floor_review.md` for per-level metrics.
+
 **Build: GREEN. Validation: instrument shipped, human cohort pending.**
 That second half is deliberate: every claim below is proved by a machine,
 and the one thing a machine cannot measure — whether five people who have

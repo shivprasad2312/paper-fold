@@ -514,3 +514,13 @@ Steps 1–2 are automated commit blockers; 3–4 are human (agent) review at
 content time. **A level that fails 1 or 2 cannot be committed** — this is
 the level-validation system the studio charter asks for, implemented as a
 gate rather than a spreadsheet.
+
+## Empty-floor composition (ADR-052)
+
+Minimum scale is not enough: avoid wide, featureless terraces even when a
+compulsory hazard exists elsewhere. `scripts/empty-floor-audit.mjs` reports
+flat, mechanic-free rectangles; offline generators and the catalogue verifier
+reject any of 96+ tiles (minimum side 3, long side 8). Keep safe landings and
+intentional shard detours, but shape broad floors into narrower sections and
+cross-aisles instead of adding decorative hazards. See `empty_floor_review.md`
+for the L94-driven 19-board curation and its limits.

@@ -39,6 +39,7 @@ Other commands:
 | `npm run build` | production build into `dist/` |
 | `npm run preview` | serve the production build |
 | `npm run verify` | prove all 200 levels + 10 Vault rooms + 14 daily layouts are solvable and fairly playable (pure Node, no browser) |
+| `node scripts/empty-floor-audit.mjs` | review large, flat, mechanic-free rectangles; the verifier rejects blank terraces of 96+ tiles (see `docs/empty_floor_review.md`) |
 | `npm run scale` | print the act-by-act scale audit: board size, fill against target, 2×2 platform count (the same gate the verifier runs) |
 | `npm run visual:audit` | check the built scene against the level data (counts, bounds, verts-per-tile) and save a frame per sampled level |
 | `npm run visual:plan` | plan-view pixel audit: project every tile of the data to a pixel and prove the floor is drawn and the void is empty (bloom off, per-frame thresholds) |

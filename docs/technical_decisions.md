@@ -2973,3 +2973,33 @@ density ratchet refused it; twins were restored via the one-slot force
 knob. Final state: the backlog is empty, the law stands alone, and all 35
 rebuilt levels were played to `won` through the live gate path (unit
 241/241, verify 200+10+14, difficulty `--strict`, all green).
+
+## ADR-052 — Empty-floor ceiling, not just minimum site mass (2026-10-23)
+
+**Context:** the owner's L94 screenshot shows three enormous flat terraces.
+ADR-051 forces engagement somewhere, but says nothing about the rest of the
+floor. ADR-045's minimum fill/2×2 counts actively reward broad empty land.
+
+**Decision:** add an offline spatial audit, `scripts/empty-floor-audit.mjs`.
+A warning is a same-height, mechanic-free rectangle with both sides ≥3,
+long side ≥8, area ≥32. Mechanic occupancy reuses `mechanicTiles` (whole
+patrol lines); start, goal and shards also interrupt a blank rectangle.
+All slab heights, including zero, count. Generator acceptance and catalogue
+verification reject a rectangle of ≥96 tiles. The threshold is a pragmatic
+upper bound (an 8×12 empty plaza), not a scientific measure of fun and not a
+proof of one/two total routes. Smaller safe rooms remain review warnings.
+
+**Curation:** `scripts/sculpt-empty-floors.mjs` is an offline, deterministic
+map transformation for selected ids, not a runtime mutation or raw full
+regeneration. It preserves shortest goal/key/shard walks, mechanics and
+adjacent waiting/landing tiles, removes interior floor in interrupted slots,
+and accepts only after the shared verifier passes at exactly the old par.
+It writes static, reviewable definitions (ADR-004). This avoids unrelated
+seed/generator drift. Nineteen selected boards are transformed: 17 campaign2
+boards and the two hand wheel showcases. Heights and mechanic definitions
+are unchanged; scale floors and the strict difficulty curve still pass.
+Future ordinary generation rejects the oversized empty rectangles too.
+
+**Limits:** remaining warnings are not hidden or declared fixed; see
+`empty_floor_review.md`. Pixel inspection and live play supplement the
+metric. The audit is not a reason to pepper empty boards with fake hazards.

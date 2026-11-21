@@ -23,6 +23,7 @@ import {
   ROLL_TIME,
 } from '../src/rules.js';
 import { applyHazards } from './hazards.mjs';
+import { emptyFloorProblems } from './empty-floor-audit.mjs';
 import { writeFileSync } from 'node:fs';
 
 function hashSeed(str) {
@@ -265,6 +266,7 @@ function verify(def, b, minOrbs = b.orbs[0]) {
     return { ok: false, problems: [err.message], par: -1 };
   }
   for (const p of spawnProblems(level)) problems.push(p);
+  for (const p of emptyFloorProblems(def)) problems.push(p);
   for (const p of timingProblems(level)) problems.push(`timing: ${p}`);
   const reach = reachable(level);
   const finish = canStillFinish(level);
