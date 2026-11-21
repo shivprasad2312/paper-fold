@@ -13,9 +13,11 @@ session's memory.
    both required (ADR-010).
 3. **Input is never a source of difficulty.** Never drop a buffered move,
    add input latency, or make a control layout non-canonical, "for feel".
-4. **The game is offline, asset-free, ad-free.** No CDN, no fetch, no
-   third-party runtime dependency, no analytics, no IAP. If a change
-   needs the network, it is out of scope — say so and stop.
+4. **The game is offline, ad-free, with a procedural world.** No CDN,
+   remote fetch, analytics or IAP. ADR-053 explicitly permits locally bundled
+   Fontsource typography and Lucide SVG icons for application screens (the
+   owner requested a production UI and consistent icon package); no remote
+   asset dependency. If a change needs runtime network access, stop.
 5. **Death causes stay player-readable.** Falls, crumbles, sentinels.
    Never add a hidden/precision/RNG death (research §3: fairness is the
    product).

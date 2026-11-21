@@ -47,8 +47,24 @@ jobs:
       - name: Live-play gate (changed levels + rotating 50)
         run: URL=http://127.0.0.1:4173/ KUBIK_CHANGED_REF=HEAD~1..HEAD npm run test:play
 
+      - name: Shell UI (responsive, navigation, saved settings, focus)
+        run: URL=http://127.0.0.1:4173/ npm run test:ui
+
+      - name: Shell accessibility (axe WCAG A/AA, both themes)
+        run: URL=http://127.0.0.1:4173/ npm run test:a11y
+
       - name: Regression tests (pinned bugs)
         run: URL=http://127.0.0.1:4173/ npm run regression
 
       - name: Full browser playtest (mechanics + themes + camera)
         run: URL=http://127.0.0.1:4173/ npm run playtest
+
+      - name: Save UI review frames
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: application-ui-review
+          path: |
+            shots/shell/
+            shots/a11y-failure.png
+          if-no-files-found: ignore

@@ -242,3 +242,17 @@ build).
 None in v1. If the store build ships (see research §5 discussion), the
 default is paid or free-with-no-ads; IAP/ads would have to pass the
 "does it touch the 10-second retry loop?" test.
+
+## Application UI refresh (ADR-053)
+
+The non-play screens share a quiet, geometric design system: graphite/lime
+and warm-paper themes, locally bundled Manrope/IBM Plex Mono fonts, Lucide SVG
+icons, responsive cards and named dialogs. Home exposes continue/start,
+collection, daily and saved progress. The collection has world jump controls,
+all 200 campaign levels open and shard-locked Vault rooms. Settings groups
+Appearance, Motion and Sound; the guide explains keyboard and touch. Pause
+and completion use the same components without changing their game flow.
+The game board, camera, HUD, minimap, hints, touch controls and gameplay palette
+are explicitly outside this redesign. Original "no asset files" statements
+refer to the procedural game world; local fonts/icons are now an approved
+application presentation dependency. Design tokens/tests: `ui_design.md`.

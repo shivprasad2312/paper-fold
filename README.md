@@ -25,6 +25,16 @@ between sessions.
 
 ---
 
+## Application screens
+
+The home, collection, pause, completion, preferences and controls guide share a
+responsive design system: Manrope / IBM Plex Mono typography, locally bundled
+Lucide icons, graphite/lime dark mode and warm-paper light mode. The playfield,
+HUD, camera and gameplay colours are unchanged. Settings lives behind the
+sliders icon; the original HUD theme button remains available during play.
+Fonts and icons ship with the build — no external/CDN requests. Details and
+validation: [`docs/ui_design.md`](docs/ui_design.md).
+
 ## Play
 
 ```bash
@@ -47,6 +57,8 @@ Other commands:
 | `npm test` | **the gate**: `test:unit` + `verify` + `test:play` — logic proven, levels solvable, AND every level played to completion |
 | `npm run test:unit` | unit tests for the pure core: rules (roll law, push, crumble, soft-lock, par), save/medals, daily seeding (fast, no browser) |
 | `npm run test:play` | playable-route test: plays every level + today's daily to the win panel via real keyboard input (headless) |
+| `npm run test:ui` | responsive shell/navigation/focus/persistence checks + screenshots (production preview on :4173, or set `URL`) |
+| `npm run test:a11y` | axe WCAG A/AA checks across app screens in both themes (production preview) |
 | `npm run regression` | the pinned-bug tests (win-panel resurface, Fault Line sentinel spawn) |
 | `npm run stress` | rapid/repeated input stress: 120 mashed keys, 30 restarts, flow loops, hold-through-pause |
 | `npm run perf` | measured performance vs budgets: frame cost, draw calls, adaptive-quality governor, leak check |
@@ -147,18 +159,19 @@ Like EDGE, KUBIK has two moods for the same platforms:
 
 The switch only re-tunes the lighting rig (background, hemisphere/key/fill lights,
 exposure, bloom, stars) — the slabs, hazards and rules are identical, so a run feels
-the same in either world. The UI re-skins to match: ink-on-paper panels, a light
-minimap, deeper-blue accents.
+the same in either world. Gameplay chrome keeps its original theme styling.
+The application screens use their own graphite/lime and warm-paper palette
+(see `docs/ui_design.md`).
 
 Toggle it with the **moon/sun button** in the HUD (top right) or the **Theme** button
-on the title menu. The choice is saved in your progress and restored on the next
+inside **Settings** on the home screen, collection or pause menu. The choice is saved in your progress and restored on the next
 visit.
 
 ## Reduced motion
 
 KUBIK is a game about a cube turning over, so the motion is part of the
-language — but the game now has a **Motion** setting beside Theme on the title
-menu, in three states:
+language — the **Motion** preference lives in **Settings**, alongside Appearance
+and Sound, in three states:
 
 * **Auto** (the default) follows your system's *reduce motion* preference;
 * **Reduced** and **Full** override it, either way, and your choice is
@@ -335,7 +348,9 @@ src/
                 camera seat, motion preference
   motion.js     reduced-motion policy (Auto/Reduced/Full, OS follow, labels)
   textures.js   generated glow/beam textures
-  style.css     UI skin — dark default + `body.light` high-key override
+  style.css     original gameplay/HUD styling (unchanged by the shell redesign)
+  shell.css     scoped application tokens/components: graphite/lime + warm paper
+  shell-ui.js   Lucide icons, SVG illustration, dialog focus and world navigation
 scripts/
   verify-levels.mjs   solvability + soft-lock + spawn-safety proof (200 levels + 10 Vault rooms + 14 dailies)
   test-levels-playable.mjs  THE gate: plays every level + daily to `won` via real keyboard input

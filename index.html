@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#05070f" />
     <meta name="description" content="KUBIK — roll a cube through floating geometric puzzles. A minimalist puzzle game inspired by EDGE." />
     <title>KUBIK — a cube-rolling puzzle</title>
@@ -43,48 +43,92 @@
 
     <div id="hint" class="hint hidden"></div>
 
-    <!-- ===== TITLE ===== -->
-    <div id="menu" class="screen">
-      <div class="menu-inner">
-        <div class="eyebrow">a cube-rolling puzzle</div>
-        <h1 class="logo">KUBIK</h1>
-        <p class="tagline">Push the cube. Find the way. Don't look down.</p>
-        <div class="menu-buttons">
-          <button class="btn primary" id="btn-play">Play</button>
-          <button class="btn" id="btn-daily">Daily challenge</button>
-          <button class="btn" id="btn-levels">Levels</button>
-          <button class="btn" id="btn-theme-menu">Theme: Dark</button>
-          <button class="btn" id="btn-motion-menu"
-            title="Motion: Auto follows your system's reduced-motion setting. Click to choose Auto / Reduced / Full.">Motion: Auto</button>
-        </div>
-        <div class="controls-help">
-          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / arrows to roll (hold to keep rolling)</span>
-          <span><kbd>Q</kbd><kbd>E</kbd> rotate view</span>
-          <span><kbd>R</kbd> restart</span>
-          <span><kbd>M</kbd> sound</span>
-          <span class="touch-only">swipe &amp; hold, or use the pad</span>
-        </div>
-        <p class="credit">Built from scratch · an homage to Mobigame's EDGE</p>
-      </div>
-    </div>
-
-    <!-- ===== LEVEL SELECT ===== -->
-    <div id="levels" class="screen hidden">
-      <div class="levels-inner">
-        <div class="levels-head">
-          <h2>Levels</h2>
-          <div class="levels-head-right">
-            <div class="playtest-chip hidden" id="playtest-chip"></div>
-            <button class="icon-btn" id="btn-levels-back" aria-label="Back">&#10005;</button>
+    <!-- ===== APPLICATION SHELL (game canvas / HUD intentionally unchanged) ===== -->
+    <main id="menu" class="screen shell-screen" aria-labelledby="home-title">
+      <div class="home-layout">
+        <header class="shell-header">
+          <a class="wordmark" href="#" aria-label="KUBIK home"><i data-ui-icon="box"></i>KUBIK</a>
+          <nav class="shell-nav" aria-label="Main navigation">
+            <button class="nav-link" data-action="levels">The collection <i data-ui-icon="arrow-up-right"></i></button>
+            <button class="nav-link" data-open-dialog="help">How to play</button>
+            <button class="shell-icon" data-open-dialog="settings" aria-label="Open settings" title="Settings"><i data-ui-icon="settings"></i></button>
+          </nav>
+        </header>
+        <section class="home-hero">
+          <div class="hero-copy">
+            <div class="section-label"><span class="status-dot"></span> A LITTLE SHIFT IN PERSPECTIVE</div>
+            <h1 id="home-title">Small cube.<br>Big <span>possibilities.</span></h1>
+            <p class="hero-description">A world of floating paths and unexpected turns.<br class="desktop-break"> Roll your way through. One move at a time.</p>
+            <div class="hero-actions">
+              <button class="btn primary" id="btn-play" autofocus><span id="play-label">Let's roll</span><i data-ui-icon="arrow-right"></i></button>
+              <button class="btn secondary" id="btn-levels"><i data-ui-icon="grid"></i>Explore levels</button>
+            </div>
+            <div class="continue-note" id="continue-note">No rush. No locked campaign levels. Just you and the next move.</div>
+            <div class="hero-facts"><span><strong>200</strong> puzzles to explore</span><span><strong>10</strong> distinct worlds</span><span><i data-ui-icon="wifi-off"></i> Always offline</span></div>
           </div>
-        </div>
-        <div class="level-grid" id="level-grid"></div>
+          <div class="hero-art" role="img" aria-label="An isometric floating path with a bright green cube, illustrating KUBIK's spatial puzzles">
+            <div class="art-heading"><span>THE ART OF FINDING A WAY</span><i data-ui-icon="move-up-right"></i></div>
+            <div id="home-sculpture" aria-hidden="true"></div>
+            <div class="art-caption"><span class="art-caption-symbol"><i data-ui-icon="arrow-right"></i></span><span>A different angle.<br><strong>A whole new way forward.</strong></span><span class="art-index">01—10</span></div>
+          </div>
+        </section>
+        <section class="home-bottom" aria-label="More ways to play">
+          <button class="feature-card daily-feature" id="btn-daily">
+            <span class="feature-icon"><i data-ui-icon="sunrise"></i></span>
+            <span class="feature-copy"><span class="section-label">THE DAILY DETOUR <span class="small-badge">FRESH TODAY</span></span><strong>One day. One new perspective.</strong><span id="home-daily-note">A fresh puzzle, shared by everyone.</span></span>
+            <i class="card-arrow" data-ui-icon="arrow-up-right"></i>
+          </button>
+          <div class="journey-card">
+            <div class="journey-heading"><span class="section-label">YOUR JOURNEY</span><span id="home-progress-count">0 / 200</span></div>
+            <div class="journey-track" role="progressbar" aria-label="Campaign levels cleared" aria-valuemin="0" aria-valuemax="200" aria-valuenow="0" id="home-progress"><span></span></div>
+            <span id="home-progress-note">Every great adventure starts with a single roll.</span>
+          </div>
+        </section>
+        <footer class="shell-footer"><span>LESS NOISE. MORE POSSIBILITY.</span><span>Made for curious minds. <span class="footer-dot">·</span> Inspired by EDGE.</span><button data-open-dialog="help">Keyboard &amp; touch controls <i data-ui-icon="arrow-up-right"></i></button></footer>
       </div>
+    </main>
+
+    <!-- ===== COLLECTION ===== -->
+    <section id="levels" class="screen shell-screen hidden" aria-labelledby="collection-title">
+      <div class="collection-layout">
+        <header class="shell-header">
+          <button class="wordmark" data-action="home" aria-label="KUBIK home"><i data-ui-icon="box"></i>KUBIK</button>
+          <div class="collection-header-actions"><div class="playtest-chip hidden" id="playtest-chip"></div><button class="shell-icon" data-open-dialog="settings" aria-label="Open settings"><i data-ui-icon="settings"></i></button><button class="btn compact" id="btn-levels-back"><i data-ui-icon="arrow-left"></i>Home</button></div>
+        </header>
+        <div class="collection-heading"><div><div class="section-label">FIND YOUR NEXT CHALLENGE</div><h1 id="collection-title">The collection<span>.</span></h1><p>Ten worlds. A different way to think in every one. Start anywhere.</p></div><span class="collection-total" id="collection-total">0 of 200 cleared</span></div>
+        <nav class="world-tabs" id="world-tabs" aria-label="Jump to a world"></nav>
+        <div class="levels-inner" tabindex="-1"><div class="level-grid" id="level-grid"></div></div>
+        <footer class="collection-footer"><span><i data-ui-icon="circle-check"></i> All 200 campaign levels are open</span><span>Collect shards to discover the Vault <i data-ui-icon="lock"></i></span></footer>
+      </div>
+    </section>
+
+    <!-- ===== PREFERENCES / GUIDE ===== -->
+    <div id="settings" class="overlay shell-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+      <section class="panel settings-panel">
+        <div class="dialog-top"><span class="section-label">MAKE YOURSELF AT HOME</span><button class="shell-icon" data-close-dialog aria-label="Close settings"><i data-ui-icon="x"></i></button></div>
+        <h2 id="settings-title">Your kind of quiet.</h2><p class="panel-intro">A few small things to make the world feel like yours.</p>
+        <div class="setting-row"><span class="setting-symbol"><i data-ui-icon="sun-moon"></i></span><div><strong>Appearance</strong><p>A light world or a darker escape.</p></div><button class="setting-value" id="btn-theme-menu">Theme: Dark</button></div>
+        <div class="setting-row"><span class="setting-symbol"><i data-ui-icon="waves"></i></span><div><strong>Motion</strong><p>Auto follows your device preference.</p></div><button class="setting-value" id="btn-motion-menu" title="Choose Auto, Reduced or Full motion">Motion: Auto</button></div>
+        <div class="setting-row"><span class="setting-symbol"><i data-ui-icon="volume-2"></i></span><div><strong>Sound</strong><p>A little atmosphere. Entirely optional.</p></div><button class="setting-value" id="btn-sound-menu" aria-pressed="true">Sound: On</button></div>
+        <div class="settings-note"><i data-ui-icon="check"></i> Saved on this device. Ready when you are.</div>
+      </section>
+    </div>
+    <div id="help" class="overlay shell-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
+      <section class="panel help-panel">
+        <div class="dialog-top"><span class="section-label">A FEW SIMPLE MOVES</span><button class="shell-icon" data-close-dialog aria-label="Close guide"><i data-ui-icon="x"></i></button></div>
+        <h2 id="help-title">Find your footing.</h2><p class="panel-intro">Reach the glowing gate. Take the scenic route for shards.</p>
+        <div class="guide-row"><span class="feature-icon"><i data-ui-icon="move"></i></span><div><strong>Keep on rolling</strong><p><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or arrow keys. Hold to keep moving.</p></div></div>
+        <div class="guide-row"><span class="feature-icon"><i data-ui-icon="rotate-cw"></i></span><div><strong>See another side</strong><p><kbd>Q</kbd> / <kbd>E</kbd> rotate the view. <kbd>R</kbd> restarts.</p></div></div>
+        <div class="guide-row"><span class="feature-icon"><i data-ui-icon="hand"></i></span><div><strong>Made for touch, too</strong><p>Swipe and hold anywhere, or use the directional pad.</p></div></div>
+        <div class="guide-shortcuts"><span><kbd>Esc</kbd> Pause</span><span><kbd>M</kbd> Sound</span><span>No timer pressure. Explore at your pace.</span></div>
+        <button class="btn primary" data-close-dialog>Got it. Let's roll.<i data-ui-icon="check"></i></button>
+      </section>
     </div>
 
     <!-- ===== WIN ===== -->
-    <div id="win" class="overlay hidden">
+    <div id="win" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="win-title">
       <div class="panel win-panel">
+        <div class="completion-mark"><i data-ui-icon="flag"></i></div>
         <div class="win-eyebrow" id="win-eyebrow">level clear</div>
         <h2 id="win-title">First Light</h2>
         <div class="win-medal hidden" id="win-medal"></div>
@@ -97,22 +141,23 @@
         </div>
         <div class="win-buttons">
           <button class="btn primary" id="btn-next">Next level</button>
-          <button class="btn ghost" id="btn-replay">Replay</button>
-          <button class="btn ghost" id="btn-win-levels">Levels</button>
+          <button class="btn ghost" id="btn-replay"><i data-ui-icon="rotate-ccw"></i>Try again</button>
+          <button class="btn ghost" id="btn-win-levels"><i data-ui-icon="grid"></i>Collection</button>
         </div>
       </div>
     </div>
 
     <!-- ===== PAUSE ===== -->
-    <div id="pause" class="overlay hidden">
+    <div id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="pause-title">
       <div class="panel pause-panel">
-        <h2>Paused</h2>
+        <div class="completion-mark"><i data-ui-icon="pause"></i></div><div class="section-label">A MOMENT TO BREATHE</div><h2 id="pause-title">Take your time.</h2><p class="panel-intro">Your next move can wait.</p>
         <div class="pause-buttons">
-          <button class="btn primary" id="btn-resume">Resume</button>
-          <button class="btn ghost" id="btn-pause-restart">Restart</button>
-          <button class="btn ghost" id="btn-pause-levels">Levels</button>
-          <button class="btn ghost" id="btn-pause-menu">Title</button>
+          <button class="btn primary" id="btn-resume"><i data-ui-icon="play"></i>Back to the puzzle</button>
+          <button class="btn ghost" id="btn-pause-restart"><i data-ui-icon="rotate-ccw"></i>Start again</button>
+          <button class="btn ghost" id="btn-pause-levels"><i data-ui-icon="grid"></i>The collection</button>
+          <button class="btn ghost" id="btn-pause-menu"><i data-ui-icon="house"></i>Back home</button>
         </div>
+        <button class="quiet-button" data-open-dialog="settings"><i data-ui-icon="sliders-horizontal"></i>Settings</button>
       </div>
     </div>
 

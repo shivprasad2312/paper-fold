@@ -1,3 +1,7 @@
+import '@fontsource-variable/manrope';
+import '@fontsource/ibm-plex-mono/latin-400.css';
+import './shell.css';
+import { initShell, iconMarkup } from './shell-ui.js';
 import { Game } from './game.js';
 import { LEVELS, VAULT_LEVELS, ALL_LEVELS } from './levels.js';
 import { ACTS } from './acts.js';
@@ -20,6 +24,7 @@ const canvas = $('scene');
 const game = new Game(canvas);
 const audio = new AudioEngine();
 let save = loadSave();
+audio.setEnabled(save.sound); // restore persisted sound before the first user gesture
 game.rescueEnabled = save.rescue !== false; // mid-path second chance (ADR-014)
 
 const el = {
@@ -452,7 +457,13 @@ function armGhost(id) {
   game.setGhost(g && g.log ? g.log : null);
 }
 
+function closeShellPanels() {
+  hide($('settings'));
+  hide($('help'));
+}
+
 function startLevel(index, { animate = true } = {}) {
+  closeShellPanels();
   abandonOpenAttempt('leave');
   index = Math.max(0, Math.min(ALL_LEVELS.length - 1, index));
   unlockAudio();
@@ -493,6 +504,7 @@ function startLevel(index, { animate = true } = {}) {
 
 /** The daily challenge: seeded by today's date, verified solvable, same for everyone. */
 function startDaily() {
+  closeShellPanels();
   abandonOpenAttempt('leave');
   unlockAudio();
   audio.setLevel(13);
@@ -526,6 +538,7 @@ function startDaily() {
 }
 
 function openMenu() {
+  closeShellPanels();
   abandonOpenAttempt('leave');
   clearTimeout(winShowTimer);
   hide(el.hud);
@@ -534,6 +547,7 @@ function openMenu() {
   hide(el.pause);
   hide(el.levels);
   hideHint();
+  updateHomeShell();
   show(el.menu);
   game.load(Math.max(0, Math.min(ALL_LEVELS.length - 1, (save.lastLevel || 1) - 1)));
   game.setPaused(true);
@@ -541,6 +555,7 @@ function openMenu() {
 }
 
 function openLevels() {
+  closeShellPanels();
   abandonOpenAttempt('leave');
   clearTimeout(winShowTimer);
   hide(el.menu);
@@ -550,6 +565,8 @@ function openLevels() {
   show(el.levels);
   game.setPaused(true);
   renderLevelGrid();
+  document.querySelector('.levels-inner').scrollTop = 0;
+  $('collection-total').textContent = `${LEVELS.filter(d=>save.best[d.id]).length} of ${LEVELS.length} cleared`;
 }
 
 /**
@@ -569,7 +586,7 @@ function levelTag(def) {
 function gradeSeal(grade, { size = '' } = {}) {
   const g = grade || 0;
   const label = GRADE_LABEL[g] || GRADE_LABEL[0];
-  return `<span class="seal${size ? ` seal-${size}` : ''}" title="Mastery — ${label}" aria-label="${label}">`
+  return `<span class="seal${size ? ` seal-${size}` : ''}" role="img" title="Mastery — ${label}" aria-label="${label}">`
     + `<i class="${g >= 1 ? 'on' : ''}"></i><i class="${g >= 2 ? 'on' : ''}"></i><i class="${g >= 3 ? 'on' : ''}"></i></span>`;
 }
 
@@ -590,6 +607,7 @@ function renderLevelGrid() {
     : 'start a streak today';
   const dailyCard = document.createElement('button');
   dailyCard.className = 'level-card daily-card';
+  dailyCard.id = 'daily';
   dailyCard.innerHTML = `
     <span class="num">DAILY</span>
     ${medalBadge(dailyPrev?.medal)}
@@ -618,6 +636,7 @@ function renderLevelGrid() {
     const C = 2 * Math.PI * 15.5;
     const header = document.createElement('div');
     header.className = 'act-header';
+    header.id = `world-${act.id}`;
     header.style.setProperty('--act-hue', act.hue);
     header.innerHTML = `
       <svg class="act-ring" viewBox="0 0 36 36" aria-hidden="true">
@@ -683,6 +702,7 @@ function renderVaultSection() {
 
   const header = document.createElement('div');
   header.className = 'act-header vault-header';
+  header.id = 'vault';
   header.innerHTML = `
     <svg class="act-ring" viewBox="0 0 36 36" aria-hidden="true">
       <circle class="act-ring-bg" cx="18" cy="18" r="15.5"></circle>
@@ -710,7 +730,7 @@ function renderVaultSection() {
     const got = best ? best.shards : 0;
     card.innerHTML = `
       <span class="num">${levelTag(def)}</span>
-      ${open ? medalBadge(best?.medal) : '<span class="vault-lock" aria-hidden="true">✕</span>'}
+      ${open ? medalBadge(best?.medal) : `<span class="vault-lock" aria-hidden="true">${iconMarkup('lock')}</span>`}
       ${open && best ? `<span class="best">${fmtTime(best.time)}</span>` : ''}
       <span class="lname">${open ? def.name : 'Sealed'}</span>
       <span class="ldesc">${open
@@ -802,6 +822,10 @@ function handleInput(dir) {
 
 window.addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
+  // Native button activation and screen scrolling must remain native.
+  if (e.defaultPrevented || ((k === 'enter' || k === ' ') && e.target.closest?.('button,a,input,select'))) return;
+  if (KEYMAP[k] && (game.paused || !el.menu.classList.contains('hidden') || !el.levels.classList.contains('hidden'))) return;
+  if (k === 'r' && (!el.menu.classList.contains('hidden') || !el.levels.classList.contains('hidden'))) return;
   if (KEYMAP[k]) {
     e.preventDefault();
     if (!e.repeat) setHold(KEYMAP[k], 'key'); // holding the key keeps rolling
@@ -917,6 +941,8 @@ function toggleSound() {
   writeSave(save);
   el.soundBtn.classList.toggle('muted', !save.sound);
   el.soundBtn.textContent = save.sound ? '\u266A' : '\u266A';
+  $('btn-sound-menu').textContent = `Sound: ${save.sound ? 'On' : 'Off'}`;
+  $('btn-sound-menu').setAttribute('aria-pressed', String(save.sound));
   audio.sfx('ui');
 }
 
@@ -1122,7 +1148,7 @@ game.on('win', (res) => {
   el.winGrade.className = 'win-grade';
 
   el.next.style.display = isDaily || game.levelIndex + 1 >= ALL_LEVELS.length ? 'none' : '';
-  el.next.textContent = 'Next level';
+  el.next.innerHTML = `Next level ${iconMarkup('arrow-right')}`;
 
   clearTimeout(winShowTimer);
   winShowTimer = setTimeout(() => {
@@ -1151,6 +1177,28 @@ document.addEventListener('pointerdown', () => unlockAudio(), { once: true });
 document.addEventListener('keydown', () => unlockAudio(), { once: true });
 
 window.addEventListener('resize', () => game.stage.resize());
+
+// Presentation reads existing progress; it never invents completion or streaks.
+function updateHomeShell() {
+  const cleared = LEVELS.filter(d=>save.best[d.id]).length;
+  const def = ALL_LEVELS[Math.max(0, Math.min(ALL_LEVELS.length-1,(save.lastLevel || 1)-1))];
+  $('play-label').textContent = cleared || save.lastLevel > 1 ? 'Keep rolling' : "Let's roll";
+  $('continue-note').textContent = cleared || save.lastLevel > 1
+    ? `Continue ${levelTag(def)} · ${def.name}`
+    : 'No rush. No locked campaign levels. Just you and the next move.';
+  $('home-progress-count').textContent = `${cleared} / ${LEVELS.length}`;
+  $('home-progress').setAttribute('aria-valuenow', String(cleared));
+  $('home-progress').querySelector('span').style.width = `${cleared / LEVELS.length * 100}%`;
+  $('home-progress-note').textContent = cleared === LEVELS.length ? 'Every world explored. There is always a cleaner route.'
+    : cleared ? `${LEVELS.length-cleared} more perspectives waiting to be discovered.` : 'Every great adventure starts with a single roll.';
+  const daily=save.daily[todayStr()];
+  $('home-daily-note').textContent = daily ? `Today's best: ${fmtTime(daily.time)}. Find a cleaner route?` : 'A fresh puzzle, shared by everyone.';
+}
+
+initShell({ onHome: openMenu, onLevels: openLevels, onSound: toggleSound, acts: ACTS });
+updateHomeShell();
+$('btn-sound-menu').textContent = `Sound: ${save.sound ? 'On' : 'Off'}`;
+$('btn-sound-menu').setAttribute('aria-pressed', String(save.sound));
 
 // ------------------------------------------------------------------ boot ----
 applyTheme(save.theme); // before the first frame: no theme flash

@@ -5,6 +5,15 @@ this is the map._
 
 ## Current status — 2026-10-23
 
+**Application redesign (ADR-053):** home, collection, settings, controls guide,
+pause and completion use a scoped graphite/lime + warm-paper design system,
+local Manrope/IBM Plex Mono fonts and Lucide SVG icons. Gameplay canvas,
+HUD/minimap, hints, pad and their styling remain unchanged. Real saved progress,
+world navigation, dialog focus/inert layering and persisted preferences are
+covered by new production-build browser tests. UI flow tests, 13 axe A/AA
+scans, build and existing pinned-bug regressions pass; hook gate still required.
+See `ui_design.md` for tokens, scope, dependency licensing and test commands.
+
 **Current content review (BUG-009):** the owner's L94 screenshot exposed
 large empty terraces despite compulsory obstacles. Catalogue audit flagged
 32 boards for review; 19 broad terraces have been carved into narrower

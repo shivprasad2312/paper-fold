@@ -428,6 +428,7 @@ const darkDefault = await page.evaluate(() => ({
   saved: window.__kubik.save.theme,
 }));
 check('boots in the dark world by default', !darkDefault.body && darkDefault.stage === 'dark' && darkDefault.saved === 'dark', JSON.stringify(darkDefault));
+await page.click('#menu [data-open-dialog="settings"]');
 await page.click('#btn-theme-menu');
 await wait(400);
 const themeLight = await page.evaluate(() => ({
@@ -439,6 +440,7 @@ const themeLight = await page.evaluate(() => ({
 }));
 check('menu button switches to the light world', themeLight.body && themeLight.stage === 'light' && themeLight.saved === 'light', JSON.stringify(themeLight));
 check('theme button label + icon update', themeLight.label === 'Theme: Light' && themeLight.icon > 10, `${themeLight.label} icon=${themeLight.icon}`);
+await page.keyboard.press('Escape');
 await shot('26-menu-light');
 // Light gameplay: high-key sky, brighter sun, no stars.
 await load(0);
@@ -494,6 +496,7 @@ const motionState = () => page.evaluate(() => ({
 }));
 await page.evaluate(() => window.__kubik.openMenu());
 await wait(400);
+await page.click('#menu [data-open-dialog="settings"]');
 const motionAuto = await motionState();
 check(
   'motion defaults to Auto and resolves against the OS',
@@ -528,11 +531,11 @@ check(
 await page.keyboard.press('q'); // put the seat back for the checks that follow
 await wait(200);
 
-// the cube slides flat — no tumble at all
+// ADR-049: reduced motion removes decoration, never the true edge-pivot roll.
 await load(0);
 const q0 = await page.evaluate(() => window.__kubik.game.cubeMesh.quaternion.toArray());
 await page.keyboard.press('ArrowUp'); // L1: a legal roll toward the gate
-await wait(120);
+await waitFor(() => window.__kubik.game.moves >= 1 && !window.__kubik.game.cube.anim);
 const slide = await page.evaluate((q0) => {
   const q = window.__kubik.game.cubeMesh.quaternion.toArray();
   const dot = Math.abs(q[0] * q0[0] + q[1] * q0[1] + q[2] * q0[2] + q[3] * q0[3]);
@@ -541,7 +544,7 @@ const slide = await page.evaluate((q0) => {
     anim: window.__kubik.game.cube.anim && window.__kubik.game.cube.anim.type,
   };
 }, q0);
-check('reduced: the cube slides without rotating', slide.anim === 'roll' && slide.deg < 0.01, `${slide.anim} ${slide.deg.toFixed(3)}°`);
+check('reduced: the cube still tumbles through a quarter turn (ADR-049)', slide.deg > 80 && slide.deg < 100, `${slide.anim} ${slide.deg.toFixed(3)}°`);
 
 // the choice survives a reload, exactly like the theme
 quietUntil = Date.now() + 8000; // HMR reconnection quiet window
@@ -557,6 +560,7 @@ check(
 // cycle back: reduced → full → auto, so the rest of the run is in full motion
 await page.evaluate(() => window.__kubik.openMenu());
 await wait(400);
+await page.click('#menu [data-open-dialog="settings"]');
 await page.click('#btn-motion-menu');
 await wait(300);
 const motionFull = await motionState();

@@ -184,3 +184,14 @@ keydown → main.js (screen dir) → game.input (quadrant remap, queue)
 - No i18n, no backend, no analytics — offline, private, by design.
 - No build-time code generation — the campaign is generated *offline* and
   committed as static, verified data (ADR-004).
+
+## Application shell (ADR-053)
+
+`src/shell.css` defines scoped `--ui-*` tokens and application components;
+`src/shell-ui.js` owns the named Lucide registry, home SVG sculpture, world
+navigation and layered dialog focus. `main.js` continues to own save, theme,
+motion, sound and game flow; the shell receives callbacks and never advances
+the simulation. Fonts are bundled Fontsource assets. Existing `style.css`,
+canvas/HUD/pad geometry, renderer and rules are unchanged. The original
+asset-free convention now has an explicit local font/icon exception; there
+are still no runtime third-party requests. See `ui_design.md`.

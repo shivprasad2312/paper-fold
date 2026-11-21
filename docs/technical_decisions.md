@@ -3003,3 +3003,29 @@ Future ordinary generation rejects the oversized empty rectangles too.
 **Limits:** remaining warnings are not hidden or declared fixed; see
 `empty_floor_review.md`. Pixel inspection and live play supplement the
 metric. The audit is not a reason to pepper empty boards with fake hazards.
+
+## ADR-053 — Redesign the application, preserve the playfield (2026-10-23)
+
+**Request:** redesign home and all other non-game screens with a production
+palette, components and consistent icon package. Gameplay screens are excluded.
+
+**Decision:** isolate a new application layer in `shell.css` / `shell-ui.js`.
+Use scoped `--ui-*` tokens, Manrope + IBM Plex Mono, and named/tree-shaken Lucide
+SVG imports. Graphite/lime dark mode and warm-paper light mode use the existing
+saved theme. Main continues to own game flow and preferences; shell callbacks
+only expose those actions. Keep original game CSS, HUD, camera and simulation.
+Move the existing home Theme/Motion controls into Settings; do not remove the
+HUD theme button. Add sound to Settings with the same persisted state.
+
+**Production behaviour:** responsive layout and short-viewport scrolling,
+world jump controls, real progress instead of demo numbers, native buttons,
+focus-visible/inert/modal layering, focus restoration, saved preferences,
+reduced motion and browser zoom. Guard menu keyboard events from leaking into
+the paused game; do not change key handling during active play.
+
+**Tradeoff:** locally bundled Fontsource font files and Lucide are an explicit
+exception to the original asset-free/Three-only convention. No CDN/backend
+or third-party runtime requests; fonts/icons are part of the static build.
+Complete scope, licensing, token table and test matrix: `ui_design.md`.
+Browser regression and axe A/AA scans run against the production preview and
+in push/PR CI, alongside the existing logic and live-play gates.

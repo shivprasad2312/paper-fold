@@ -278,3 +278,24 @@ checks pass. All 19 edited boards live-pass in focused batches (18/18 and
 - **`game.renderer` vs `game.stage.renderer`** — the perf suite's first
   version measured the wrong object; fixed in the suite. The scene-graph
   boundary (Stage owns the renderer) is by design (architecture §2).
+
+## BUG-010 — Native menu activation also triggers gameplay shortcuts — FIXED
+
+**Repro:** focus a menu control and press Enter. The global game handler
+previously started/advanced a level as well as the button's native action.
+Arrow keys in menus also armed hold-to-roll, and R could restart the paused
+background level. Modal preferences must never send those inputs to the board.
+
+**Fix:** retain native button activation and screen scrolling; contain keyboard
+shortcuts in settings/guide, with Escape dismissing only the top dialog.
+Non-interactive layers are inert, modal Tab wraps and focus returns to the
+invoking control. Explicit navigation dismisses shell dialogs. Active gameplay
+bindings are unchanged. Restore the existing saved sound preference on boot,
+not just its visual label. Axe also caught a named mastery span missing its
+image role; `gradeSeal` now has `role="img"`.
+
+**Regression:** `tests/ui/shell.mjs` (Enter, R, Tab, Escape, navigation, saved
+preferences, pause/resume and real game input); `tests/ui/accessibility.mjs`
+(named mastery / dialog semantics and contrast). Existing win-panel and spawn
+regressions pass. The legacy mechanic playtest now opens the new Settings
+location and checks ADR-049's real reduced-motion roll, not the removed slide.
