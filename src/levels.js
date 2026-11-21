@@ -95,7 +95,9 @@ const HAND = [
     start: [4, 5],
     goal: [4, 0],
     shards: [[2, 2], [6, 2], [4, 3]],
-    crumble: [[3, 3], [4, 3], [5, 3]],
+    // the cracked row spans the whole bridge (ADR-051): at three slabs
+    // wide the player simply walked around it on the sound stone
+    crumble: [[2, 3], [3, 3], [4, 3], [5, 3], [6, 3]],
   },
   {
     id: 6,
@@ -167,14 +169,14 @@ const HAND = [
     map: [
       '.....1111',
       '.....1111',
-      '.22222...',
-      '.22222...',
+      '.......2.',
+      '.......3.',
       '.3333333.',
       '.3333333.',
     ],
     start: [1, 5],
     goal: [6, 0],
-    shards: [[1, 4], [4, 3], [7, 1], [6, 1]],
+    shards: [[1, 4], [5, 4], [7, 1], [6, 1]],
     crumble: [[3, 4], [4, 4]],
     // The sweep starts at the far end so the spawn tile is safe — a sentinel
     // must never occupy the player's starting slab.
