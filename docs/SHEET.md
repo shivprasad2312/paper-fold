@@ -7,7 +7,7 @@ shapes on a white page with a thin black rule between cells.
 The rule for the copy is simple and strict: **the sheet is the specification.** A room contains what
 its cell contains, at the size and angle the cell draws it, in the colour the cell paints it. Nothing
 is moved to make a room easier, nothing is stretched to fit, and nothing is added. The only thing the
-copy does not take from the sheet is *water*: the taps are the game's taps, and water comes out of
+copy does not take from the sheet is *water*: the taps are the game's taps and water comes out of
 them, as it does in every other room.
 
 ---
@@ -18,7 +18,7 @@ The sheet's palette is small, and each colour is a verb:
 
 | On the sheet | In the game | Meaning |
 | --- | --- | --- |
-| grey `#C7D0D9` | scenery | a solid. Ledges, blocks, shelves, wedges, balls, diamonds. |
+| grey `#C7D0D9` | scenery | a solid. Ledges, blocks, shelves, wedges, balls, gears. |
 | black `#000000` | scenery | a solid as well, drawn in ink black so it reads as a wall. |
 | orange `#FF904D` | a **falling** piece | a loose object: it drops under gravity and can be knocked about. |
 | red `#FF3131` | a **hot** surface | water that touches it evaporates. |
@@ -41,15 +41,29 @@ image list. Everything else is traced from the page's own ink.
   positions of two shapes in a cell are exactly the sheet's.
 * The area a room may use starts at **y = 170**, because the game's own wooden bar and progress strip
   hang over the top of the screen, and the authored rooms keep every tap below that line too. The
-  band runs to the bottom of the 1280 × 720 screen, so the scale is `min(1280 / cellWidth,
-  550 / cellHeight)`.
-* Shapes are drawn at their own centre and angle, so a shelf that the sheet draws tilted is tilted in
-  the game by the same number of degrees.
+  band runs to the bottom of the 1280 × 720 screen, so the scale is
+  `min(1280 / cellWidth, 550 / cellHeight)`.
+* Shapes are drawn at their own centre and angle, so a shelf the sheet draws tilted is tilted in the
+  game by the same number of degrees.
 
 Nothing here is a "close enough" redraw. Every solid enters the physics world through its own
 outline, and the renderer draws that outline as a flat fill — no bevels, no shadows, no wood grain.
-The only objects that keep the game's own art are the things the sheet does not draw: the tap housing
-and the glass, both of which the game draws the way it draws them in the authored rooms.
+
+### What the copy does adapt
+
+Two things are not on the sheet, because the sheet draws symbols rather than an engine:
+
+* **The tap.** The sheet draws an arrow; the game draws its own tap housing with that arrow in it.
+  The housing hangs from the arrow's tail, and a tail close under the top of its cell gets a shorter
+  housing so it does not poke through the ink bar. The nozzle — where the water leaves — is exactly
+  where the sheet's arrow starts.
+* **The cup.** The sheet draws its cup as a pale glass with a thin blue rim and a blue water line just
+  under the mouth. The game draws that cup the same way, at the size and tilt the sheet placed it, and
+  it does not add a face, a dashed goal line or the wooden coaster the authored rooms get. The water
+  line the sheet draws **is** the goal.
+
+Everything else — every grey, black, orange, red and pink shape — is the sheet's own geometry, at its
+own size, in its own place.
 
 ---
 
@@ -62,59 +76,78 @@ three steps:
    edges are read straight from them. Each cell is the rectangle between them.
 2. **Trace the ink.** The page is rendered at 5× and each colour family is isolated as a mask. Every
    blob is classified:
-   * round and uniform → a **circle**, placed by its centre and radius;
-   * a nearly filled oriented box → a **bar**, placed by its centre, size and angle;
-   * anything else → its **outline**, simplified to the fewest vertices that still explain the ink
-     (a diamond stays four points; a dome keeps as many as its curve needs).
+   * a **bar** only when it really is a rectangle — the test is overlap against its own tightest
+     box, not a fill ratio, because a slab with a wavy top edge still fills 89 % of its box and used
+     to be flattened into a plain bar;
+   * a **disc** when it is round — rings are filled before the fit, and a small solid dot at the
+     centre of a bigger glyph is treated as that glyph's hub;
+   * otherwise its **outline**, simplified to the fewest vertices that still explain the ink (a
+     diamond stays four points; a dome keeps as many as its curve needs).
 3. **Recognise the taps.** A tap is an arrow, and the arrow is recognised from the polygon itself: a
    single tip vertex, a tail edge about half the glyph's width, centred on the tip, and a silhouette
    that matches the sheet's arrow. That test works on every arrow size on the sheet — from a 12.8 pt
-   arrow to a 35 pt one — and it does not fire on round shapes.
+   arrow to a 35 pt one — and it does not fire on round shapes. A shaft drawn as its own thin blob is
+   recognised as part of the glyph, not as a wall the player has to deal with.
 
 Two checks run over the result:
 
-* **Every shape is drawn in its own colour, in its own place.** Each shape's outline is painted into a
-  mask in the room's frame and compared with the rendered room's mask of the same colour. 423 of 487
-  shapes match at ≥ 72 % coverage; the remainder are hairlines a few pixels thick, where a 1 px
-  offset costs most of the mask. Arrow glyphs are excluded, because the tap housing draws those.
-* **Every room renders.** All 175 levels (40 authored + 135 copied) are built and drawn in one pass,
-  headless: `node tools/loadtest.js`-style sweep, no exceptions. `npm run verify` still passes 40/40
-  for the authored rooms.
+* **Is every shape drawn in its own colour, where the sheet puts it?** Each shape's outline is painted
+  into a mask in the room's frame and compared with the rendered room's mask of the same colour.
+  **454 of 487** shapes match at ≥ 72 % coverage. The remainder are hairlines two to four pixels
+  thick, where a one-pixel offset costs most of the mask. Arrow glyphs are excluded, because the tap
+  housing draws those.
+* **Does every room render and play?** All 175 levels (40 authored + 135 copied) build, draw and run
+  headless with no exceptions; `npm run verify` still passes 40/40 for the authored rooms and
+  `npm run verify-sheet` plays every copied room with its recorded solution.
+
+---
+
+## What the cells contain
+
+| | Count |
+| --- | --- |
+| cells | 135 |
+| shapes traced | 617 (grey 340, black 133, orange 99, pink 32, red 13) |
+| taps | 130 (three rooms have two) |
+| cups | 145 (thirteen rooms have two; two cups are drawn tilted, room 127 and 128) |
+| solids | 341 |
+| falling pieces | 99 (70 rooms) |
+| hot surfaces | 13 (10 rooms) |
+| no-draw sheets | 32 (27 rooms) |
+
+Every copied room carries a flat ink budget of 900 px, because the sheet does not say how much ink a
+room is worth — it only draws the room. Nothing new moves on its own: orange pieces fall, hot
+surfaces evaporate, pink sheets refuse ink. Those are the whole of the added dynamics, and they are
+the sheet's own three colours.
 
 ---
 
 ## Rooms the sheet cannot water
 
-The copy does not add anything, so a cell without a tap stays a cell without a tap. Eight of them
-have no arrow at all:
+The copy does not add anything, so a cell without a tap stays a cell without a tap. Eight of them have
+no arrow at all:
 
 | Room | What the cell contains |
 | --- | --- |
-| 8 | a cup on a shelf and three loose diamonds — no tap |
-| 10 | a cup and scenery — no tap |
-| 74 | two cups, a hot bar, two hot balls — no tap |
-| 86, 87, 89 | **empty cells**: the sheet draws nothing at all in these three |
-| 88, 90 | a cup and a shelf — no tap |
+| 8 | a cup, three loose diamonds and no tap |
+| 10 | a cup and scenery, no tap |
+| 74 | two cups, a hot bar and two hot balls, no tap |
+| 86 | **nothing at all** — the cell is empty |
+| 87, 89 | a bar and no cup |
+| 88, 90 | a cup and a shelf, no tap |
 
-They are playable (they load, they draw, they do not crash) but they cannot be won: there is no water
-to fill the cup with. They are reported here rather than quietly given a tap, because a tap would be
-a change to the sheet.
+They load, draw and run, but they cannot be won: there is no water to fill a cup with, and in three of
+them nothing to fill. They are reported here rather than quietly given a tap, because a tap would be a
+change to the sheet. Winning the room *before* a tap-less one unlocks past it, so a cell with no arrow
+can never wall off the rest of the set.
 
-Everything else — 130 taps across 127 rooms, three rooms with two taps — is watered normally.
+## Rooms the sheet may not allow
 
----
+The copied rooms are proved by playing them: `tools/solve-sheet.js` searches for a stroke that fills
+every cup, anchored only to what the sheet itself provides (the tap housing and the room's own
+shapes) — a copied line cannot float, because an unsupported line falls out of the level.
 
-## What the rooms contain
-
-| | Count |
-| --- | --- |
-| rooms | 135 |
-| taps | 130 (3 rooms have two) |
-| glasses | 145 (13 rooms have two) |
-| solids | 343 |
-| falling pieces | 99 (70 rooms) |
-| hot surfaces | 13 (10 rooms) |
-| no-draw sheets | 32 (27 rooms) |
-
-Nothing new moves on its own. Orange pieces fall; hot surfaces evaporate; pink sheets refuse ink.
-Those are the whole of the added dynamics, and they are the sheet's own three colours.
+Some cells resist that search. They are listed by `npm run verify-sheet`, with the fill the cup
+actually reached, so the difference between *we have not found the line* and *this cell cannot be
+watered* stays visible instead of being hidden behind a lower goal line. Lowering a cup's goal to
+whatever an unanchored stroke happened to reach would make the copy a lie, so it is not done.

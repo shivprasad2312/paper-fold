@@ -44,6 +44,29 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   check('game booted', !!(w.__HG && w.__HG.Game.renderer));
   check('menu visible', !doc.querySelector('#screen-menu').hidden);
   check('level grid built', doc.querySelectorAll('#level-grid .level-cell').length === w.HG.LEVELS.length);
+  check('the forty authored rooms come first, then the sheet',
+    w.HG.LEVELS.length === 175 && w.HG.SHEET_FIRST === 41 &&
+    w.HG.levelById(41).blueprint === true && w.HG.levelById(40).blueprint !== true,
+    w.HG.LEVELS.length + ' rooms, sheet starts at ' + w.HG.SHEET_FIRST);
+
+  // every copied room must build a world and draw one frame: a room that throws
+  // on load would break the level grid long after the extraction "worked"
+  {
+    // draw through a temporary stub, never through the running Game: touching
+    // Game.scene here would replace the level the later checks are playing
+    const stub = { levelId: 0, level: null, scene: null, save: w.HG.save, paused: true, mode: 'play' };
+    const broke = [];
+    for (const lv of w.HG.PDF_LEVELS) {
+      try {
+        stub.levelId = lv.id;
+        stub.level = lv;
+        stub.scene = new w.HG.Scene(lv);
+        w.__HG.Game.renderer.draw(stub, 0);
+      } catch (e) { broke.push(lv.id + ': ' + e.message); }
+    }
+    check('all ' + w.HG.PDF_LEVELS.length + ' sheet rooms build and draw',
+      broke.length === 0, broke.slice(0, 3).join(' | '));
+  }
 
   // click play
   doc.querySelector('[data-act="play"]').dispatchEvent(new w.MouseEvent('click', { bubbles: true }));

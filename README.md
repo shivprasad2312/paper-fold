@@ -45,6 +45,7 @@ puts it back.
 npm start            # http://localhost:4173
 npm run build        # dist/happy-glass.html  (one self-contained file, open it anywhere)
 npm run verify       # headless playthrough of every room
+npm run verify-sheet # headless playthrough of the 135 sheet rooms
 npm run audit        # physics, layout and hero-set audits (props must be load-bearing)
 npm run flaky        # redraws every reference line with an unsteady hand
 npm run smoke        # boots the built file in jsdom and plays a level end to end

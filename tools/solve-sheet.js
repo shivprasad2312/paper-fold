@@ -62,6 +62,46 @@ function structured(lv) {
   const bottom = g ? g.y - g.h / 2 - 40 : oy + 200;
   out.push([[ox + 46, oy + 40], [ox + 46, bottom]]);
   out.push([[ox - 46, oy + 40], [ox - 46, bottom]]);
+
+  // A copied room's cup is often right under its tap with a wide mouth to
+  // fill, and what actually works there is a funnel: a stroke from the tap
+  // housing that runs out to one side and turns back in over the mouth.
+  lv.glasses.forEach((g2) => {
+    const mouth = g2.y - g2.h / 2;
+    const half = g2.w / 2;
+    for (const side of [-1, 1]) {
+      // a chute: housing -> out to the shoulder -> in over the mouth
+      for (const d of [16, 24, 32, 40, 48, 56, 66, 78, 92]) {
+        out.push([[f.x + side * 10, f.y + 16],
+                  [g2.x + side * (half + d), mouth - 30],
+                  [g2.x + side * (half * 0.5), mouth - 16]]);
+        out.push([[f.x + side * 10, f.y + 16],
+                  [g2.x + side * (half + d), mouth - 52],
+                  [g2.x + side * (half + 8), mouth - 10]]);
+      }
+      // the same chute, swept in height too: the winning shape in the rooms
+      // that work is a diagonal that meets the mouth just inside its near rim
+      for (const d of [30, 44, 60, 80]) {
+        for (const dy of [34, 44, 56, 70]) {
+          out.push([[f.x + side * 8, f.y + 14],
+                    [g2.x + side * (half + d), mouth - dy],
+                    [g2.x + side * (half + 10), mouth - 8]]);
+        }
+      }
+      // a trough: down one side of the cup and under the mouth
+      out.push([[g2.x + side * (half + 26), mouth - 70],
+                [g2.x + side * (half + 20), g2.y],
+                [g2.x + side * (half * 0.4), g2.y + 8]]);
+      // a scoop: under the mouth, then up the far side
+      out.push([[g2.x - side * (half + 34), mouth - 40],
+                [g2.x - side * (half + 20), g2.y - 6],
+                [g2.x + side * (half + 22), g2.y - 6],
+                [g2.x + side * (half + 40), mouth - 30]]);
+      // a roof over the mouth, open on the tap's side
+      out.push([[f.x, f.y + 20], [g2.x - side * (half + 12), mouth - 34],
+                [g2.x + side * (half + 12), mouth - 34]]);
+    }
+  });
   return out;
 }
 

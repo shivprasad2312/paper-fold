@@ -1198,7 +1198,9 @@
         if (this.fell) {
           this.glasses.forEach((g) => { if (g.lost) g.lostTimer = (g.lostTimer || 0) + sec; });
           if (this.glasses.some((g) => (g.lostTimer || 0) > 0.6)) this.finish(false);
-        } else if (allFull || this.glasses.every((g) => g.done)) {
+        } else if (this.glasses.length && (allFull || this.glasses.every((g) => g.done))) {
+          // a room must have a cup to be won: three cells on the reference
+          // sheet are empty, and an empty cup list used to count as "all full"
           this.finish(true);
         }
 
