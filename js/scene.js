@@ -30,7 +30,12 @@
   const INK_DENSITY = 0.020;    // ink is a heavy drawn line: a droplet cannot shake it
   const MAX_STROKE_PARTS = 90;  // safety cap for a single falling stroke
   const GLASS_INERTIA = 2.0;    // rotational cheat, see the physics audit in README
-  const MAX_DROP_SPEED = 14;    // px/frame: 3.5 px per solver step, under the 4 px rod
+  // Speed ceiling for the fluid, expressed against the droplet it has to squeeze
+  // past: a droplet may not move more than its own radius per solver step, or it
+  // can step clean over the 4 px rod it was meant to land on. It was 14 px/frame
+  // for the 7 px droplet; a half-size droplet gets half of that. (Checked by the
+  // physics audit, which measures the fastest droplet against the rod.)
+  const MAX_DROP_SPEED = 4 * (HG.Water.R + INK_W / 2) * 0.9;
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
