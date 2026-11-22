@@ -110,6 +110,18 @@ const tryStroke = (lv, pts, frames) => {
   return r.won ? r : null;
 };
 
+/* How good is this stroke? The number the rooms are actually judged on is the
+   fill of the worst cup, so that is the score — a stroke that fills one cup of
+   two is worth nothing, and a stroke that gets a cup to 0.71 of the 0.72 it
+   needs is worth a lot more than one that pours the water on the floor. */
+const scoreOf = (lv, pts, seed) => {
+  const r = seed === null ? play(HG, lv.id, [poly(pts)], { frames: 60 * 30 })
+    : play(HG, lv.id, [poly(pts)], { frames: 60 * 30, seed });
+  if (r.won) return { score: 2, r };
+  const fills = r.fills.length ? r.fills.map((f) => Math.min(1, f.fill / f.need)) : [0];
+  return { score: Math.min(...fills), r };
+};
+
 HG.PDF_LEVELS.forEach((lv, i) => {
   const n = i + 1;
   if (n < lo || n > hi) return;
@@ -138,19 +150,31 @@ HG.PDF_LEVELS.forEach((lv, i) => {
     return [t];
   };
 
-  for (const c of structured(lv)) {
-    const hit = confirmed(c);
-    if (hit) {
-      found[n] = hit;
-      console.log(n, 'structured', JSON.stringify(hit[0]));
-      save();
-      return;
-    }
-  }
-
   const g = lv.glasses[0];
   const f = lv.faucets[0];
   const R = rand(1000 + n);
+
+  // Keep the best stroke so far, even though it loses: a losing stroke tells
+  // the search which way "better" is, and nudging a stroke that already gets a
+  // cup to 0.6 is far more productive than throwing darts at the whole room.
+  let best = { score: -1, pts: null };
+  const consider = (c, how) => {
+    const hit = confirmed(c);
+    if (hit) {
+      found[n] = hit;
+      console.log(n, how, JSON.stringify(hit[0]));
+      save();
+      return true;
+    }
+    const sc = scoreOf(lv, tidy(c), seed).score;
+    if (sc > best.score) best = { score: sc, pts: tidy(c) };
+    return false;
+  };
+
+  for (const c of structured(lv)) {
+    if (consider(c, 'structured')) return;
+  }
+
   for (let k = 0; k < 260; k++) {
     const ax = f.x + (R() - 0.5) * 220;
     const ay = f.y + 10 + R() * 120;
@@ -160,14 +184,30 @@ HG.PDF_LEVELS.forEach((lv, i) => {
       ? [[(ax + bx) / 2 + (R() - 0.5) * 120, (ay + by) / 2 + (R() - 0.5) * 80]]
       : [];
     const c = [[ax, ay]].concat(mid, [[bx, by]]);
-    const hit = confirmed(c);
-    if (hit) {
-      found[n] = hit;
-      console.log(n, 'random', JSON.stringify(hit[0]));
-      save();
-      return;
+    if (consider(c, 'random')) return;
+  }
+
+  // ---- climb: nudge the best stroke, keep whatever scores better
+  if (best.pts) {
+    let step = 14;
+    for (let round = 0; round < 26 && step >= 1; round++) {
+      let improved = false;
+      for (let k = 0; k < 26; k++) {
+        const c = best.pts.map(([x, y]) => [x + (R() - 0.5) * step * 2, y + (R() - 0.5) * step * 2]);
+        const t = tidy(c);
+        const hit = confirmed(t);
+        if (hit) {
+          found[n] = hit;
+          console.log(n, 'climbed', JSON.stringify(hit[0]));
+          save();
+          return;
+        }
+        const sc = scoreOf(lv, t, seed).score;
+        if (sc > best.score + 1e-6) { best = { score: sc, pts: t }; improved = true; }
+      }
+      if (!improved) step /= 2;
     }
   }
-  console.log(n, 'NONE');
+  console.log(n, 'NONE', best.pts ? '(best fill ' + best.score.toFixed(2) + ' of need)' : '');
   save();
 });
