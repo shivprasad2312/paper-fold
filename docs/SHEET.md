@@ -110,7 +110,7 @@ Two checks run over the result:
 Moving every copied cup to the game's glass, and halving the water droplet, changed the geometry of
 every copied room: a stroke drawn to land in a 79 px cup does not land in a 108 px one. The recorded
 strokes are being re-proved room by room (`tools/repair-sheet.js`), and the honest count today is
-**29 of 135** copied rooms won with their recorded stroke (the rest are reported with the fill they
+**33 of 135** copied rooms won with their recorded stroke (the rest are reported with the fill they
 actually reach, not given an easier goal). The authored rooms are back to **40 of 40**, and so is the
 hero audit: every authored room replays a line that wins with the shared glass and half-size water.
 
