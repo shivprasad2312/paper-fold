@@ -57,10 +57,13 @@ Two things are not on the sheet, because the sheet draws symbols rather than an 
   The housing hangs from the arrow's tail, and a tail close under the top of its cell gets a shorter
   housing so it does not poke through the ink bar. The nozzle — where the water leaves — is exactly
   where the sheet's arrow starts.
-* **The cup.** The sheet draws its cup as a pale glass with a thin blue rim and a blue water line just
-  under the mouth. The game draws that cup the same way, at the size and tilt the sheet placed it, and
-  it does not add a face, a dashed goal line or the wooden coaster the authored rooms get. The water
-  line the sheet draws **is** the goal.
+* **The cup.** The sheet draws its cup in every room at whatever size its cell has room for — from
+  48 px wide to 84 px wide across the 135 cells. The game has **one glass**, the 108 x 118 px glass
+  every authored room uses, and a copied room gets that same glass: the sheet says *where* the cup
+  stands, not how big it is. A level places a cup; it does not size one. So the cup's **foot** is put
+  where the sheet draws it, and the game's glass grows up from there. It does not add a face or a
+  dashed goal line, and it does not stand the glass on a hidden wooden coaster: if the sheet leaves a
+  cup with nothing under it, the cup falls, exactly as a loose object should.
 
 Everything else — every grey, black, orange, red and pink shape — is the sheet's own geometry, at its
 own size, in its own place.
@@ -95,13 +98,25 @@ Two checks run over the result:
 
 * **Is every shape drawn in its own colour, where the sheet puts it?** Each shape's outline is painted
   into a mask in the room's frame and compared with the rendered room's mask of the same colour.
-  **454 of 487** shapes match at ≥ 72 % coverage. The remainder are hairlines two to four pixels
+  **456 of 487** shapes match at ≥ 72 % coverage. The remainder are hairlines two to four pixels
   thick, where a one-pixel offset costs most of the mask. Arrow glyphs are excluded, because the tap
   housing draws those.
 * **Does every room render and play?** All 175 levels (40 authored + 135 copied) build and draw a
-  frame in the single-file build (`npm run smoke`), with no exceptions; `npm run verify` still passes
-  40/40 for the authored rooms, and `npm run verify-sheet` plays every copied room with its recorded
-  solution and reports each one it cannot win.
+  frame in the single-file build (`npm run smoke`), with no exceptions. `npm run verify` and
+  `npm run verify-sheet` replay a recorded stroke in every room and report each room they cannot win.
+
+### Where the rooms stand after the one-glass change
+
+Moving every copied cup to the game's glass, and halving the water droplet, changed the geometry of
+every copied room: a stroke drawn to land in a 79 px cup does not land in a 108 px one. The recorded
+strokes are being re-proved room by room (`tools/repair-sheet.js`), and the honest count today is
+**29 of 135** copied rooms won with their recorded stroke (the rest are reported with the fill they
+actually reach, not given an easier goal). The authored rooms are **33 of 40**: the seven that no
+longer replay are rooms whose recorded stroke was drawn for the old droplet (`npm run verify` lists
+them).
+
+Neither number is papered over. A room is only counted as playable when a stroke is replayed and
+wins.
 
 ---
 
