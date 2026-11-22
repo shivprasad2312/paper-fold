@@ -1339,12 +1339,18 @@
       const f = scene.faucets[0];
       if (!f) return;
       const pulse = (Math.sin(this.t * 0.004) + 1) / 2;
+      // The hint belongs in the empty strip under the ink bar, not at a fixed
+      // offset from the tap: a copied room can put its tap low in the cell, and
+      // the text then landed on top of the room's own scenery. On those the
+      // line is dropped rather than written over the drawing.
+      const y = 158;
+      if (f.y < y + 10) return;
       ctx.save();
       ctx.globalAlpha = 0.45 + pulse * 0.4;
       ctx.fillStyle = C.inkSoft;
       ctx.font = '600 17px Fredoka, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('draw, then lift your pencil to start the tap', f.x, f.y + 46);
+      ctx.fillText('draw, then lift your pencil to start the tap', f.x, y);
       ctx.restore();
     }
 
