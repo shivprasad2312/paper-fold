@@ -54,8 +54,12 @@
       this.tilt = def.tilt || 0;
       this.wall = this.dynamic ? 10 : WALL;
 
-      this.top = this.y - this.h / 2;
-      this.bottom = this.y + this.h / 2;
+      // NOT cached: a glass that falls or is knocked over keeps its shape, so
+      // its rim and its foot travel with it. These used to be copied once, at
+      // spawn, and every "is the water in the cup?" test kept reading the cup
+      // where it used to stand.
+      Object.defineProperty(this, 'top', { get: () => this.y - this.h / 2 });
+      Object.defineProperty(this, 'bottom', { get: () => this.y + this.h / 2 });
       this.topHalf = this.w / 2;
       // the sheet's own cup: a wide mouth tapering to 0.80 of it, not the
       // narrow flute the authored rooms used to draw
@@ -106,6 +110,14 @@
         this.angle = a;
         this.cx = b.position.x + this.localCenter.x * c - this.localCenter.y * s;
         this.cy = b.position.y + this.localCenter.x * s + this.localCenter.y * c;
+        // `x`/`y` are where the cup's own frame sits, and they have to follow the
+        // body: a glass that falls (or is knocked over) keeps its shape, it just
+        // sits somewhere else. They used to stay at the spawn point, so the water
+        // inside a fallen cup was measured against a cup that was no longer there
+        // -- the water was still drawn in the cup and still held by it, but the
+        // fill counter read zero.
+        this.y = this.cy;
+        this.x = this.cx;
       }
       this._cos = Math.cos(this.angle);
       this._sin = Math.sin(this.angle);

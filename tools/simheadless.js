@@ -103,6 +103,22 @@ function play(HG, id, strokes, opts) {
     scene.physics(STEP);
     frames++;
     if (scene.state === 'won' || scene.state === 'lost') break;
+    // A run that can no longer be won is not worth finishing. This is the
+    // solver's inner loop and the water is the expensive part, so once every
+    // tap is spent and no cup can reach its line, stop. `opts.patient` keeps a
+    // run going (the audits measure pools, not wins).
+    if (!opts.patient && !scene.pouringNow && frames > 90) {
+      const feasible = scene.glasses.some((g) => {
+        const need = g.needCount || 0;
+        const have = (g.count || 0) + scene.water.particles.filter((p) => {
+          if (p.dead) return false;
+          const b = p.body.position;
+          return b.y < g.bottom && (g.contains(b.x, b.y) || Math.abs(b.x - g.cx) < 260);
+        }).length;
+        return have >= need;
+      });
+      if (!feasible) { scene.state = 'lost'; break; }
+    }
   }
 
   const poses = scene.glasses.map((g) => ({

@@ -34,7 +34,7 @@ HG.PDF_LEVELS.forEach((lv, i) => {
   const tapLess = !lv.faucets.length;
   const noCup = !lv.glasses.length;
   const strokes = (SOLUTIONS[n] || []).map((pl) => poly(pl));
-  const r = tapLess || noCup ? null : play(HG, lv.id, strokes, { frames: 60 * 40 });
+  const r = tapLess || noCup ? null : play(HG, lv.id, strokes, { frames: 60 * 40, patient: true });
   const won = !!r && r.won;
   const fill = r ? r.fills.map((f) => f.fill.toFixed(2) + '/' + f.need).join(' ') : '—';
   const line =

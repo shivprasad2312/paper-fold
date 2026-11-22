@@ -18,7 +18,7 @@ const rows = [];
 for (const level of HG.LEVELS) {
   if (only && level.id !== only) continue;
   const strokes = (SOLUTIONS[level.id] || []).map((pl) => poly(pl));
-  const r = play(HG, level.id, strokes, { frames: 60 * 30 });
+  const r = play(HG, level.id, strokes, { frames: 60 * 30, patient: true });
   rows.push(r);
   if (!r.won) fails++;
   const fillStr = r.fills.map((f) => f.fill.toFixed(2) + '/' + f.need).join(' ');

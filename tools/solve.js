@@ -162,6 +162,10 @@ function buildLevel(spec) {
     id,
     name: spec.name,
     tip: spec.tip,
+    // The room's shipped budget is re-derived from the stroke this tool proves
+    // (see the emit step), so the search runs with headroom: a line that wins
+    // but costs a few px more than the old budget is still the answer, and the
+    // budget follows it instead of vetoing it.
     ink: 900,
     faucets: (spec.faucets || [spec.faucet]).map((f) => ({
       x: f.x, y: f.y, rate: f.rate || 26,
@@ -189,13 +193,31 @@ function buildLevel(spec) {
   if (idle.won) return { id, spec, failed: true, reason: 'the scenery alone wins it' };
 
   const scene = new HG.Scene(JSON.parse(JSON.stringify(base)));
+  const g0x = scene.glasses[0].x, g0y = scene.glasses[0].y;
   const anchors = anchorsOf(scene);
   // The tap plate itself is a support, and the most natural opening move in the
   // game is to start the wire just under the nozzle. Without an anchor there the
   // search could only build answers that begin on scenery.
+  //
+  // The wire may also begin partway DOWN the stream: the commonest answer in
+  // the game is a short ramp out of the falling water and into the cup's mouth,
+  // and now that every cup is the game's wide 108 px glass, the mouth is the
+  // target far more often than a spot on the floor.
+  const streamAnchors = [];
   base.faucets.forEach((f) => {
-    for (const dy of [26, 46]) anchors.push({ x: f.x, y: f.y + dy, tag: 'tap' });
+    for (const dy of [26, 46, 90, 140, 200, 260, 330]) {
+      for (const sx of [-40, 0, 40]) streamAnchors.push({ x: f.x + sx, y: f.y + dy, tag: 'tap' });
+    }
   });
+  // ...and it may end just over the cup's mouth: the rim is a target in its own
+  // right, so the mouth's lips are anchors too.
+  scene.glasses.forEach((g) => {
+    for (const sx of [-36, -18, 0, 18, 36]) {
+      streamAnchors.push({ x: g.x + sx, y: g.top - 22, tag: 'mouth' });
+    }
+  });
+  streamAnchors.forEach((a) => anchors.push(a));
+
   const glasses = scene.glasses;
   const g0 = glasses[0];
   const targetY = g0.top;
@@ -286,6 +308,14 @@ function buildLevel(spec) {
         pts[pts.length - 1] = { x: last.x + ux * ext, y: last.y + uy * ext };
         const span = Math.hypot(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].y - pts[0].y);
         if (span < 100 || span > 780) continue;
+        // A wire the player could not afford is not an answer. Ink is spent by
+        // length, so a candidate longer than the room's budget is refused by the
+        // pen and pours into thin air -- which is what every candidate scored 0.
+        let pathLen = 0;
+        for (let k = 1; k < pts.length; k++) {
+          pathLen += Math.hypot(pts[k].x - pts[k - 1].x, pts[k].y - pts[k - 1].y);
+        }
+        if (pathLen > base.ink * 0.98) continue;
         // the tap has to be over the line, or nothing lands on it
         const lo = Math.min(pts[0].x, pts[1].x) - 6, hi = Math.max(pts[0].x, pts[1].x) + 6;
         if (faucet.x < lo || faucet.x > hi) continue;
