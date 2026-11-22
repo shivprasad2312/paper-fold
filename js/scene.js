@@ -653,14 +653,33 @@
       });
     }
 
+    // A tap can point down, left or right: the arrow the sheet draws says which
+    // way the water leaves, and the housing sits behind it, upstream.
+    tapBasis(f) {
+      const d = f.dir || 'down';
+      const ax = d === 'left' ? -1 : d === 'right' ? 1 : 0;
+      const ay = d === 'down' ? 1 : 0;
+      // `back` is upstream (where the body is), `across` is perpendicular in
+      // the tap's own frame. For a downward tap this is exactly +x, which is
+      // what the stream's wobble has always used.
+      return { ax, ay, back: { x: -ax, y: -ay }, across: { x: ay, y: -ax } };
+    }
+
     buildFaucets() {
       // the tap housing is solid: your ink can be pegged to it
       this.level.faucets.forEach((f) => {
-        const housing = Bodies.rectangle(f.x, f.y - 47, 62, 62, {
-          isStatic: true, label: 'faucet', chamfer: { radius: 8 },
+        const b = this.tapBasis(f);
+        const along = (dist) => ({ x: f.x + b.back.x * dist, y: f.y + b.back.y * dist });
+        const h = along(47);
+        const p = along(4);
+        // the plate is a flat lid *across* the stream, so the box's own frame is
+        // turned a quarter away from the arrow (zero for a downward tap)
+        const ang = Math.atan2(b.ay, b.ax) - Math.PI / 2;
+        const housing = Bodies.rectangle(h.x, h.y, 62, 62, {
+          isStatic: true, label: 'faucet', angle: ang, chamfer: { radius: 8 },
         });
-        const plate = Bodies.rectangle(f.x, f.y - 4, 88, 16, {
-          isStatic: true, label: 'faucet', chamfer: { radius: 6 },
+        const plate = Bodies.rectangle(p.x, p.y, 88, 16, {
+          isStatic: true, label: 'faucet', angle: ang, chamfer: { radius: 6 },
         });
         Composite.add(this.world, housing);
         Composite.add(this.world, plate);
@@ -1069,11 +1088,17 @@
           // that is identical every time the level is played.
           f.n = (f.n || 0) + 1;
           const w = Math.sin(f.n * 1.7) * 0.6 + Math.sin(f.n * 0.43) * 0.4;
-          const sx = f.x + w * (f.def.spread * 4 + 1);
-          // spawn clear of the tap plate collider (its bottom is at f.y + 4): a
-          // droplet born inside a static body gets squeezed out sideways
-          const sy = f.y + 4 + HG.Water.R + 1.5;
-          const p = this.water.spawn(sx, sy, w * 0.55, 2.2);
+          const b = this.tapBasis(f.def);
+          // the stream breathes *across* the arrow, and leaves along it. The
+          // wobble is `w` scaled once; the sign follows the arrow's own frame,
+          // so a tap that points down pours exactly as it always did.
+          const across = w * (f.def.spread * 4 + 1);
+          const off = 4 + HG.Water.R + 1.5;      // clear of the plate collider
+          const sx = f.x + b.across.x * across + b.ax * off;
+          const sy = f.y + b.across.y * across + b.ay * off;
+          const p = this.water.spawn(sx, sy,
+            b.across.x * w * 0.55 + b.ax * 2.2,
+            b.across.y * w * 0.55 + b.ay * 2.2);
           if (p) f.remaining--;
         }
         f.flow = f.remaining > 0 ? 1 : 0;

@@ -1210,7 +1210,16 @@
     drawFaucet(ctx, f, dt) {
       const x = f.x, y = f.y;
       const active = f.remaining > 0 && f.flow;
+      // A tap's arrow says which way its water leaves. The housing is drawn in
+      // a frame that points down, then turned to match.
+      const dir = f.def ? f.def.dir : f.dir;
+      const turn = dir === 'left' ? -Math.PI / 2 : dir === 'right' ? Math.PI / 2 : 0;
       ctx.save();
+      if (turn) {
+        ctx.translate(x, y);
+        ctx.rotate(turn);
+        ctx.translate(-x, -y);
+      }
       // base plate
       this.popShadow(ctx, 88, 16);
       HG.roundRectPath(ctx, x - 44, y - 12, 88, 16, 7);
