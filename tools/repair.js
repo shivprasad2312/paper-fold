@@ -71,6 +71,7 @@ function repair(id) {
       }
     }
   }
+  if (process.argv.includes('--fast')) return record();   // one sweep, then stop
   for (const step of [2, 5, 9, 14, 20, 28]) {
     if (best.r.won) break;
     let improved = true, guard = 0;

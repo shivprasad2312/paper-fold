@@ -556,23 +556,38 @@
       if (def.base == null) return def;
       const half = HG.GLASS_W * 0.40;         // the glass's own foot
       const bottom = def.base;
-      let bestX = def.x, bestOverlap = 0;
-      const consider = (x0, x1) => {
-        const overlap = Math.min(x1, def.x + half) - Math.max(x0, def.x - half);
-        if (overlap > bestOverlap) { bestOverlap = overlap; bestX = (x0 + x1) / 2; }
-      };
+      // Falls back to the drawn position when nothing is under the cup: an
+      // unsupported cup is meant to drop, not to be teleported onto a ledge.
+      const spans = [];
       for (const b of this.world.bodies) {
         if (!b.isStatic || b.isSensor) continue;
         if (b.label !== 'platform' && b.label !== 'crate' && b.label !== 'ink') continue;
         const bb = b.bounds;
-        // a surface the foot can actually rest on: its top is at the foot's
-        // height (within a few px) and it lies underneath the cup's centre
         if (bb.max.y < bottom - 4 || bb.min.y > bottom + 10) continue;
-        if (bb.max.x < def.x - half - 60 || bb.min.x > def.x + half + 60) continue;
-        consider(bb.min.x, bb.max.x);
+        if (bb.max.x < def.x - half - 80 || bb.min.x > def.x + half + 80) continue;
+        spans.push([bb.min.x, bb.max.x]);
       }
-      if (bestOverlap <= 0) return def;
-      return Object.assign({}, def, { x: bestX });
+      if (!spans.length) return def;
+      // A real glass may hang over the edge of a shelf and still stand: what it
+      // may not do is perch with most of its foot in mid-air. So the drawn
+      // position is kept whenever the foot overlaps a surface by at least half
+      // its width, and otherwise slid just far enough to be mostly supported.
+      // (Centring the cup on the whole ledge instead would walk it away from the
+      // edge the room is built around, and the water would land where the cup
+      // used to be.)
+      const overlapAt = (x, s2) => Math.min(s2[1], x + half) - Math.max(s2[0], x - half);
+      const bestNow = Math.max(...spans.map((s2) => overlapAt(def.x, s2)));
+      if (bestNow >= half * 2 * 0.5) return def;          // already stands
+      let best = { x: def.x, o: bestNow };
+      for (const s2 of spans) {
+        const cx = (s2[0] + s2[1]) / 2;
+        const lo = Math.min(s2[0] + half, cx), hi = Math.max(s2[1] - half, cx);
+        for (const x of [lo, hi]) {
+          const o = overlapAt(x, s2);
+          if (o > best.o) best = { x, o };
+        }
+      }
+      return Object.assign({}, def, { x: best.x });
     }
 
     buildGlasses() {

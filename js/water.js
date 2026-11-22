@@ -18,6 +18,11 @@
   // line that was proved to fill the glass can then miss it by two droplets on
   // the next run. Same cycle order, same look, same result.
   const RADII = [R, R + 0.4, R + 0.2];
+  // How much smaller the droplet is than the one these rooms were designed
+  // around. Every "how sticky is water" number below is expressed against that
+  // droplet: halving the radius and leaving them alone turns a heap of grout
+  // into a runny puddle that slides over the line it was meant to sit on.
+  const K = R0 / 7;
   // A room holds ~4x as many droplets now that each is half the radius, so the
   // pool is scaled to match — otherwise the same pour would be cut off by the
   // particle ceiling halfway and cups would stop filling.
@@ -37,6 +42,12 @@
       this._i = ((this._i || 0) + 1) % RADII.length;
       const body = Bodies.circle(x, y, RADII[this._i], {
         label: 'water',
+        // friction stays LOW whatever the droplet size. Water's job in this game
+        // is to travel: it runs down a drawn line and into the cup. A smaller
+        // droplet has more surface per unit volume, so it spreads into a film
+        // and *sticks* -- raising friction to "compensate" made a stream stop
+        // dead on a slope it used to run down. What holds half-size water
+        // together is cohesion (see cohere()), not grip.
         friction: 0.0015,
         frictionAir: 0.02,
         frictionStatic: 0,
@@ -56,7 +67,7 @@
         // to stay well under the droplet, or a half-radius droplet either buzzes
         // on the spot (too small) or sinks into its neighbours (too large). It
         // is 0.3 for the 7 px droplet these rooms were built with.
-        slop: 0.3 * (R / 7),
+        slop: 0.3 * K,
         // Water collides with everything, including drawn ink. A stream leaning
         // on a ramp is the whole mechanic: it holds the ramp down, and if the
         // ramp is badly placed it shoves it off the ledge.
@@ -123,7 +134,11 @@
         if (!bucket) { bucket = []; hash.set(k, bucket); }
         bucket.push(i);
       }
-      const pull = 0.07;          // px per frame toward the local centre (R-proportional)
+      // Cohesion is the spring that keeps the water one body rather than a
+      // spray. It is pulled toward its neighbours HARDER for a smaller droplet:
+      // the smaller the bead, the more a heap wants to slump into a film, and a
+      // film has no momentum to carry it into a cup.
+      const pull = 0.14 * (1 / Math.sqrt(K));
       const visc = 0.05;          // fraction of a neighbour's velocity taken on
       for (let i = 0; i < n; i++) {
         const p = ps[i];
