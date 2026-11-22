@@ -98,9 +98,10 @@ Two checks run over the result:
   **454 of 487** shapes match at ≥ 72 % coverage. The remainder are hairlines two to four pixels
   thick, where a one-pixel offset costs most of the mask. Arrow glyphs are excluded, because the tap
   housing draws those.
-* **Does every room render and play?** All 175 levels (40 authored + 135 copied) build, draw and run
-  headless with no exceptions; `npm run verify` still passes 40/40 for the authored rooms and
-  `npm run verify-sheet` plays every copied room with its recorded solution.
+* **Does every room render and play?** All 175 levels (40 authored + 135 copied) build and draw a
+  frame in the single-file build (`npm run smoke`), with no exceptions; `npm run verify` still passes
+  40/40 for the authored rooms, and `npm run verify-sheet` plays every copied room with its recorded
+  solution and reports each one it cannot win.
 
 ---
 
@@ -143,13 +144,28 @@ them nothing to fill. They are reported here rather than quietly given a tap, be
 change to the sheet. Winning the room *before* a tap-less one unlocks past it, so a cell with no arrow
 can never wall off the rest of the set.
 
-## Rooms the sheet may not allow
+## Where the copy stands
 
 The copied rooms are proved by playing them: `tools/solve-sheet.js` searches for a stroke that fills
 every cup, anchored only to what the sheet itself provides (the tap housing and the room's own
-shapes) — a copied line cannot float, because an unsupported line falls out of the level.
+shapes) — a copied line cannot float, because an unsupported line falls out of the level. A stroke is
+accepted only if it wins in the exact form it is written down, then replayed.
 
-Some cells resist that search. They are listed by `npm run verify-sheet`, with the fill the cup
-actually reached, so the difference between *we have not found the line* and *this cell cannot be
-watered* stays visible instead of being hidden behind a lower goal line. Lowering a cup's goal to
-whatever an unanchored stroke happened to reach would make the copy a lie, so it is not done.
+| | Rooms |
+| --- | --- |
+| no ink needed — the tap's own stream fills the cup | 42 |
+| one stroke, proved and replayed | 53 |
+| **proved by playing** | **95 / 135** |
+| no tap on the sheet, so nothing to prove | 8 |
+| with a tap, not yet solved | 32 |
+
+The thirty-two are rooms where the sheet's own furniture stands in the way of its own tap: a shelf
+directly under the nozzle, a cup tucked behind a wall, two cups that no single stream can reach. The
+search has not found the line for them. They are printed by `npm run verify-sheet` with the fill each
+cup actually reached, so *we have not found the stroke* stays visibly different from *this cell cannot
+be watered*, instead of being hidden behind a lower goal line.
+
+Lowering a cup's goal to whatever an unanchored stroke happened to reach would make the copy a lie,
+so it is not done. The goal of every copied cup is fixed at 0.72 of its own interior: the water line
+the sheet draws just under each rim, nudged down only enough that a player is not asked for a
+pixel-perfect fill.
