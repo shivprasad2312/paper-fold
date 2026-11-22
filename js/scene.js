@@ -12,6 +12,16 @@
   const WALL = 7;               // glass wall thickness
   const INK_W = 4;              // ink line thickness: a thin drawn wire
   const INK_MIN_STEP = 4;       // simplified point spacing (finer: thin rods need it)
+  // Water amounts in a level are written in the units of the droplet the rooms
+  // were designed with (Water.R_REF). A droplet of a different size carries a
+  // different volume, so every amount is scaled by the AREA ratio -- and left
+  // fractional, because rounding each tap would change how much water a room
+  // has by a whole droplet and quietly change its difficulty.
+  function waterConv() {
+    const r = HG.Water.R_REF / HG.Water.R;
+    return r * r;
+  }
+
   const PHYS_SUBSTEPS = 4;      // solver passes per rendered frame (see physics())
   const CONTACT_TOL = 1.5;      // px of overlap that counts as "touching"
   // water clings to a wet rod: fraction of the sliding velocity removed per
@@ -33,9 +43,13 @@
       // every glass is a real object now; only an explicit `fixed` glass is scenery
       this.dynamic = def.fixed ? false : true;
       this.x = def.x;
-      this.y = def.y;
-      this.w = def.w;
-      this.h = def.h;
+      // one glass for every room: a level places its cup, it does not size it.
+      // A level may pin the cup by its BASE instead of its centre -- a copied
+      // room knows where the drawing put the cup's foot, not its middle, and the
+      // game's glass is a different height from the drawn one.
+      this.w = HG.GLASS_W;
+      this.h = HG.GLASS_H;
+      this.y = def.base != null ? def.base - this.h / 2 : def.y;
       this.need = def.need;
       this.tilt = def.tilt || 0;
       this.wall = this.dynamic ? 10 : WALL;
@@ -43,6 +57,8 @@
       this.top = this.y - this.h / 2;
       this.bottom = this.y + this.h / 2;
       this.topHalf = this.w / 2;
+      // the sheet's own cup: a wide mouth tapering to 0.80 of it, not the
+      // narrow flute the authored rooms used to draw
       this.botHalf = this.w * 0.36;
 
       this.parts = [];
@@ -70,7 +86,11 @@
       // droplets squash together, so a "full" glass holds a bit more than the
       // raw area suggests. 1.26 is measured from the simulation itself.
       this.capacity = Math.max(6, Math.round((area * 1.26) / (Math.PI * HG.Water.R * HG.Water.R)));
+      // the same capacity in the units a level's water amounts are written in,
+      // so `need` is a share of the cup whatever the droplet size is
+      this.capacityRef = Math.max(6, Math.round((area * 1.26) / (Math.PI * Math.pow(HG.Water.R_REF, 2))));
       this.needCount = Math.max(1, Math.round(this.capacity * this.need));
+      this.needCountRef = Math.max(1, Math.round(this.capacityRef * this.need));
     }
 
     // keep the cached world transform in sync with the physics body
@@ -337,31 +357,14 @@
         return comp;
       };
 
-      // A glass is a loose object, so it needs a ledge to start on. Levels that
-      // deliberately leave one dangling set `hanging: true` instead.
+      // Loose glasses fall. That is the rule, not an accident: if a level does
+      // not put anything under a cup, the cup drops, and a room that expects a
+      // cup to stand in mid-air is a broken room. (This used to quietly forge a
+      // wooden "coaster" under every unsupported glass -- a shelf the player
+      // could not see in the level drawing, holding up a cup the drawing showed
+      // in mid-air. Removed deliberately.)
       const platforms = lv.platforms.slice();
       this.coasters = [];
-      lv.glasses.forEach((g) => {
-        if (g.hanging || g.fixed) return;
-        const bottom = g.y + g.h / 2;
-        const halfW = g.w / 2;
-        const already = platforms.concat(lv.crates.map((c) => ({
-          x: c.x, y: c.y, w: c.size, h: c.size, angle: c.angle || 0,
-        }))).some((p) => {
-          const top = p.y - p.h / 2;
-          const overlap = Math.min(p.x + p.w / 2, g.x + halfW) - Math.max(p.x - p.w / 2, g.x - halfW);
-          return top > bottom - 14 && top < bottom + 34 && overlap > halfW;
-        });
-        if (already) return;
-        const shelf = {
-          x: g.x, y: bottom + 7, w: g.w * 1.3, h: 14,
-          angle: 0, kind: 'wood', coaster: true,
-        };
-        // NOTE: never push into lv.platforms — that mutates the level data and
-        // every restart would add another phantom ledge
-        platforms.push(shelf);
-        this.coasters.push(shelf);
-      });
 
       platforms.forEach((p) => {
         if (p.poly) {
@@ -531,9 +534,39 @@
 
     }
 
+    // The game's glass is wider and much taller than the little cup the sheet
+    // draws in a room, so a copied cup has to be placed the way a person would
+    // put a real glass down: centred on whatever the drawing shows under it
+    // (a ledge, a plank, a crate), not on the dead centre of a cup that no
+    // longer exists. Without this the glass overhangs a narrow ledge by 20 px
+    // and slowly tips itself over before the player has drawn a line.
+    seatCopiedGlass(def) {
+      if (def.base == null) return def;
+      const half = HG.GLASS_W * 0.40;         // the glass's own foot
+      const bottom = def.base;
+      let bestX = def.x, bestOverlap = 0;
+      const consider = (x0, x1) => {
+        const overlap = Math.min(x1, def.x + half) - Math.max(x0, def.x - half);
+        if (overlap > bestOverlap) { bestOverlap = overlap; bestX = (x0 + x1) / 2; }
+      };
+      for (const b of this.world.bodies) {
+        if (!b.isStatic || b.isSensor) continue;
+        if (b.label !== 'platform' && b.label !== 'crate' && b.label !== 'ink') continue;
+        const bb = b.bounds;
+        // a surface the foot can actually rest on: its top is at the foot's
+        // height (within a few px) and it lies underneath the cup's centre
+        if (bb.max.y < bottom - 4 || bb.min.y > bottom + 10) continue;
+        if (bb.max.x < def.x - half - 60 || bb.min.x > def.x + half + 60) continue;
+        consider(bb.min.x, bb.max.x);
+      }
+      if (bestOverlap <= 0) return def;
+      return Object.assign({}, def, { x: bestX });
+    }
+
     buildGlasses() {
       const lv = this.level;
-      this.glasses = lv.glasses.map((def) => {
+      this.glasses = lv.glasses.map((rawDef) => {
+        const def = this.seatCopiedGlass(rawDef);
         const g = new Glass(def);
         const cx = g.x, cy = g.y;
         const W = g.wall;
@@ -617,9 +650,12 @@
             const ghost = Bodies.rectangle(sp.x, sp.y, sp.w, sp.h, {
               isStatic: true,
               angle: sp.angle,
-              // same rounded rim as the real part: a sharp corner spills a
-              // droplet off the rim where the real glass would have held it
-              chamfer: { radius: 3 },
+              // A chamfer rounds every corner, and a rounded corner is a notch
+              // between the wall and the base: with the old 7 px droplet the
+              // notch was too narrow to matter, a half-size droplet finds it and
+              // the cup leaks from the bottom corners. The water-only twin is
+              // never drawn, so it can be square.
+              chamfer: { radius: 0.5 },
               label: 'glasswall',
               friction: 0.7,
               frictionStatic: 0.9,
@@ -698,7 +734,9 @@
         def: f,
         x: f.x,
         y: f.y,
-        remaining: f.total,
+        // `total` is a volume of water in authored units; the tap holds it as
+        // however many droplets of the current size make up that volume
+        remaining: f.total * waterConv(),   // droplets of the current size
         acc: 0,
         done: false,
         flow: 0,
@@ -1076,7 +1114,9 @@
           f.done = f.remaining <= 0; f.flow = 0; continue;
         }
         if (this.startDelay > 0) { this.startDelay -= sec; continue; }
-        f.acc += f.def.rate * sec;
+        // rate is droplets per second at R_REF; scale it so a pour of the same
+        // volume of water takes the same time whatever the droplet size is
+        f.acc += (f.def.rate * waterConv()) * sec;
         let spawns = Math.floor(f.acc);
         f.acc -= spawns;
         while (spawns-- > 0 && f.remaining > 0) {
@@ -1433,7 +1473,7 @@
       }
       if (!parts.length) return;
       const R = HG.Water.R;
-      const REACH = R + 7;             // how far a drop can be and still be caught
+      const REACH = R * 2;             // how far a drop can be and still be caught
       const ABSORB = 0.85;             // share of the incoming normal speed removed
       const SLIDE = 1.6;               // extra push along the line, downhill
       const dtv = h;                   // ms this substep stands for

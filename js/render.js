@@ -1113,8 +1113,10 @@
       // So the body is drawn fatter than the collision circle (R+3.2 for the
       // rim, R+2.0 for the liquid) which closes the junctions, and the
       // highlight pass only marks droplets that really are on the surface.
-      const RIM = R + 5.0;
-      const BODY = R + 4.2;
+      // The extra ring is proportional to the radius, so a half-size droplet
+      // still closes up into a single mass instead of showing its own rim.
+      const RIM = R * 1.72;
+      const BODY = R * 1.60;
 
       // pass 1 — the rim of the liquid, as one continuous silhouette
       ctx.beginPath();
@@ -1174,7 +1176,7 @@
         }
         if (covered) continue;
         ctx.beginPath();
-        ctx.arc(b.position.x - 1.8, b.position.y - 3.0, Math.min(2.0, R * 0.28), 0, HG.TAU);
+        ctx.arc(b.position.x - R * 0.26, b.position.y - R * 0.43, Math.min(2.0, R * 0.28), 0, HG.TAU);
         ctx.fill();
       }
 

@@ -7,14 +7,21 @@
   const HG = global.HG;
   const { Bodies } = global.Matter;
 
-  const R0 = 7;                     // particle radius (world px)
+  // Droplet radius. Half of what it was (7): the stream reads as water rather
+  // than a rope of beads, and it fits through gaps the ink leaves. Everything
+  // that measures water in droplets is scaled from this one number, so halving
+  // it does not change how much water a room holds or pours.
+  const R0 = 3.5;                   // particle radius (world px)
   const R = R0;
   // Three radii in a fixed cycle instead of a random one. Water that is a
   // random size every time makes the pour a different pour every time, and a
   // line that was proved to fill the glass can then miss it by two droplets on
   // the next run. Same cycle order, same look, same result.
-  const RADII = [R, R + 0.8, R + 0.4];
-  const MAX_PARTICLES = 340;
+  const RADII = [R, R + 0.4, R + 0.2];
+  // A room holds ~4x as many droplets now that each is half the radius, so the
+  // pool is scaled to match — otherwise the same pour would be cut off by the
+  // particle ceiling halfway and cups would stop filling.
+  const MAX_PARTICLES = 340 * 4;
 
   class Water {
     constructor(scene) {
@@ -39,11 +46,17 @@
         // water looks. At 0.02 px the solver fought every droplet's penetration
         // every frame, so a settled pile never stopped buzzing (0.027 px/frame,
         // 5 % of droplets moving forever) and an impact rippled through the
-        // whole mass. At 0.3 px droplets may rest slightly into each other
-        // (2 % of their diameter), the solver leaves them alone: settled
-        // 0.003 px/frame, 0 % moving, and one droplet landing on a heap moves
-        // its neighbours by a median of 0.2 px instead of 28.
-        slop: 0.3,
+        // whole mass. At 0.3 px droplets rest slightly into each other (2 % of
+        // their diameter), the solver leaves them alone: settled 0.003 px/frame,
+        // 0 % moving, and one droplet landing on a heap moves its neighbours by
+        // a median of 0.2 px instead of 28. Half-size droplets need the same
+        // share of their own diameter — a fixed 0.3 px would be 9 % of a 3.5 px
+        // droplet and the stream would sink into the cup's walls.
+        // Matter lets bodies rest a little inside each other; that overlap has
+        // to stay well under the droplet, or a half-radius droplet either buzzes
+        // on the spot (too small) or sinks into its neighbours (too large). It
+        // is 0.3 for the 7 px droplet these rooms were built with.
+        slop: 0.3 * (R / 7),
         // Water collides with everything, including drawn ink. A stream leaning
         // on a ramp is the whole mechanic: it holds the ramp down, and if the
         // ramp is badly placed it shoves it off the ledge.
@@ -64,7 +77,7 @@
           vx: M.rand(-1, 1) * (power || 2.4),
           vy: M.rand(-2.6, -0.4) * (power ? power * 0.6 : 1),
           life: 1,
-          r: M.rand(1.6, 3.4),
+          r: M.rand(0.8, 1.7),
         });
       }
       if (this.splashes.length > 160) this.splashes.splice(0, this.splashes.length - 160);
@@ -110,7 +123,7 @@
         if (!bucket) { bucket = []; hash.set(k, bucket); }
         bucket.push(i);
       }
-      const pull = 0.14;          // px per frame toward the local centre
+      const pull = 0.07;          // px per frame toward the local centre (R-proportional)
       const visc = 0.05;          // fraction of a neighbour's velocity taken on
       for (let i = 0; i < n; i++) {
         const p = ps[i];
@@ -225,7 +238,11 @@
           if (g.contains(x, y)) { inGlass = true; break; }
         }
         if (inGlass) { p.restFor = 0; continue; }
-        if (Math.hypot(b.velocity.x, b.velocity.y) < 0.35) {
+        // "at rest" has to be measured against the droplet: a half-size droplet
+        // creeping along the floor moves slower than a half-size threshold, so a
+        // stream still on its way to the cup would be read as a puddle and
+        // drained. Same number, scaled with R.
+        if (Math.hypot(b.velocity.x, b.velocity.y) < 0.35 * (R0 / 7)) {
           p.restFor = (p.restFor || 0) + 1;
           if (p.restFor > 36) {                      // 0.6 s at rest
             this.splash(x, y - 4, 2, 0.7);
@@ -306,6 +323,10 @@
 
   const M = HG.M;
   Water.R = R;
+  // The radius every level's water amounts were designed against. A level says
+  // how much water its tap holds in the units of THAT droplet; halving the
+  // droplet must not halve the pour, so scene.js scales by (this / R)^2.
+  Water.R_REF = 7;
   Water.MAX_PARTICLES = MAX_PARTICLES;
   Water.pointInOrientedRect = pointInOrientedRect;
   HG.Water = Water;

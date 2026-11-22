@@ -11,6 +11,14 @@
   HG.H = 720;
   HG.TAU = Math.PI * 2;
 
+  // One glass in the whole game. A level may say where its cup stands (and
+  // whether it is tipped), but never how big it is: a room that wanted a
+  // smaller cup would make the player re-learn the target on every level, and
+  // the reference game never does that. These are the dimensions the authored
+  // rooms were designed against, and every copied room uses them too.
+  HG.GLASS_W = 108;
+  HG.GLASS_H = 118;
+
   // Collision groups. Water and drawn ink collide like any two objects in the
   // world: the stream leans on the line, the line pushes the water aside. The
   // only reason these are named at all is so the audit can prove what is

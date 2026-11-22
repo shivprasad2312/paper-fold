@@ -32,7 +32,7 @@
         { x: 524.93, y: 220.16, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 699.8, y: 579.05, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 699.8, base: 643.56, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 475.34, y: 460.91, w: 105.47, h: 234.45, angle: -1.57 }] },
@@ -49,7 +49,7 @@
         { x: 626.53, y: 181.18, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 722.82, y: 579.05, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 722.82, base: 643.56, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 482.08, y: 460.91, w: 105.47, h: 235.02, angle: -1.57 }] },
@@ -67,7 +67,7 @@
         { x: 921.45, y: 219.58, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 610.92, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 610.92, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 805.09, y: 419.64, w: 105.47, h: 218.39, angle: -1.57 }] },
@@ -85,7 +85,7 @@
         { x: 796.52, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 804.97, y: 646.36, w: 61.5, h: 101.5, need: 0.72, fixed: true },
+        { x: 804.97, base: 697.09, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[923.31, 689.01], [826.67, 689.01], [812.58, 696.9], [786.66, 694.08], [782.71, 686.19], [529.69, 689.01], [529.13, 703.66], [923.31, 704.22]], ox: 764.26, oy: 694.01 }] },
@@ -103,7 +103,7 @@
         { x: 520.25, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 637.2, y: 620.81, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 637.2, base: 665.2, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[550.68, 434.86], [500.53, 522.2], [418.25, 522.2], [363.31, 669.28], [363.31, 680.55], [577.17, 680.55], [524.2, 522.2], [600.27, 521.08]], ox: 487.21, oy: 569.12 }] },
@@ -121,7 +121,7 @@
         { x: 504.47, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 718.39, y: 507.2, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 718.39, base: 551.59, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 801.17, y: 594.9, w: 87.91, h: 216.96, angle: -1.57 }] },
@@ -140,7 +140,7 @@
         { x: 804.61, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 527.01, y: 557.89, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 527.01, base: 602.26, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[712.8, 340.66], [712.8, 371.64], [697.59, 372.2], [698.15, 459.5], [923.17, 459.5], [923.17, 372.2], [725.19, 372.2], [724.63, 340.66]], ox: 764.69, oy: 386.07 }] },
@@ -158,7 +158,7 @@
       ink: 900,
       faucets: [],
       glasses: [
-        { x: 687.47, y: 581.88, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 687.47, base: 626.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 586.49, y: 344.88, w: 41.43, h: 41.43, angle: -0.79 }] },
@@ -177,7 +177,7 @@
         { x: 688.44, y: 327.14, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 671.47, y: 526.77, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 671.47, base: 571.14, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.12, y: 576.09, w: 11.26, h: 140.25, angle: -1.57 }] },
@@ -193,7 +193,7 @@
       ink: 900,
       faucets: [],
       glasses: [
-        { x: 699.8, y: 579.05, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 699.8, base: 643.56, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 475.63, y: 493.58, w: 64.2, h: 235.02, angle: -1.57 }] },
@@ -211,7 +211,7 @@
         { x: 530.23, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 554.4, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 554.4, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 748.77, y: 455.06, w: 10.03, h: 334.59, angle: -1.45 }] },
@@ -229,7 +229,7 @@
         { x: 921.45, y: 219.58, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 610.92, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 610.92, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 805.09, y: 419.64, w: 105.47, h: 218.39, angle: -1.57 }] },
@@ -247,7 +247,7 @@
         { x: 525.46, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 549.19, y: 569.82, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 549.19, base: 633.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 477.82, y: 368.64, w: 13.72, h: 232.06, angle: -1.48 }] },
@@ -266,7 +266,7 @@
         { x: 532.09, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 555.85, y: 565.89, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 555.85, base: 629.3, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[672.97, 625.33], [578.86, 624.2], [561.95, 629.27], [532.65, 624.76], [363.31, 625.33], [363.31, 633.22], [672.97, 633.22]], ox: 535.15, oy: 627.9 }] },
@@ -286,7 +286,7 @@
         { x: 505.6, y: 248.89, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.42, y: 562.76, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 721.42, base: 626.17, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 484.75, y: 446.69, w: 103.69, h: 231.05, angle: -1.57 }] },
@@ -304,7 +304,7 @@
         { x: 804.61, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 527.01, y: 557.89, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 527.01, base: 602.26, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[712.8, 340.66], [712.8, 371.64], [697.59, 372.2], [698.15, 459.5], [923.17, 459.5], [923.17, 372.2], [725.19, 372.2], [724.63, 340.66]], ox: 764.69, oy: 386.07 }] },
@@ -323,7 +323,7 @@
         { x: 593.53, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 665.42, y: 571.21, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 665.42, base: 615.58, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 494.97, y: 446.83, w: 9.58, h: 251.2, angle: -1.57 }] },
@@ -342,7 +342,7 @@
         { x: 638.59, y: 283.21, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.91, y: 565.88, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 680.91, base: 610.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.12, y: 615.24, w: 10.7, h: 140.25, angle: -1.57 }] },
@@ -360,7 +360,7 @@
         { x: 612.63, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 610.26, y: 488.48, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 610.26, base: 552.99, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[456.14, 638.03], [456.14, 645.48], [769.12, 645.48], [769.12, 638.03], [644.73, 638.03], [609.76, 577.27], [574.22, 638.03]], ox: 611.32, oy: 631.48 }] },
@@ -376,7 +376,7 @@
         { x: 601.31, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 603.44, y: 440.47, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 603.44, base: 504.99, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[764.1, 569.24], [750.92, 560.65], [735.44, 555.49], [697.03, 553.19], [665.51, 559.5], [605.89, 581.86], [569.78, 587.01], [528.51, 581.86], [502.71, 569.82], [502.71, 703.95], [507.3, 720], [760.09, 720], [764.1, 705.1]], ox: 642.62, oy: 612.9 }] },
@@ -392,7 +392,7 @@
         { x: 668.09, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 610.92, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 610.92, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.41, y: 375.07, w: 57.15, h: 57.55, angle: -0.79 }] },
@@ -409,7 +409,7 @@
         { x: 839.35, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 528.75, y: 596.4, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 528.75, base: 640.8, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 806.38, y: 415.41, w: 87.35, h: 219.77, angle: -1.57 }] },
@@ -429,7 +429,7 @@
         { x: 628.17, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 571.97, y: 569.62, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 571.97, base: 633.05, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 636.9, y: 388.08, w: 81.15, h: 93.55, angle: -1.57 }] },
@@ -447,8 +447,8 @@
         { x: 629.57, y: 254.53, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 758.64, y: 578.78, w: 77.9, h: 126.8, need: 0.72, fixed: true },
-        { x: 526.38, y: 574.13, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 758.64, base: 642.21, need: 0.72 },
+        { x: 526.38, base: 637.56, need: 0.72 },
       ],
       decals: [
         { x: 676.07, y: 431.48, r: 8.73, color: '#000000' },
@@ -483,7 +483,7 @@
         { x: 605.78, y: 236.46, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 619.57, y: 431.78, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 619.57, base: 476.15, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 639.01, y: 554.41, w: 157.14, h: 46.19, angle: -1.57 }] },
@@ -499,7 +499,7 @@
         { x: 593.53, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 665.42, y: 571.21, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 665.42, base: 615.58, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 494.97, y: 446.83, w: 9.58, h: 251.2, angle: -1.57 }] },
@@ -518,7 +518,7 @@
         { x: 638.59, y: 283.21, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.91, y: 565.88, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 680.91, base: 610.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.12, y: 615.24, w: 10.7, h: 140.25, angle: -1.57 }] },
@@ -536,7 +536,7 @@
         { x: 485.38, y: 442.85, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 699.8, y: 579.02, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 699.8, base: 643.53, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 475.63, y: 493.58, w: 64.2, h: 235.02, angle: -1.57 }] },
@@ -558,7 +558,7 @@
         { x: 530.23, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 554.4, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 554.4, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 748.77, y: 455.06, w: 10.03, h: 334.59, angle: -1.45 }] },
@@ -579,7 +579,7 @@
         { x: 921.45, y: 219.58, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 660.25, y: 571.14, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 660.25, base: 635.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 805.09, y: 419.64, w: 105.47, h: 218.39, angle: -1.57 }] },
@@ -600,7 +600,7 @@
         { x: 436.71, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 613.44, y: 565.93, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 613.44, base: 629.36, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 477.82, y: 368.64, w: 13.67, h: 232.06, angle: -1.48 }] },
@@ -621,7 +621,7 @@
         { x: 532.09, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 543.88, y: 563.57, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 543.88, base: 626.99, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[672.97, 625.33], [363.31, 625.33], [363.31, 632.65], [672.97, 632.65]], ox: 518.14, oy: 628.99 }] },
@@ -643,7 +643,7 @@
         { x: 505.6, y: 248.89, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.42, y: 562.75, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 721.42, base: 626.17, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 484.75, y: 446.69, w: 103.69, h: 231.05, angle: -1.57 }] },
@@ -664,7 +664,7 @@
         { x: 923.17, y: 333.62, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 529.31, y: 596.69, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 529.31, base: 641.06, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[923.17, 372.2], [844.6, 333.9], [881.77, 372.2], [697.59, 372.2], [698.15, 459.5], [923.17, 459.5]], ox: 828.07, oy: 394.92 }] },
@@ -686,7 +686,7 @@
         { x: 593.53, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 665.42, y: 571.21, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 665.42, base: 615.58, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 494.97, y: 446.83, w: 9.58, h: 251.2, angle: -1.57 }] },
@@ -708,7 +708,7 @@
         { x: 638.59, y: 283.21, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.91, y: 565.86, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 680.91, base: 610.23, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.12, y: 615.24, w: 10.7, h: 140.25, angle: -1.57 }] },
@@ -726,7 +726,7 @@
         { x: 554.55, y: 258.32, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 715.16, y: 604.41, w: 48, h: 79.6, need: 0.72, fixed: true },
+        { x: 715.16, base: 644.21, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 556.84, y: 456.76, w: 64.23, h: 229.98, angle: -1.57 }] },
@@ -743,7 +743,7 @@
         { x: 647.6, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 722.89, y: 604.04, w: 60.5, h: 101.1, need: 0.72, fixed: true },
+        { x: 722.89, base: 654.59, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[358.55, 444.14], [358.55, 457.33], [693.48, 487.15], [691.76, 473.96]], ox: 525.59, oy: 465.64 }] },
@@ -764,7 +764,7 @@
         { x: 921.31, y: 219.61, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 660.2, y: 571.03, w: 79.3, h: 129.1, need: 0.72, fixed: true },
+        { x: 660.2, base: 635.58, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 804.89, y: 419.48, w: 105.53, h: 218.51, angle: -1.57 }] },
@@ -785,7 +785,7 @@
         { x: 625.33, y: 189.46, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 613.56, y: 565.89, w: 78, h: 127, need: 0.72, fixed: true },
+        { x: 613.56, base: 629.38, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 476.41, y: 388.87, w: 13.54, h: 227.33, angle: -1.57 }] },
@@ -805,7 +805,7 @@
         { x: 532.12, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.29, y: 559.17, w: 78, h: 127, need: 0.72, fixed: true },
+        { x: 634.29, base: 622.66, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 468.26, y: 330.15, w: 60.42, h: 60.42, angle: 0, r: 30.21 }] },
@@ -828,7 +828,7 @@
         { x: 505.46, y: 248.69, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.4, y: 562.7, w: 78, h: 127, need: 0.72, fixed: true },
+        { x: 721.4, base: 626.19, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 484.59, y: 446.41, w: 103.79, h: 230.72, angle: -1.57 }] },
@@ -849,7 +849,7 @@
         { x: 923.32, y: 333.22, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 529.41, y: 596.78, w: 53.3, h: 88.9, need: 0.72, fixed: true },
+        { x: 529.41, base: 641.21, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[923.32, 372.41], [844.95, 334.07], [882.16, 372.41], [698.35, 372.41], [697.79, 459.8], [573.75, 459.8], [923.32, 459.8]], ox: 791.95, oy: 404.39 }] },
@@ -871,7 +871,7 @@
         { x: 593.34, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 665.39, y: 571.28, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 665.39, base: 615.69, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 494.68, y: 446.83, w: 10.15, h: 251.46, angle: -1.57 }] },
@@ -893,7 +893,7 @@
         { x: 638.87, y: 283.33, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 535.5, y: 565.95, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 535.5, base: 610.37, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 539.64, y: 626.13, w: 23.68, h: 109.38, angle: -1.57 }] },
@@ -914,7 +914,7 @@
         { x: 507.87, y: 417.06, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.31, y: 507.88, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 634.31, base: 572.4, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 572.07, y: 341.96, w: 41.76, h: 41.76, angle: -0.79 }] },
@@ -932,7 +932,7 @@
         { x: 863.27, y: 253.69, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 516.92, y: 558.1, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 516.92, base: 622.61, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 773.85, y: 431.96, w: 49.87, h: 215.53, angle: -1.57 }] },
@@ -953,7 +953,7 @@
         { x: 921.45, y: 295.25, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 656.61, y: 572.48, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 656.61, base: 637, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 804.8, y: 419.64, w: 105.47, h: 218.97, angle: -1.57 }] },
@@ -974,7 +974,7 @@
         { x: 436.85, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 613.47, y: 565.95, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 613.47, base: 629.36, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 477.62, y: 368.64, w: 13.72, h: 232.51, angle: -1.48 }] },
@@ -996,7 +996,7 @@
         { x: 480.24, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 580.14, y: 562.76, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 580.14, base: 626.17, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[562.52, 381.89], [569.84, 428.09], [618.3, 435.98], [611.54, 392.03], [610.41, 389.21]], ox: 594.52, oy: 405.44 }] },
@@ -1020,7 +1020,7 @@
         { x: 505.6, y: 248.89, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.33, y: 562.76, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 721.33, base: 626.17, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 484.75, y: 446.69, w: 103.69, h: 231.05, angle: -1.57 }] },
@@ -1041,7 +1041,7 @@
         { x: 923.31, y: 333.62, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 529.35, y: 596.71, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 529.35, base: 641.09, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[923.31, 372.2], [844.74, 333.9], [881.91, 372.2], [697.73, 372.2], [698.29, 459.5], [923.31, 459.5]], ox: 828.22, oy: 394.92 }] },
@@ -1063,7 +1063,7 @@
         { x: 593.53, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 665.3, y: 571.21, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 665.3, base: 615.58, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 494.97, y: 446.83, w: 9.58, h: 251.2, angle: -1.57 }] },
@@ -1085,7 +1085,7 @@
         { x: 638.59, y: 283.21, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.82, y: 565.88, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 680.82, base: 610.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 680.83, y: 615.24, w: 10.7, h: 140.81, angle: -1.57 }] },
@@ -1103,7 +1103,7 @@
         { x: 507.73, y: 417.06, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.27, y: 507.82, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 634.27, base: 572.34, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 706.64, y: 352, w: 41.76, h: 41.76, angle: -0.79 }] },
@@ -1121,7 +1121,7 @@
         { x: 863.27, y: 253.4, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 517.03, y: 558.04, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 517.03, base: 622.55, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 773.85, y: 431.96, w: 50.44, h: 215.53, angle: -1.57 }] },
@@ -1142,7 +1142,7 @@
         { x: 882.76, y: 276.9, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 660.65, y: 582.03, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 660.65, base: 646.54, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 793.34, y: 455.46, w: 50.44, h: 215.53, angle: -1.57 }] },
@@ -1163,7 +1163,7 @@
         { x: 485.74, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 632.58, y: 565.89, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 632.58, base: 629.3, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 479.82, y: 422.46, w: 47.9, h: 233.86, angle: -1.57 }] },
@@ -1184,7 +1184,7 @@
         { x: 608.44, y: 241.85, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 625.95, y: 464.44, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 625.95, base: 526.8, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 579.98, y: 540.52, w: 28.18, h: 20.29, angle: -1.57 }] },
@@ -1208,7 +1208,7 @@
         { x: 626.19, y: 254.81, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 640.51, y: 495.69, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 640.51, base: 558.04, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 643.1, y: 563.34, w: 14.09, h: 71, angle: -1.57 }] },
@@ -1230,7 +1230,7 @@
         { x: 516.23, y: 299.83, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 622.55, y: 525.36, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 622.55, base: 587.7, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 742.37, y: 419.51, w: 53.51, h: 161.65, angle: -1.57 }] },
@@ -1251,7 +1251,7 @@
         { x: 633.52, y: 223.79, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 651.17, y: 560.48, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 651.17, base: 604.85, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 651.26, y: 610.17, w: 10.14, h: 140.25, angle: -1.57 }] },
@@ -1272,7 +1272,7 @@
         { x: 486.52, y: 255.89, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 693.82, y: 465.47, w: 75.8, h: 124.6, need: 0.72, fixed: true },
+        { x: 693.82, base: 527.8, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[584.52, 525.68], [584.52, 540.89], [888.11, 540.89], [888.11, 525.68], [711.81, 524.56], [686.47, 527.37], [671.26, 522.87], [674.64, 525.12]], ox: 711.18, oy: 529.13 }] },
@@ -1289,7 +1289,7 @@
         { x: 656.77, y: 196.08, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 667.1, y: 532.54, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 667.1, base: 584.15, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 660.78, y: 632.58, w: 111.78, h: 395.52, angle: -1.57 }] },
@@ -1309,7 +1309,7 @@
         { x: 646.31, y: 196.08, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 656.58, y: 532.54, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 656.58, base: 584.15, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 650.03, y: 633.73, w: 109.48, h: 395.52, angle: -1.57 }] },
@@ -1329,8 +1329,8 @@
         { x: 660.06, y: 198.95, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 559.96, y: 534.98, w: 62.6, h: 103.2, need: 0.72, fixed: true },
-        { x: 756.49, y: 532.54, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 559.96, base: 586.58, need: 0.72 },
+        { x: 756.49, base: 584.15, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 664.08, y: 634.88, w: 111.78, h: 394.95, angle: -1.57 }] },
@@ -1351,7 +1351,7 @@
         { x: 799.05, y: 326.94, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 587.8, y: 509.99, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 587.8, base: 570.24, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 587.17, y: 619.41, w: 107.63, h: 388.83, angle: -1.57 }] },
@@ -1370,7 +1370,7 @@
         { x: 480.24, y: 309.19, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 688.1, y: 547.48, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 688.1, base: 609.83, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[578.29, 607.86], [578.86, 623.07], [882.03, 623.07], [882.03, 607.3], [706.21, 606.73], [680.86, 609.55], [665.08, 605.04], [669.02, 606.73]], ox: 705.3, oy: 611.17 }] },
@@ -1390,7 +1390,7 @@
         { x: 635.49, y: 260.16, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 640.17, y: 460.26, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 640.17, base: 504.65, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 642.82, y: 582.78, w: 157.22, h: 45.65, angle: -1.57 }] },
@@ -1409,7 +1409,7 @@
         { x: 535.66, y: 203.79, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 520.97, y: 565.15, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 520.97, base: 625.38, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[881.77, 453.31], [791.09, 385.72], [723.5, 453.31], [608.04, 453.31], [608.04, 545.12], [881.77, 545.12]], ox: 749.03, oy: 472.65 }] },
@@ -1429,8 +1429,8 @@
         { x: 606.49, y: 191.97, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 709.24, y: 545.31, w: 73.8, h: 120.4, need: 0.72, fixed: true },
-        { x: 478.45, y: 484.65, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 709.24, base: 605.52, need: 0.72 },
+        { x: 478.45, base: 544.86, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 483.98, y: 554.41, w: 17.46, h: 125.6, angle: -1.57 }] },
@@ -1451,7 +1451,7 @@
         { x: 480.04, y: 327.99, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 623.57, y: 573.98, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 623.57, base: 634.19, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 636.06, y: 649.03, w: 17.46, h: 125.6, angle: -1.57 }] },
@@ -1471,7 +1471,7 @@
         { x: 656.77, y: 196.37, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 660.42, y: 532.53, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 660.42, base: 584.15, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 660.78, y: 633.73, w: 110.06, h: 395.52, angle: -1.57 }] },
@@ -1490,8 +1490,8 @@
       ink: 900,
       faucets: [],
       glasses: [
-        { x: 607.54, y: 534.95, w: 62.6, h: 103.2, need: 0.72, fixed: true },
-        { x: 707.05, y: 532.95, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 607.54, base: 586.56, need: 0.72 },
+        { x: 707.05, base: 584.55, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 650.03, y: 633.44, w: 110.63, h: 395.52, angle: -1.57 }] },
@@ -1512,7 +1512,7 @@
         { x: 808.81, y: 329.93, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 639.79, y: 494.71, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 639.79, base: 546.32, need: 0.72 },
       ],
       hots: [
         { kind: 'danger', pieces: [{ x: 748.91, y: 402.15, w: 14.9, h: 140.44, angle: -1.57 }] },
@@ -1528,7 +1528,7 @@
         { x: 495.32, y: 259.88, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 711.58, y: 592.59, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 711.58, base: 652.83, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 712.84, y: 663.93, w: 18.03, h: 137.5, angle: -1.57 }] },
@@ -1549,7 +1549,7 @@
         { x: 627.6, y: 208.88, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 734.26, y: 536.26, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 734.26, base: 596.5, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 529.89, y: 433.81, w: 16.23, h: 277, angle: -0.95 }] },
@@ -1570,7 +1570,7 @@
         { x: 593.23, y: 251.43, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 501.53, y: 596.07, w: 69.7, h: 114.1, need: 0.72, fixed: true },
+        { x: 501.53, base: 653.14, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 719.6, y: 516.06, w: 277, h: 16.2, angle: -0.61 }] },
@@ -1592,7 +1592,7 @@
         { x: 610.29, y: 186.9, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 608.67, y: 587.96, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 608.67, base: 648.19, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 526.93, y: 422.05, w: 96.37, h: 96.37, angle: -0.79 }] },
@@ -1614,8 +1614,8 @@
         { x: 606.49, y: 192.25, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 709.24, y: 545.28, w: 73.8, h: 120.4, need: 0.72, fixed: true },
-        { x: 478.45, y: 484.62, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 709.24, base: 605.49, need: 0.72 },
+        { x: 478.45, base: 544.83, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 483.98, y: 554.13, w: 17.46, h: 125.6, angle: -1.57 }] },
@@ -1638,7 +1638,7 @@
         { x: 515.24, y: 308.84, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 623.57, y: 573.95, w: 73.8, h: 120.4, need: 0.72, fixed: true },
+        { x: 623.57, base: 634.16, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 636.06, y: 648.75, w: 17.46, h: 125.6, angle: -1.57 }] },
@@ -1660,7 +1660,7 @@
         { x: 821.28, y: 363.46, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 510.1, y: 613.73, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 510.1, base: 665.34, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 692.59, y: 599.34, w: 108.34, h: 237.88, angle: -1.57 }] },
@@ -1681,7 +1681,7 @@
         { x: 679.27, y: 211.27, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 560.27, y: 596.79, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 560.27, base: 648.41, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[597.87, 385.24], [597.87, 392.69], [770.41, 392.69], [765.82, 364.61], [758.94, 349.7], [750.34, 337.67], [737.73, 325.63], [722.26, 315.88], [706.78, 310.15], [689.01, 307.29], [659.2, 310.72], [642.58, 317.6], [628.82, 326.77], [616.78, 338.81], [607.61, 352.57], [601.88, 365.75]], ox: 678.37, oy: 343.36 }] },
@@ -1703,7 +1703,7 @@
         { x: 646.59, y: 219.87, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 580.86, y: 458.34, w: 62.6, h: 103.2, need: 0.72, fixed: true },
+        { x: 580.86, base: 509.95, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 523.09, y: 393.07, w: 34.34, h: 34.34, angle: 0, r: 17.17 }] },
@@ -1723,7 +1723,7 @@
         { x: 495.32, y: 260.16, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 769.15, y: 592.01, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 769.15, base: 652.26, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 778.77, y: 664.21, w: 18.03, h: 137.5, angle: -1.57 }] },
@@ -1768,7 +1768,7 @@
       ink: 900,
       faucets: [],
       glasses: [
-        { x: 608.65, y: 588.12, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 608.65, base: 648.38, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 604.36, y: 657.73, w: 17.47, h: 125.67, angle: -1.57 }] },
@@ -1796,7 +1796,7 @@
       ink: 900,
       faucets: [],
       glasses: [
-        { x: 623.56, y: 574.1, w: 73.8, h: 120.5, need: 0.72, fixed: true },
+        { x: 623.56, base: 634.34, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 636.06, y: 649, w: 16.91, h: 125.67, angle: -1.57 }] },
@@ -1812,7 +1812,7 @@
         { x: 643.58, y: 225.03, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 650.1, y: 463.07, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 650.1, base: 527.57, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 666.51, y: 628, w: 81.4, h: 363.42, angle: -1.57 }] },
@@ -1832,7 +1832,7 @@
         { x: 652.61, y: 221.59, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 656.69, y: 454.03, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 656.69, base: 518.54, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 644.01, y: 623.41, w: 81.4, h: 362.85, angle: -1.57 }] },
@@ -1852,7 +1852,7 @@
         { x: 645.73, y: 213.56, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 647.24, y: 475.78, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 647.24, base: 540.3, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 753.24, y: 593.12, w: 56.81, h: 56.81, angle: 0, r: 28.4 }] },
@@ -1869,7 +1869,7 @@
         { x: 657.89, y: 186.06, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.13, y: 456.69, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 721.13, base: 520.12, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 556.99, y: 332.21, w: 55.85, h: 55.85, angle: 0, r: 27.92 }] },
@@ -1889,7 +1889,7 @@
         { x: 567.59, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 567.81, y: 421.88, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 567.81, base: 484.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 474.63, y: 505.35, w: 34.66, h: 34.66, angle: 0, r: 17.33 }] },
@@ -1905,7 +1905,7 @@
         { x: 624.5, y: 251.43, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 625.35, y: 448.82, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 625.35, base: 511.19, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[472.35, 720], [808.21, 720], [796.94, 660.55], [783.42, 633.5], [763.13, 607.01], [738.9, 585.6], [708.47, 568.13], [650.99, 554.04], [622.81, 554.61], [591.82, 560.8], [557.44, 575.46], [530.96, 594.05], [503.91, 623.36], [486.44, 653.79], [476.3, 684.22]], ox: 632.81, oy: 619.67 }] },
@@ -1921,8 +1921,8 @@
         { x: 637.32, y: 194.51, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 568.6, y: 421.13, w: 75.9, h: 124.7, need: 0.72, fixed: true },
-        { x: 703.27, y: 418.7, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 568.6, base: 483.49, need: 0.72 },
+        { x: 703.27, base: 481.07, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[454.74, 720], [843.01, 720], [827.79, 647.02], [793.42, 593.49], [768.62, 570.38], [734.25, 548.97], [701.57, 536.57], [662.12, 529.81], [619.85, 531.5], [580.41, 541.64], [547.72, 557.42], [520.11, 577.71], [494.19, 605.32], [472.77, 640.26], [460.94, 672.38]], ox: 632.1, oy: 599.5 }] },
@@ -1939,8 +1939,8 @@
         { x: 625.07, y: 222.13, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 594.54, y: 502.52, w: 77.9, h: 126.8, need: 0.72, fixed: true },
-        { x: 676.76, y: 502.52, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 594.54, base: 565.93, need: 0.72 },
+        { x: 676.76, base: 565.93, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 752.7, y: 591.23, w: 31.56, h: 33.25, angle: -1.57 }] },
@@ -1957,7 +1957,7 @@
         { x: 663.39, y: 229.45, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.93, y: 565.93, w: 53.3, h: 88.8, need: 0.72, fixed: true },
+        { x: 680.93, base: 610.34, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.14, y: 615.18, w: 10.71, h: 140.32, angle: -1.57 }] },
@@ -1978,7 +1978,7 @@
         { x: 642.72, y: 238.79, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 650.1, y: 463.23, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 650.1, base: 527.74, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 666.51, y: 628.29, w: 81.97, h: 363.42, angle: -1.57 }] },
@@ -1999,7 +1999,7 @@
         { x: 649.74, y: 181.46, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 650.65, y: 375.18, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 650.65, base: 439.7, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ poly: [[815.69, 546.03], [462.59, 582.71], [462.59, 664.68], [825.44, 664.68]], ox: 641.58, oy: 614.52 }] },
@@ -2018,7 +2018,7 @@
         { x: 645.45, y: 213.56, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 647.24, y: 475.95, w: 79.3, h: 129, need: 0.72, fixed: true },
+        { x: 647.24, base: 540.47, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 542.9, y: 362.71, w: 56.81, h: 56.81, angle: 0, r: 28.4 }] },
@@ -2038,7 +2038,7 @@
         { x: 657.89, y: 186.06, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 721.13, y: 456.86, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 721.13, base: 520.29, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 767.33, y: 577.51, w: 55.85, h: 55.85, angle: 0, r: 27.92 }] },
@@ -2058,7 +2058,7 @@
         { x: 567.59, y: 170, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 567.81, y: 422.04, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 567.81, base: 484.39, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 474.63, y: 505.52, w: 34.71, h: 34.71, angle: 0, r: 17.36 }] },
@@ -2077,7 +2077,7 @@
         { x: 523.63, y: 335.96, dir: 'right', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 709.06, y: 466.86, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 709.06, base: 529.22, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[641.97, 339.9], [634.08, 339.9], [633.52, 397.95], [510.67, 397.95], [510.67, 405.84], [633.52, 405.84], [634.08, 463.88], [641.97, 463.88]], ox: 605.06, oy: 401.89 }] },
@@ -2096,8 +2096,8 @@
         { x: 637.61, y: 194.5, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 568.64, y: 421.16, w: 75.8, h: 124.7, need: 0.72, fixed: true },
-        { x: 703.24, y: 418.74, w: 75.9, h: 124.7, need: 0.72, fixed: true },
+        { x: 568.64, base: 483.5, need: 0.72 },
+        { x: 703.24, base: 481.08, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[454.84, 720], [842.91, 720], [838.4, 680.01], [827.14, 645.65], [791.65, 591.58], [764.62, 567.36], [730.26, 547.09], [691.96, 534.13], [659.85, 529.63], [624.93, 530.75], [585.51, 539.76], [552.84, 554.41], [519.05, 578.63], [491.45, 609.04], [470.61, 645.09]], ox: 656.4, oy: 599.54 }] },
@@ -2114,8 +2114,8 @@
         { x: 625.07, y: 222.1, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 594.56, y: 502.51, w: 77.9, h: 126.8, need: 0.72, fixed: true },
-        { x: 676.74, y: 502.51, w: 77.9, h: 126.8, need: 0.72, fixed: true },
+        { x: 594.56, base: 565.9, need: 0.72 },
+        { x: 676.74, base: 565.9, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 752.65, y: 591.58, w: 31.54, h: 33.23, angle: -1.57 }] },
@@ -2132,7 +2132,7 @@
         { x: 663.37, y: 229.42, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 680.91, y: 565.88, w: 53.3, h: 88.7, need: 0.72, fixed: true },
+        { x: 680.91, base: 610.25, need: 0.72 },
       ],
       platforms: [
         { kind: 'grey', pieces: [{ x: 681.12, y: 615.24, w: 11.26, h: 140.25, angle: -1.57 }] },
@@ -2153,7 +2153,7 @@
         { x: 681.41, y: 238.21, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 605.18, y: 578.67, w: 52.2, h: 83.9, need: 0.72, fixed: true },
+        { x: 605.18, base: 620.6, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 694.31, y: 507.62, w: 8.03, h: 126.68, angle: -1.57 }] },
@@ -2173,7 +2173,7 @@
         { x: 615.07, y: 241.08, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 675.28, y: 569.89, w: 52.2, h: 83.9, need: 0.72, fixed: true },
+        { x: 675.28, base: 611.83, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 585.95, y: 495.59, w: 126.97, h: 8.43, angle: -0.44 }] },
@@ -2193,7 +2193,7 @@
         { x: 661.21, y: 266.3, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 661.25, y: 567.81, w: 52.1, h: 83.9, need: 0.72, fixed: true },
+        { x: 661.25, base: 609.74, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 660.92, y: 618.83, w: 6.88, h: 83.69, angle: -1.57 }] },
@@ -2216,8 +2216,8 @@
         { x: 530.25, y: 278.48, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 538.26, y: 563.62, w: 51.3, h: 82.4, need: 0.72, fixed: true },
-        { x: 710.07, y: 563.71, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 538.26, base: 604.84, need: 0.72 },
+        { x: 710.07, base: 604.93, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 537.58, y: 604.76, w: 6.76, h: 82.27, angle: -1.57 }] },
@@ -2241,7 +2241,7 @@
         { x: 631.27, y: 186.62, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.66, y: 357.6, w: 63.5, h: 103.6, need: 0.72, fixed: true },
+        { x: 634.66, base: 409.39, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 688.46, y: 432.88, w: 20.29, h: 21.98, angle: -1.57 }] },
@@ -2262,7 +2262,7 @@
         { x: 724.25, y: 279.61, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 658.81, y: 365.32, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 658.81, base: 406.54, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 654.96, y: 545.53, w: 41.36, h: 41.36, angle: 0, r: 20.68 }] },
@@ -2284,7 +2284,7 @@
         { x: 721.85, y: 258.76, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 609.23, y: 591.54, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 609.23, base: 632.77, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 750.59, y: 490.36, w: 7.89, h: 123.98, angle: -1.57 }] },
@@ -2304,7 +2304,7 @@
         { x: 626.19, y: 267.77, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 630.24, y: 581.37, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 630.24, base: 622.59, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 733.66, y: 545.7, w: 124.85, h: 8.28, angle: -0.52 }] },
@@ -2327,7 +2327,7 @@
         { x: 623.38, y: 258.76, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 627.39, y: 572.44, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 627.39, base: 613.66, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 772.43, y: 465.01, w: 7.89, h: 124.54, angle: -1.57 }] },
@@ -2351,7 +2351,7 @@
         { x: 681.41, y: 238.5, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 605.18, y: 578.85, w: 52.2, h: 83.9, need: 0.72, fixed: true },
+        { x: 605.18, base: 620.78, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 694.31, y: 507.91, w: 8.03, h: 126.68, angle: -1.57 }] },
@@ -2371,8 +2371,8 @@
         { x: 660.35, y: 247.1, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 563.48, y: 583.26, w: 52.2, h: 83.9, need: 0.72, fixed: true },
-        { x: 783.16, y: 618.91, w: 52.2, h: 83.9, need: 0.72, fixed: true },
+        { x: 563.48, base: 625.19, need: 0.72 },
+        { x: 783.16, base: 660.84, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 718.47, y: 434.37, w: 121.98, h: 10.83, angle: -0.7 }] },
@@ -2394,7 +2394,7 @@
         { x: 660.92, y: 266.59, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 661.25, y: 567.98, w: 52.1, h: 83.9, need: 0.72, fixed: true },
+        { x: 661.25, base: 609.91, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 660.92, y: 618.83, w: 6.31, h: 83.69, angle: -1.57 }] },
@@ -2417,8 +2417,8 @@
         { x: 530.25, y: 278.76, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 538.26, y: 563.79, w: 51.3, h: 82.4, need: 0.72, fixed: true },
-        { x: 710.07, y: 563.85, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 538.26, base: 605.01, need: 0.72 },
+        { x: 710.07, base: 605.07, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 709.17, y: 605.04, w: 6.76, h: 82.84, angle: -1.57 }] },
@@ -2443,7 +2443,7 @@
         { x: 631.27, y: 230.86, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.66, y: 357.75, w: 63.5, h: 103.6, need: 0.72, fixed: true },
+        { x: 634.66, base: 409.55, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 575.48, y: 433.17, w: 20.29, h: 21.41, angle: -1.57 }] },
@@ -2466,7 +2466,7 @@
         { x: 714.1, y: 278.48, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 655.24, y: 387.41, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 655.24, base: 428.63, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 701.37, y: 545.25, w: 32.06, h: 32.06, angle: 0, r: 16.03 }] },
@@ -2486,7 +2486,7 @@
         { x: 695.34, y: 260.68, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 609.25, y: 591.48, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 609.25, base: 632.7, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 719.22, y: 488.82, w: 124.73, h: 8.28, angle: -0.25 }] },
@@ -2509,7 +2509,7 @@
         { x: 626.48, y: 272.51, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 627.58, y: 548.23, w: 63.5, h: 103.6, need: 0.72, fixed: true },
+        { x: 627.58, base: 600, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[748.42, 420.64], [664.5, 500.62], [748.42, 500.62]], ox: 720.45, oy: 473.96 }] },
@@ -2532,7 +2532,7 @@
         { x: 601.7, y: 260.68, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 611.87, y: 572.6, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 611.87, base: 613.8, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 772.36, y: 465.14, w: 7.89, h: 124.48, angle: -1.57 }] },
@@ -2557,7 +2557,7 @@
         { x: 665.94, y: 237.93, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 667.77, y: 402.25, w: 83.6, h: 99.2, need: 0.72, fixed: true, tilt: 0.47 },
+        { x: 667.77, base: 451.85, need: 0.72, tilt: 0.47 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[829.88, 564.66], [737.02, 564.66], [736.44, 537.14], [711.8, 537.14], [711.22, 564.66], [551.87, 564.66], [551.87, 593.32], [829.88, 593.32]], ox: 707.5, oy: 564.94 }] },
@@ -2576,7 +2576,7 @@
         { x: 684.71, y: 243.08, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 686.99, y: 407.94, w: 83.6, h: 99.2, need: 0.72, fixed: true, tilt: 0.47 },
+        { x: 686.99, base: 457.52, need: 0.72, tilt: 0.47 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 710.05, y: 584.75, w: 278.3, h: 29.43, angle: -0.31 }] },
@@ -2595,7 +2595,7 @@
         { x: 660.92, y: 266.59, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 661.25, y: 567.98, w: 52.1, h: 83.9, need: 0.72, fixed: true },
+        { x: 661.25, base: 609.91, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 660.92, y: 618.83, w: 6.31, h: 83.69, angle: -1.57 }] },
@@ -2618,8 +2618,8 @@
         { x: 530.25, y: 278.76, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 538.26, y: 563.79, w: 51.3, h: 82.4, need: 0.72, fixed: true },
-        { x: 710.07, y: 563.85, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 538.26, base: 605.01, need: 0.72 },
+        { x: 710.07, base: 605.07, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 709.17, y: 605.04, w: 6.76, h: 82.84, angle: -1.57 }] },
@@ -2644,7 +2644,7 @@
         { x: 631.27, y: 230.86, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 634.66, y: 357.75, w: 63.5, h: 103.6, need: 0.72, fixed: true },
+        { x: 634.66, base: 409.55, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 575.48, y: 433.17, w: 20.29, h: 21.41, angle: -1.57 }] },
@@ -2667,7 +2667,7 @@
         { x: 714.1, y: 278.48, dir: 'left', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 655.24, y: 387.41, w: 51.3, h: 82.4, need: 0.72, fixed: true },
+        { x: 655.24, base: 428.63, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 701.37, y: 545.25, w: 32.06, h: 32.06, angle: 0, r: 16.03 }] },
@@ -2687,7 +2687,7 @@
         { x: 695.34, y: 260.68, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 609.25, y: 591.48, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 609.25, base: 632.7, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 719.22, y: 488.82, w: 124.73, h: 8.28, angle: -0.25 }] },
@@ -2710,7 +2710,7 @@
         { x: 626.48, y: 272.51, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 627.58, y: 548.23, w: 63.5, h: 103.6, need: 0.72, fixed: true },
+        { x: 627.58, base: 600, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ poly: [[748.42, 420.64], [664.5, 500.62], [748.42, 500.62]], ox: 720.45, oy: 473.96 }] },
@@ -2733,7 +2733,7 @@
         { x: 601.7, y: 260.68, dir: 'down', rate: 46, total: 110, spread: 0.55 },
       ],
       glasses: [
-        { x: 611.87, y: 572.6, w: 51.2, h: 82.4, need: 0.72, fixed: true },
+        { x: 611.87, base: 613.8, need: 0.72 },
       ],
       platforms: [
         { kind: 'ink', pieces: [{ x: 772.36, y: 465.14, w: 7.89, h: 124.48, angle: -1.57 }] },
