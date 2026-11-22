@@ -153,17 +153,20 @@ accepted only if it wins in the exact form it is written down, then replayed.
 
 | | Rooms |
 | --- | --- |
-| no ink needed — the tap's own stream fills the cup | 42 |
-| one stroke, proved and replayed | 53 |
-| **proved by playing** | **95 / 135** |
+| no ink needed — the tap's own stream fills the cup | 52 |
+| one stroke, proved and replayed | 58 |
+| **proved by playing** | **110 / 135** |
 | no tap on the sheet, so nothing to prove | 8 |
-| with a tap, not yet solved | 32 |
+| with a tap, not yet solved | 17 |
 
-The thirty-two are rooms where the sheet's own furniture stands in the way of its own tap: a shelf
-directly under the nozzle, a cup tucked behind a wall, two cups that no single stream can reach. The
-search has not found the line for them. They are printed by `npm run verify-sheet` with the fill each
-cup actually reached, so *we have not found the stroke* stays visibly different from *this cell cannot
-be watered*, instead of being hidden behind a lower goal line.
+The seventeen are rooms where the sheet's own furniture stands in the way of its own tap: a shelf
+directly under the nozzle, a cup tucked behind a wall, two cups that one stream cannot reach. The
+search climbs toward the goal — it keeps the best losing stroke and nudges it — but it has not found
+the line for them. They are printed by `npm run verify-sheet` with the fill each cup actually
+reached, so *we have not found the stroke* stays visibly different from *this cell cannot be watered*,
+instead of being hidden behind a lower goal line. Room 66 is the clearest of them: one tap, two cups
+either side of a black wedge, and the best stroke the search finds gets a cup to 0.91 of its goal —
+close, and still out of reach, because the water has to leave through the one gap the sheet drew.
 
 Lowering a cup's goal to whatever an unanchored stroke happened to reach would make the copy a lie,
 so it is not done. The goal of every copied cup is fixed at 0.72 of its own interior: the water line
