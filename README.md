@@ -116,7 +116,8 @@ tools/              dev server, single-file builder, headless simulator, verifie
 each. The last 135 are the cells of `glass and water levels seperated.pdf`, cloned exactly — every
 solid, cup, tap, hot surface and no-draw sheet sits where the sheet draws it, at the sheet's own
 size and angle, under one uniform scale per cell. Nothing was moved to make a room easier; rooms
-that cannot be watered are reported rather than fixed. See **[docs/SHEET.md](docs/SHEET.md)**.
+that cannot be watered are reported rather than fixed. See **[docs/SHEET.md](docs/SHEET.md)** and
+**[the whole sheet, room by room](docs/levels-sheet.png)**.
 
 The forty:
 

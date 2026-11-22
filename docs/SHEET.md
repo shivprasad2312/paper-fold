@@ -89,6 +89,8 @@ three steps:
    arrow to a 35 pt one — and it does not fire on round shapes. A shaft drawn as its own thin blob is
    recognised as part of the glyph, not as a wall the player has to deal with.
 
+![All 135 rooms, in sheet order](levels-sheet.png)
+
 Two checks run over the result:
 
 * **Is every shape drawn in its own colour, where the sheet puts it?** Each shape's outline is painted

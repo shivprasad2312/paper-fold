@@ -117,10 +117,32 @@ HG.PDF_LEVELS.forEach((lv, i) => {
   const base = play(HG, lv.id, [], { frames: 60 * 24 });
   if (base.won) { found[n] = []; console.log(n, 'no ink needed'); save(); return; }
 
+  // Once the room's own stroke is drawn, the water always pours the same way.
+  // So every search starts with this exact stroke: a solution found on this
+  // machine must replay on any other, and must still pass after any change to
+  // the room. A stroke that only wins on a different stream is not a solution.
+  const seed = process.env.SHEET_SEED !== undefined ? Number(process.env.SHEET_SEED) : null;
+  const once = (c) => {
+    const r = seed === null ? play(HG, lv.id, [poly(c)], { frames: 60 * 40 })
+      : play(HG, lv.id, [poly(c)], { frames: 60 * 40, seed });
+    return r.won;
+  };
+  // A stroke is accepted only in the exact form it is written down. These
+  // rooms are on a knife edge — a few hundredths of a pixel can turn a splash
+  // from "in the cup" to "over the rim" — so a stroke that wins at full
+  // precision but loses when rounded is not a solution, it is a coincidence.
+  const tidy = (c) => c.map(([x, y]) => [+x.toFixed(1), +y.toFixed(1)]);
+  const confirmed = (c) => {
+    const t = tidy(c);
+    if (!once(t) || !once(c)) return null;
+    return [t];
+  };
+
   for (const c of structured(lv)) {
-    if (tryStroke(lv, c)) {
-      found[n] = [c];
-      console.log(n, 'structured', JSON.stringify(c.map((p) => p.map(Math.round))));
+    const hit = confirmed(c);
+    if (hit) {
+      found[n] = hit;
+      console.log(n, 'structured', JSON.stringify(hit[0]));
       save();
       return;
     }
@@ -138,9 +160,10 @@ HG.PDF_LEVELS.forEach((lv, i) => {
       ? [[(ax + bx) / 2 + (R() - 0.5) * 120, (ay + by) / 2 + (R() - 0.5) * 80]]
       : [];
     const c = [[ax, ay]].concat(mid, [[bx, by]]);
-    if (tryStroke(lv, c, 60 * 26)) {
-      found[n] = [c];
-      console.log(n, 'random', JSON.stringify(c.map((p) => p.map(Math.round))));
+    const hit = confirmed(c);
+    if (hit) {
+      found[n] = hit;
+      console.log(n, 'random', JSON.stringify(hit[0]));
       save();
       return;
     }
