@@ -350,6 +350,7 @@
       const cy = M.clamp(w.y, 6, HG.H - 6);
       if (this.scene.inkPointBlocked(cx, cy)) return;
       if (this.scene.addInkPoint(cx, cy)) HG.Sfx.draw();
+      else this.openTapIfLineLanded();
       if (e.cancelable) e.preventDefault();
     },
 
@@ -364,8 +365,19 @@
         // you plan your first line, and the moment you let go of a real line
         // gravity takes over and the water starts. A stray tap changes nothing,
         // and later strokes never stop the pour.
-        if (committed && this.scene.state === 'idle') this.scene.start();
+        if (committed) this.openTapIfLineLanded();
       }
+    },
+
+    // A stroke that runs out of ink is committed by the pen itself, mid-draw, so
+    // `endInk()` at pointer-up has nothing left to commit. That used to leave the
+    // tap shut: the player had drawn a line, seen it, and no water ever came.
+    // Whatever puts a finished line on the board starts the level.
+    openTapIfLineLanded() {
+      if (!this.scene) return;
+      if (this.scene.state !== 'idle') return;
+      if (!this.scene.ink.strokes.length) return;
+      this.scene.start();
     },
 
     // ------------------------------------------------------------------- loop

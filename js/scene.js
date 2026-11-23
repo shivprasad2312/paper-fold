@@ -35,7 +35,12 @@
   // can step clean over the 4 px rod it was meant to land on. It was 14 px/frame
   // for the 7 px droplet; a half-size droplet gets half of that. (Checked by the
   // physics audit, which measures the fastest droplet against the rod.)
-  const MAX_DROP_SPEED = 4 * (HG.Water.R + INK_W / 2) * 0.9;
+  //
+  // Read through a function, not a constant: scene.js is loaded BEFORE water.js
+  // by index.html, so a module-level `HG.Water.R` here is undefined at load time
+  // and the whole file throws -- which leaves HG.Scene missing and every button
+  // on the menu dead, because the game never gets as far as initialising.
+  const maxDropSpeed = () => 4 * (HG.Water.R + INK_W / 2) * 0.9;
 
   // ---------------------------------------------------------------- glass ---
   // A glass is a trapezoid cup. Static glasses are just scenery; a *dynamic*
@@ -1383,7 +1388,7 @@
       // Speed ceiling for the fluid. A droplet is a 14 px ball and the wire is an
       // 8 px rod: above this it would cross the rod inside one solver step and
       // pop through (or, worse, alternately inside and outside it — a shiver).
-      const MAXV = MAX_DROP_SPEED;
+      const MAXV = maxDropSpeed();
       const clampDrops = () => {
         for (const p of this.water.particles) {
           const b = p.body;
